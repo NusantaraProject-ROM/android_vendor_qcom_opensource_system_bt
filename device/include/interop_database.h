@@ -98,10 +98,23 @@ static const interop_addr_entry_t interop_addr_database[] = {
 
     // Unknown keyboard (carried over from auto_pair_devlist.conf)
     {{{0x00, 0x0F, 0xF6, 0, 0, 0}}, 3, INTEROP_KEYBOARD_REQUIRES_FIXED_PIN},
+
+    // Apple Magic Mouse - SDP No Resources Error
+    {{{0x04, 0x0C, 0xCE, 0, 0, 0}}, 3, INTEROP_DISABLE_SDP_AFTER_PAIRING},
+    // Bluetooth Laser Travel Mouse - SDP No Resources Error
+    {{{0x00, 0x07, 0x61, 0, 0, 0}}, 3, INTEROP_DISABLE_SDP_AFTER_PAIRING},
+    // Microsoft Bluetooth Notebook Mouse 5000 - SDP No Resources Error
+    {{{0x00, 0x1d, 0xd8, 0, 0, 0}}, 3, INTEROP_DISABLE_SDP_AFTER_PAIRING},
+    // Logitech MX Revolution Mouse - SDP No Resources Error
+    {{{0x00, 0x1f, 0x20, 0, 0, 0}}, 3, INTEROP_DISABLE_SDP_AFTER_PAIRING},
+    // Rapoo 6080 mouse - SDP No Resources Error
+    {{{0x6c, 0x5d, 0x63, 0, 0, 0}}, 3, INTEROP_DISABLE_SDP_AFTER_PAIRING},
+    // Microsoft Sculpt Touch Mouse - SDP No Resources Error
+    {{{0x28, 0x18, 0x78, 0, 0, 0}}, 3, INTEROP_DISABLE_SDP_AFTER_PAIRING},
 };
 
 typedef struct {
-  char name[20];
+  char name[40];
   size_t length;
   interop_feature_t feature;
 } interop_name_entry_t;
@@ -118,4 +131,22 @@ static const interop_name_entry_t interop_name_database[] = {
 
     // Subaru car kits ("CAR M_MEDIA")
     {"CAR", 3, INTEROP_DISABLE_AUTO_PAIRING},
+
+    // Sends SDP No Resources Error
+    {"Apple Magic Mouse", 17, INTEROP_DISABLE_SDP_AFTER_PAIRING},
+    {"Bluetooth Laser Travel Mouse", 28, INTEROP_DISABLE_SDP_AFTER_PAIRING},
+    {"Microsoft Bluetooth Notebook Mouse 5000", 39,
+     INTEROP_DISABLE_SDP_AFTER_PAIRING},
+    {"Logitech MX Revolution Mouse", 28, INTEROP_DISABLE_SDP_AFTER_PAIRING},
+    {"Microsoft Sculpt Touch Mouse", 28, INTEROP_DISABLE_SDP_AFTER_PAIRING},
+};
+
+typedef struct {
+  uint16_t manufacturer;
+  interop_feature_t feature;
+} interop_manufacturer_t;
+
+static const interop_manufacturer_t interop_manufacturer_database[] = {
+    // Apple Devices - SDP No Resources Error
+    {76, INTEROP_DISABLE_SDP_AFTER_PAIRING},
 };
