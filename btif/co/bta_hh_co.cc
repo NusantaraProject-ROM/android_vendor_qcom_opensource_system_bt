@@ -34,6 +34,7 @@
 #include "btcore/include/bdaddr.h"
 #include "btif_hh.h"
 #include "btif_util.h"
+#include "device/include/interop.h"
 #include "osi/include/osi.h"
 
 const char* dev_path = "/dev/uhid";
@@ -43,6 +44,95 @@ const char* dev_path = "/dev/uhid";
 #define BTA_HH_NV_LOAD_MAX 16
 static tBTA_HH_RPT_CACHE_ENTRY sReportCache[BTA_HH_NV_LOAD_MAX];
 #endif
+
+#define REPORT_DESC_REPORT_ID 0x05
+#define REPORT_DESC_DIGITIZER_PAGE 0x0D
+#define REPORT_DESC_START_COLLECTION 0xA1
+#define REPORT_DESC_END_COLLECTION 0xC0
+
+static void remove_digitizer_descriptor(uint8_t* data, uint16_t* length) {
+  uint8_t* startDescPtr = data;
+  uint8_t* desc = data;
+
+  BTIF_TRACE_DEBUG("remove_digitizer_descriptor");
+  /* Parse until complete report descriptor is parsed */
+  while (startDescPtr < data + *length) {
+    uint8_t item = *startDescPtr++;
+    uint8_t usage_page;
+
+    switch (item) {
+      case REPORT_DESC_REPORT_ID:  // Report ID
+        usage_page = *startDescPtr;
+        if (usage_page == REPORT_DESC_DIGITIZER_PAGE) {
+          // digitizer usage page
+          uint8_t* traversePtr = startDescPtr;
+          uint8_t num_of_collections = 0;
+          uint8_t num_of_end_collections = 0;
+          uint16_t remainingBytesToBeCopied = 0;
+          /* increment pointer until digitizer descriptor is parsed
+           * completely or start collection matches end collection */
+          while ((num_of_collections == 0 ||
+                  (num_of_collections != num_of_end_collections)) &&
+                 (traversePtr < data + *length)) {
+            if (*traversePtr == REPORT_DESC_START_COLLECTION) {
+              /* Increment number of collections for
+               * digitizer descriptor */
+              num_of_collections++;
+            }
+            if (*traversePtr == REPORT_DESC_END_COLLECTION) {
+              /* Increment number of end collections for
+               * digitizer descriptor */
+              num_of_end_collections++;
+            }
+            /* increment the pointer to continue parsing
+             * the digitizer descriptor */
+            traversePtr++;
+          }
+          remainingBytesToBeCopied = *length - (traversePtr - data);
+          BTIF_TRACE_DEBUG("starting point of digitizer desc = %d\n",
+                           (startDescPtr - data) - 1);
+          BTIF_TRACE_DEBUG(
+              "start collection = %d, end collection = "
+              " %d\n",
+              num_of_collections, num_of_end_collections);
+          BTIF_TRACE_DEBUG("end point of digitizer desc = %d\n",
+                           (traversePtr - data));
+          BTIF_TRACE_DEBUG("length of digitizer desc = %d\n",
+                           traversePtr - startDescPtr + 2);
+          BTIF_TRACE_DEBUG("bytes remaining to be copied = %d\n",
+                           remainingBytesToBeCopied);
+          if (remainingBytesToBeCopied) {
+            uint32_t i;
+            uint8_t* newDescPtr = traversePtr;
+            uint32_t digDescStartPoint = (startDescPtr - data) - 1;
+            uint32_t digDescEndPoint =
+                *length - (traversePtr - startDescPtr) - 1;
+            /* copy the remaining bytes in descriptor to the
+             * existing place of digitizer descriptor */
+            for (i = digDescStartPoint; i < digDescEndPoint; i++) {
+              desc[i] = *newDescPtr++;
+            }
+          }
+          /* update the length as digitizer descriptor is removed */
+          *length = *length - (traversePtr - startDescPtr) - 1;
+          BTIF_TRACE_DEBUG("new length of report desc = %d\n", *length);
+          /* Update the start descriptor again to continue parsing
+           * for digitizer records assuming more than 1 digitizer
+           * record exists in report descriptor */
+          startDescPtr--;
+        }
+        break;
+
+      default:
+        /*
+         * Since item is not Report Id (0x05), increment start pointer
+         * by length pointed by first 2 bits of item (i.e mask of 0x03)
+         */
+        startDescPtr += (item & 0x03);
+        break;
+    }
+  }
+}
 
 void uhid_set_non_blocking(int fd) {
   int opts = fcntl(fd, F_GETFL);
@@ -470,6 +560,11 @@ void bta_hh_co_send_hid_info(btif_hh_device_t* p_dev, const char* dev_name,
       "%s: vendor_id = 0x%04x, product_id = 0x%04x, version= 0x%04x,"
       "ctry_code=0x%02x",
       __func__, vendor_id, product_id, version, ctry_code);
+
+  if (interop_match_vendor_product_ids(INTEROP_REMOVE_HID_DIG_DESCRIPTOR,
+                                       vendor_id, product_id) ||
+      interop_match_name(INTEROP_REMOVE_HID_DIG_DESCRIPTOR, dev_name))
+    remove_digitizer_descriptor(p_dscp, (uint16_t*)&dscp_len);
 
   // Create and send hid descriptor to kernel
   memset(&ev, 0, sizeof(ev));

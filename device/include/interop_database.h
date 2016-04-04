@@ -139,6 +139,10 @@ static const interop_name_entry_t interop_name_database[] = {
      INTEROP_DISABLE_SDP_AFTER_PAIRING},
     {"Logitech MX Revolution Mouse", 28, INTEROP_DISABLE_SDP_AFTER_PAIRING},
     {"Microsoft Sculpt Touch Mouse", 28, INTEROP_DISABLE_SDP_AFTER_PAIRING},
+
+    // HID Moto KZ500 Keyboard - Problematic SDP digitizer descriptor
+    {"Motorola Keyboard KZ500", 23, INTEROP_REMOVE_HID_DIG_DESCRIPTOR},
+    {"Motorola Keyboard KZ500 v122", 28, INTEROP_REMOVE_HID_DIG_DESCRIPTOR},
 };
 
 typedef struct {
@@ -149,4 +153,15 @@ typedef struct {
 static const interop_manufacturer_t interop_manufacturer_database[] = {
     // Apple Devices - SDP No Resources Error
     {76, INTEROP_DISABLE_SDP_AFTER_PAIRING},
+};
+
+typedef struct {
+  uint16_t vendor_id;
+  uint16_t product_id;
+  interop_feature_t feature;
+} interop_hid_multitouch_t;
+
+static const interop_hid_multitouch_t interop_hid_multitouch_database[] = {
+    // HID Moto KZ500 Keyboard - Problematic SDP digitizer descriptor
+    {0x22b8, 0x093d, INTEROP_REMOVE_HID_DIG_DESCRIPTOR},
 };
