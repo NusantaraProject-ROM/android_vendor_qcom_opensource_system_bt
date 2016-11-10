@@ -940,16 +940,20 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
         uint8_t peer_handle = BTRC_HANDLE_NONE;
         if (btif_rc_get_connected_peer(&peer_addr) &&
             (btif_av_cb[index].peer_bda == peer_addr)) {
-
-          /*
-           * Disconnect AVRCP connection, if
-           * A2DP conneciton failed, for any reason
+          /* Do not disconnect AVRCP connection if A2DP
+           * connection failed due to SDP failure since remote
+           * may not support A2DP. In such case we will keep
+           * AVRCP only connection.
            */
-          BTIF_TRACE_WARNING("%s: Disconnecting AVRCP: peer_addr=%s", __func__,
+          if (p_bta_data->open.status != BTA_AV_FAIL_SDP) {
+            BTIF_TRACE_WARNING("%s: Disconnecting AVRCP: peer_addr=%s", __func__,
                              peer_addr.ToString().c_str());
-          peer_handle = btif_rc_get_connected_peer_handle(peer_addr);
-          if (peer_handle != BTRC_HANDLE_NONE) {
-            BTA_AvCloseRc(peer_handle);
+            peer_handle = btif_rc_get_connected_peer_handle(peer_addr);
+            if (peer_handle != BTRC_HANDLE_NONE) {
+              BTA_AvCloseRc(peer_handle);
+            }
+          } else {
+            BTIF_TRACE_WARNING("Keep AVRCP only connection");
           }
         }
         state = BTAV_CONNECTION_STATE_DISCONNECTED;
