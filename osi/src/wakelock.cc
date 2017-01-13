@@ -18,7 +18,6 @@
 
 #define LOG_TAG "bt_osi_wakelock"
 
-#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <hardware/bluetooth.h>
@@ -31,6 +30,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <mutex>
 #include <string>
 
 #include "osi/include/alarm.h"
@@ -40,6 +40,8 @@
 #include "osi/include/osi.h"
 #include "osi/include/thread.h"
 #include "osi/include/wakelock.h"
+
+using system_bt_osi::BluetoothMetricsLogger;
 
 static bt_os_callouts_t* wakelock_os_callouts = NULL;
 static bool is_native = true;
@@ -77,7 +79,7 @@ static wakelock_stats_t wakelock_stats;
 
 // This mutex ensures that the functions that update and dump the statistics
 // are executed serially.
-static pthread_mutex_t monitor;
+static std::mutex stats_mutex;
 
 static bt_status_t wakelock_acquire_callout(void);
 static bt_status_t wakelock_acquire_native(void);
@@ -182,7 +184,6 @@ static bt_status_t wakelock_release_native(void) {
 }
 
 static void wakelock_initialize(void) {
-  pthread_mutex_init(&monitor, NULL);
   reset_wakelock_stats();
 
   if (is_native) wakelock_initialize_native();
@@ -212,7 +213,6 @@ void wakelock_cleanup(void) {
   wake_lock_path.clear();
   wake_unlock_path.clear();
   initialized = PTHREAD_ONCE_INIT;
-  pthread_mutex_destroy(&monitor);
 }
 
 void wakelock_set_paths(const char* lock_path, const char* unlock_path) {
@@ -235,7 +235,7 @@ static period_ms_t now(void) {
 // Reset the Bluetooth wakelock statistics.
 // This function is thread-safe.
 static void reset_wakelock_stats(void) {
-  pthread_mutex_lock(&monitor);
+  std::lock_guard<std::mutex> lock(stats_mutex);
 
   wakelock_stats.is_acquired = false;
   wakelock_stats.acquired_count = 0;
@@ -249,8 +249,6 @@ static void reset_wakelock_stats(void) {
   wakelock_stats.last_acquired_timestamp_ms = 0;
   wakelock_stats.last_released_timestamp_ms = 0;
   wakelock_stats.last_reset_timestamp_ms = now();
-
-  pthread_mutex_unlock(&monitor);
 }
 
 //
@@ -264,7 +262,7 @@ static void reset_wakelock_stats(void) {
 static void update_wakelock_acquired_stats(bt_status_t acquired_status) {
   const period_ms_t now_ms = now();
 
-  pthread_mutex_lock(&monitor);
+  std::lock_guard<std::mutex> lock(stats_mutex);
 
   if (acquired_status != BT_STATUS_SUCCESS) {
     wakelock_stats.acquired_errors++;
@@ -272,7 +270,6 @@ static void update_wakelock_acquired_stats(bt_status_t acquired_status) {
   }
 
   if (wakelock_stats.is_acquired) {
-    pthread_mutex_unlock(&monitor);
     return;
   }
 
@@ -280,9 +277,8 @@ static void update_wakelock_acquired_stats(bt_status_t acquired_status) {
   wakelock_stats.acquired_count++;
   wakelock_stats.last_acquired_timestamp_ms = now_ms;
 
-  pthread_mutex_unlock(&monitor);
-
-  metrics_wake_event(WAKE_EVENT_ACQUIRED, NULL, WAKE_LOCK_ID, now_ms);
+  BluetoothMetricsLogger::GetInstance()->LogWakeEvent(
+      system_bt_osi::WAKE_EVENT_ACQUIRED, "", WAKE_LOCK_ID, now_ms);
 }
 
 //
@@ -296,7 +292,7 @@ static void update_wakelock_acquired_stats(bt_status_t acquired_status) {
 static void update_wakelock_released_stats(bt_status_t released_status) {
   const period_ms_t now_ms = now();
 
-  pthread_mutex_lock(&monitor);
+  std::lock_guard<std::mutex> lock(stats_mutex);
 
   if (released_status != BT_STATUS_SUCCESS) {
     wakelock_stats.released_errors++;
@@ -304,7 +300,6 @@ static void update_wakelock_released_stats(bt_status_t released_status) {
   }
 
   if (!wakelock_stats.is_acquired) {
-    pthread_mutex_unlock(&monitor);
     return;
   }
 
@@ -324,17 +319,14 @@ static void update_wakelock_released_stats(bt_status_t released_status) {
   wakelock_stats.last_acquired_interval_ms = delta_ms;
   wakelock_stats.total_acquired_interval_ms += delta_ms;
 
-  pthread_mutex_unlock(&monitor);
-
-  metrics_wake_event(WAKE_EVENT_RELEASED, NULL, WAKE_LOCK_ID, now_ms);
+  BluetoothMetricsLogger::GetInstance()->LogWakeEvent(
+      system_bt_osi::WAKE_EVENT_RELEASED, "", WAKE_LOCK_ID, now_ms);
 }
 
 void wakelock_debug_dump(int fd) {
   const period_ms_t now_ms = now();
 
-  // Need to keep track for lock errors - e.g., the "monitor" mutex
-  // might not be initialized
-  const int lock_error = pthread_mutex_lock(&monitor);
+  std::lock_guard<std::mutex> lock(stats_mutex);
 
   // Compute the last acquired interval if the wakelock is still acquired
   period_ms_t delta_ms = 0;
@@ -375,6 +367,4 @@ void wakelock_debug_dump(int fd) {
   dprintf(
       fd, "  Total run time (ms)            : %llu\n",
       (unsigned long long)(now_ms - wakelock_stats.last_reset_timestamp_ms));
-
-  if (lock_error == 0) pthread_mutex_unlock(&monitor);
 }

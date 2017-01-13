@@ -14,17 +14,13 @@
 //  limitations under the License.
 //
 
-#ifdef BT_LIBCHROME_NDEBUG
-#define NDEBUG 1
-#endif
-
 #include <base/at_exit.h>
 #include <base/command_line.h>
 #include <base/logging.h>
 
 #include <gtest/gtest.h>
 
-GTEST_API_ int main(int argc, char **argv) {
+GTEST_API_ int main(int argc, char** argv) {
   base::AtExitManager exit_manager;
   base::CommandLine::Init(argc, argv);
   logging::LoggingSettings log_settings;

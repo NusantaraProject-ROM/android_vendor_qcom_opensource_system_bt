@@ -16,17 +16,17 @@
  *
  ******************************************************************************/
 
-/************************************************************************************
+/*******************************************************************************
  *
  *  Filename:      bluetooth.c
  *
  *  Description:   Bluetooth HAL implementation
  *
- ***********************************************************************************/
+ ******************************************************************************/
 
 #define LOG_TAG "bt_btif"
 
-#include <assert.h>
+#include <base/logging.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,6 +35,7 @@
 #include <hardware/bluetooth.h>
 #include <hardware/bt_av.h>
 #include <hardware/bt_gatt.h>
+#include <hardware/bt_hd.h>
 #include <hardware/bt_hf.h>
 #include <hardware/bt_hf_client.h>
 #include <hardware/bt_hh.h>
@@ -46,6 +47,7 @@
 #include <hardware/bt_sock.h>
 
 #include "bt_utils.h"
+#include "bta/include/bta_hf_client_api.h"
 #include "btif/include/btif_debug_btsnoop.h"
 #include "btif/include/btif_debug_conn.h"
 #include "btif_a2dp.h"
@@ -64,16 +66,16 @@
 #include "osi/include/wakelock.h"
 #include "stack_manager.h"
 
-/************************************************************************************
+/*******************************************************************************
  *  Static variables
- ***********************************************************************************/
+ ******************************************************************************/
 
 bt_callbacks_t* bt_hal_cbacks = NULL;
 bool restricted_mode = false;
 
-/************************************************************************************
+/*******************************************************************************
  *  Externs
- ***********************************************************************************/
+ ******************************************************************************/
 
 /* list all extended interfaces here */
 
@@ -82,12 +84,14 @@ extern bthf_interface_t* btif_hf_get_interface();
 /* handsfree profile - client */
 extern bthf_client_interface_t* btif_hf_client_get_interface();
 /* advanced audio profile */
-extern btav_interface_t* btif_av_get_src_interface();
-extern btav_interface_t* btif_av_get_sink_interface();
+extern btav_source_interface_t* btif_av_get_src_interface();
+extern btav_sink_interface_t* btif_av_get_sink_interface();
 /*rfc l2cap*/
 extern btsock_interface_t* btif_sock_get_interface();
 /* hid host profile */
 extern bthh_interface_t* btif_hh_get_interface();
+/* hid device profile */
+extern bthd_interface_t* btif_hd_get_interface();
 /* health device profile */
 extern bthl_interface_t* btif_hl_get_interface();
 /*pan*/
@@ -103,15 +107,15 @@ extern btrc_interface_t* btif_rc_ctrl_get_interface();
 /*SDP search client*/
 extern btsdp_interface_t* btif_sdp_get_interface();
 
-/************************************************************************************
+/*******************************************************************************
  *  Functions
- ***********************************************************************************/
+ ******************************************************************************/
 
 static bool interface_ready(void) { return bt_hal_cbacks != NULL; }
 
 static bool is_profile(const char* p1, const char* p2) {
-  assert(p1);
-  assert(p2);
+  CHECK(p1);
+  CHECK(p2);
   return strlen(p1) == strlen(p2) && strncmp(p1, p2, strlen(p2)) == 0;
 }
 
@@ -294,8 +298,8 @@ static int read_energy_info() {
 static void dump(int fd, const char** arguments) {
   if (arguments != NULL && arguments[0] != NULL) {
     if (strncmp(arguments[0], "--proto-bin", 11) == 0) {
-      btif_update_a2dp_metrics();
-      metrics_write(fd, true);
+      system_bt_osi::BluetoothMetricsLogger::GetInstance()->WriteBase64(fd,
+                                                                        true);
       return;
     }
   }
@@ -303,6 +307,7 @@ static void dump(int fd, const char** arguments) {
   btif_debug_bond_event_dump(fd);
   btif_debug_a2dp_dump(fd);
   btif_debug_config_dump(fd);
+  BTA_HfClientDumpStatistics(fd);
   wakelock_debug_dump(fd);
   alarm_debug_dump(fd);
 #if (BTSNOOP_MEM == TRUE)
@@ -313,7 +318,7 @@ static void dump(int fd, const char** arguments) {
 }
 
 static const void* get_profile_interface(const char* profile_id) {
-  LOG_INFO(LOG_TAG, "get_profile_interface %s", profile_id);
+  LOG_INFO(LOG_TAG, "%s: id = %s", __func__, profile_id);
 
   /* sanity check */
   if (interface_ready() == false) return NULL;
@@ -340,6 +345,9 @@ static const void* get_profile_interface(const char* profile_id) {
   if (is_profile(profile_id, BT_PROFILE_HIDHOST_ID))
     return btif_hh_get_interface();
 
+  if (is_profile(profile_id, BT_PROFILE_HIDDEV_ID))
+    return btif_hd_get_interface();
+
   if (is_profile(profile_id, BT_PROFILE_HEALTH_ID))
     return btif_hl_get_interface();
 
@@ -359,7 +367,7 @@ static const void* get_profile_interface(const char* profile_id) {
 }
 
 int dut_mode_configure(uint8_t enable) {
-  LOG_INFO(LOG_TAG, "dut_mode_configure");
+  LOG_INFO(LOG_TAG, "%s", __func__);
 
   /* sanity check */
   if (interface_ready() == false) return BT_STATUS_NOT_READY;
@@ -368,7 +376,7 @@ int dut_mode_configure(uint8_t enable) {
 }
 
 int dut_mode_send(uint16_t opcode, uint8_t* buf, uint8_t len) {
-  LOG_INFO(LOG_TAG, "dut_mode_send");
+  LOG_INFO(LOG_TAG, "%s", __func__);
 
   /* sanity check */
   if (interface_ready() == false) return BT_STATUS_NOT_READY;
@@ -377,7 +385,7 @@ int dut_mode_send(uint16_t opcode, uint8_t* buf, uint8_t len) {
 }
 
 int le_test_mode(uint16_t opcode, uint8_t* buf, uint8_t len) {
-  LOG_INFO(LOG_TAG, "le_test_mode");
+  LOG_INFO(LOG_TAG, "%s", __func__);
 
   /* sanity check */
   if (interface_ready() == false) return BT_STATUS_NOT_READY;
@@ -386,7 +394,7 @@ int le_test_mode(uint16_t opcode, uint8_t* buf, uint8_t len) {
 }
 
 int config_hci_snoop_log(uint8_t enable) {
-  LOG_INFO(LOG_TAG, "config_hci_snoop_log");
+  LOG_INFO(LOG_TAG, "%s", __func__);
 
   if (!interface_ready()) return BT_STATUS_NOT_READY;
 

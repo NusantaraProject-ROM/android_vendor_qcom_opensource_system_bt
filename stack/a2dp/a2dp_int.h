@@ -26,13 +26,9 @@
 
 #include "a2dp_api.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /*****************************************************************************
-**  Constants
-*****************************************************************************/
+ *  Constants
+ ****************************************************************************/
 #define A2DP_VERSION 0x0102
 
 /* Number of attributes in A2DP SDP record. */
@@ -42,8 +38,8 @@ extern "C" {
 #define A2DP_NUM_PROTO_ELEMS 2
 
 /*****************************************************************************
-**  Type definitions
-*****************************************************************************/
+ *  Type definitions
+ ****************************************************************************/
 
 /* Control block used by A2DP_FindService(). */
 typedef struct {
@@ -59,15 +55,11 @@ typedef struct {
 } tA2DP_CB;
 
 /******************************************************************************
-** Main Control Block
-*******************************************************************************/
+ * Main Control Block
+ ******************************************************************************/
 extern tA2DP_CB a2dp_cb;
 
 /* Used only for conformance testing */
 extern void a2dp_set_avdt_sdp_ver(uint16_t avdt_sdp_ver);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* A2DP_INT_H */

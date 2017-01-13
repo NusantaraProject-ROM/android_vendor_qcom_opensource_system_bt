@@ -290,7 +290,8 @@ void bta_hh_parse_keybd_rpt(tBTA_HH_BOOT_RPT* p_kb_data, uint8_t* p_report,
 #if (BTA_HH_DEBUG == TRUE)
     APPL_TRACE_DEBUG("this_char = %02x", this_report[xx]);
 #endif
-    if ((this_char = this_report[xx]) == 0) continue;
+    this_char = this_report[xx];
+    if (this_char == 0) continue;
     /* take the key code as the report data */
     if (this_report[xx] == BTA_HH_KB_CAPS_LOCK)
       p_kb->caps_lock = p_kb->caps_lock ? false : true;
@@ -430,9 +431,11 @@ void bta_hh_cleanup_disable(tBTA_HH_STATUS status) {
   }
   osi_free_and_reset((void**)&bta_hh_cb.p_disc_db);
 
-  (*bta_hh_cb.p_cback)(BTA_HH_DISABLE_EVT, (tBTA_HH*)&status);
-  /* all connections are down, no waiting for diconnect */
-  memset(&bta_hh_cb, 0, sizeof(tBTA_HH_CB));
+  if (bta_hh_cb.p_cback) {
+    (*bta_hh_cb.p_cback)(BTA_HH_DISABLE_EVT, (tBTA_HH*)&status);
+    /* all connections are down, no waiting for diconnect */
+    memset(&bta_hh_cb, 0, sizeof(tBTA_HH_CB));
+  }
 }
 
 /*******************************************************************************

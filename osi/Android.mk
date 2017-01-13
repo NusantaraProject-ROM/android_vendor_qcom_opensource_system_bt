@@ -64,7 +64,9 @@ btosiCommonTestSrc := \
     ./test/fixed_queue_test.cc \
     ./test/future_test.cc \
     ./test/hash_map_utils_test.cc \
+    ./test/leaky_bonded_queue_test.cc \
     ./test/list_test.cc \
+    ./test/metrics_test.cc \
     ./test/properties_test.cc \
     ./test/rand_test.cc \
     ./test/reactor_test.cc \
@@ -76,6 +78,7 @@ btosiCommonTestSrc := \
 
 btosiCommonIncludes := \
     $(LOCAL_PATH)/.. \
+    $(LOCAL_PATH)/../include \
     $(LOCAL_PATH)/../utils/include \
     $(LOCAL_PATH)/../stack/include \
     $(bluetooth_C_INCLUDES)
@@ -169,7 +172,7 @@ LOCAL_SRC_FILES := $(btosiCommonTestSrc)
 LOCAL_MODULE := net_test_osi
 LOCAL_MODULE_TAGS := tests
 LOCAL_SHARED_LIBRARIES := libc liblog libprotobuf-cpp-lite libchrome libcutils
-LOCAL_STATIC_LIBRARIES := libosi libbt-protos
+LOCAL_STATIC_LIBRARIES := libosi libbt-protos libgmock
 
 LOCAL_CFLAGS += $(bluetooth_CFLAGS)
 LOCAL_CONLYFLAGS += $(bluetooth_CONLYFLAGS)
@@ -188,7 +191,7 @@ LOCAL_LDLIBS := -lrt -lpthread
 LOCAL_MODULE := net_test_osi
 LOCAL_MODULE_TAGS := tests
 LOCAL_SHARED_LIBRARIES := liblog libprotobuf-cpp-lite libchrome
-LOCAL_STATIC_LIBRARIES := libosi-host libbt-protos
+LOCAL_STATIC_LIBRARIES := libosi-host libbt-protos libgmock
 
 LOCAL_CFLAGS += $(bluetooth_CFLAGS) -DOS_GENERIC
 LOCAL_CONLYFLAGS += $(bluetooth_CONLYFLAGS)

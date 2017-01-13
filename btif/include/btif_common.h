@@ -31,7 +31,7 @@
 
 /*******************************************************************************
  *  Constants & Macros
- *******************************************************************************/
+ ******************************************************************************/
 
 #define ASSERTC(cond, msg, val)                                              \
   do {                                                                       \
@@ -178,14 +178,14 @@ enum {
 
 /*******************************************************************************
  *  Type definitions for callback functions
- *******************************************************************************/
+ ******************************************************************************/
 
 typedef void(tBTIF_CBACK)(uint16_t event, char* p_param);
 typedef void(tBTIF_COPY_CBACK)(uint16_t event, char* p_dest, char* p_src);
 
 /*******************************************************************************
  *  Type definitions and return values
- *******************************************************************************/
+ ******************************************************************************/
 
 /* this type handles all btif context switches between BTU and HAL */
 typedef struct {
@@ -199,7 +199,7 @@ typedef struct {
 
 /*******************************************************************************
  *  Functions
- *******************************************************************************/
+ ******************************************************************************/
 
 tBTA_SERVICE_MASK btif_get_enabled_services_mask(void);
 bt_status_t btif_enable_service(tBTA_SERVICE_ID service_id);
@@ -216,10 +216,6 @@ void btif_adapter_properties_evt(bt_status_t status, uint32_t num_props,
 void btif_remote_properties_evt(bt_status_t status, bt_bdaddr_t* remote_addr,
                                 uint32_t num_props, bt_property_t* p_props);
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 void bte_load_did_conf(const char* p_path);
 void bte_main_boot_entry(void);
 void bte_main_enable(void);
@@ -235,9 +231,5 @@ bt_status_t btif_transfer_context(tBTIF_CBACK* p_cback, uint16_t event,
                                   tBTIF_COPY_CBACK* p_copy_cback);
 
 void btif_init_ok(UNUSED_ATTR uint16_t event, UNUSED_ATTR char* p_param);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* BTIF_COMMON_H */

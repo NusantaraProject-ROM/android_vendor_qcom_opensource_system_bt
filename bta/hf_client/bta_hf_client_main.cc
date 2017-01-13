@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (c) 2014 The Android Open Source Project
+ *  Copyright (c) 2016 The Android Open Source Project
  *  Copyright (C) 2003-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +17,7 @@
  *
  ******************************************************************************/
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -25,22 +26,16 @@
 #include "bta_hf_client_api.h"
 #include "bta_hf_client_int.h"
 #include "bta_sys.h"
+#include "btcore/include/bdaddr.h"
 #include "osi/include/osi.h"
 #include "osi/include/properties.h"
-
-/* uncomment to enable extra debug */
-/* #define BTA_HF_CLIENT_DEBUG TRUE */
-
-#ifndef BTA_HF_CLIENT_DEBUG
-#define BTA_HF_CLIENT_DEBUG FALSE
-#endif
+#include "utl.h"
 
 extern fixed_queue_t* btu_bta_alarm_queue;
 
-#if (BTA_HF_CLIENT_DEBUG == TRUE)
-static char* bta_hf_client_evt_str(uint16_t event);
-static char* bta_hf_client_state_str(uint8_t state);
-#endif
+static const char* bta_hf_client_evt_str(uint16_t event);
+static const char* bta_hf_client_state_str(uint8_t state);
+void bta_hf_client_cb_init(tBTA_HF_CLIENT_CB* client_cb, uint16_t handle);
 
 /* state machine states */
 enum {
@@ -52,9 +47,6 @@ enum {
 
 /* state machine action enumeration list */
 enum {
-  BTA_HF_CLIENT_REGISTER,
-  BTA_HF_CLIENT_DEREGISTER,
-  BTA_HF_CLIENT_START_DEREG,
   BTA_HF_CLIENT_RFC_DO_CLOSE,
   BTA_HF_CLIENT_START_CLOSE,
   BTA_HF_CLIENT_START_OPEN,
@@ -64,7 +56,6 @@ enum {
   BTA_HF_CLIENT_SCO_CONN_CLOSE,
   BTA_HF_CLIENT_SCO_OPEN,
   BTA_HF_CLIENT_SCO_CLOSE,
-  BTA_HF_CLIENT_SCO_SHUTDOWN,
   BTA_HF_CLIENT_FREE_DB,
   BTA_HF_CLIENT_OPEN_FAIL,
   BTA_HF_CLIENT_RFC_OPEN,
@@ -87,9 +78,6 @@ typedef void (*tBTA_HF_CLIENT_ACTION)(tBTA_HF_CLIENT_DATA* p_data);
 
 /* action functions table, indexed with action enum */
 const tBTA_HF_CLIENT_ACTION bta_hf_client_action[] = {
-    /* BTA_HF_CLIENT_REGISTER */ bta_hf_client_register,
-    /* BTA_HF_CLIENT_DEREGISTER */ bta_hf_client_deregister,
-    /* BTA_HF_CLIENT_START_DEREG */ bta_hf_client_start_dereg,
     /* BTA_HF_CLIENT_RFC_DO_CLOSE */ bta_hf_client_rfc_do_close,
     /* BTA_HF_CLIENT_START_CLOSE */ bta_hf_client_start_close,
     /* BTA_HF_CLIENT_START_OPEN */ bta_hf_client_start_open,
@@ -99,7 +87,6 @@ const tBTA_HF_CLIENT_ACTION bta_hf_client_action[] = {
     /* BTA_HF_CLIENT_SCO_CONN_CLOSE*/ bta_hf_client_sco_conn_close,
     /* BTA_HF_CLIENT_SCO_OPEN */ bta_hf_client_sco_open,
     /* BTA_HF_CLIENT_SCO_CLOSE */ bta_hf_client_sco_close,
-    /* BTA_HF_CLIENT_SCO_SHUTDOWN */ bta_hf_client_sco_shutdown,
     /* BTA_HF_CLIENT_FREE_DB */ bta_hf_client_free_db,
     /* BTA_HF_CLIENT_OPEN_FAIL */ bta_hf_client_open_fail,
     /* BTA_HF_CLIENT_RFC_OPEN */ bta_hf_client_rfc_open,
@@ -123,10 +110,6 @@ const tBTA_HF_CLIENT_ACTION bta_hf_client_action[] = {
 const uint8_t bta_hf_client_st_init[][BTA_HF_CLIENT_NUM_COLS] = {
     /* Event                    Action 1                       Action 2
        Next state */
-    /* API_REGISTER_EVT */ {BTA_HF_CLIENT_REGISTER, BTA_HF_CLIENT_IGNORE,
-                            BTA_HF_CLIENT_INIT_ST},
-    /* API_DEREGISTER_EVT */ {BTA_HF_CLIENT_DEREGISTER, BTA_HF_CLIENT_IGNORE,
-                              BTA_HF_CLIENT_INIT_ST},
     /* API_OPEN_EVT */ {BTA_HF_CLIENT_START_OPEN, BTA_HF_CLIENT_IGNORE,
                         BTA_HF_CLIENT_OPENING_ST},
     /* API_CLOSE_EVT */ {BTA_HF_CLIENT_IGNORE, BTA_HF_CLIENT_IGNORE,
@@ -163,11 +146,6 @@ const uint8_t bta_hf_client_st_init[][BTA_HF_CLIENT_NUM_COLS] = {
 const uint8_t bta_hf_client_st_opening[][BTA_HF_CLIENT_NUM_COLS] = {
     /* Event                    Action 1                       Action 2
        Next state */
-    /* API_REGISTER_EVT */ {BTA_HF_CLIENT_IGNORE, BTA_HF_CLIENT_IGNORE,
-                            BTA_HF_CLIENT_OPENING_ST},
-    /* API_DEREGISTER_EVT */ {BTA_HF_CLIENT_RFC_DO_CLOSE,
-                              BTA_HF_CLIENT_START_DEREG,
-                              BTA_HF_CLIENT_CLOSING_ST},
     /* API_OPEN_EVT */ {BTA_HF_CLIENT_OPEN_FAIL, BTA_HF_CLIENT_IGNORE,
                         BTA_HF_CLIENT_OPENING_ST},
     /* API_CLOSE_EVT */ {BTA_HF_CLIENT_RFC_DO_CLOSE, BTA_HF_CLIENT_IGNORE,
@@ -204,11 +182,6 @@ const uint8_t bta_hf_client_st_opening[][BTA_HF_CLIENT_NUM_COLS] = {
 const uint8_t bta_hf_client_st_open[][BTA_HF_CLIENT_NUM_COLS] = {
     /* Event                    Action 1                       Action 2
        Next state */
-    /* API_REGISTER_EVT */ {BTA_HF_CLIENT_IGNORE, BTA_HF_CLIENT_IGNORE,
-                            BTA_HF_CLIENT_OPEN_ST},
-    /* API_DEREGISTER_EVT */ {BTA_HF_CLIENT_START_CLOSE,
-                              BTA_HF_CLIENT_START_DEREG,
-                              BTA_HF_CLIENT_CLOSING_ST},
     /* API_OPEN_EVT */ {BTA_HF_CLIENT_OPEN_FAIL, BTA_HF_CLIENT_IGNORE,
                         BTA_HF_CLIENT_OPEN_ST},
     /* API_CLOSE_EVT */ {BTA_HF_CLIENT_START_CLOSE, BTA_HF_CLIENT_IGNORE,
@@ -245,10 +218,6 @@ const uint8_t bta_hf_client_st_open[][BTA_HF_CLIENT_NUM_COLS] = {
 const uint8_t bta_hf_client_st_closing[][BTA_HF_CLIENT_NUM_COLS] = {
     /* Event                    Action 1                       Action 2
        Next state */
-    /* API_REGISTER_EVT */ {BTA_HF_CLIENT_IGNORE, BTA_HF_CLIENT_IGNORE,
-                            BTA_HF_CLIENT_CLOSING_ST},
-    /* API_DEREGISTER_EVT */ {BTA_HF_CLIENT_START_DEREG, BTA_HF_CLIENT_IGNORE,
-                              BTA_HF_CLIENT_CLOSING_ST},
     /* API_OPEN_EVT */ {BTA_HF_CLIENT_OPEN_FAIL, BTA_HF_CLIENT_IGNORE,
                         BTA_HF_CLIENT_CLOSING_ST},
     /* API_CLOSE_EVT */ {BTA_HF_CLIENT_IGNORE, BTA_HF_CLIENT_IGNORE,
@@ -290,100 +259,114 @@ const tBTA_HF_CLIENT_ST_TBL bta_hf_client_st_tbl[] = {
     bta_hf_client_st_closing};
 
 /* HF Client control block */
-tBTA_HF_CLIENT_CB bta_hf_client_cb;
+tBTA_HF_CLIENT_CB_ARR bta_hf_client_cb_arr;
+
+/* Event handler for the state machine */
+static const tBTA_SYS_REG bta_hf_client_reg = {bta_hf_client_hdl_event,
+                                               BTA_HfClientDisable};
 
 /*******************************************************************************
- *
- * Function         bta_hf_client_scb_init
- *
- * Description      Initialize an HF_Client service control block.
- *
- *
- * Returns          void
- *
- ******************************************************************************/
-void bta_hf_client_scb_init(void) {
-  APPL_TRACE_DEBUG("%s", __func__);
+*
+* Function         bta_hf_client_cb_arr_init
+*
+* Description      Initialize entire control block array set
+*
+*
+* Returns          void
+*
+******************************************************************************/
+void bta_hf_client_cb_arr_init() {
+  memset(&bta_hf_client_cb_arr, 0, sizeof(tBTA_HF_CLIENT_CB_ARR));
 
-  alarm_free(bta_hf_client_cb.scb.collision_timer);
-  alarm_free(bta_hf_client_cb.scb.at_cb.resp_timer);
-  alarm_free(bta_hf_client_cb.scb.at_cb.hold_timer);
-  memset(&bta_hf_client_cb.scb, 0, sizeof(tBTA_HF_CLIENT_SCB));
-  bta_hf_client_cb.scb.collision_timer =
-      alarm_new("bta_hf_client.scb_collision_timer");
-  bta_hf_client_cb.scb.sco_idx = BTM_INVALID_SCO_INDEX;
-  bta_hf_client_cb.scb.negotiated_codec = BTM_SCO_CODEC_CVSD;
-}
-
-/*******************************************************************************
- *
- * Function         bta_hf_client_scb_disable
- *
- * Description      Disable a service control block.
- *
- *
- * Returns          void
- *
- ******************************************************************************/
-void bta_hf_client_scb_disable(void) {
-  APPL_TRACE_DEBUG("%s", __func__);
-
-  bta_hf_client_scb_init();
-
-  (*bta_hf_client_cb.p_cback)(BTA_HF_CLIENT_DISABLE_EVT, NULL);
-}
-
-/*******************************************************************************
- *
- * Function         bta_hf_client_resume_open
- *
- * Description      Resume opening process.
- *
- *
- * Returns          void
- *
- ******************************************************************************/
-void bta_hf_client_resume_open(void) {
-  APPL_TRACE_DEBUG("%s", __func__);
-
-  /* resume opening process.  */
-  if (bta_hf_client_cb.scb.state == BTA_HF_CLIENT_INIT_ST) {
-    bta_hf_client_cb.scb.state = BTA_HF_CLIENT_OPENING_ST;
-    bta_hf_client_start_open(NULL);
+  // reset the handles and make the CBs non-allocated
+  for (int i = 0; i < HF_CLIENT_MAX_DEVICES; i++) {
+    // Allocate the handles in increasing order of indices
+    bta_hf_client_cb_init(&(bta_hf_client_cb_arr.cb[i]), i);
+    bta_hf_client_cb_arr.cb[i].handle = BTA_HF_CLIENT_CB_FIRST_HANDLE + i;
   }
 }
 
 /*******************************************************************************
- *
- * Function         bta_hf_client_collision_timer_cback
- *
- * Description      HF Client connection collision timer callback
- *
- *
- * Returns          void
- *
- ******************************************************************************/
-static void bta_hf_client_collision_timer_cback(UNUSED_ATTR void* data) {
+*
+* Function         bta_hf_client_cb_init
+*
+* Description      Initialize an HF_Client service control block. Assign the
+*                  handle to cb->handle.
+*
+*
+*
+* Returns          void
+*
+******************************************************************************/
+void bta_hf_client_cb_init(tBTA_HF_CLIENT_CB* client_cb, uint16_t handle) {
   APPL_TRACE_DEBUG("%s", __func__);
 
-  /* If the peer haven't opened connection, restart opening process */
-  bta_hf_client_resume_open();
+  // Free any memory we need to explicity release
+  alarm_free(client_cb->collision_timer);
+
+  // Memset the rest of the block
+  memset(client_cb, 0, sizeof(tBTA_HF_CLIENT_CB));
+
+  // Re allocate any variables required
+  client_cb->collision_timer = alarm_new("bta_hf_client.scb_collision_timer");
+  client_cb->handle = handle;
 }
 
 /*******************************************************************************
- *
- * Function         bta_hf_client_collision_cback
- *
- * Description      Get notified about collision.
- *
- *
- * Returns          void
- *
- ******************************************************************************/
+*
+* Function         bta_hf_client_resume_open
+*
+* Description      Resume opening process.
+*
+*
+* Returns          void
+*
+******************************************************************************/
+void bta_hf_client_resume_open(tBTA_HF_CLIENT_CB* client_cb) {
+  APPL_TRACE_DEBUG("%s", __func__);
+
+  /* resume opening process.  */
+  if (client_cb->state == BTA_HF_CLIENT_INIT_ST) {
+    client_cb->state = BTA_HF_CLIENT_OPENING_ST;
+    tBTA_HF_CLIENT_DATA msg;
+    msg.hdr.layer_specific = client_cb->handle;
+    bta_hf_client_start_open(&msg);
+  }
+}
+
+/*******************************************************************************
+*
+* Function         bta_hf_client_collision_timer_cback
+*
+* Description      HF Client connection collision timer callback
+*
+*
+* Returns          void
+*
+******************************************************************************/
+static void bta_hf_client_collision_timer_cback(void* data) {
+  APPL_TRACE_DEBUG("%s", __func__);
+  tBTA_HF_CLIENT_CB* client_cb = (tBTA_HF_CLIENT_CB*)data;
+
+  /* If the peer haven't opened connection, restart opening process */
+  bta_hf_client_resume_open(client_cb);
+}
+
+/*******************************************************************************
+*
+* Function         bta_hf_client_collision_cback
+*
+* Description      Get notified about collision.
+*
+*
+* Returns          void
+*
+******************************************************************************/
 void bta_hf_client_collision_cback(UNUSED_ATTR tBTA_SYS_CONN_STATUS status,
                                    uint8_t id, UNUSED_ATTR uint8_t app_id,
-                                   UNUSED_ATTR BD_ADDR peer_addr) {
-  if (bta_hf_client_cb.scb.state == BTA_HF_CLIENT_OPENING_ST) {
+                                   BD_ADDR peer_addr) {
+  tBTA_HF_CLIENT_CB* client_cb = bta_hf_client_find_cb_by_bda(peer_addr);
+  if (client_cb != NULL && client_cb->state == BTA_HF_CLIENT_OPENING_ST) {
     if (id == BTA_ID_SYS) /* ACL collision */
     {
       APPL_TRACE_WARNING("HF Client found collision (ACL) ...");
@@ -394,83 +377,294 @@ void bta_hf_client_collision_cback(UNUSED_ATTR tBTA_SYS_CONN_STATUS status,
       APPL_TRACE_WARNING("HF Client found collision (\?\?\?) ...");
     }
 
-    bta_hf_client_cb.scb.state = BTA_HF_CLIENT_INIT_ST;
+    client_cb->state = BTA_HF_CLIENT_INIT_ST;
 
     /* Cancel SDP if it had been started. */
-    if (bta_hf_client_cb.scb.p_disc_db) {
-      (void)SDP_CancelServiceSearch(bta_hf_client_cb.scb.p_disc_db);
+    if (client_cb->p_disc_db) {
+      (void)SDP_CancelServiceSearch(client_cb->p_disc_db);
       bta_hf_client_free_db(NULL);
     }
 
     /* reopen registered server */
     /* Collision may be detected before or after we close servers. */
-    bta_hf_client_start_server();
+    // bta_hf_client_start_server();
 
     /* Start timer to handle connection opening restart */
-    alarm_set_on_queue(
-        bta_hf_client_cb.scb.collision_timer, BTA_HF_CLIENT_COLLISION_TIMER_MS,
-        bta_hf_client_collision_timer_cback, NULL, btu_bta_alarm_queue);
+    alarm_set_on_queue(client_cb->collision_timer,
+                       BTA_HF_CLIENT_COLLISION_TIMER_MS,
+                       bta_hf_client_collision_timer_cback, (void*)client_cb,
+                       btu_bta_alarm_queue);
   }
 }
 
 /*******************************************************************************
- *
- * Function         bta_hf_client_api_enable
- *
- * Description      Handle an API enable event.
- *
- *
- * Returns          void
- *
- ******************************************************************************/
-static void bta_hf_client_api_enable(tBTA_HF_CLIENT_DATA* p_data) {
-  char value[PROPERTY_VALUE_MAX];
-
-  /* initialize control block */
-  memset(&bta_hf_client_cb, 0, sizeof(tBTA_HF_CLIENT_CB));
-
-  /* store callback function */
-  bta_hf_client_cb.p_cback = p_data->api_enable.p_cback;
-
-  /* check if mSBC support enabled */
-  osi_property_get("ro.bluetooth.hfp.ver", value, "0");
-  if (strcmp(value, "1.6") == 0) {
-    bta_hf_client_cb.msbc_enabled = true;
+*
+* Function         bta_hf_client_api_enable
+*
+* Description      Handle an API enable event.
+*
+*
+* Returns          void
+*
+******************************************************************************/
+tBTA_STATUS bta_hf_client_api_enable(tBTA_HF_CLIENT_CBACK* p_cback,
+                                     tBTA_SEC sec_mask,
+                                     tBTA_HF_CLIENT_FEAT features,
+                                     const char* p_service_name) {
+  /* If already registered then return error */
+  if (bta_sys_is_register(BTA_ID_HS)) {
+    APPL_TRACE_ERROR("BTA HF Client is already enabled, ignoring ...");
+    return BTA_FAILURE;
   }
 
-  bta_hf_client_cb.scb.negotiated_codec = BTM_SCO_CODEC_CVSD;
+  /* register with BTA system manager */
+  bta_sys_register(BTA_ID_HS, &bta_hf_client_reg);
+
+  /* reset the control blocks */
+  bta_hf_client_cb_arr_init();
+
+  bta_hf_client_cb_arr.p_cback = p_cback;
+  bta_hf_client_cb_arr.serv_sec_mask = sec_mask;
+  bta_hf_client_cb_arr.features = features;
+
+  /* create SDP records */
+  bta_hf_client_create_record(&bta_hf_client_cb_arr, p_service_name);
 
   /* set same setting as AG does */
   BTM_WriteVoiceSettings(AG_VOICE_SETTINGS);
 
   bta_sys_collision_register(BTA_ID_HS, bta_hf_client_collision_cback);
 
-  /* call callback with enable event */
-  (*bta_hf_client_cb.p_cback)(BTA_HF_CLIENT_ENABLE_EVT, NULL);
+  /* Set the Audio service class bit */
+  tBTA_UTL_COD cod;
+  cod.service = BTM_COD_SERVICE_AUDIO;
+  utl_set_device_class(&cod, BTA_UTL_SET_COD_SERVICE_CLASS);
+
+  /* start RFCOMM server */
+  bta_hf_client_start_server();
+
+  return BTA_SUCCESS;
+}
+
+/*******************************************************************************
+*
+* Function         bta_hf_client_find_cb_by_handle
+*
+* Description      Finds the control block by handle provided
+*
+*                  handle: Handle as obtained from BTA_HfClientOpen call
+*
+*
+* Returns          Control block corresponding to the handle and NULL if
+*                  none exists
+*
+******************************************************************************/
+tBTA_HF_CLIENT_CB* bta_hf_client_find_cb_by_handle(uint16_t handle) {
+  // Handles are limited from 1 through HF_CLIENT_MAX_DEVICES
+  if (handle < 1 || handle > HF_CLIENT_MAX_DEVICES) {
+    APPL_TRACE_ERROR("%s: handle out of range (%d, %d) %d", __func__, 1,
+                     HF_CLIENT_MAX_DEVICES, handle);
+    return NULL;
+  }
+
+  // Check if the associated index is allocated. Index is (handle - 1).
+  if (bta_hf_client_cb_arr.cb[handle - 1].is_allocated)
+    return &(bta_hf_client_cb_arr.cb[handle - 1]);
+
+  APPL_TRACE_ERROR("%s: block not found for handle %d", __func__, handle);
+  return NULL;
+}
+
+/*******************************************************************************
+*
+* Function         bta_hf_client_find_cb_by_bda
+*
+* Description      Finds the control block by handle provided
+*
+*                  bda: BD_ADDR of the device to find the handle for.
+*                  Since there can only be one HF connection for a device
+*                  we should always find a unique block
+*
+* Returns          Control block corresponding to the BD_ADDR and NULL if
+*                  none exists
+*
+******************************************************************************/
+tBTA_HF_CLIENT_CB* bta_hf_client_find_cb_by_bda(const BD_ADDR peer_addr) {
+  for (int i = 0; i < HF_CLIENT_MAX_DEVICES; i++) {
+    // Check if the associated index is allocated and that BD ADDR matches
+    tBTA_HF_CLIENT_CB* client_cb = &bta_hf_client_cb_arr.cb[i];
+    if (client_cb->is_allocated && !bdcmp(peer_addr, client_cb->peer_addr)) {
+      return client_cb;
+    } else {
+      APPL_TRACE_WARNING("%s: bdaddr mismatch for handle %d alloc %d", __func__,
+                         i, client_cb->is_allocated);
+    }
+  }
+  APPL_TRACE_ERROR("%s: block not found", __func__);
+  return NULL;
+}
+
+/*******************************************************************************
+*
+* Function         bta_hf_client_find_cb_by_rfc_handle
+*
+* Description      Finds the control block by RFC handle provided.
+*
+*                  handle: RFC handle for the established connection
+*
+*
+* Returns          Control block corresponding to the handle and NULL if none
+*                  exists
+*
+******************************************************************************/
+tBTA_HF_CLIENT_CB* bta_hf_client_find_cb_by_rfc_handle(uint16_t handle) {
+  for (int i = 0; i < HF_CLIENT_MAX_DEVICES; i++) {
+    tBTA_HF_CLIENT_CB* client_cb = &bta_hf_client_cb_arr.cb[i];
+    bool is_allocated = client_cb->is_allocated;
+    uint16_t conn_handle = client_cb->conn_handle;
+
+    APPL_TRACE_DEBUG("%s: cb rfc_handle %d alloc %d conn_handle %d", __func__,
+                     handle, is_allocated, conn_handle);
+
+    if (is_allocated && conn_handle == handle) {
+      return client_cb;
+    }
+
+    APPL_TRACE_WARNING("%s: no cb yet %d alloc %d conn_handle %d", __func__,
+                       handle, is_allocated, conn_handle);
+  }
+
+  APPL_TRACE_ERROR("%s: no cb found for rfc handle %d", __func__, handle);
+  return NULL;
+}
+
+/*******************************************************************************
+*
+* Function         bta_hf_client_find_cb_by_sco_handle
+*
+* Description      Finds the control block by sco handle provided
+*
+*                  handle: sco handle
+*
+*
+* Returns          Control block corresponding to the sco handle and
+*                  none if none exists
+*
+******************************************************************************/
+tBTA_HF_CLIENT_CB* bta_hf_client_find_cb_by_sco_handle(uint16_t handle) {
+  for (int i = 0; i < HF_CLIENT_MAX_DEVICES; i++) {
+    tBTA_HF_CLIENT_CB* client_cb = &bta_hf_client_cb_arr.cb[i];
+    if (client_cb->is_allocated && client_cb->sco_idx == handle) {
+      return client_cb;
+    }
+  }
+  APPL_TRACE_ERROR("%s: block not found for handle %d", __func__, handle);
+  return NULL;
+}
+
+/*******************************************************************************
+*
+* Function         bta_hf_client_allocate_handle
+*
+* Description      Allocates a handle for the new BD ADDR that needs a new RF
+*                  channel for HF connection. If the channel cannot be created
+*                  for a reason then false is returned
+*
+*                  bd_addr: Address of the device for which this block is
+*                  being created. Single device can only have one block.
+*                  p_handle: OUT variable to store the outcome of allocate. If
+*                  allocate failed then value is not valid
+*
+*
+* Returns          true if the creation of p_handle succeeded, false otherwise
+*
+******************************************************************************/
+bool bta_hf_client_allocate_handle(const BD_ADDR bd_addr, uint16_t* p_handle) {
+  tBTA_HF_CLIENT_CB* existing_cb;
+  if ((existing_cb = bta_hf_client_find_cb_by_bda(bd_addr)) != NULL) {
+    BTIF_TRACE_ERROR("%s: cannot allocate handle since BDADDR already exists",
+                     __func__);
+    return false;
+  }
+  /* Check that we do not have a request to for same device in the control
+   * blocks */
+  for (int i = 0; i < HF_CLIENT_MAX_DEVICES; i++) {
+    tBTA_HF_CLIENT_CB* client_cb = &bta_hf_client_cb_arr.cb[i];
+    if (client_cb->is_allocated) {
+      APPL_TRACE_WARNING("%s: control block already used index %d", __func__,
+                         i);
+      continue;
+    }
+
+    // Reset the client control block
+    bta_hf_client_cb_init(client_cb, client_cb->handle);
+
+    *p_handle = client_cb->handle;
+    APPL_TRACE_DEBUG("%s: marking CB handle %d to true", __func__,
+                     client_cb->handle);
+
+    client_cb->is_allocated = true;
+    bdcpy(client_cb->peer_addr, bd_addr);
+    bta_hf_client_at_init(client_cb);
+    return true;
+  }
+
+  return false;
+  APPL_TRACE_ERROR("%s: all control blocks in use!", __func__);
 }
 
 /*******************************************************************************
  *
- * Function         bta_hf_client_api_disable
+ * Function         bta_hf_client_app_callback
  *
- * Description      Handle an API disable event.
+ * Description      Calls the application callback
  *
  *
- * Returns          void
+ * Returns          Void
  *
  ******************************************************************************/
-static void bta_hf_client_api_disable(tBTA_HF_CLIENT_DATA* p_data) {
+void bta_hf_client_app_callback(uint16_t event, tBTA_HF_CLIENT* data) {
+  if (bta_hf_client_cb_arr.p_cback != NULL) {
+    bta_hf_client_cb_arr.p_cback(event, data);
+  }
+}
+
+/*******************************************************************************
+*
+* Function         bta_hf_client_api_disable
+*
+* Description      Handle an API disable event.
+*
+*
+* Returns          void
+*
+******************************************************************************/
+void bta_hf_client_api_disable() {
   if (!bta_sys_is_register(BTA_ID_HS)) {
-    APPL_TRACE_ERROR("BTA HF Client is already disabled, ignoring ...");
+    APPL_TRACE_WARNING("BTA HF Client is already disabled, ignoring ...");
     return;
+  }
+
+  /* Remove the collision handler */
+  bta_sys_collision_register(BTA_ID_HS, NULL);
+
+  bta_hf_client_cb_arr.deregister = true;
+
+  /* remove sdp record */
+  bta_hf_client_del_record(&bta_hf_client_cb_arr);
+
+  /* remove rfcomm server */
+  bta_hf_client_close_server();
+
+  /* reinit the control block */
+  for (int i = 0; i < HF_CLIENT_MAX_DEVICES; i++) {
+    if (bta_hf_client_cb_arr.cb[i].is_allocated) {
+      bta_hf_client_cb_init(&(bta_hf_client_cb_arr.cb[i]), i);
+    }
   }
 
   /* De-register with BTA system manager */
   bta_sys_deregister(BTA_ID_HS);
-
-  bta_hf_client_sm_execute(BTA_HF_CLIENT_API_DEREGISTER_EVT, p_data);
-
-  bta_sys_collision_register(BTA_ID_HS, NULL);
 }
 
 /*******************************************************************************
@@ -484,26 +678,9 @@ static void bta_hf_client_api_disable(tBTA_HF_CLIENT_DATA* p_data) {
  *
  ******************************************************************************/
 bool bta_hf_client_hdl_event(BT_HDR* p_msg) {
-#if (BTA_HF_CLIENT_DEBUG == TRUE)
-  APPL_TRACE_DEBUG("bta_hf_client_hdl_event %s (0x%x)",
+  APPL_TRACE_DEBUG("%s: %s (0x%x)", __func__,
                    bta_hf_client_evt_str(p_msg->event), p_msg->event);
-#endif
-
-  switch (p_msg->event) {
-    /* handle enable event */
-    case BTA_HF_CLIENT_API_ENABLE_EVT:
-      bta_hf_client_api_enable((tBTA_HF_CLIENT_DATA*)p_msg);
-      break;
-
-    /* handle disable event */
-    case BTA_HF_CLIENT_API_DISABLE_EVT:
-      bta_hf_client_api_disable((tBTA_HF_CLIENT_DATA*)p_msg);
-      break;
-
-    default:
-      bta_hf_client_sm_execute(p_msg->event, (tBTA_HF_CLIENT_DATA*)p_msg);
-      break;
-  }
+  bta_hf_client_sm_execute(p_msg->event, (tBTA_HF_CLIENT_DATA*)p_msg);
   return true;
 }
 
@@ -518,23 +695,29 @@ bool bta_hf_client_hdl_event(BT_HDR* p_msg) {
  *
  ******************************************************************************/
 void bta_hf_client_sm_execute(uint16_t event, tBTA_HF_CLIENT_DATA* p_data) {
+  tBTA_HF_CLIENT_CB* client_cb =
+      bta_hf_client_find_cb_by_handle(p_data->hdr.layer_specific);
+  if (client_cb == NULL) {
+    APPL_TRACE_ERROR("%s: cb not found for handle %d", __func__,
+                     p_data->hdr.layer_specific);
+    return;
+  }
+
   tBTA_HF_CLIENT_ST_TBL state_table;
   uint8_t action;
   int i;
 
-#if (BTA_HF_CLIENT_DEBUG == TRUE)
   uint16_t in_event = event;
-  uint8_t in_state = bta_hf_client_cb.scb.state;
+  uint8_t in_state = client_cb->state;
 
   /* Ignore displaying of AT results when not connected (Ignored in state
    * machine) */
-  if (bta_hf_client_cb.scb.state == BTA_HF_CLIENT_OPEN_ST) {
+  if (client_cb->state == BTA_HF_CLIENT_OPEN_ST) {
     APPL_TRACE_EVENT("HF Client evt : State %d (%s), Event 0x%04x (%s)",
-                     bta_hf_client_cb.scb.state,
-                     bta_hf_client_state_str(bta_hf_client_cb.scb.state), event,
+                     client_cb->state,
+                     bta_hf_client_state_str(client_cb->state), event,
                      bta_hf_client_evt_str(event));
   }
-#endif
 
   event &= 0x00FF;
   if (event >= (BTA_HF_CLIENT_MAX_EVT & 0x00FF)) {
@@ -543,40 +726,67 @@ void bta_hf_client_sm_execute(uint16_t event, tBTA_HF_CLIENT_DATA* p_data) {
   }
 
   /* look up the state table for the current state */
-  state_table = bta_hf_client_st_tbl[bta_hf_client_cb.scb.state];
+  state_table = bta_hf_client_st_tbl[client_cb->state];
 
   /* set next state */
-  bta_hf_client_cb.scb.state = state_table[event][BTA_HF_CLIENT_NEXT_STATE];
+  client_cb->state = state_table[event][BTA_HF_CLIENT_NEXT_STATE];
 
   /* execute action functions */
   for (i = 0; i < BTA_HF_CLIENT_ACTIONS; i++) {
-    if ((action = state_table[event][i]) != BTA_HF_CLIENT_IGNORE) {
+    action = state_table[event][i];
+    if (action != BTA_HF_CLIENT_IGNORE) {
       (*bta_hf_client_action[action])(p_data);
     } else {
       break;
     }
   }
 
-#if (BTA_HF_CLIENT_DEBUG == TRUE)
-  if (bta_hf_client_cb.scb.state != in_state) {
-    APPL_TRACE_EVENT(
-        "BTA HF Client State Change: [%s] -> [%s] after Event [%s]",
-        bta_hf_client_state_str(in_state),
-        bta_hf_client_state_str(bta_hf_client_cb.scb.state),
-        bta_hf_client_evt_str(in_event));
+  /* If the state has changed then notify the app of the corresponding change */
+  if (in_state != client_cb->state) {
+    APPL_TRACE_DEBUG(
+        "%s: notifying state change to %d -> %d "
+        "device %02x:%02x:%02x:%02x:%02x:%02x",
+        __func__, in_state, client_cb->state, client_cb->peer_addr[0],
+        client_cb->peer_addr[1], client_cb->peer_addr[2],
+        client_cb->peer_addr[3], client_cb->peer_addr[4],
+        client_cb->peer_addr[5]);
+    tBTA_HF_CLIENT evt;
+    memset(&evt, 0, sizeof(evt));
+    bdcpy(evt.bd_addr, client_cb->peer_addr);
+    if (client_cb->state == BTA_HF_CLIENT_INIT_ST) {
+      bta_hf_client_app_callback(BTA_HF_CLIENT_CLOSE_EVT, &evt);
+    } else if (client_cb->state == BTA_HF_CLIENT_OPEN_ST) {
+      evt.open.handle = client_cb->handle;
+      bta_hf_client_app_callback(BTA_HF_CLIENT_OPEN_EVT, &evt);
+    }
   }
-#endif
+
+  /* if the next state is INIT then release the cb for future use */
+  if (client_cb->state == BTA_HF_CLIENT_INIT_ST) {
+    APPL_TRACE_DEBUG("%s: marking CB handle %d to false", __func__,
+                     client_cb->handle);
+    client_cb->is_allocated = false;
+  }
+
+  APPL_TRACE_EVENT(
+      "%s: device %02x:%02x:%02x:%02x:%02x:%02x "
+      "state change: [%s] -> [%s] after Event [%s]",
+      __func__, client_cb->peer_addr[0], client_cb->peer_addr[1],
+      client_cb->peer_addr[2], client_cb->peer_addr[3], client_cb->peer_addr[4],
+      client_cb->peer_addr[5], bta_hf_client_state_str(in_state),
+      bta_hf_client_state_str(client_cb->state),
+      bta_hf_client_evt_str(in_event));
 }
 
-static void send_post_slc_cmd(void) {
-  bta_hf_client_cb.scb.at_cb.current_cmd = BTA_HF_CLIENT_AT_NONE;
+static void send_post_slc_cmd(tBTA_HF_CLIENT_CB* client_cb) {
+  client_cb->at_cb.current_cmd = BTA_HF_CLIENT_AT_NONE;
 
-  bta_hf_client_send_at_bia();
-  bta_hf_client_send_at_ccwa(true);
-  bta_hf_client_send_at_cmee(true);
-  bta_hf_client_send_at_cops(false);
-  bta_hf_client_send_at_btrh(true, 0);
-  bta_hf_client_send_at_clip(true);
+  bta_hf_client_send_at_bia(client_cb);
+  bta_hf_client_send_at_ccwa(client_cb, true);
+  bta_hf_client_send_at_cmee(client_cb, true);
+  bta_hf_client_send_at_cops(client_cb, false);
+  bta_hf_client_send_at_btrh(client_cb, true, 0);
+  bta_hf_client_send_at_clip(client_cb, true);
 }
 
 /*******************************************************************************
@@ -589,77 +799,89 @@ static void send_post_slc_cmd(void) {
  * Returns          void
  *
  ******************************************************************************/
-void bta_hf_client_slc_seq(bool error) {
+void bta_hf_client_slc_seq(tBTA_HF_CLIENT_CB* client_cb, bool error) {
   APPL_TRACE_DEBUG("bta_hf_client_slc_seq cmd: %u",
-                   bta_hf_client_cb.scb.at_cb.current_cmd);
+                   client_cb->at_cb.current_cmd);
 
   if (error) {
     /* SLC establishment error, sent close rfcomm event */
     APPL_TRACE_ERROR(
         "HFPClient: Failed to create SLC due to AT error, disconnecting (%u)",
-        bta_hf_client_cb.scb.at_cb.current_cmd);
+        client_cb->at_cb.current_cmd);
 
-    bta_hf_client_sm_execute(BTA_HF_CLIENT_API_CLOSE_EVT, NULL);
+    tBTA_HF_CLIENT_DATA msg;
+    msg.hdr.layer_specific = client_cb->handle;
+    bta_hf_client_sm_execute(BTA_HF_CLIENT_API_CLOSE_EVT, &msg);
     return;
   }
 
-  if (bta_hf_client_cb.scb.svc_conn) return;
+  if (client_cb->svc_conn) {
+    APPL_TRACE_WARNING("%s: SLC already connected for CB handle %d", __func__,
+                       client_cb->handle);
+    return;
+  }
 
-  switch (bta_hf_client_cb.scb.at_cb.current_cmd) {
+  switch (client_cb->at_cb.current_cmd) {
     case BTA_HF_CLIENT_AT_NONE:
-      bta_hf_client_send_at_brsf();
+      bta_hf_client_send_at_brsf(client_cb, bta_hf_client_cb_arr.features);
       break;
 
     case BTA_HF_CLIENT_AT_BRSF:
-      if ((bta_hf_client_cb.scb.features & BTA_HF_CLIENT_FEAT_CODEC) &&
-          (bta_hf_client_cb.scb.peer_features & BTA_HF_CLIENT_PEER_CODEC)) {
-        bta_hf_client_send_at_bac();
+      if ((bta_hf_client_cb_arr.features & BTA_HF_CLIENT_FEAT_CODEC) &&
+          (client_cb->peer_features & BTA_HF_CLIENT_PEER_CODEC)) {
+        bta_hf_client_send_at_bac(client_cb);
         break;
       }
 
-      bta_hf_client_send_at_cind(false);
+      bta_hf_client_send_at_cind(client_cb, false);
       break;
 
     case BTA_HF_CLIENT_AT_BAC:
-      bta_hf_client_send_at_cind(false);
+      bta_hf_client_send_at_cind(client_cb, false);
       break;
 
     case BTA_HF_CLIENT_AT_CIND:
-      bta_hf_client_send_at_cind(true);
+      bta_hf_client_send_at_cind(client_cb, true);
       break;
 
     case BTA_HF_CLIENT_AT_CIND_STATUS:
-      bta_hf_client_send_at_cmer(true);
+      bta_hf_client_send_at_cmer(client_cb, true);
       break;
 
     case BTA_HF_CLIENT_AT_CMER:
-      if (bta_hf_client_cb.scb.peer_features & BTA_HF_CLIENT_PEER_FEAT_3WAY &&
-          bta_hf_client_cb.scb.features & BTA_HF_CLIENT_FEAT_3WAY) {
-        bta_hf_client_send_at_chld('?', 0);
+      if (client_cb->peer_features & BTA_HF_CLIENT_PEER_FEAT_3WAY &&
+          bta_hf_client_cb_arr.features & BTA_HF_CLIENT_FEAT_3WAY) {
+        bta_hf_client_send_at_chld(client_cb, '?', 0);
       } else {
-        bta_hf_client_svc_conn_open(NULL);
-        send_post_slc_cmd();
+        tBTA_HF_CLIENT_DATA msg;
+        msg.hdr.layer_specific = client_cb->handle;
+        bta_hf_client_svc_conn_open(&msg);
+        send_post_slc_cmd(client_cb);
       }
       break;
 
-    case BTA_HF_CLIENT_AT_CHLD:
-      bta_hf_client_svc_conn_open(NULL);
-      send_post_slc_cmd();
+    case BTA_HF_CLIENT_AT_CHLD: {
+      tBTA_HF_CLIENT_DATA msg;
+      msg.hdr.layer_specific = client_cb->handle;
+      bta_hf_client_svc_conn_open(&msg);
+      send_post_slc_cmd(client_cb);
       break;
+    }
 
-    default:
+    default: {
       /* If happen there is a bug in SLC creation procedure... */
       APPL_TRACE_ERROR(
           "HFPClient: Failed to create SLCdue to unexpected AT command, "
           "disconnecting (%u)",
-          bta_hf_client_cb.scb.at_cb.current_cmd);
+          client_cb->at_cb.current_cmd);
 
-      bta_hf_client_sm_execute(BTA_HF_CLIENT_API_CLOSE_EVT, NULL);
+      tBTA_HF_CLIENT_DATA msg;
+      msg.hdr.layer_specific = client_cb->handle;
+      bta_hf_client_sm_execute(BTA_HF_CLIENT_API_CLOSE_EVT, &msg);
       break;
+    }
   }
 }
-
-#if (BTA_HF_CLIENT_DEBUG == TRUE)
 
 #ifndef CASE_RETURN_STR
 #define CASE_RETURN_STR(const) \
@@ -667,10 +889,8 @@ void bta_hf_client_slc_seq(bool error) {
     return #const;
 #endif
 
-static char* bta_hf_client_evt_str(uint16_t event) {
+static const char* bta_hf_client_evt_str(uint16_t event) {
   switch (event) {
-    CASE_RETURN_STR(BTA_HF_CLIENT_API_REGISTER_EVT)
-    CASE_RETURN_STR(BTA_HF_CLIENT_API_DEREGISTER_EVT)
     CASE_RETURN_STR(BTA_HF_CLIENT_API_OPEN_EVT)
     CASE_RETURN_STR(BTA_HF_CLIENT_API_CLOSE_EVT)
     CASE_RETURN_STR(BTA_HF_CLIENT_API_AUDIO_OPEN_EVT)
@@ -693,7 +913,7 @@ static char* bta_hf_client_evt_str(uint16_t event) {
   }
 }
 
-static char* bta_hf_client_state_str(uint8_t state) {
+static const char* bta_hf_client_state_str(uint8_t state) {
   switch (state) {
     CASE_RETURN_STR(BTA_HF_CLIENT_INIT_ST)
     CASE_RETURN_STR(BTA_HF_CLIENT_OPENING_ST)
@@ -703,4 +923,34 @@ static char* bta_hf_client_state_str(uint8_t state) {
       return "Unknown HF Client State";
   }
 }
-#endif
+
+void bta_hf_client_dump_statistics(int fd) {
+  dprintf(fd, "\nBluetooth HF Client BTA Statistics\n");
+
+  // We dump statistics for all control blocks
+  for (int i = 0; i < HF_CLIENT_MAX_DEVICES; i++) {
+    tBTA_HF_CLIENT_CB* client_cb = &bta_hf_client_cb_arr.cb[i];
+    dprintf(fd, "Contol block #%d\n", i + 1);
+
+    if (!client_cb->is_allocated) {
+      dprintf(fd, "NOT ALLOCATED\n");
+      continue;
+    }
+
+    // Device name
+    dprintf(fd, "Peer Device: %02x:%02x:%02x:%02x:%02x:%02x\n",
+            client_cb->peer_addr[0], client_cb->peer_addr[1],
+            client_cb->peer_addr[2], client_cb->peer_addr[3],
+            client_cb->peer_addr[4], client_cb->peer_addr[5]);
+
+    // State machine state
+    dprintf(fd, "State Machine State: %s\n",
+            bta_hf_client_state_str(client_cb->state));
+
+    // Local RFC channelfor communication
+    dprintf(fd, "RFCOMM Channel (local) %d\n", client_cb->conn_handle);
+
+    // BTA Handle shared between BTA and client (ex BTIF)
+    dprintf(fd, "BTA Generated handle %d\n", client_cb->handle);
+  }
+}

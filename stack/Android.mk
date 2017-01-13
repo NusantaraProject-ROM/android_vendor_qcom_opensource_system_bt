@@ -26,9 +26,6 @@ LOCAL_C_INCLUDES := \
                    $(LOCAL_PATH)/../hci/include \
                    $(LOCAL_PATH)/../include \
                    $(LOCAL_PATH)/../udrv/include \
-                   $(LOCAL_PATH)/../rpc/include \
-                   $(LOCAL_PATH)/../hcis \
-                   $(LOCAL_PATH)/../ctrlr/include \
                    $(LOCAL_PATH)/../bta/include \
                    $(LOCAL_PATH)/../bta/sys \
                    $(LOCAL_PATH)/../utils/include \
@@ -37,10 +34,17 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_SRC_FILES := \
     ./a2dp/a2dp_api.cc \
+    ./a2dp/a2dp_codec_config.cc \
     ./a2dp/a2dp_sbc.cc \
     ./a2dp/a2dp_sbc_encoder.cc \
     ./a2dp/a2dp_sbc_up_sample.cc \
     ./a2dp/a2dp_vendor.cc \
+    ./a2dp/a2dp_vendor_aptx.cc \
+    ./a2dp/a2dp_vendor_aptx_hd.cc \
+    ./a2dp/a2dp_vendor_aptx_encoder.cc \
+    ./a2dp/a2dp_vendor_aptx_hd_encoder.cc \
+    ./a2dp/a2dp_vendor_ldac.cc \
+    ./a2dp/a2dp_vendor_ldac_encoder.cc \
     ./avct/avct_api.cc \
     ./avct/avct_bcb_act.cc \
     ./avct/avct_ccb.cc \
@@ -105,6 +109,8 @@ LOCAL_SRC_FILES := \
     ./hcic/hcicmds.cc \
     ./hid/hidh_api.cc \
     ./hid/hidh_conn.cc \
+    ./hid/hidd_api.cc \
+    ./hid/hidd_conn.cc \
     ./l2cap/l2c_api.cc \
     ./l2cap/l2c_ble.cc \
     ./l2cap/l2c_csm.cc \
@@ -157,7 +163,7 @@ LOCAL_SRC_FILES := \
 
 LOCAL_MODULE := libbt-stack
 LOCAL_STATIC_LIBRARIES := libbt-hci
-LOCAL_SHARED_LIBRARIES := libcutils libchrome
+LOCAL_SHARED_LIBRARIES := libcutils liblog libchrome
 
 LOCAL_CFLAGS += $(bluetooth_CFLAGS)
 LOCAL_CONLYFLAGS += $(bluetooth_CONLYFLAGS)
@@ -178,8 +184,8 @@ LOCAL_C_INCLUDES := \
                    $(bluetooth_C_INCLUDES)
 
 LOCAL_SRC_FILES := test/stack_a2dp_test.cc
-LOCAL_SHARED_LIBRARIES :=
-LOCAL_STATIC_LIBRARIES := libbt-stack liblog
+LOCAL_SHARED_LIBRARIES := libc liblog libchrome
+LOCAL_STATIC_LIBRARIES := libbt-stack libbt-sbc-encoder libosi
 LOCAL_MODULE_TAGS := tests
 LOCAL_MODULE := net_test_stack
 
@@ -189,6 +195,40 @@ LOCAL_CPPFLAGS += $(bluetooth_CPPFLAGS)
 
 include $(BUILD_NATIVE_TEST)
 
+# Bluetooth smp unit tests for target
+# ========================================================
+include $(CLEAR_VARS)
+
+LOCAL_CPP_EXTENSION := .cc
+
+LOCAL_C_INCLUDES := \
+                   $(LOCAL_PATH)/include \
+                   $(LOCAL_PATH)/btm \
+                   $(LOCAL_PATH)/l2cap \
+                   $(LOCAL_PATH)/smp \
+                   $(LOCAL_PATH)/../btcore/include \
+                   $(LOCAL_PATH)/../hci/include \
+                   $(LOCAL_PATH)/../include \
+                   $(LOCAL_PATH)/../utils/include \
+                   $(LOCAL_PATH)/../ \
+                   $(bluetooth_C_INCLUDES)
+
+LOCAL_SRC_FILES := smp/smp_keys.cc \
+                    smp/aes.cc \
+                    smp/smp_api.cc \
+                    smp/smp_main.cc \
+                    smp/smp_utils.cc \
+                    test/stack_smp_test.cc
+LOCAL_SHARED_LIBRARIES := libcutils libchrome
+LOCAL_STATIC_LIBRARIES := liblog libgtest libgmock libosi
+LOCAL_MODULE_TAGS := tests
+LOCAL_MODULE := net_test_stack_smp
+
+LOCAL_CFLAGS += $(bluetooth_CFLAGS)
+LOCAL_CONLYFLAGS += $(bluetooth_CONLYFLAGS)
+LOCAL_CPPFLAGS += $(bluetooth_CPPFLAGS)
+
+include $(BUILD_NATIVE_TEST)
 
 # Bluetooth stack multi-advertising unit tests for target
 # ========================================================

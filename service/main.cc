@@ -14,10 +14,6 @@
 //  limitations under the License.
 //
 
-#ifdef BT_LIBCHROME_NDEBUG
-#define NDEBUG 1
-#endif
-
 #include <base/at_exit.h>
 #include <base/command_line.h>
 #include <base/files/scoped_file.h>
@@ -35,7 +31,7 @@ const char kDisableProperty[] = "persist.bluetooth.disable";
 
 }  // namespace
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   base::AtExitManager exit_manager;
   base::CommandLine::Init(argc, argv);
 

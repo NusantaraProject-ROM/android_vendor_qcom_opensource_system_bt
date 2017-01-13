@@ -86,8 +86,8 @@ typedef struct {
   bool rx_flush; /* discards any incoming data when true */
   alarm_t* decode_alarm;
   uint8_t frames_to_process;
-  uint32_t sample_rate;
-  uint8_t channel_count;
+  tA2DP_SAMPLE_RATE sample_rate;
+  tA2DP_CHANNEL_COUNT channel_count;
   btif_a2dp_sink_focus_state_t rx_focus_state; /* audio focus state */
   void* audio_track;
 } tBTIF_A2DP_SINK_CB;
@@ -206,11 +206,11 @@ static void btif_a2dp_sink_shutdown_delayed(UNUSED_ATTR void* context) {
   btif_a2dp_sink_state = BTIF_A2DP_SINK_STATE_OFF;
 }
 
-uint32_t btif_a2dp_sink_get_sample_rate(void) {
+tA2DP_SAMPLE_RATE btif_a2dp_sink_get_sample_rate(void) {
   return btif_a2dp_sink_cb.sample_rate;
 }
 
-uint8_t btif_a2dp_sink_get_channel_count(void) {
+tA2DP_CHANNEL_COUNT btif_a2dp_sink_get_channel_count(void) {
   return btif_a2dp_sink_cb.channel_count;
 }
 
@@ -454,7 +454,7 @@ static void btif_a2dp_sink_decoder_update_event(
                    p_buf->codec_info[3], p_buf->codec_info[4],
                    p_buf->codec_info[5], p_buf->codec_info[6]);
 
-  int sample_rate = A2DP_GetTrackFrequency(p_buf->codec_info);
+  int sample_rate = A2DP_GetTrackSampleRate(p_buf->codec_info);
   if (sample_rate == -1) {
     APPL_TRACE_ERROR("%s: cannot get the track frequency", __func__);
     return;
@@ -549,10 +549,6 @@ void btif_a2dp_sink_audio_rx_flush_req(void) {
 }
 
 void btif_a2dp_sink_debug_dump(UNUSED_ATTR int fd) {
-  // Nothing to do
-}
-
-void btif_a2dp_sink_update_metrics(void) {
   // Nothing to do
 }
 

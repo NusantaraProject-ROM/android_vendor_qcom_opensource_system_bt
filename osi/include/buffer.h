@@ -21,10 +21,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef struct buffer_t buffer_t;
 
 // Returns a new buffer of |size| bytes. Returns NULL if a buffer could not be
@@ -36,8 +32,7 @@ buffer_t* buffer_new(size_t size);
 // from the original: writes to the original will be reflected in the reference
 // and vice versa. In other words, this function creates an alias to |buf|. The
 // caller must release the returned buffer with |buffer_free|. Note that
-// releasing
-// the returned buffer does not release |buf|. |buf| must not be NULL.
+// releasing the returned buffer does not release |buf|. |buf| must not be NULL.
 buffer_t* buffer_new_ref(const buffer_t* buf);
 
 // Creates a new reference to the last |slice_size| bytes of |buf|. See
@@ -59,7 +54,3 @@ void* buffer_ptr(const buffer_t* buf);
 // Returns the length of the writeable memory region referred to by |buf|.
 // |buf| must not be NULL.
 size_t buffer_length(const buffer_t* buf);
-
-#ifdef __cplusplus
-}
-#endif

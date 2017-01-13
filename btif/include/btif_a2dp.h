@@ -24,10 +24,6 @@
 
 #include "bta_av_api.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // Process 'idle' request from the BTIF state machine during initialization.
 void btif_a2dp_on_idle(void);
 
@@ -61,13 +57,5 @@ void btif_a2dp_on_offload_started(tBTA_AV_STATUS status);
 // |fd| is the file descriptor to use for writing the ASCII formatted
 // information.
 void btif_debug_a2dp_dump(int fd);
-
-// Update the A2DP-related metrics.
-// This function should be called before collecting the metrics.
-void btif_update_a2dp_metrics(void);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* BTIF_A2DP_H */

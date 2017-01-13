@@ -26,10 +26,6 @@
 #include "bt_types.h"
 #include "bta_av_api.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 //
 // Audio focus state for audio track.
 //
@@ -53,10 +49,10 @@ bool btif_a2dp_sink_startup(void);
 void btif_a2dp_sink_shutdown(void);
 
 // Get the audio sample rate for the A2DP Sink module.
-uint32_t btif_a2dp_sink_get_sample_rate(void);
+tA2DP_SAMPLE_RATE btif_a2dp_sink_get_sample_rate(void);
 
 // Get the audio channel count for the A2DP Sink module.
-uint8_t btif_a2dp_sink_get_channel_count(void);
+tA2DP_CHANNEL_COUNT btif_a2dp_sink_get_channel_count(void);
 
 // Update the decoder for the A2DP Sink module.
 // |p_codec_info| contains the new codec information.
@@ -104,9 +100,5 @@ void btif_a2dp_sink_set_focus_state_req(btif_a2dp_sink_focus_state_t state);
 // Set the audio track gain for the audio track.
 // |gain| is the audio track gain value to use.
 void btif_a2dp_sink_set_audio_track_gain(float gain);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* BTIF_A2DP_SINK_H */

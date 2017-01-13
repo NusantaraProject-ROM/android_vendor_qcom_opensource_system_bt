@@ -24,6 +24,7 @@
 #ifndef BTA_DM_INT_H
 #define BTA_DM_INT_H
 
+#include <memory>
 #include "bt_target.h"
 #include "bta_sys.h"
 
@@ -82,24 +83,12 @@ enum {
   BTA_DM_API_BLE_SET_BG_CONN_TYPE,
   BTA_DM_API_BLE_CONN_PARAM_EVT,
   BTA_DM_API_BLE_CONN_SCAN_PARAM_EVT,
-  BTA_DM_API_BLE_SCAN_PARAM_EVT,
   BTA_DM_API_BLE_OBSERVE_EVT,
   BTA_DM_API_UPDATE_CONN_PARAM_EVT,
 #if (BLE_PRIVACY_SPT == TRUE)
   BTA_DM_API_LOCAL_PRIVACY_EVT,
 #endif
   BTA_DM_API_SET_DATA_LENGTH_EVT,
-
-#if (BLE_ANDROID_CONTROLLER_SCAN_FILTER == TRUE)
-  BTA_DM_API_CFG_FILTER_COND_EVT,
-  BTA_DM_API_SCAN_FILTER_SETUP_EVT,
-  BTA_DM_API_SCAN_FILTER_ENABLE_EVT,
-#endif
-  BTA_DM_API_BLE_SETUP_STORAGE_EVT,
-  BTA_DM_API_BLE_ENABLE_BATCH_SCAN_EVT,
-  BTA_DM_API_BLE_DISABLE_BATCH_SCAN_EVT,
-  BTA_DM_API_BLE_READ_SCAN_REPORTS_EVT,
-  BTA_DM_API_BLE_TRACK_ADVERTISER_EVT,
   BTA_DM_API_BLE_ENERGY_INFO_EVT,
 
   BTA_DM_API_ENABLE_TEST_MODE_EVT,
@@ -362,12 +351,6 @@ typedef struct {
   tBTA_DM_BLE_SEC_GRANT res;
 } tBTA_DM_API_BLE_SEC_GRANT;
 
-typedef struct {
-  BT_HDR hdr;
-  tBTA_DM_BLE_CONN_TYPE bg_conn_type;
-  tBTA_DM_BLE_SEL_CBACK* p_select_cback;
-} tBTA_DM_API_BLE_SET_BG_CONN_TYPE;
-
 /* set prefered BLE connection parameters for a device */
 typedef struct {
   BT_HDR hdr;
@@ -430,45 +413,6 @@ typedef struct {
 
 } tBTA_DM_API_BLE_FEATURE;
 
-/* adv data structure */
-typedef struct {
-  BT_HDR hdr;
-  uint8_t batch_scan_full_max;
-  uint8_t batch_scan_trunc_max;
-  uint8_t batch_scan_notify_threshold;
-  tBTA_BLE_SCAN_SETUP_CBACK* p_setup_cback;
-  tBTA_BLE_SCAN_THRESHOLD_CBACK* p_thres_cback;
-  tBTA_BLE_SCAN_REP_CBACK* p_read_rep_cback;
-  tBTA_DM_BLE_REF_VALUE ref_value;
-} tBTA_DM_API_SET_STORAGE_CONFIG;
-
-typedef struct {
-  BT_HDR hdr;
-  tBTA_BLE_BATCH_SCAN_MODE scan_mode;
-  uint32_t scan_int;
-  uint32_t scan_window;
-  tBTA_BLE_DISCARD_RULE discard_rule;
-  tBLE_ADDR_TYPE addr_type;
-  tBTA_DM_BLE_REF_VALUE ref_value;
-} tBTA_DM_API_ENABLE_SCAN;
-
-typedef struct {
-  BT_HDR hdr;
-  tBTA_DM_BLE_REF_VALUE ref_value;
-} tBTA_DM_API_DISABLE_SCAN;
-
-typedef struct {
-  BT_HDR hdr;
-  tBTA_BLE_BATCH_SCAN_MODE scan_type;
-  tBTA_DM_BLE_REF_VALUE ref_value;
-} tBTA_DM_API_READ_SCAN_REPORTS;
-
-typedef struct {
-  BT_HDR hdr;
-  tBTA_DM_BLE_REF_VALUE ref_value;
-  tBTA_BLE_TRACK_ADV_CBACK* p_track_adv_cback;
-} tBTA_DM_API_TRACK_ADVERTISER;
-
 typedef struct {
   BT_HDR hdr;
   tBTA_BLE_ENERGY_INFO_CBACK* p_energy_info_cback;
@@ -497,35 +441,6 @@ typedef struct {
   uint16_t latency;
   uint16_t timeout;
 } tBTA_DM_API_UPDATE_CONN_PARAM;
-
-#if (BLE_ANDROID_CONTROLLER_SCAN_FILTER == TRUE)
-typedef struct {
-  BT_HDR hdr;
-  tBTA_DM_BLE_SCAN_COND_OP action;
-  tBTA_DM_BLE_PF_COND_TYPE cond_type;
-  tBTA_DM_BLE_PF_FILT_INDEX filt_index;
-  tBTA_DM_BLE_PF_COND_PARAM* p_cond_param;
-  tBTA_DM_BLE_PF_CFG_CBACK* p_filt_cfg_cback;
-  tBTA_DM_BLE_REF_VALUE ref_value;
-} tBTA_DM_API_CFG_FILTER_COND;
-
-typedef struct {
-  BT_HDR hdr;
-  uint8_t action;
-  tBTA_DM_BLE_PF_STATUS_CBACK* p_filt_status_cback;
-  tBTA_DM_BLE_REF_VALUE ref_value;
-} tBTA_DM_API_ENABLE_SCAN_FILTER;
-
-typedef struct {
-  BT_HDR hdr;
-  uint8_t action;
-  tBTA_DM_BLE_PF_FILT_INDEX filt_index;
-  tBTA_DM_BLE_PF_FILT_PARAMS filt_params;
-  tBLE_BD_ADDR* p_target;
-  tBTA_DM_BLE_PF_PARAM_CBACK* p_filt_param_cback;
-  tBTA_DM_BLE_REF_VALUE ref_value;
-} tBTA_DM_API_SCAN_FILTER_PARAM_SETUP;
-#endif
 
 /* union of all data types */
 typedef union {
@@ -580,26 +495,14 @@ typedef union {
   tBTA_DM_API_ADD_BLE_DEVICE add_ble_device;
   tBTA_DM_API_PASSKEY_REPLY ble_passkey_reply;
   tBTA_DM_API_BLE_SEC_GRANT ble_sec_grant;
-  tBTA_DM_API_BLE_SET_BG_CONN_TYPE ble_set_bd_conn_type;
   tBTA_DM_API_BLE_CONN_PARAMS ble_set_conn_params;
   tBTA_DM_API_BLE_CONN_SCAN_PARAMS ble_set_conn_scan_params;
-  tBTA_DM_API_BLE_SCAN_PARAMS ble_set_scan_params;
   tBTA_DM_API_BLE_OBSERVE ble_observe;
   tBTA_DM_API_ENABLE_PRIVACY ble_remote_privacy;
   tBTA_DM_API_LOCAL_PRIVACY ble_local_privacy;
-#if (BLE_ANDROID_CONTROLLER_SCAN_FILTER == TRUE)
-  tBTA_DM_API_SCAN_FILTER_PARAM_SETUP ble_scan_filt_param_setup;
-  tBTA_DM_API_CFG_FILTER_COND ble_cfg_filter_cond;
-  tBTA_DM_API_ENABLE_SCAN_FILTER ble_enable_scan_filt;
-#endif
   tBTA_DM_API_UPDATE_CONN_PARAM ble_update_conn_params;
   tBTA_DM_API_BLE_SET_DATA_LENGTH ble_set_data_length;
 
-  tBTA_DM_API_SET_STORAGE_CONFIG ble_set_storage;
-  tBTA_DM_API_ENABLE_SCAN ble_enable_scan;
-  tBTA_DM_API_READ_SCAN_REPORTS ble_read_reports;
-  tBTA_DM_API_DISABLE_SCAN ble_disable_scan;
-  tBTA_DM_API_TRACK_ADVERTISER ble_track_advert;
   tBTA_DM_API_ENERGY_INFO ble_energy_info;
 
   tBTA_DM_API_REMOVE_ACL remove_acl;
@@ -705,10 +608,6 @@ typedef struct {
   bool is_bta_dm_active;
   tBTA_DM_ACTIVE_LINK device_list;
   tBTA_DM_SEC_CBACK* p_sec_cback;
-  tBTA_BLE_SCAN_SETUP_CBACK* p_setup_cback;
-  tBTA_DM_BLE_PF_CFG_CBACK* p_scan_filt_cfg_cback;
-  tBTA_DM_BLE_PF_STATUS_CBACK* p_scan_filt_status_cback;
-  tBTA_DM_BLE_PF_PARAM_CBACK* p_scan_filt_param_cback;
   tBTA_BLE_ENERGY_INFO_CBACK* p_energy_info_cback;
   uint16_t state;
   bool disabling;
@@ -920,7 +819,6 @@ extern void bta_dm_ble_confirm_reply(tBTA_DM_MSG* p_data);
 extern void bta_dm_security_grant(tBTA_DM_MSG* p_data);
 extern void bta_dm_ble_set_bg_conn_type(tBTA_DM_MSG* p_data);
 extern void bta_dm_ble_set_conn_params(tBTA_DM_MSG* p_data);
-extern void bta_dm_ble_set_scan_params(tBTA_DM_MSG* p_data);
 extern void bta_dm_ble_set_conn_scan_params(tBTA_DM_MSG* p_data);
 extern void bta_dm_close_gatt_conn(tBTA_DM_MSG* p_data);
 extern void bta_dm_ble_observe(tBTA_DM_MSG* p_data);
@@ -932,17 +830,6 @@ extern void bta_dm_ble_set_adv_params(uint16_t adv_int_min,
 
 extern void bta_dm_ble_set_data_length(tBTA_DM_MSG* p_data);
 
-#if (BLE_ANDROID_CONTROLLER_SCAN_FILTER == TRUE)
-extern void bta_dm_cfg_filter_cond(tBTA_DM_MSG* p_data);
-extern void bta_dm_scan_filter_param_setup(tBTA_DM_MSG* p_data);
-extern void bta_dm_enable_scan_filter(tBTA_DM_MSG* p_data);
-#endif
-
-extern void bta_dm_ble_setup_storage(tBTA_DM_MSG* p_data);
-extern void bta_dm_ble_enable_batch_scan(tBTA_DM_MSG* p_data);
-extern void bta_dm_ble_disable_batch_scan(tBTA_DM_MSG* p_data);
-extern void bta_dm_ble_read_scan_reports(tBTA_DM_MSG* p_data);
-extern void bta_dm_ble_track_advertiser(tBTA_DM_MSG* p_data);
 extern void bta_dm_ble_get_energy_info(tBTA_DM_MSG* p_data);
 
 extern void bta_dm_set_encryption(tBTA_DM_MSG* p_data);

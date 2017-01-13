@@ -24,7 +24,7 @@
 
 #define LOG_TAG "bt_bta_av"
 
-#include <assert.h>
+#include <base/logging.h>
 #include <string.h>
 
 #include "bt_target.h"
@@ -183,9 +183,7 @@ const tBTA_AV_NSM_ACT bta_av_nsm_act[] = {
 /* AV control block */
 tBTA_AV_CB bta_av_cb;
 
-#if (BTA_AV_DEBUG == TRUE)
 static const char* bta_av_st_code(uint8_t state);
-#endif
 
 /*******************************************************************************
  *
@@ -341,12 +339,12 @@ void bta_av_conn_cback(UNUSED_ATTR uint8_t handle, BD_ADDR bd_addr,
 #endif
   {
     evt = BTA_AV_SIG_CHG_EVT;
-    if (AVDT_DISCONNECT_IND_EVT == event) p_scb = bta_av_addr_to_scb(bd_addr);
-#if (BTA_AV_DEBUG == TRUE)
-    else if (AVDT_CONNECT_IND_EVT == event) {
-      APPL_TRACE_DEBUG("CONN_IND is ACP:%d", p_data->hdr.err_param);
+    if (event == AVDT_DISCONNECT_IND_EVT) {
+      p_scb = bta_av_addr_to_scb(bd_addr);
+    } else if (event == AVDT_CONNECT_IND_EVT) {
+      APPL_TRACE_DEBUG("%s: CONN_IND is ACP:%d", __func__,
+                       p_data->hdr.err_param);
     }
-#endif
 
     tBTA_AV_STR_MSG* p_msg =
         (tBTA_AV_STR_MSG*)osi_malloc(sizeof(tBTA_AV_STR_MSG));
@@ -354,11 +352,9 @@ void bta_av_conn_cback(UNUSED_ATTR uint8_t handle, BD_ADDR bd_addr,
     p_msg->hdr.layer_specific = event;
     p_msg->hdr.offset = p_data->hdr.err_param;
     bdcpy(p_msg->bd_addr, bd_addr);
-#if (BTA_AV_DEBUG == TRUE)
     if (p_scb) {
       APPL_TRACE_DEBUG("scb hndl x%x, role x%x", p_scb->hndl, p_scb->role);
     }
-#endif
     APPL_TRACE_DEBUG("conn_cback bd_addr:%02x-%02x-%02x-%02x-%02x-%02x",
                      bd_addr[0], bd_addr[1], bd_addr[2], bd_addr[3], bd_addr[4],
                      bd_addr[5]);
@@ -514,10 +510,10 @@ static void bta_av_api_register(tBTA_AV_DATA* p_data) {
       cs.media_type = AVDT_MEDIA_TYPE_AUDIO;
       cs.mtu = p_bta_av_cfg->audio_mtu;
       cs.flush_to = L2CAP_DEFAULT_FLUSH_TO;
-      tA2DP_CODEC_SEP_INDEX codec_sep_index_min =
-          A2DP_CODEC_SEP_INDEX_SOURCE_MIN;
-      tA2DP_CODEC_SEP_INDEX codec_sep_index_max =
-          A2DP_CODEC_SEP_INDEX_SOURCE_MAX;
+      btav_a2dp_codec_index_t codec_index_min =
+          BTAV_A2DP_CODEC_INDEX_SOURCE_MIN;
+      btav_a2dp_codec_index_t codec_index_max =
+          BTAV_A2DP_CODEC_INDEX_SOURCE_MAX;
 
 #if (AVDT_REPORTING == TRUE)
       if (bta_av_cb.features & BTA_AV_FEAT_REPORT) {
@@ -530,44 +526,44 @@ static void bta_av_api_register(tBTA_AV_DATA* p_data) {
 
       if (profile_initialized == UUID_SERVCLASS_AUDIO_SOURCE) {
         cs.tsep = AVDT_TSEP_SRC;
-        codec_sep_index_min = A2DP_CODEC_SEP_INDEX_SOURCE_MIN;
-        codec_sep_index_max = A2DP_CODEC_SEP_INDEX_SOURCE_MAX;
+        codec_index_min = BTAV_A2DP_CODEC_INDEX_SOURCE_MIN;
+        codec_index_max = BTAV_A2DP_CODEC_INDEX_SOURCE_MAX;
       } else if (profile_initialized == UUID_SERVCLASS_AUDIO_SINK) {
         cs.tsep = AVDT_TSEP_SNK;
         cs.p_sink_data_cback = bta_av_sink_data_cback;
-        codec_sep_index_min = A2DP_CODEC_SEP_INDEX_SINK_MIN;
-        codec_sep_index_max = A2DP_CODEC_SEP_INDEX_SINK_MAX;
+        codec_index_min = BTAV_A2DP_CODEC_INDEX_SINK_MIN;
+        codec_index_max = BTAV_A2DP_CODEC_INDEX_SINK_MAX;
       }
 
       /* Initialize handles to zero */
-      for (int xx = 0; xx < A2DP_CODEC_SEP_INDEX_MAX; xx++) {
+      for (int xx = 0; xx < BTAV_A2DP_CODEC_INDEX_MAX; xx++) {
         p_scb->seps[xx].av_handle = 0;
       }
 
       /* keep the configuration in the stream control block */
       memcpy(&p_scb->cfg, &cs.cfg, sizeof(tAVDT_CFG));
-      for (int i = 0; i < A2DP_CODEC_SEP_INDEX_MAX; i++) {
-        tA2DP_CODEC_SEP_INDEX codec_sep_index =
-            static_cast<tA2DP_CODEC_SEP_INDEX>(i);
-        if (!(*bta_av_a2dp_cos.init)(codec_sep_index, &cs.cfg)) {
+      for (int i = codec_index_min; i < codec_index_max; i++) {
+        btav_a2dp_codec_index_t codec_index =
+            static_cast<btav_a2dp_codec_index_t>(i);
+        if (!(*bta_av_a2dp_cos.init)(codec_index, &cs.cfg)) {
           continue;
         }
-        if (AVDT_CreateStream(&p_scb->seps[codec_sep_index].av_handle, &cs) !=
+        if (AVDT_CreateStream(&p_scb->seps[codec_index].av_handle, &cs) !=
             AVDT_SUCCESS) {
           continue;
         }
         /* Save a copy of the codec */
-        memcpy(p_scb->seps[codec_sep_index].codec_info, cs.cfg.codec_info,
+        memcpy(p_scb->seps[codec_index].codec_info, cs.cfg.codec_info,
                AVDT_CODEC_SIZE);
-        p_scb->seps[codec_sep_index].tsep = cs.tsep;
+        p_scb->seps[codec_index].tsep = cs.tsep;
         if (cs.tsep == AVDT_TSEP_SNK) {
-          p_scb->seps[codec_sep_index].p_app_sink_data_cback =
+          p_scb->seps[codec_index].p_app_sink_data_cback =
               p_data->api_reg.p_app_sink_data_cback;
         } else {
           /* In case of A2DP SOURCE we don't need a callback to
            * handle media packets.
            */
-          p_scb->seps[codec_sep_index].p_app_sink_data_cback = NULL;
+          p_scb->seps[codec_index].p_app_sink_data_cback = NULL;
         }
       }
 
@@ -904,6 +900,7 @@ static void bta_av_sco_chg_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
         p_scb->sco_suspend = true;
         stop.flush = false;
         stop.suspend = true;
+        stop.reconfig_stop = false;
         bta_av_ssm_execute(p_scb, BTA_AV_AP_STOP_EVT, (tBTA_AV_DATA*)&stop);
       }
     }
@@ -1102,13 +1099,9 @@ void bta_av_sm_execute(tBTA_AV_CB* p_cb, uint16_t event, tBTA_AV_DATA* p_data) {
   tBTA_AV_ST_TBL state_table;
   uint8_t action;
 
-#if (BTA_AV_DEBUG == TRUE)
-  APPL_TRACE_EVENT("AV event=0x%x(%s) state=%d(%s)", event,
+  APPL_TRACE_EVENT("%s: AV event=0x%x(%s) state=%d(%s)", __func__, event,
                    bta_av_evt_code(event), p_cb->state,
                    bta_av_st_code(p_cb->state));
-#else
-  APPL_TRACE_EVENT("AV event=0x%x state=%d", event, p_cb->state);
-#endif
 
   /* look up the state table for the current state */
   state_table = bta_av_st_tbl[p_cb->state];
@@ -1120,7 +1113,8 @@ void bta_av_sm_execute(tBTA_AV_CB* p_cb, uint16_t event, tBTA_AV_DATA* p_data) {
   APPL_TRACE_EVENT("next state=%d event offset:%d", p_cb->state, event);
 
   /* execute action functions */
-  if ((action = state_table[event][BTA_AV_ACTION_COL]) != BTA_AV_IGNORE) {
+  action = state_table[event][BTA_AV_ACTION_COL];
+  if (action != BTA_AV_IGNORE) {
     APPL_TRACE_EVENT("%s action executed %d", __func__, action);
     (*bta_av_action[action])(p_cb, p_data);
   }
@@ -1137,27 +1131,19 @@ void bta_av_sm_execute(tBTA_AV_CB* p_cb, uint16_t event, tBTA_AV_DATA* p_data) {
  *
  ******************************************************************************/
 bool bta_av_hdl_event(BT_HDR* p_msg) {
-  uint16_t event = p_msg->event;
-  uint16_t first_event = BTA_AV_FIRST_NSM_EVT;
-
-  if (event > BTA_AV_LAST_EVT) {
+  if (p_msg->event > BTA_AV_LAST_EVT) {
     return true; /* to free p_msg */
   }
-
-  if (event >= first_event) {
-#if (BTA_AV_DEBUG == TRUE)
-    APPL_TRACE_VERBOSE("AV nsm event=0x%x(%s)", event, bta_av_evt_code(event));
-#else
-    APPL_TRACE_VERBOSE("AV nsm event=0x%x", event);
-#endif
+  if (p_msg->event >= BTA_AV_FIRST_NSM_EVT) {
+    APPL_TRACE_VERBOSE("%s: AV nsm event=0x%x(%s)", __func__, p_msg->event,
+                       bta_av_evt_code(p_msg->event));
     /* non state machine events */
-    (*bta_av_nsm_act[event - BTA_AV_FIRST_NSM_EVT])((tBTA_AV_DATA*)p_msg);
-  } else if (event >= BTA_AV_FIRST_SM_EVT && event <= BTA_AV_LAST_SM_EVT) {
-#if (BTA_AV_DEBUG == TRUE)
-    APPL_TRACE_VERBOSE("AV sm event=0x%x(%s)", event, bta_av_evt_code(event));
-#else
-    APPL_TRACE_VERBOSE("AV sm event=0x%x", event);
-#endif
+    (*bta_av_nsm_act[p_msg->event - BTA_AV_FIRST_NSM_EVT])(
+        (tBTA_AV_DATA*)p_msg);
+  } else if (p_msg->event >= BTA_AV_FIRST_SM_EVT &&
+             p_msg->event <= BTA_AV_LAST_SM_EVT) {
+    APPL_TRACE_VERBOSE("%s: AV sm event=0x%x(%s)", __func__, p_msg->event,
+                       bta_av_evt_code(p_msg->event));
     /* state machine events */
     bta_av_sm_execute(&bta_av_cb, p_msg->event, (tBTA_AV_DATA*)p_msg);
   } else {
@@ -1172,7 +1158,6 @@ bool bta_av_hdl_event(BT_HDR* p_msg) {
 /*****************************************************************************
  *  Debug Functions
  ****************************************************************************/
-#if (BTA_AV_DEBUG == TRUE)
 /*******************************************************************************
  *
  * Function         bta_av_st_code
@@ -1329,4 +1314,3 @@ const char* bta_av_evt_code(uint16_t evt_code) {
       return "unknown";
   }
 }
-#endif /* BTA_AV_DEBUG */

@@ -19,31 +19,23 @@
 #ifndef BT_UTILS_H
 #define BT_UTILS_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 static const char BT_UTILS_MODULE[] = "bt_utils_module";
 
 /*******************************************************************************
-**  Type definitions
-********************************************************************************/
+ *  Type definitions
+ ******************************************************************************/
 
 typedef enum {
-    TASK_HIGH_MEDIA = 0,
-    TASK_UIPC_READ,
-    TASK_HIGH_MAX
+  TASK_HIGH_MEDIA = 0,
+  TASK_UIPC_READ,
+  TASK_HIGH_MAX
 } tHIGH_PRIORITY_TASK;
 
 /*******************************************************************************
-**  Functions
-********************************************************************************/
+ *  Functions
+ ******************************************************************************/
 
 void raise_priority_a2dp(tHIGH_PRIORITY_TASK high_task);
 void adjust_priority_a2dp(int start);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* BT_UTILS_H */

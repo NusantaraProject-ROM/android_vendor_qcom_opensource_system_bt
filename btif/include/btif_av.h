@@ -23,7 +23,7 @@
  *  Description:   Main API header file for all BTIF AV functions accessed
  *                 from internal stack.
  *
- *******************************************************************************/
+ ******************************************************************************/
 
 #ifndef BTIF_AV_H
 #define BTIF_AV_H
@@ -34,7 +34,7 @@
 
 /*******************************************************************************
  *  Type definitions for callback functions
- *******************************************************************************/
+ ******************************************************************************/
 
 typedef enum {
   /* Reuse BTA_AV_XXX_EVT - No need to redefine them here */
@@ -43,6 +43,8 @@ typedef enum {
   BTIF_AV_START_STREAM_REQ_EVT,
   BTIF_AV_STOP_STREAM_REQ_EVT,
   BTIF_AV_SUSPEND_STREAM_REQ_EVT,
+  BTIF_AV_SOURCE_CONFIG_REQ_EVT,
+  BTIF_AV_SOURCE_CONFIG_UPDATED_EVT,
   BTIF_AV_SINK_CONFIG_REQ_EVT,
   BTIF_AV_OFFLOAD_START_REQ_EVT,
   BTIF_AV_CLEANUP_REQ_EVT,
@@ -50,7 +52,7 @@ typedef enum {
 
 /*******************************************************************************
  *  BTIF AV API
- *******************************************************************************/
+ ******************************************************************************/
 
 /*******************************************************************************
  *
@@ -171,7 +173,7 @@ bool btif_av_is_peer_edr(void);
  * Description      Clears remote suspended flag
  *
  * Returns          Void
- *******************************************************************************/
+ ******************************************************************************/
 void btif_av_clear_remote_suspend_flag(void);
 
 /*******************************************************************************

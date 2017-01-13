@@ -26,12 +26,13 @@
 
 #include <string.h>
 
+#include <base/bind.h>
+#include <base/callback.h>
 #include <list>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
-#include "bta_api.h"
 #include "bta_gatt_api.h"
 #include "bta_hh_co.h"
 #include "btm_api.h"
@@ -318,8 +319,6 @@ static const char* bta_hh_uuid_to_str(uint16_t uuid) {
  *
  ******************************************************************************/
 void bta_hh_le_enable(void) {
-  char app_name[LEN_UUID_128 + 1];
-  tBT_UUID app_uuid = {LEN_UUID_128, {0}};
   uint8_t xx;
 
   bta_hh_cb.gatt_if = BTA_GATTS_INVALID_IF;
@@ -327,36 +326,20 @@ void bta_hh_le_enable(void) {
   for (xx = 0; xx < BTA_HH_MAX_DEVICE; xx++)
     bta_hh_cb.le_cb_index[xx] = BTA_HH_IDX_INVALID;
 
-  memset(app_name, 0, LEN_UUID_128 + 1);
-  strncpy(app_name, "BTA HH OVER LE", LEN_UUID_128);
+  BTA_GATTC_AppRegister(bta_hh_gattc_callback,
+                        base::Bind([](uint8_t client_id, uint8_t r_status) {
+                          tBTA_HH_STATUS status = BTA_HH_ERR;
 
-  memcpy((void*)app_uuid.uu.uuid128, (void*)app_name, LEN_UUID_128);
+                          if (r_status == BTA_GATT_OK) {
+                            bta_hh_cb.gatt_if = client_id;
+                            status = BTA_HH_OK;
+                          } else
+                            bta_hh_cb.gatt_if = BTA_GATTS_INVALID_IF;
 
-  BTA_GATTC_AppRegister(&app_uuid, bta_hh_gattc_callback);
-
-  return;
-}
-
-/*******************************************************************************
- *
- * Function         bta_hh_le_register_cmpl
- *
- * Description      BTA HH register with BTA GATTC completed
- *
- * Parameters:
- *
- ******************************************************************************/
-void bta_hh_le_register_cmpl(tBTA_GATTC_REG* p_reg) {
-  tBTA_HH_STATUS status = BTA_HH_ERR;
-
-  if (p_reg->status == BTA_GATT_OK) {
-    bta_hh_cb.gatt_if = p_reg->client_if;
-    status = BTA_HH_OK;
-  } else
-    bta_hh_cb.gatt_if = BTA_GATTS_INVALID_IF;
-
-  /* signal BTA call back event */
-  (*bta_hh_cb.p_cback)(BTA_HH_ENABLE_EVT, (tBTA_HH*)&status);
+                          /* signal BTA call back event */
+                          (*bta_hh_cb.p_cback)(BTA_HH_ENABLE_EVT,
+                                               (tBTA_HH*)&status);
+                        }));
 }
 
 /*******************************************************************************
@@ -1459,10 +1442,10 @@ static void read_report_ref_desc_cb(uint16_t conn_id, tGATT_STATUS status,
       BTA_GATTC_GetDescriptor(conn_id, handle);
 
   tBTA_HH_LE_RPT* p_rpt;
-  if ((p_rpt = bta_hh_le_find_report_entry(
-           p_dev_cb, p_desc->characteristic->service->handle,
-           GATT_UUID_HID_REPORT, p_desc->characteristic->handle)))
-    bta_hh_le_save_report_ref(p_dev_cb, p_rpt, status, value, len);
+  p_rpt = bta_hh_le_find_report_entry(
+      p_dev_cb, p_desc->characteristic->service->handle, GATT_UUID_HID_REPORT,
+      p_desc->characteristic->handle);
+  if (p_rpt) bta_hh_le_save_report_ref(p_dev_cb, p_rpt, status, value, len);
 }
 
 void read_pref_conn_params_cb(uint16_t conn_id, tGATT_STATUS status,
@@ -1585,7 +1568,7 @@ static void bta_hh_le_search_hid_chars(tBTA_HH_DEV_CB* p_dev_cb,
     tBTA_GATTC_CHARACTERISTIC* p_char =
         (tBTA_GATTC_CHARACTERISTIC*)list_node(cn);
 
-    if (p_char->uuid.len != LEN_UUID_16 &&
+    if (p_char->uuid.len == LEN_UUID_16 &&
         p_char->uuid.uu.uuid16 == GATT_UUID_HID_PROTO_MODE) {
       p_dev_cb->hid_srvc.proto_mode_handle = p_char->handle;
       bta_hh_le_set_protocol_mode(p_dev_cb, p_dev_cb->mode);
@@ -2126,7 +2109,7 @@ static void bta_hh_le_add_dev_bg_conn(tBTA_HH_DEV_CB* p_cb, bool check_bond) {
     BTA_GATTC_Open(bta_hh_cb.gatt_if, p_cb->addr, false, BTA_GATT_TRANSPORT_LE);
     p_cb->in_bg_conn = true;
 
-    BTA_DmBleSetBgConnType(BTA_DM_BLE_CONN_AUTO, NULL);
+    BTA_DmBleStartAutoConn();
   }
   return;
 }
@@ -2202,10 +2185,6 @@ static void bta_hh_gattc_callback(tBTA_GATTC_EVT event, tBTA_GATTC* p_data) {
   if (p_data == NULL) return;
 
   switch (event) {
-    case BTA_GATTC_REG_EVT: /* 0 */
-      bta_hh_le_register_cmpl(&p_data->reg_oper);
-      break;
-
     case BTA_GATTC_DEREG_EVT: /* 1 */
       bta_hh_cleanup_disable(p_data->reg_oper.status);
       break;
@@ -2270,7 +2249,7 @@ void bta_hh_le_hid_read_rpt_clt_cfg(BD_ADDR bd_addr, uint8_t rpt_id) {
   uint8_t index = BTA_HH_IDX_INVALID;
 
   index = bta_hh_find_cb(bd_addr);
-  if ((index = bta_hh_find_cb(bd_addr)) == BTA_HH_IDX_INVALID) {
+  if (index == BTA_HH_IDX_INVALID) {
     APPL_TRACE_ERROR("%s: unknown device", __func__);
     return;
   }

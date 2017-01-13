@@ -32,7 +32,6 @@
 #include "osi/include/list.h"
 #include "stack/include/a2dp_api.h"
 
-#define BTA_AV_DEBUG TRUE
 /*****************************************************************************
  *  Constants
  ****************************************************************************/
@@ -158,7 +157,7 @@ enum {
  ****************************************************************************/
 
 /* function types for call-out functions */
-typedef bool (*tBTA_AV_CO_INIT)(tA2DP_CODEC_SEP_INDEX codec_sep_index,
+typedef bool (*tBTA_AV_CO_INIT)(btav_a2dp_codec_index_t codec_index,
                                 tAVDT_CFG* p_cfg);
 typedef void (*tBTA_AV_CO_DISC_RES)(tBTA_AV_HNDL hndl, uint8_t num_seps,
                                     uint8_t num_snk, uint8_t num_src,
@@ -171,11 +170,10 @@ typedef tA2DP_STATUS (*tBTA_AV_CO_GETCFG)(tBTA_AV_HNDL hndl,
 typedef void (*tBTA_AV_CO_SETCFG)(tBTA_AV_HNDL hndl,
                                   const uint8_t* p_codec_info, uint8_t seid,
                                   BD_ADDR addr, uint8_t num_protect,
-                                  uint8_t* p_protect_info, uint8_t t_local_sep,
-                                  uint8_t avdt_handle);
-typedef void (*tBTA_AV_CO_OPEN)(tBTA_AV_HNDL hndl, uint8_t* p_codec_info,
-                                uint16_t mtu);
-typedef void (*tBTA_AV_CO_CLOSE)(tBTA_AV_HNDL hndl, uint16_t mtu);
+                                  const uint8_t* p_protect_info,
+                                  uint8_t t_local_sep, uint8_t avdt_handle);
+typedef void (*tBTA_AV_CO_OPEN)(tBTA_AV_HNDL hndl, uint16_t mtu);
+typedef void (*tBTA_AV_CO_CLOSE)(tBTA_AV_HNDL hndl);
 typedef void (*tBTA_AV_CO_START)(tBTA_AV_HNDL hndl, uint8_t* p_codec_info,
                                  bool* p_no_rtp_hdr);
 typedef void (*tBTA_AV_CO_STOP)(tBTA_AV_HNDL hndl);
@@ -236,6 +234,7 @@ typedef struct {
   BT_HDR hdr;
   bool suspend;
   bool flush;
+  bool reconfig_stop;  // True if the stream is stopped for reconfiguration
 } tBTA_AV_API_STOP;
 
 /* data type for BTA_AV_API_DISCONNECT_EVT */
@@ -445,7 +444,7 @@ typedef struct {
   const tBTA_AV_ACT* p_act_tbl; /* the action table for stream state machine */
   const tBTA_AV_CO_FUNCTS* p_cos; /* the associated callout functions */
   bool sdp_discovery_started; /* variable to determine whether SDP is started */
-  tBTA_AV_SEP seps[A2DP_CODEC_SEP_INDEX_MAX];
+  tBTA_AV_SEP seps[BTAV_A2DP_CODEC_INDEX_MAX];
   tAVDT_CFG* p_cap;  /* buffer used for get capabilities */
   list_t* a2dp_list; /* used for audio channels only */
   tBTA_AV_Q_INFO q_info;
@@ -613,9 +612,7 @@ extern void bta_av_sm_execute(tBTA_AV_CB* p_cb, uint16_t event,
 extern void bta_av_ssm_execute(tBTA_AV_SCB* p_scb, uint16_t event,
                                tBTA_AV_DATA* p_data);
 extern bool bta_av_hdl_event(BT_HDR* p_msg);
-#if (BTA_AV_DEBUG == TRUE)
 extern const char* bta_av_evt_code(uint16_t evt_code);
-#endif
 extern bool bta_av_switch_if_needed(tBTA_AV_SCB* p_scb);
 extern bool bta_av_link_role_ok(tBTA_AV_SCB* p_scb, uint8_t bits);
 extern bool bta_av_is_rcfg_sst(tBTA_AV_SCB* p_scb);

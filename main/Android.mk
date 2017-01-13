@@ -6,20 +6,6 @@ include $(CLEAR_VARS)
 
 LOCAL_CPP_EXTENSION := .cc
 
-#
-# Workaround for libchrome and -DNDEBUG usage.
-#
-# Test whether the original TARGET_GLOBAL_CFLAGS contains -DNDEBUG.
-# This is needed as a workaround to make sure that
-# libchrome and local files calling logging::InitLogging()
-# are consistent with the usage of -DNDEBUG .
-# ========================================================
-ifneq (,$(findstring NDEBUG,$(TARGET_GLOBAL_CFLAGS)))
-  btmain_orig_TARGET_NDEBUG := -DBT_LIBCHROME_NDEBUG
-else
-  btmain_orig_TARGET_NDEBUG :=
-endif
-
 # platform specific
 LOCAL_SRC_FILES := \
     bte_conf.cc \
@@ -28,17 +14,6 @@ LOCAL_SRC_FILES := \
     bte_logmsg.cc \
     bte_main.cc \
     stack_config.cc
-
-# sbc encoder
-LOCAL_SRC_FILES += \
-    ../embdrv/sbc/encoder/srce/sbc_analysis.c \
-    ../embdrv/sbc/encoder/srce/sbc_dct.c \
-    ../embdrv/sbc/encoder/srce/sbc_dct_coeffs.c \
-    ../embdrv/sbc/encoder/srce/sbc_enc_bit_alloc_mono.c \
-    ../embdrv/sbc/encoder/srce/sbc_enc_bit_alloc_ste.c \
-    ../embdrv/sbc/encoder/srce/sbc_enc_coeffs.c \
-    ../embdrv/sbc/encoder/srce/sbc_encoder.c \
-    ../embdrv/sbc/encoder/srce/sbc_packing.c \
 
 LOCAL_SRC_FILES += \
     ../udrv/ulinux/uipc.cc
@@ -55,15 +30,11 @@ LOCAL_C_INCLUDES := . \
     $(LOCAL_PATH)/../stack/a2dp \
     $(LOCAL_PATH)/../stack/btm \
     $(LOCAL_PATH)/../stack/avdt \
-    $(LOCAL_PATH)/../hcis \
-    $(LOCAL_PATH)/../hcis/include \
-    $(LOCAL_PATH)/../hcis/patchram \
     $(LOCAL_PATH)/../udrv/include \
     $(LOCAL_PATH)/../btif/include \
     $(LOCAL_PATH)/../btif/co \
     $(LOCAL_PATH)/../hci/include\
     $(LOCAL_PATH)/../vnd/include \
-    $(LOCAL_PATH)/../brcm/include \
     $(LOCAL_PATH)/../embdrv/sbc/encoder/include \
     $(LOCAL_PATH)/../embdrv/sbc/decoder/include \
     $(LOCAL_PATH)/../audio_a2dp_hw \
@@ -77,15 +48,15 @@ LOCAL_SHARED_LIBRARIES := \
     libdl \
     liblog \
     libz \
-    libpower \
     libprotobuf-cpp-lite \
     libaudioclient \
     libutils \
-    libchrome
+    libchrome \
+    libtinyxml2
 
 LOCAL_STATIC_LIBRARIES := \
-    libtinyxml2 \
-    libbt-qcom_sbc_decoder
+    libbt-sbc-decoder \
+    libbt-sbc-encoder
 
 LOCAL_WHOLE_STATIC_LIBRARIES := \
     libbt-bta \
@@ -118,7 +89,7 @@ LOCAL_REQUIRED_MODULES := \
     libbt-hci \
     libbt-vendor
 
-LOCAL_CFLAGS += $(bluetooth_CFLAGS) -DBUILDCFG $(btmain_orig_TARGET_NDEBUG)
+LOCAL_CFLAGS += $(bluetooth_CFLAGS) -DBUILDCFG
 LOCAL_CONLYFLAGS += $(bluetooth_CONLYFLAGS)
 LOCAL_CPPFLAGS += $(bluetooth_CPPFLAGS)
 

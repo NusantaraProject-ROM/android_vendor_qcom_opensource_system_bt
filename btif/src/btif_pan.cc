@@ -16,18 +16,18 @@
  *
  ******************************************************************************/
 
-/************************************************************************************
+/*******************************************************************************
  *
  *  Filename:      btif_pan.c
  *
  *  Description:   PAN Profile Bluetooth Interface
  *
  *
- ***********************************************************************************/
+ ******************************************************************************/
 
 #define LOG_TAG "bt_btif_pan"
 
-#include <assert.h>
+#include <base/logging.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -122,7 +122,7 @@ btpan_interface_t* btif_pan_get_interface() { return &pan_if; }
  **
  ** Returns         bt_status_t
  **
- *******************************************************************************/
+ ******************************************************************************/
 void btif_pan_init() {
   BTIF_TRACE_DEBUG("jni_initialized = %d, btpan_cb.enabled:%d", jni_initialized,
                    btpan_cb.enabled);
@@ -380,7 +380,8 @@ int btpan_tap_open() {
 
   /* open the clone device */
 
-  if ((fd = open(clonedev, O_RDWR)) < 0) {
+  fd = open(clonedev, O_RDWR);
+  if (fd < 0) {
     BTIF_TRACE_DEBUG("could not open %s, err:%d", clonedev, errno);
     return fd;
   }
@@ -391,7 +392,8 @@ int btpan_tap_open() {
   strncpy(ifr.ifr_name, TAP_IF_NAME, IFNAMSIZ);
 
   /* try to create the device */
-  if ((err = ioctl(fd, TUNSETIFF, (void*)&ifr)) < 0) {
+  err = ioctl(fd, TUNSETIFF, (void*)&ifr);
+  if (err < 0) {
     BTIF_TRACE_DEBUG("ioctl error:%d, errno:%s", err, strerror(errno));
     close(fd);
     return err;
@@ -765,7 +767,7 @@ static void btif_pan_close_all_conns() {
 
 static void btpan_tap_fd_signaled(int fd, int type, int flags,
                                   uint32_t user_id) {
-  assert(btpan_cb.tap_fd == INVALID_FD || btpan_cb.tap_fd == fd);
+  CHECK(btpan_cb.tap_fd == INVALID_FD || btpan_cb.tap_fd == fd);
 
   if (btpan_cb.tap_fd != fd) {
     BTIF_TRACE_WARNING("%s Signaled on mismatched fds exp:%d act:%d\n",

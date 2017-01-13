@@ -325,7 +325,8 @@ bool bta_gattc_sm_execute(tBTA_GATTC_CLCB* p_clcb, uint16_t event,
 
   /* execute action functions */
   for (i = 0; i < BTA_GATTC_ACTIONS; i++) {
-    if ((action = state_table[event][i]) != BTA_GATTC_IGNORE) {
+    action = state_table[event][i];
+    if (action != BTA_GATTC_IGNORE) {
       (*bta_gattc_action[action])(p_clcb, p_data);
       if (p_clcb->p_q_cmd == p_data) {
         /* buffer is queued, don't free in the bta dispatcher.
@@ -369,10 +370,6 @@ bool bta_gattc_hdl_event(BT_HDR* p_msg) {
   switch (p_msg->event) {
     case BTA_GATTC_API_DISABLE_EVT:
       bta_gattc_disable();
-      break;
-
-    case BTA_GATTC_API_REG_EVT:
-      bta_gattc_register((tBTA_GATTC_DATA*)p_msg);
       break;
 
     case BTA_GATTC_INT_START_IF_EVT:
@@ -472,8 +469,6 @@ static char* gattc_evt_code(tBTA_GATTC_INT_EVT evt_code) {
       return "BTA_GATTC_INT_DISCONN_EVT";
     case BTA_GATTC_INT_START_IF_EVT:
       return "BTA_GATTC_INT_START_IF_EVT";
-    case BTA_GATTC_API_REG_EVT:
-      return "BTA_GATTC_API_REG_EVT";
     case BTA_GATTC_API_DEREG_EVT:
       return "BTA_GATTC_API_DEREG_EVT";
     case BTA_GATTC_API_REFRESH_EVT:

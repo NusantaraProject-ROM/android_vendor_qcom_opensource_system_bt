@@ -25,7 +25,9 @@
 
 #define LOG_TAG "bt_bta_dm"
 
-#include <assert.h>
+#include <base/bind.h>
+#include <base/callback.h>
+#include <base/logging.h>
 #include <string.h>
 
 #include "bt_common.h"
@@ -432,6 +434,11 @@ static void bta_dm_sys_hw_cback(tBTA_SYS_HW_EVT status) {
 
 #if (BLE_VND_INCLUDED == TRUE)
     BTM_BleReadControllerFeatures(bta_dm_ctrl_features_rd_cmpl_cback);
+#else
+    /* If VSC multi adv commands are available, advertising will be initialized
+     * when capabilities are read. If they are not avaliable, initialize
+     * advertising here */
+    btm_ble_adv_init();
 #endif
 
     /* Earlier, we used to invoke BTM_ReadLocalAddr which was just copying the
@@ -1400,7 +1407,8 @@ void bta_dm_inq_cmpl(tBTA_DM_MSG* p_data) {
   data.inq_cmpl.num_resps = p_data->inq_cmpl.num;
   bta_dm_search_cb.p_search_cback(BTA_DM_INQ_CMPL_EVT, &data);
 
-  if ((bta_dm_search_cb.p_btm_inq_info = BTM_InqDbFirst()) != NULL) {
+  bta_dm_search_cb.p_btm_inq_info = BTM_InqDbFirst();
+  if (bta_dm_search_cb.p_btm_inq_info != NULL) {
     /* start name and service discovery from the first device on inquiry result
      */
     bta_dm_search_cb.name_discover_done = false;
@@ -2030,8 +2038,9 @@ static void bta_dm_discover_next_device(void) {
   APPL_TRACE_DEBUG("bta_dm_discover_next_device");
 
   /* searching next device on inquiry result */
-  if ((bta_dm_search_cb.p_btm_inq_info =
-           BTM_InqDbNext(bta_dm_search_cb.p_btm_inq_info)) != NULL) {
+  bta_dm_search_cb.p_btm_inq_info =
+      BTM_InqDbNext(bta_dm_search_cb.p_btm_inq_info);
+  if (bta_dm_search_cb.p_btm_inq_info != NULL) {
     bta_dm_search_cb.name_discover_done = false;
     bta_dm_search_cb.peer_name[0] = 0;
     bta_dm_discover_device(
@@ -2229,7 +2238,8 @@ static void bta_dm_inq_results_cb(tBTM_INQ_RESULTS* p_inq, uint8_t* p_eir) {
   /* application will parse EIR to find out remote device name */
   result.inq_res.p_eir = p_eir;
 
-  if ((p_inq_info = BTM_InqDbRead(p_inq->remote_bd_addr)) != NULL) {
+  p_inq_info = BTM_InqDbRead(p_inq->remote_bd_addr);
+  if (p_inq_info != NULL) {
     /* initialize remt_name_not_required to false so that we get the name by
      * default */
     result.inq_res.remt_name_not_required = false;
@@ -3344,9 +3354,10 @@ static char* bta_dm_get_remname(void) {
   char* p_temp;
 
   /* If the name isn't already stored, try retrieving from BTM */
-  if (*p_name == '\0')
-    if ((p_temp = BTM_SecReadDevName(bta_dm_search_cb.peer_bdaddr)) != NULL)
-      p_name = p_temp;
+  if (*p_name == '\0') {
+    p_temp = BTM_SecReadDevName(bta_dm_search_cb.peer_bdaddr);
+    if (p_temp != NULL) p_name = p_temp;
+  }
 
   return p_name;
 }
@@ -3385,8 +3396,8 @@ static void bta_dm_bond_cancel_complete_cback(tBTM_STATUS result) {
  *
  ******************************************************************************/
 static size_t find_utf8_char_boundary(const char* utf8str, size_t offset) {
-  assert(utf8str);
-  assert(offset > 0);
+  CHECK(utf8str);
+  CHECK(offset > 0);
 
   while (--offset) {
     uint8_t ch = (uint8_t)utf8str[offset];
@@ -3891,6 +3902,22 @@ void bta_dm_set_encryption(tBTA_DM_MSG* p_data) {
   }
 }
 
+bool bta_dm_check_if_only_hd_connected(BD_ADDR peer_addr) {
+  APPL_TRACE_DEBUG("%s: count(%d)", __func__, bta_dm_conn_srvcs.count);
+
+  for (uint8_t j = 0; j < bta_dm_conn_srvcs.count; j++) {
+    // Check if profiles other than hid are connected
+    if ((bta_dm_conn_srvcs.conn_srvc[j].id != BTA_ID_HD) &&
+        !bdcmp(bta_dm_conn_srvcs.conn_srvc[j].peer_bdaddr, peer_addr)) {
+      APPL_TRACE_DEBUG("%s: Another profile (id=%d) is connected", __func__,
+                       bta_dm_conn_srvcs.conn_srvc[j].id);
+      return FALSE;
+    }
+  }
+
+  return TRUE;
+}
+
 /*******************************************************************************
  *
  * Function         bta_dm_observe_results_cb
@@ -3917,7 +3944,8 @@ static void bta_dm_observe_results_cb(tBTM_INQ_RESULTS* p_inq, uint8_t* p_eir) {
   /* application will parse EIR to find out remote device name */
   result.inq_res.p_eir = p_eir;
 
-  if ((p_inq_info = BTM_InqDbRead(p_inq->remote_bd_addr)) != NULL) {
+  p_inq_info = BTM_InqDbRead(p_inq->remote_bd_addr);
+  if (p_inq_info != NULL) {
     /* initialize remt_name_not_required to false so that we get the name by
      * default */
     result.inq_res.remt_name_not_required = false;
@@ -4221,8 +4249,7 @@ void bta_dm_security_grant(tBTA_DM_MSG* p_data) {
  *
  ******************************************************************************/
 void bta_dm_ble_set_bg_conn_type(tBTA_DM_MSG* p_data) {
-  BTM_BleSetBgConnType(p_data->ble_set_bd_conn_type.bg_conn_type,
-                       p_data->ble_set_bd_conn_type.p_select_cback);
+  BTM_BleStartAutoConn();
 }
 
 /*******************************************************************************
@@ -4240,23 +4267,6 @@ void bta_dm_ble_set_conn_params(tBTA_DM_MSG* p_data) {
                            p_data->ble_set_conn_params.conn_int_max,
                            p_data->ble_set_conn_params.slave_latency,
                            p_data->ble_set_conn_params.supervision_tout);
-}
-
-/*******************************************************************************
- *
- * Function         bta_dm_ble_set_conn_scan_params
- *
- * Description      This function sets BLE scan parameters.
- *
- * Parameters:
- *
- ******************************************************************************/
-void bta_dm_ble_set_scan_params(tBTA_DM_MSG* p_data) {
-  BTM_BleSetScanParams(p_data->ble_set_scan_params.client_if,
-                       p_data->ble_set_scan_params.scan_int,
-                       p_data->ble_set_scan_params.scan_window,
-                       p_data->ble_set_scan_params.scan_mode,
-                       p_data->ble_set_scan_params.scan_param_setup_cback);
 }
 
 /*******************************************************************************
@@ -4320,9 +4330,9 @@ void bta_dm_ble_observe(tBTA_DM_MSG* p_data) {
   if (p_data->ble_observe.start) {
     /*Save the  callback to be called when a scan results are available */
     bta_dm_search_cb.p_scan_cback = p_data->ble_observe.p_cback;
-    if ((status = BTM_BleObserve(true, p_data->ble_observe.duration,
-                                 bta_dm_observe_results_cb,
-                                 bta_dm_observe_cmpl_cb)) != BTM_CMD_STARTED) {
+    status = BTM_BleObserve(true, p_data->ble_observe.duration,
+                            bta_dm_observe_results_cb, bta_dm_observe_cmpl_cb);
+    if (status != BTM_CMD_STARTED) {
       tBTA_DM_SEARCH data;
       APPL_TRACE_WARNING(" %s BTM_BleObserve  failed. status %d", __func__,
                          status);
@@ -4367,324 +4377,6 @@ void bta_dm_ble_set_data_length(tBTA_DM_MSG* p_data) {
     APPL_TRACE_ERROR("%s failed", __func__);
   }
 }
-
-/*******************************************************************************
- *
- * Function         bta_dm_ble_setup_storage
- *
- * Description      This function configures up the storage parameters for ADV
- *                  batch scanning
- *
- * Parameters:
- *
- ******************************************************************************/
-void bta_dm_ble_setup_storage(tBTA_DM_MSG* p_data) {
-  tBTM_STATUS btm_status = 0;
-  tBTM_BLE_VSC_CB cmn_ble_vsc_cb;
-
-  BTM_BleGetVendorCapabilities(&cmn_ble_vsc_cb);
-
-  if (0 != cmn_ble_vsc_cb.tot_scan_results_strg) {
-    btm_status = BTM_BleSetStorageConfig(
-        p_data->ble_set_storage.batch_scan_full_max,
-        p_data->ble_set_storage.batch_scan_trunc_max,
-        p_data->ble_set_storage.batch_scan_notify_threshold,
-        p_data->ble_set_storage.p_setup_cback,
-        p_data->ble_set_storage.p_thres_cback,
-        p_data->ble_set_storage.p_read_rep_cback,
-        p_data->ble_set_storage.ref_value);
-  }
-
-  if (BTM_CMD_STARTED != btm_status)
-    bta_ble_scan_setup_cb(BTM_BLE_BATCH_SCAN_CFG_STRG_EVT,
-                          p_data->ble_set_storage.ref_value, btm_status);
-}
-
-/*******************************************************************************
- *
- * Function         bta_dm_ble_enable_batch_scan
- *
- * Description      This function sets up the parameters and enables batch scan
- *
- * Parameters:
- *
- ******************************************************************************/
-void bta_dm_ble_enable_batch_scan(tBTA_DM_MSG* p_data) {
-  tBTM_STATUS btm_status = 0;
-  tBTM_BLE_VSC_CB cmn_ble_vsc_cb;
-
-  BTM_BleGetVendorCapabilities(&cmn_ble_vsc_cb);
-
-  if (0 != cmn_ble_vsc_cb.tot_scan_results_strg) {
-    btm_status = BTM_BleEnableBatchScan(
-        p_data->ble_enable_scan.scan_mode, p_data->ble_enable_scan.scan_int,
-        p_data->ble_enable_scan.scan_window,
-        p_data->ble_enable_scan.discard_rule, p_data->ble_enable_scan.addr_type,
-        p_data->ble_enable_scan.ref_value);
-  }
-
-  if (BTM_CMD_STARTED != btm_status)
-    bta_ble_scan_setup_cb(BTM_BLE_BATCH_SCAN_ENABLE_EVT,
-                          p_data->ble_enable_scan.ref_value, btm_status);
-}
-
-/*******************************************************************************
- *
- * Function         bta_dm_ble_disable_batch_scan
- *
- * Description      This function disables the batch scan
- *
- * Parameters:
- *
- ******************************************************************************/
-void bta_dm_ble_disable_batch_scan(UNUSED_ATTR tBTA_DM_MSG* p_data) {
-  tBTM_STATUS btm_status = 0;
-  tBTM_BLE_VSC_CB cmn_ble_vsc_cb;
-
-  BTM_BleGetVendorCapabilities(&cmn_ble_vsc_cb);
-
-  if (0 != cmn_ble_vsc_cb.tot_scan_results_strg) {
-    btm_status = BTM_BleDisableBatchScan(p_data->ble_disable_scan.ref_value);
-  }
-
-  if (BTM_CMD_STARTED != btm_status)
-    bta_ble_scan_setup_cb(BTM_BLE_BATCH_SCAN_DISABLE_EVT,
-                          p_data->ble_enable_scan.ref_value, btm_status);
-}
-
-/*******************************************************************************
- *
- * Function         bta_dm_ble_read_scan_reports
- *
- * Description      This function reads the batch scan reports
- *
- * Parameters:
- *
- ******************************************************************************/
-void bta_dm_ble_read_scan_reports(tBTA_DM_MSG* p_data) {
-  tBTM_STATUS btm_status = 0;
-  tBTM_BLE_VSC_CB cmn_ble_vsc_cb;
-
-  BTM_BleGetVendorCapabilities(&cmn_ble_vsc_cb);
-
-  if (0 != cmn_ble_vsc_cb.tot_scan_results_strg) {
-    btm_status = BTM_BleReadScanReports(p_data->ble_read_reports.scan_type,
-                                        p_data->ble_read_reports.ref_value);
-  }
-
-  if (BTM_CMD_STARTED != btm_status)
-    bta_ble_scan_setup_cb(BTM_BLE_BATCH_SCAN_READ_REPTS_EVT,
-                          p_data->ble_enable_scan.ref_value, btm_status);
-}
-
-/*******************************************************************************
- *
- * Function         bta_dm_ble_track_advertiser
- *
- * Description      This function tracks the specific advertiser
- *
- * Parameters:
- *
- ******************************************************************************/
-void bta_dm_ble_track_advertiser(tBTA_DM_MSG* p_data) {
-  tBTM_STATUS btm_status = 0;
-  BD_ADDR bda;
-  memset(&bda, 0, sizeof(BD_ADDR));
-  tBTM_BLE_VSC_CB cmn_ble_vsc_cb;
-  tBTA_DM_BLE_TRACK_ADV_DATA track_adv_data;
-
-  BTM_BleGetVendorCapabilities(&cmn_ble_vsc_cb);
-
-  if (0 != cmn_ble_vsc_cb.tot_scan_results_strg) {
-    btm_status = BTM_BleTrackAdvertiser(
-        (tBTM_BLE_TRACK_ADV_CBACK*)p_data->ble_track_advert.p_track_adv_cback,
-        p_data->ble_track_advert.ref_value);
-  }
-
-  if (BTM_CMD_STARTED != btm_status) {
-    memset(&track_adv_data, 0, sizeof(tBTA_DM_BLE_TRACK_ADV_DATA));
-    track_adv_data.advertiser_info_present =
-        NO_ADV_INFO_PRESENT; /* Indicates failure */
-    track_adv_data.client_if = (uint8_t)p_data->ble_track_advert.ref_value;
-    p_data->ble_track_advert.p_track_adv_cback(&track_adv_data);
-  }
-}
-
-/*******************************************************************************
- *
- * Function         bta_ble_scan_setup_cb
- *
- * Description      Handle the setup callback from BTM layer and forward it to
- *                  app layer
- *
- * Parameters:
- *
- ******************************************************************************/
-void bta_ble_scan_setup_cb(tBTM_BLE_BATCH_SCAN_EVT evt,
-                           tBTM_BLE_REF_VALUE ref_value, tBTM_STATUS status) {
-  tBTA_BLE_BATCH_SCAN_EVT bta_evt = 0;
-
-  APPL_TRACE_DEBUG("bta_ble_scan_setup_cb : evt: %d, ref_value: %d, status:%d",
-                   evt, ref_value, status);
-
-  switch (evt) {
-    case BTM_BLE_BATCH_SCAN_ENABLE_EVT:
-      bta_evt = BTA_BLE_BATCH_SCAN_ENB_EVT;
-      break;
-    case BTM_BLE_BATCH_SCAN_CFG_STRG_EVT:
-      bta_evt = BTA_BLE_BATCH_SCAN_CFG_STRG_EVT;
-      break;
-    case BTM_BLE_BATCH_SCAN_DISABLE_EVT:
-      bta_evt = BTA_BLE_BATCH_SCAN_DIS_EVT;
-      break;
-    case BTM_BLE_BATCH_SCAN_PARAM_EVT:
-      bta_evt = BTA_BLE_BATCH_SCAN_PARAM_EVT;
-      break;
-    default:
-      break;
-  }
-
-  if (NULL != bta_dm_cb.p_setup_cback)
-    bta_dm_cb.p_setup_cback(bta_evt, ref_value, status);
-}
-
-#if (BLE_ANDROID_CONTROLLER_SCAN_FILTER == TRUE)
-/*******************************************************************************
- *
- * Function         bta_ble_scan_pf_cmpl
- *
- * Description      ADV payload filtering operation complete callback
- *
- *
- * Returns         true if handled, otherwise false.
- *
- ******************************************************************************/
-static void bta_ble_scan_cfg_cmpl(tBTM_BLE_PF_ACTION action,
-                                  tBTM_BLE_SCAN_COND_OP cfg_op,
-                                  tBTM_BLE_PF_AVBL_SPACE avbl_space,
-                                  tBTM_STATUS status,
-                                  tBTM_BLE_REF_VALUE ref_value) {
-  tBTA_STATUS st = (status == BTM_SUCCESS) ? BTA_SUCCESS : BTA_FAILURE;
-
-  APPL_TRACE_DEBUG("bta_ble_scan_cfg_cmpl: %d, %d, %d, %d", action, cfg_op,
-                   avbl_space, status);
-
-  if (bta_dm_cb.p_scan_filt_cfg_cback)
-    bta_dm_cb.p_scan_filt_cfg_cback(action, cfg_op, avbl_space, st, ref_value);
-}
-
-/*******************************************************************************
- *
- * Function         bta_dm_cfg_filter_cond
- *
- * Description      This function configure adv payload filtering condition
- *
- * Parameters:
- *
- ******************************************************************************/
-void bta_dm_cfg_filter_cond(tBTA_DM_MSG* p_data) {
-  tBTM_STATUS st = BTM_MODE_UNSUPPORTED;
-  tBTA_STATUS status = BTA_FAILURE;
-
-  tBTM_BLE_VSC_CB cmn_vsc_cb;
-
-  APPL_TRACE_DEBUG("bta_dm_cfg_filter_cond");
-  BTM_BleGetVendorCapabilities(&cmn_vsc_cb);
-  if (0 != cmn_vsc_cb.filter_support) {
-    if ((st = BTM_BleCfgFilterCondition(
-             p_data->ble_cfg_filter_cond.action,
-             p_data->ble_cfg_filter_cond.cond_type,
-             (tBTM_BLE_PF_FILT_INDEX)p_data->ble_cfg_filter_cond.filt_index,
-             (tBTM_BLE_PF_COND_PARAM*)p_data->ble_cfg_filter_cond.p_cond_param,
-             bta_ble_scan_cfg_cmpl, p_data->ble_cfg_filter_cond.ref_value)) ==
-        BTM_CMD_STARTED) {
-      bta_dm_cb.p_scan_filt_cfg_cback =
-          p_data->ble_cfg_filter_cond.p_filt_cfg_cback;
-      return;
-    }
-  }
-
-  if (p_data->ble_cfg_filter_cond.p_filt_cfg_cback)
-    p_data->ble_cfg_filter_cond.p_filt_cfg_cback(
-        BTA_DM_BLE_PF_CONFIG_EVT, p_data->ble_cfg_filter_cond.cond_type, 0,
-        status, p_data->ble_cfg_filter_cond.ref_value);
-  return;
-}
-
-/*******************************************************************************
- *
- * Function         bta_dm_enable_scan_filter
- *
- * Description      This function enable/disable adv payload filtering condition
- *
- * Parameters:
- *
- ******************************************************************************/
-void bta_dm_enable_scan_filter(tBTA_DM_MSG* p_data) {
-  tBTM_STATUS st = BTM_MODE_UNSUPPORTED;
-  tBTA_STATUS status = BTA_FAILURE;
-
-  tBTM_BLE_VSC_CB cmn_vsc_cb;
-  APPL_TRACE_DEBUG("bta_dm_enable_scan_filter");
-  BTM_BleGetVendorCapabilities(&cmn_vsc_cb);
-
-  if (0 != cmn_vsc_cb.filter_support) {
-    if ((st = BTM_BleEnableDisableFilterFeature(
-             p_data->ble_enable_scan_filt.action,
-             p_data->ble_enable_scan_filt.p_filt_status_cback,
-             (tBTM_BLE_REF_VALUE)p_data->ble_enable_scan_filt.ref_value)) ==
-        BTM_CMD_STARTED)
-      bta_dm_cb.p_scan_filt_status_cback =
-          p_data->ble_enable_scan_filt.p_filt_status_cback;
-    return;
-  }
-
-  if (p_data->ble_enable_scan_filt.p_filt_status_cback)
-    p_data->ble_enable_scan_filt.p_filt_status_cback(
-        BTA_DM_BLE_PF_ENABLE_EVT, p_data->ble_enable_scan_filt.ref_value,
-        status);
-}
-
-/*******************************************************************************
- *
- * Function         bta_dm_scan_filter_param_setup
- *
- * Description      This function sets up scan filter params
- *
- * Parameters:
- *
- ******************************************************************************/
-void bta_dm_scan_filter_param_setup(tBTA_DM_MSG* p_data) {
-  tBTM_STATUS st = BTM_MODE_UNSUPPORTED;
-  tBTA_STATUS status = BTA_FAILURE;
-
-  tBTM_BLE_VSC_CB cmn_vsc_cb;
-
-  APPL_TRACE_DEBUG("bta_dm_scan_filter_param_setup");
-  BTM_BleGetVendorCapabilities(&cmn_vsc_cb);
-  if (0 != cmn_vsc_cb.filter_support) {
-    if ((st = BTM_BleAdvFilterParamSetup(
-             p_data->ble_scan_filt_param_setup.action,
-             p_data->ble_scan_filt_param_setup.filt_index,
-             (tBTM_BLE_PF_FILT_PARAMS*)&p_data->ble_scan_filt_param_setup
-                 .filt_params,
-             p_data->ble_scan_filt_param_setup.p_target,
-             p_data->ble_scan_filt_param_setup.p_filt_param_cback,
-             p_data->ble_scan_filt_param_setup.ref_value)) == BTM_CMD_STARTED) {
-      bta_dm_cb.p_scan_filt_param_cback =
-          p_data->ble_scan_filt_param_setup.p_filt_param_cback;
-      return;
-    }
-  }
-
-  if (p_data->ble_scan_filt_param_setup.p_filt_param_cback)
-    p_data->ble_scan_filt_param_setup.p_filt_param_cback(
-        BTA_DM_BLE_PF_ENABLE_EVT, 0,
-        p_data->ble_scan_filt_param_setup.ref_value, status);
-
-  return;
-}
-#endif
 
 /*******************************************************************************
  *
@@ -4744,11 +4436,15 @@ void bta_dm_ble_get_energy_info(tBTA_DM_MSG* p_data) {
  *
  ******************************************************************************/
 static void bta_dm_gattc_register(void) {
-  tBT_UUID app_uuid = {LEN_UUID_128, {0}};
-
   if (bta_dm_search_cb.client_if == BTA_GATTS_INVALID_IF) {
-    memset(&app_uuid.uu.uuid128, 0x87, LEN_UUID_128);
-    BTA_GATTC_AppRegister(&app_uuid, bta_dm_gattc_callback);
+    BTA_GATTC_AppRegister(bta_dm_gattc_callback,
+                          base::Bind([](uint8_t client_id, uint8_t status) {
+                            if (status == BTA_GATT_OK)
+                              bta_dm_search_cb.client_if = client_id;
+                            else
+                              bta_dm_search_cb.client_if = BTA_GATTS_INVALID_IF;
+
+                          }));
   }
 }
 
@@ -4895,7 +4591,8 @@ static void bta_dm_gatt_disc_complete(uint16_t conn_id,
  *
  * Function         bta_dm_close_gatt_conn
  *
- * Description      This function close the GATT connection after delay timeout.
+ * Description      This function close the GATT connection after delay
+ *timeout.
  *
  * Parameters:
  *
@@ -4999,15 +4696,6 @@ static void bta_dm_gattc_callback(tBTA_GATTC_EVT event, tBTA_GATTC* p_data) {
   APPL_TRACE_DEBUG("bta_dm_gattc_callback event = %d", event);
 
   switch (event) {
-    case BTA_GATTC_REG_EVT:
-      APPL_TRACE_DEBUG("BTA_GATTC_REG_EVT client_if = %d",
-                       p_data->reg_oper.client_if);
-      if (p_data->reg_oper.status == BTA_GATT_OK)
-        bta_dm_search_cb.client_if = p_data->reg_oper.client_if;
-      else
-        bta_dm_search_cb.client_if = BTA_GATTS_INVALID_IF;
-      break;
-
     case BTA_GATTC_OPEN_EVT:
       bta_dm_proc_open_evt(&p_data->open);
       break;

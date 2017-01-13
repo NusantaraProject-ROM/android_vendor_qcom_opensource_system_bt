@@ -52,6 +52,7 @@ btifCommonSrc += \
   src/btif_hf.cc \
   src/btif_hf_client.cc \
   src/btif_hh.cc \
+  src/btif_hd.cc \
   src/btif_hl.cc \
   src/btif_mce.cc \
   src/btif_pan.cc \
@@ -99,15 +100,11 @@ btifCommonIncludes := \
   $(LOCAL_PATH)/../stack/a2dp \
   $(LOCAL_PATH)/../stack/btm \
   $(LOCAL_PATH)/../stack/avdt \
-  $(LOCAL_PATH)/../hcis \
-  $(LOCAL_PATH)/../hcis/include \
-  $(LOCAL_PATH)/../hcis/patchram \
   $(LOCAL_PATH)/../udrv/include \
   $(LOCAL_PATH)/../btif/include \
   $(LOCAL_PATH)/../btif/co \
   $(LOCAL_PATH)/../hci/include\
   $(LOCAL_PATH)/../vnd/include \
-  $(LOCAL_PATH)/../brcm/include \
   $(LOCAL_PATH)/../embdrv/sbc/encoder/include \
   $(LOCAL_PATH)/../embdrv/sbc/decoder/include \
   $(LOCAL_PATH)/../audio_a2dp_hw \
@@ -125,7 +122,7 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_C_INCLUDES := $(btifCommonIncludes)
 LOCAL_SRC_FILES := $(btifCommonSrc)
 # Many .h files have redefined typedefs
-LOCAL_SHARED_LIBRARIES := libmedia libcutils liblog libchrome
+LOCAL_SHARED_LIBRARIES := libaudioclient libcutils liblog libchrome
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libbtif
@@ -146,7 +143,7 @@ LOCAL_C_INCLUDES := $(btifCommonIncludes)
 LOCAL_SRC_FILES := $(btifTestSrc)
 LOCAL_SHARED_LIBRARIES := liblog libhardware libhardware_legacy libcutils \
 	libchrome
-LOCAL_STATIC_LIBRARIES := libbtcore libbtif libosi
+LOCAL_STATIC_LIBRARIES := libbtcore libbtif libbt-stack libosi
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := net_test_btif
 

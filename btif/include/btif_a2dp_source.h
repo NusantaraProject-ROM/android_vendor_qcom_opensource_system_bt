@@ -24,10 +24,6 @@
 
 #include "bta_av_api.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // Initialize and startup the A2DP Source module.
 // This function should be called by the BTIF state machine prior to using the
 // module.
@@ -59,6 +55,19 @@ void btif_a2dp_source_start_audio_req(void);
 // Process a request to stop the A2DP audio encoding task.
 void btif_a2dp_source_stop_audio_req(void);
 
+// Process a request to update the A2DP audio encoder with user preferred
+// codec configuration.
+// |codec_user_config| contains the preferred codec user configuration.
+void btif_a2dp_source_encoder_user_config_update_req(
+    const btav_a2dp_codec_config_t& codec_user_config);
+
+// Process a request to update the A2DP audio encoding with new audio
+// configuration feeding parameters stored in |codec_audio_config|.
+// The fields that are used are: |codec_audio_config.sample_rate|,
+// |codec_audio_config.bits_per_sample| and |codec_audio_config.channel_mode|.
+void btif_a2dp_source_feeding_update_req(
+    const btav_a2dp_codec_config_t& codec_audio_config);
+
 // Process 'idle' request from the BTIF state machine during initialization.
 void btif_a2dp_source_on_idle(void);
 
@@ -77,9 +86,6 @@ void btif_a2dp_source_on_suspended(tBTA_AV_SUSPEND* p_av_suspend);
 // If |enable| is true, the discarding is enabled, otherwise is disabled.
 void btif_a2dp_source_set_tx_flush(bool enable);
 
-// Update any changed encoder paramenters of the A2DP Source codec.
-void btif_a2dp_source_encoder_update(void);
-
 // Get the next A2DP buffer to send.
 // Returns the next A2DP buffer to send if available, otherwise NULL.
 BT_HDR* btif_a2dp_source_audio_readbuf(void);
@@ -92,9 +98,5 @@ void btif_a2dp_source_debug_dump(int fd);
 // Update the A2DP Source related metrics.
 // This function should be called before collecting the metrics.
 void btif_a2dp_source_update_metrics(void);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* BTIF_A2DP_SOURCE_H */

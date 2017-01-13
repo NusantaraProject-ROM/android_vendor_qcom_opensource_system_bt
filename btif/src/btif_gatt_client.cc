@@ -22,7 +22,7 @@
  *
  *  Description:   GATT client implementation
  *
- *******************************************************************************/
+ ******************************************************************************/
 
 #define LOG_TAG "bt_btif_gattc"
 
@@ -62,7 +62,7 @@ extern const btgatt_callbacks_t* bt_gatt_callbacks;
 
 /*******************************************************************************
  *  Constants & Macros
- *******************************************************************************/
+ ******************************************************************************/
 
 #define CLI_CBACK_IN_JNI(P_CBACK, ...)                                         \
   do {                                                                         \
@@ -100,14 +100,6 @@ void btif_gattc_upstreams_evt(uint16_t event, char* p_param) {
 
   tBTA_GATTC* p_data = (tBTA_GATTC*)p_param;
   switch (event) {
-    case BTA_GATTC_REG_EVT: {
-      bt_uuid_t app_uuid;
-      bta_to_btif_uuid(&app_uuid, &p_data->reg_oper.app_uuid);
-      HAL_CBACK(bt_gatt_callbacks, client->register_client_cb,
-                p_data->reg_oper.status, p_data->reg_oper.client_if, &app_uuid);
-      break;
-    }
-
     case BTA_GATTC_DEREG_EVT:
       break;
 
@@ -212,18 +204,32 @@ void btm_read_rssi_cb(tBTM_RSSI_RESULTS* p_result) {
 
 /*******************************************************************************
  *  Client API Functions
- *******************************************************************************/
-
-void btif_gattc_register_app_impl(tBT_UUID uuid) {
-  BTA_GATTC_AppRegister(&uuid, bta_gattc_cback);
-}
+ ******************************************************************************/
 
 bt_status_t btif_gattc_register_app(bt_uuid_t* uuid) {
   CHECK_BTGATT_INIT();
 
   tBT_UUID bt_uuid;
   btif_to_bta_uuid(&bt_uuid, uuid);
-  return do_in_jni_thread(Bind(&btif_gattc_register_app_impl, bt_uuid));
+
+  return do_in_jni_thread(Bind(
+      [](tBT_UUID bt_uuid) {
+        BTA_GATTC_AppRegister(
+            bta_gattc_cback,
+            base::Bind(
+                [](tBT_UUID bt_uuid, uint8_t client_id, uint8_t status) {
+                  do_in_jni_thread(Bind(
+                      [](tBT_UUID bt_uuid, uint8_t client_id, uint8_t status) {
+                        bt_uuid_t app_uuid;
+                        bta_to_btif_uuid(&app_uuid, &bt_uuid);
+                        HAL_CBACK(bt_gatt_callbacks, client->register_client_cb,
+                                  status, client_id, &app_uuid);
+                      },
+                      bt_uuid, client_id, status));
+                },
+                bt_uuid));
+      },
+      bt_uuid));
 }
 
 void btif_gattc_unregister_app_impl(int client_if) {
@@ -263,7 +269,7 @@ void btif_gattc_open_impl(int client_if, BD_ADDR address, bool is_direct,
         return;
       }
     }
-    BTA_DmBleSetBgConnType(BTM_BLE_CONN_AUTO, NULL);
+    BTA_DmBleStartAutoConn();
   }
 
   // Determine transport
@@ -368,7 +374,7 @@ void read_char_cb(uint16_t conn_id, tGATT_STATUS status, uint16_t handle,
   params->status = status;
   params->handle = handle;
   params->value.len = len;
-  assert(len <= BTGATT_MAX_ATTR_LEN);
+  CHECK(len <= BTGATT_MAX_ATTR_LEN);
   if (len > 0) memcpy(params->value.value, value, len);
 
   CLI_CBACK_IN_JNI(read_characteristic_cb, conn_id, status,
@@ -388,7 +394,7 @@ void read_desc_cb(uint16_t conn_id, tGATT_STATUS status, uint16_t handle,
   params->status = status;
   params->handle = handle;
   params->value.len = len;
-  assert(len <= BTGATT_MAX_ATTR_LEN);
+  CHECK(len <= BTGATT_MAX_ATTR_LEN);
   if (len > 0) memcpy(params->value.value, value, len);
 
   CLI_CBACK_IN_JNI(read_descriptor_cb, conn_id, status, base::Owned(params));

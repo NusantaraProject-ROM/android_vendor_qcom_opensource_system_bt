@@ -27,10 +27,6 @@
 #include "bta_av_api.h"
 #include "l2c_api.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /*****************************************************************************
  *  Constants and data types
  ****************************************************************************/
@@ -48,7 +44,7 @@ extern "C" {
  * Returns          Stream codec and content protection capabilities info.
  *
  ******************************************************************************/
-bool bta_av_co_audio_init(tA2DP_CODEC_SEP_INDEX codec_sep_index,
+bool bta_av_co_audio_init(btav_a2dp_codec_index_t codec_index,
                           tAVDT_CFG* p_cfg);
 
 /*******************************************************************************
@@ -98,8 +94,8 @@ tA2DP_STATUS bta_av_co_audio_getconfig(tBTA_AV_HNDL hndl, uint8_t* p_codec_info,
  ******************************************************************************/
 void bta_av_co_audio_setconfig(tBTA_AV_HNDL hndl, const uint8_t* p_codec_info,
                                uint8_t seid, BD_ADDR addr, uint8_t num_protect,
-                               uint8_t* p_protect_info, uint8_t t_local_sep,
-                               uint8_t avdt_handle);
+                               const uint8_t* p_protect_info,
+                               uint8_t t_local_sep, uint8_t avdt_handle);
 
 /*******************************************************************************
  *
@@ -114,8 +110,7 @@ void bta_av_co_audio_setconfig(tBTA_AV_HNDL hndl, const uint8_t* p_codec_info,
  * Returns          void
  *
  ******************************************************************************/
-void bta_av_co_audio_open(tBTA_AV_HNDL hndl, uint8_t* p_codec_info,
-                          uint16_t mtu);
+void bta_av_co_audio_open(tBTA_AV_HNDL hndl, uint16_t mtu);
 
 /*******************************************************************************
  *
@@ -131,7 +126,7 @@ void bta_av_co_audio_open(tBTA_AV_HNDL hndl, uint8_t* p_codec_info,
  * Returns          void
  *
  ******************************************************************************/
-void bta_av_co_audio_close(tBTA_AV_HNDL hndl, uint16_t mtu);
+void bta_av_co_audio_close(tBTA_AV_HNDL hndl);
 
 /*******************************************************************************
  *
@@ -201,9 +196,5 @@ void bta_av_co_audio_drop(tBTA_AV_HNDL hndl);
  *
  ******************************************************************************/
 void bta_av_co_audio_delay(tBTA_AV_HNDL hndl, uint16_t delay);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* BTA_AV_CO_H */

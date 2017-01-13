@@ -2,7 +2,8 @@ LOCAL_PATH:= $(call my-dir)
 
 # Tests
 btaTestSrc := \
-  test/bta_closure_test.cc
+  test/bta_closure_test.cc \
+  test/bta_hf_client_test.cc
 
 btaCommonIncludes := \
                    $(LOCAL_PATH)/../ \
@@ -10,6 +11,7 @@ btaCommonIncludes := \
                    $(LOCAL_PATH)/sys \
                    $(LOCAL_PATH)/dm \
                    $(LOCAL_PATH)/hh \
+                   $(LOCAL_PATH)/hd \
                    $(LOCAL_PATH)/closure \
                    $(LOCAL_PATH)/../btcore/include \
                    $(LOCAL_PATH)/../hci/include \
@@ -65,7 +67,6 @@ LOCAL_SRC_FILES:= \
     ./hf_client/bta_hf_client_act.cc \
     ./hf_client/bta_hf_client_api.cc \
     ./hf_client/bta_hf_client_at.cc \
-    ./hf_client/bta_hf_client_cmd.cc \
     ./hf_client/bta_hf_client_main.cc \
     ./hf_client/bta_hf_client_rfc.cc \
     ./hf_client/bta_hf_client_sco.cc \
@@ -76,6 +77,9 @@ LOCAL_SRC_FILES:= \
     ./hh/bta_hh_le.cc \
     ./hh/bta_hh_main.cc \
     ./hh/bta_hh_utils.cc \
+    ./hd/bta_hd_act.cc \
+    ./hd/bta_hd_api.cc \
+    ./hd/bta_hd_main.cc \
     ./hl/bta_hl_act.cc \
     ./hl/bta_hl_api.cc \
     ./hl/bta_hl_ci.cc \
@@ -123,8 +127,8 @@ LOCAL_CPP_EXTENSION := .cc
 
 LOCAL_C_INCLUDES := $(btaCommonIncludes)
 LOCAL_SRC_FILES := $(btaTestSrc)
-LOCAL_SHARED_LIBRARIES := libcutils libc libchrome libhardware liblog
-LOCAL_STATIC_LIBRARIES := libbtcore libbt-bta libosi
+LOCAL_SHARED_LIBRARIES := libcutils libc libchrome libhardware liblog libprotobuf-cpp-lite
+LOCAL_STATIC_LIBRARIES := libbtcore libbt-bta libosi libbt-protos
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := net_test_bta
 

@@ -16,7 +16,7 @@
  *
  ******************************************************************************/
 
-#include <assert.h>
+#include <base/logging.h>
 
 #include "bt_types.h"
 #include "buffer_allocator.h"
@@ -142,6 +142,15 @@ static BT_HDR* make_ble_read_suggested_default_data_length(void) {
   return make_command_no_params(HCI_BLE_READ_DEFAULT_DATA_LENGTH);
 }
 
+static BT_HDR* make_ble_read_maximum_advertising_data_length(void) {
+  return make_command_no_params(HCI_LE_READ_MAXIMUM_ADVERTISING_DATA_LENGTH);
+}
+
+static BT_HDR* make_ble_read_number_of_supported_advertising_sets(void) {
+  return make_command_no_params(
+      HCI_LE_READ_NUMBER_OF_SUPPORTED_ADVERTISING_SETS);
+}
+
 static BT_HDR* make_read_local_supported_codecs(void) {
   return make_command_no_params(HCI_READ_LOCAL_SUPPORTED_CODECS);
 }
@@ -177,7 +186,7 @@ static BT_HDR* make_command(uint16_t opcode, size_t parameter_size,
 
 static BT_HDR* make_packet(size_t data_size) {
   BT_HDR* ret = (BT_HDR*)buffer_allocator->alloc(sizeof(BT_HDR) + data_size);
-  assert(ret);
+  CHECK(ret);
   ret->event = 0;
   ret->offset = 0;
   ret->layer_specific = 0;
@@ -203,6 +212,8 @@ static const hci_packet_factory_t interface = {
     make_ble_read_local_supported_features,
     make_ble_read_resolving_list_size,
     make_ble_read_suggested_default_data_length,
+    make_ble_read_maximum_advertising_data_length,
+    make_ble_read_number_of_supported_advertising_sets,
     make_ble_set_event_mask,
     make_read_local_supported_codecs};
 

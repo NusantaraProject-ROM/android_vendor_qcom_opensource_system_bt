@@ -30,7 +30,7 @@
 
 /*******************************************************************************
  *  Constants & Macros
- *******************************************************************************/
+ ******************************************************************************/
 
 #define CASE_RETURN_STR(const) \
   case const:                  \
@@ -38,11 +38,11 @@
 
 /*******************************************************************************
  *  Type definitions for callback functions
- *******************************************************************************/
+ ******************************************************************************/
 
 /*******************************************************************************
  *  Functions
- *******************************************************************************/
+ ******************************************************************************/
 
 const char* dump_bt_status(bt_status_t status);
 const char* dump_dm_search_event(uint16_t event);
@@ -50,6 +50,7 @@ const char* dump_dm_event(uint16_t event);
 const char* dump_hf_event(uint16_t event);
 const char* dump_hf_client_event(uint16_t event);
 const char* dump_hh_event(uint16_t event);
+const char* dump_hd_event(uint16_t event);
 const char* dump_hf_conn_state(uint16_t event);
 const char* dump_hf_call_state(bthf_call_state_t call_state);
 const char* dump_property_type(bt_property_type_t type);

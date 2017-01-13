@@ -16,9 +16,10 @@
  *
  ******************************************************************************/
 
-#include <assert.h>
-#include <pthread.h>
+#include <base/logging.h>
 #include <string.h>
+
+#include <mutex>
 
 #include "osi/include/allocator.h"
 #include "osi/include/fixed_queue.h"
@@ -31,7 +32,7 @@ typedef struct fixed_queue_t {
   list_t* list;
   semaphore_t* enqueue_sem;
   semaphore_t* dequeue_sem;
-  pthread_mutex_t lock;
+  std::mutex* mutex;
   size_t capacity;
 
   reactor_object_t* dequeue_object;
@@ -45,7 +46,7 @@ fixed_queue_t* fixed_queue_new(size_t capacity) {
   fixed_queue_t* ret =
       static_cast<fixed_queue_t*>(osi_calloc(sizeof(fixed_queue_t)));
 
-  pthread_mutex_init(&ret->lock, NULL);
+  ret->mutex = new std::mutex;
   ret->capacity = capacity;
 
   ret->list = list_new(NULL);
@@ -77,7 +78,7 @@ void fixed_queue_free(fixed_queue_t* queue, fixed_queue_free_cb free_cb) {
   list_free(queue->list);
   semaphore_free(queue->enqueue_sem);
   semaphore_free(queue->dequeue_sem);
-  pthread_mutex_destroy(&queue->lock);
+  delete queue->mutex;
   osi_free(queue);
 }
 
@@ -95,51 +96,48 @@ void fixed_queue_flush(fixed_queue_t* queue, fixed_queue_free_cb free_cb) {
 bool fixed_queue_is_empty(fixed_queue_t* queue) {
   if (queue == NULL) return true;
 
-  pthread_mutex_lock(&queue->lock);
-  bool is_empty = list_is_empty(queue->list);
-  pthread_mutex_unlock(&queue->lock);
-
-  return is_empty;
+  std::lock_guard<std::mutex> lock(*queue->mutex);
+  return list_is_empty(queue->list);
 }
 
 size_t fixed_queue_length(fixed_queue_t* queue) {
   if (queue == NULL) return 0;
 
-  pthread_mutex_lock(&queue->lock);
-  size_t length = list_length(queue->list);
-  pthread_mutex_unlock(&queue->lock);
-
-  return length;
+  std::lock_guard<std::mutex> lock(*queue->mutex);
+  return list_length(queue->list);
 }
 
 size_t fixed_queue_capacity(fixed_queue_t* queue) {
-  assert(queue != NULL);
+  CHECK(queue != NULL);
 
   return queue->capacity;
 }
 
 void fixed_queue_enqueue(fixed_queue_t* queue, void* data) {
-  assert(queue != NULL);
-  assert(data != NULL);
+  CHECK(queue != NULL);
+  CHECK(data != NULL);
 
   semaphore_wait(queue->enqueue_sem);
 
-  pthread_mutex_lock(&queue->lock);
-  list_append(queue->list, data);
-  pthread_mutex_unlock(&queue->lock);
+  {
+    std::lock_guard<std::mutex> lock(*queue->mutex);
+    list_append(queue->list, data);
+  }
 
   semaphore_post(queue->dequeue_sem);
 }
 
 void* fixed_queue_dequeue(fixed_queue_t* queue) {
-  assert(queue != NULL);
+  CHECK(queue != NULL);
 
   semaphore_wait(queue->dequeue_sem);
 
-  pthread_mutex_lock(&queue->lock);
-  void* ret = list_front(queue->list);
-  list_remove(queue->list, ret);
-  pthread_mutex_unlock(&queue->lock);
+  void* ret = NULL;
+  {
+    std::lock_guard<std::mutex> lock(*queue->mutex);
+    ret = list_front(queue->list);
+    list_remove(queue->list, ret);
+  }
 
   semaphore_post(queue->enqueue_sem);
 
@@ -147,14 +145,15 @@ void* fixed_queue_dequeue(fixed_queue_t* queue) {
 }
 
 bool fixed_queue_try_enqueue(fixed_queue_t* queue, void* data) {
-  assert(queue != NULL);
-  assert(data != NULL);
+  CHECK(queue != NULL);
+  CHECK(data != NULL);
 
   if (!semaphore_try_wait(queue->enqueue_sem)) return false;
 
-  pthread_mutex_lock(&queue->lock);
-  list_append(queue->list, data);
-  pthread_mutex_unlock(&queue->lock);
+  {
+    std::lock_guard<std::mutex> lock(*queue->mutex);
+    list_append(queue->list, data);
+  }
 
   semaphore_post(queue->dequeue_sem);
   return true;
@@ -165,10 +164,12 @@ void* fixed_queue_try_dequeue(fixed_queue_t* queue) {
 
   if (!semaphore_try_wait(queue->dequeue_sem)) return NULL;
 
-  pthread_mutex_lock(&queue->lock);
-  void* ret = list_front(queue->list);
-  list_remove(queue->list, ret);
-  pthread_mutex_unlock(&queue->lock);
+  void* ret = NULL;
+  {
+    std::lock_guard<std::mutex> lock(*queue->mutex);
+    ret = list_front(queue->list);
+    list_remove(queue->list, ret);
+  }
 
   semaphore_post(queue->enqueue_sem);
 
@@ -178,34 +179,29 @@ void* fixed_queue_try_dequeue(fixed_queue_t* queue) {
 void* fixed_queue_try_peek_first(fixed_queue_t* queue) {
   if (queue == NULL) return NULL;
 
-  pthread_mutex_lock(&queue->lock);
-  void* ret = list_is_empty(queue->list) ? NULL : list_front(queue->list);
-  pthread_mutex_unlock(&queue->lock);
-
-  return ret;
+  std::lock_guard<std::mutex> lock(*queue->mutex);
+  return list_is_empty(queue->list) ? NULL : list_front(queue->list);
 }
 
 void* fixed_queue_try_peek_last(fixed_queue_t* queue) {
   if (queue == NULL) return NULL;
 
-  pthread_mutex_lock(&queue->lock);
-  void* ret = list_is_empty(queue->list) ? NULL : list_back(queue->list);
-  pthread_mutex_unlock(&queue->lock);
-
-  return ret;
+  std::lock_guard<std::mutex> lock(*queue->mutex);
+  return list_is_empty(queue->list) ? NULL : list_back(queue->list);
 }
 
 void* fixed_queue_try_remove_from_queue(fixed_queue_t* queue, void* data) {
   if (queue == NULL) return NULL;
 
   bool removed = false;
-  pthread_mutex_lock(&queue->lock);
-  if (list_contains(queue->list, data) &&
-      semaphore_try_wait(queue->dequeue_sem)) {
-    removed = list_remove(queue->list, data);
-    assert(removed);
+  {
+    std::lock_guard<std::mutex> lock(*queue->mutex);
+    if (list_contains(queue->list, data) &&
+        semaphore_try_wait(queue->dequeue_sem)) {
+      removed = list_remove(queue->list, data);
+      CHECK(removed);
+    }
   }
-  pthread_mutex_unlock(&queue->lock);
 
   if (removed) {
     semaphore_post(queue->enqueue_sem);
@@ -215,28 +211,29 @@ void* fixed_queue_try_remove_from_queue(fixed_queue_t* queue, void* data) {
 }
 
 list_t* fixed_queue_get_list(fixed_queue_t* queue) {
-  assert(queue != NULL);
+  CHECK(queue != NULL);
 
-  // NOTE: This function is not thread safe, and there is no point for
-  // calling pthread_mutex_lock() / pthread_mutex_unlock()
+  // NOTE: Using the list in this way is not thread-safe.
+  // Using this list in any context where threads can call other functions
+  // to the queue can break our assumptions and the queue in general.
   return queue->list;
 }
 
 int fixed_queue_get_dequeue_fd(const fixed_queue_t* queue) {
-  assert(queue != NULL);
+  CHECK(queue != NULL);
   return semaphore_get_fd(queue->dequeue_sem);
 }
 
 int fixed_queue_get_enqueue_fd(const fixed_queue_t* queue) {
-  assert(queue != NULL);
+  CHECK(queue != NULL);
   return semaphore_get_fd(queue->enqueue_sem);
 }
 
 void fixed_queue_register_dequeue(fixed_queue_t* queue, reactor_t* reactor,
                                   fixed_queue_cb ready_cb, void* context) {
-  assert(queue != NULL);
-  assert(reactor != NULL);
-  assert(ready_cb != NULL);
+  CHECK(queue != NULL);
+  CHECK(reactor != NULL);
+  CHECK(ready_cb != NULL);
 
   // Make sure we're not already registered
   fixed_queue_unregister_dequeue(queue);
@@ -249,7 +246,7 @@ void fixed_queue_register_dequeue(fixed_queue_t* queue, reactor_t* reactor,
 }
 
 void fixed_queue_unregister_dequeue(fixed_queue_t* queue) {
-  assert(queue != NULL);
+  CHECK(queue != NULL);
 
   if (queue->dequeue_object) {
     reactor_unregister(queue->dequeue_object);
@@ -258,7 +255,7 @@ void fixed_queue_unregister_dequeue(fixed_queue_t* queue) {
 }
 
 static void internal_dequeue_ready(void* context) {
-  assert(context != NULL);
+  CHECK(context != NULL);
 
   fixed_queue_t* queue = static_cast<fixed_queue_t*>(context);
   queue->dequeue_ready(queue, queue->dequeue_context);

@@ -69,7 +69,7 @@ int uuidType(const unsigned char* p_uuid) {
 
 /*******************************************************************************
  * BTIF -> BTA conversion functions
- *******************************************************************************/
+ ******************************************************************************/
 
 void btif_to_bta_uuid(tBT_UUID* p_dest, const bt_uuid_t* p_src) {
   char* p_byte = (char*)p_src;
@@ -105,7 +105,7 @@ void btif_to_bta_response(tBTA_GATTS_RSP* p_dest, btgatt_response_t* p_src) {
   memcpy(p_dest->attr_value.value, p_src->attr_value.value, GATT_MAX_ATTR_LEN);
 }
 
-void btif_to_bta_uuid_mask(tBTA_DM_BLE_PF_COND_MASK* p_mask,
+void btif_to_bta_uuid_mask(tBTM_BLE_PF_COND_MASK* p_mask,
                            const bt_uuid_t* uuid_mask,
                            const bt_uuid_t* svc_uuid) {
   char* p_byte = (char*)uuid_mask;
@@ -134,7 +134,7 @@ void btif_to_bta_uuid_mask(tBTA_DM_BLE_PF_COND_MASK* p_mask,
 
 /*******************************************************************************
  * BTA -> BTIF conversion functions
- *******************************************************************************/
+ ******************************************************************************/
 
 void bta_to_btif_uuid(bt_uuid_t* p_dest, tBT_UUID* p_src) {
   int i = 0;
@@ -171,7 +171,7 @@ void bta_to_btif_uuid(bt_uuid_t* p_dest, tBT_UUID* p_src) {
 
 /*******************************************************************************
  * Utility functions
- *******************************************************************************/
+ ******************************************************************************/
 
 uint16_t get_uuid16(tBT_UUID* p_uuid) {
   if (p_uuid->len == LEN_UUID_16) {
@@ -209,7 +209,7 @@ uint16_t set_read_value(btgatt_read_params_t* p_dest, tBTA_GATTC_READ* p_src) {
 
 /*******************************************************************************
  * Encrypted link map handling
- *******************************************************************************/
+ ******************************************************************************/
 
 #if (BLE_DELAY_REQUEST_ENC == FALSE)
 static bool btif_gatt_is_link_encrypted(BD_ADDR bd_addr) {

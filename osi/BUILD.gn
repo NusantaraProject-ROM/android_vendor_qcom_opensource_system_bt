@@ -52,6 +52,10 @@ static_library("osi") {
     "//utils/include",
     "//stack/include",
   ]
+
+  deps = [
+    "//third_party/libchrome:base",
+  ]
 }
 
 executable("net_test_osi") {
@@ -68,6 +72,7 @@ executable("net_test_osi") {
     "test/eager_reader_test.cc",
     "test/future_test.cc",
     "test/hash_map_utils_test.cc",
+    "test/leaky_bonded_queue_test.cc",
     "test/list_test.cc",
     "test/properties_test.cc",
     "test/rand_test.cc",
@@ -85,6 +90,8 @@ executable("net_test_osi") {
   deps = [
     "//osi",
     "//third_party/googletest:gtest_main",
+    "//third_party/googletest:gmock_main",
+    "//third_party/libchrome:base",
   ]
 
   libs = [

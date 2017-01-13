@@ -16,19 +16,19 @@
  *
  ******************************************************************************/
 
-/************************************************************************************
+/*******************************************************************************
  *
  *  Filename:      btif_hl.c
  *
  *  Description:   Health Device Profile Bluetooth Interface
  *
  *
- ***********************************************************************************/
+ ******************************************************************************/
 #define LOG_TAG "bt_btif_hl"
 
 #include "btif_hl.h"
 
-#include <assert.h>
+#include <base/logging.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -82,9 +82,9 @@ extern fixed_queue_t* btu_general_alarm_queue;
 btif_hl_cb_t btif_hl_cb;
 btif_hl_cb_t* p_btif_hl_cb = &btif_hl_cb;
 
-/************************************************************************************
+/*******************************************************************************
  *  Static variables
- ***********************************************************************************/
+ ******************************************************************************/
 static bthl_callbacks_t bt_hl_callbacks_cb;
 static bthl_callbacks_t* bt_hl_callbacks = NULL;
 
@@ -170,9 +170,9 @@ static const btif_hl_data_type_cfg_t data_type_table[] = {
 
 #define BTIF_HL_ECHO_MAX_TX_RX_APDU_SIZE 1024
 
-/************************************************************************************
+/*******************************************************************************
  *  Static utility functions
- ***********************************************************************************/
+ ******************************************************************************/
 
 #define BTIF_IF_GET_NAME 16
 void btif_hl_display_calling_process_name(void) {
@@ -919,7 +919,7 @@ bool btif_hl_find_mdl_idx_using_channel_id(int channel_id, uint8_t* p_app_idx,
  * Description  Find channel id using mdl_id'
  *
  * Returns      bool
- ********************************************************************************/
+ ******************************************************************************/
 bool btif_hl_find_channel_id_using_mdl_id(uint8_t app_idx,
                                           tBTA_HL_MDL_ID mdl_id,
                                           int* p_channel_id) {
@@ -3986,9 +3986,10 @@ bool btif_hl_save_mdl_cfg(uint8_t mdep_id, uint8_t item_idx,
         evt_param.update_mdl.app_idx = app_idx;
         len = sizeof(btif_hl_update_mdl_t);
         BTIF_TRACE_DEBUG("send BTIF_HL_UPDATE_MDL event app_idx=%d  ", app_idx);
-        if ((bt_status = btif_transfer_context(
-                 btif_hl_proc_cb_evt, BTIF_HL_UPDATE_MDL, (char*)&evt_param,
-                 len, NULL)) == BT_STATUS_SUCCESS) {
+        bt_status =
+            btif_transfer_context(btif_hl_proc_cb_evt, BTIF_HL_UPDATE_MDL,
+                                  (char*)&evt_param, len, NULL);
+        if (bt_status == BT_STATUS_SUCCESS) {
           success = true;
         }
         ASSERTC(bt_status == BT_STATUS_SUCCESS, "context transfer failed",
@@ -4024,9 +4025,9 @@ bool btif_hl_delete_mdl_cfg(uint8_t mdep_id, uint8_t item_idx) {
       evt_param.update_mdl.app_idx = app_idx;
       len = sizeof(btif_hl_update_mdl_t);
       BTIF_TRACE_DEBUG("send BTIF_HL_UPDATE_MDL event app_idx=%d  ", app_idx);
-      if ((bt_status = btif_transfer_context(
-               btif_hl_proc_cb_evt, BTIF_HL_UPDATE_MDL, (char*)&evt_param, len,
-               NULL)) == BT_STATUS_SUCCESS) {
+      bt_status = btif_transfer_context(btif_hl_proc_cb_evt, BTIF_HL_UPDATE_MDL,
+                                        (char*)&evt_param, len, NULL);
+      if (bt_status == BT_STATUS_SUCCESS) {
         success = true;
       }
       ASSERTC(bt_status == BT_STATUS_SUCCESS, "context transfer failed",
@@ -4405,7 +4406,7 @@ void btif_hl_select_monitor_callback(fd_set* p_cur_set,
         BTIF_TRACE_DEBUG("read data state= BTIF_HL_SOC_STATE_W4_READ");
         btif_hl_mdl_cb_t* p_dcb = BTIF_HL_GET_MDL_CB_PTR(
             p_scb->app_idx, p_scb->mcl_idx, p_scb->mdl_idx);
-        assert(p_dcb != NULL);
+        CHECK(p_dcb != NULL);
         if (p_dcb->p_tx_pkt) {
           BTIF_TRACE_ERROR(
               "Rcv new pkt but the last pkt is still not been"

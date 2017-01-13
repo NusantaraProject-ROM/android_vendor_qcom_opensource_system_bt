@@ -55,11 +55,7 @@ enum GATTError {
   GATT_ERROR_OUT_OF_RANGE = 0xFF
 };
 
-enum Transport {
-  TRANSPORT_AUTO = 0,
-  TRANSPORT_BREDR = 1,
-  TRANSPORT_LE = 2
-};
+enum Transport { TRANSPORT_AUTO = 0, TRANSPORT_BREDR = 1, TRANSPORT_LE = 2 };
 
 // Android attribute permission values
 const uint16_t kAttributePermissionNone = 0x0;
@@ -97,11 +93,11 @@ const int kAdvertisingIntervalLowMs = 100;
 // the Max. Adv. Interval. (See http://b/24344075).
 const int kAdvertisingIntervalDeltaUnit = 10;
 
-// Advertising types (ADV_IND, ADV_SCAN_IND, etc.) that are exposed to
+// Legacy Advertising types (ADV_IND, ADV_SCAN_IND, etc.) that are exposed to
 // applications.
-const int kAdvertisingEventTypeConnectable = 0;
-const int kAdvertisingEventTypeScannable = 2;
-const int kAdvertisingEventTypeNonConnectable = 3;
+const uint16_t kAdvertisingEventTypeLegacyConnectable = 0x0013;
+const uint16_t kAdvertisingEventTypeLegacyScannable = 0x0012;
+const uint16_t kAdvertisingEventTypeLegacyNonConnectable = 0x0010;
 
 // Advertising channels. These should be kept the same as those defined in the
 // stack.

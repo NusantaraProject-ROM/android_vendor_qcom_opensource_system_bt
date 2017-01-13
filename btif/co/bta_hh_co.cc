@@ -16,7 +16,7 @@
  *
  ******************************************************************************/
 
-#include <assert.h>
+#include <base/logging.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -77,7 +77,7 @@ static int uhid_write(int fd, const struct uhid_event* ev) {
 
 /* Internal function to parse the events received from UHID driver*/
 static int uhid_read_event(btif_hh_device_t* p_dev) {
-  assert(p_dev);
+  CHECK(p_dev);
 
   struct uhid_event ev;
   memset(&ev, 0, sizeof(ev));
@@ -238,7 +238,7 @@ void bta_hh_co_destroy(int fd) {
 }
 
 int bta_hh_co_write(int fd, uint8_t* rpt, uint16_t len) {
-  APPL_TRACE_DEBUG("%s: UHID write %d", __func__, len);
+  APPL_TRACE_VERBOSE("%s: UHID write %d", __func__, len);
 
   struct uhid_event ev;
   memset(&ev, 0, sizeof(ev));

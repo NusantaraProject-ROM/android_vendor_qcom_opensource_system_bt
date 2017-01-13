@@ -1,7 +1,8 @@
 /******************************************************************************
  *
  *  Copyright (C) 2014 The Android Open Source Project
- *  Copyright 2003 - 2004 Open Interface North America, Inc. All rights reserved.
+ *  Copyright 2003 - 2004 Open Interface North America, Inc. All rights
+ *                        reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -49,11 +50,11 @@
     }
     \endcode
  * @ingroup codec_internal
- *******************************************************************************/
+ ******************************************************************************/
 
-/**********************************************************************************
+/*******************************************************************************
   $Revision: #1 $
-***********************************************************************************/
+ ******************************************************************************/
 
 {
     OI_CODEC_SBC_COMMON_CONTEXT *common = &context->common;

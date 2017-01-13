@@ -29,26 +29,27 @@
 
 using MultiAdvCb = base::Callback<void(uint8_t /* status */)>;
 
-extern "C" {
 // methods we must have defined
-void btm_ble_update_dmt_flag_bits(uint8_t *flag_value,
+void btm_ble_update_dmt_flag_bits(uint8_t* flag_value,
                                   const uint16_t connect_mode,
                                   const uint16_t disc_mode);
-void btm_gen_resolvable_private_addr(void *p_cmd_cplt_cback);
+void btm_gen_resolvable_private_addr(void* p_cmd_cplt_cback);
 void btm_acl_update_conn_addr(uint8_t conn_handle, BD_ADDR address);
 
 // methods we expose to c code:
 void btm_ble_multi_adv_cleanup(void);
 void btm_ble_multi_adv_init();
-}
 
 typedef struct {
-  uint16_t adv_int_min;
-  uint16_t adv_int_max;
-  uint8_t adv_type;
+  uint16_t advertising_event_properties;
+  uint32_t adv_int_min;
+  uint32_t adv_int_max;
   tBTM_BLE_ADV_CHNL_MAP channel_map;
   tBTM_BLE_AFP adv_filter_policy;
-  tBTM_BLE_ADV_TX_POWER tx_power;
+  int8_t tx_power;
+  uint8_t primary_advertising_phy;
+  uint8_t secondary_advertising_phy;
+  uint8_t scan_request_notification_enable;
 } tBTM_BLE_ADV_PARAMS;
 
 class BleAdvertiserHciInterface;
@@ -57,9 +58,12 @@ class BleAdvertisingManager {
  public:
   virtual ~BleAdvertisingManager() = default;
 
-  static void Initialize(BleAdvertiserHciInterface *interface);
+  static const uint16_t advertising_prop_legacy_connectable = 0x0011;
+  static const uint16_t advertising_prop_legacy_non_connectable = 0x0010;
+
+  static void Initialize(BleAdvertiserHciInterface* interface);
   static void CleanUp();
-  static BleAdvertisingManager *Get();
+  static BleAdvertisingManager* Get();
 
   /* Register an advertising instance, status will be returned in |cb|
   * callback, with assigned id, if operation succeeds. Instance is freed when
@@ -68,11 +72,11 @@ class BleAdvertisingManager {
   * The instance will have data set to |advertise_data|, scan response set to
   * |scan_response_data|, and will be enabled.
   */
-  virtual void StartAdvertising(
-      uint8_t advertiser_id, MultiAdvCb cb,
-      tBTM_BLE_ADV_PARAMS *params, std::vector<uint8_t> advertise_data,
-      std::vector<uint8_t> scan_response_data, int timeout_s,
-      MultiAdvCb timeout_cb) = 0;
+  virtual void StartAdvertising(uint8_t advertiser_id, MultiAdvCb cb,
+                                tBTM_BLE_ADV_PARAMS* params,
+                                std::vector<uint8_t> advertise_data,
+                                std::vector<uint8_t> scan_response_data,
+                                int timeout_s, MultiAdvCb timeout_cb) = 0;
 
   /* Register an advertising instance, status will be returned in |cb|
   * callback, with assigned id, if operation succeeds. Instance is freed when
@@ -88,7 +92,7 @@ class BleAdvertisingManager {
 
   /* This function update a Multi-ADV instance with the specififed adv
    * parameters. */
-  virtual void SetParameters(uint8_t inst_id, tBTM_BLE_ADV_PARAMS *p_params,
+  virtual void SetParameters(uint8_t inst_id, tBTM_BLE_ADV_PARAMS* p_params,
                              MultiAdvCb cb) = 0;
 
   /* This function configure a Multi-ADV instance with the specified adv data or
@@ -101,8 +105,9 @@ class BleAdvertisingManager {
 
   /* This method is a member of BleAdvertiserHciInterface, and is exposed here
    * just for tests. It should never be called from upper layers*/
-  virtual void OnAdvertisingStateChanged(uint8_t inst_id, uint8_t reason,
-                                         uint16_t conn_handle) = 0;
+  virtual void OnAdvertisingSetTerminated(
+      uint8_t status, uint8_t advertising_handle, uint16_t connection_handle,
+      uint8_t num_completed_extended_adv_events) = 0;
 };
 
 #endif  // BLE_ADVERTISER_H

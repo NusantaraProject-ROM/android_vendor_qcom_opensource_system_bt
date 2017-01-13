@@ -17,7 +17,7 @@
  *
  ******************************************************************************/
 
-/************************************************************************************
+/*******************************************************************************
  *
  *  Filename:      btif_storage.c
  *
@@ -33,17 +33,19 @@
 #include "btif_storage.h"
 
 #include <alloca.h>
-#include <assert.h>
+#include <base/logging.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
 #include "bt_common.h"
+#include "bta_hd_api.h"
 #include "bta_hh_api.h"
 #include "btcore/include/bdaddr.h"
 #include "btif_api.h"
 #include "btif_config.h"
+#include "btif_hd.h"
 #include "btif_hh.h"
 #include "btif_util.h"
 #include "osi/include/allocator.h"
@@ -52,9 +54,9 @@
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 
-/************************************************************************************
+/*******************************************************************************
  *  Constants & Macros
- ***********************************************************************************/
+ ******************************************************************************/
 
 // TODO(armansito): Find a better way than using a hardcoded path.
 #define BTIF_STORAGE_PATH_BLUEDROID "/data/misc/bluedroid"
@@ -144,28 +146,28 @@
 #error "btif storage entry size exceeds unv max line size"
 #endif
 
-/************************************************************************************
+/*******************************************************************************
  *  Local type definitions
- ***********************************************************************************/
+ ******************************************************************************/
 typedef struct {
   uint32_t num_devices;
   bt_bdaddr_t devices[BTM_SEC_MAX_DEVICE_RECORDS];
 } btif_bonded_devices_t;
 
-/************************************************************************************
+/*******************************************************************************
  *  External variables
- ***********************************************************************************/
+ ******************************************************************************/
 extern bt_bdaddr_t btif_local_bd_addr;
 
-/************************************************************************************
+/*******************************************************************************
  *  External functions
- ***********************************************************************************/
+ ******************************************************************************/
 
 extern void btif_gatts_add_bonded_dev_from_nv(BD_ADDR bda);
 
-/************************************************************************************
+/*******************************************************************************
  *  Internal Functions
- ***********************************************************************************/
+ ******************************************************************************/
 
 static bt_status_t btif_in_fetch_bonded_ble_device(
     const char* remote_bd_addr, int add,
@@ -174,9 +176,9 @@ static bt_status_t btif_in_fetch_bonded_device(const char* bdstr);
 
 static bool btif_has_ble_keys(const char* bdstr);
 
-/************************************************************************************
+/*******************************************************************************
  *  Static functions
- ***********************************************************************************/
+ ******************************************************************************/
 
 static int prop2cfg(bt_bdaddr_t* remote_bd_addr, bt_property_t* prop) {
   bdstr_t bdstr = {0};
@@ -466,8 +468,8 @@ static void btif_read_le_key(const uint8_t key_type, const size_t key_len,
                              bt_bdaddr_t bd_addr, const uint8_t addr_type,
                              const bool add_key, bool* device_added,
                              bool* key_found) {
-  assert(device_added);
-  assert(key_found);
+  CHECK(device_added);
+  CHECK(key_found);
 
   char buffer[100];
   memset(buffer, 0, sizeof(buffer));
@@ -501,7 +503,7 @@ static void btif_read_le_key(const uint8_t key_type, const size_t key_len,
  * For OUT parameters, the caller is expected to provide the memory.
  * Caller is expected to provide a valid pointer to 'property->value' based on
  * the property->type.
- *******************************************************************************/
+ ******************************************************************************/
 
 /*******************************************************************************
  *
@@ -515,8 +517,8 @@ static void btif_read_le_key(const uint8_t key_type, const size_t key_len,
  ******************************************************************************/
 size_t btif_split_uuids_string(const char* str, bt_uuid_t* p_uuid,
                                size_t max_uuids) {
-  assert(str);
-  assert(p_uuid);
+  CHECK(str);
+  CHECK(p_uuid);
 
   size_t num_uuids = 0;
   while (str && num_uuids < max_uuids) {
@@ -1348,4 +1350,71 @@ bool btif_storage_is_restricted_device(const bt_bdaddr_t* remote_bd_addr) {
   bdaddr_to_string(remote_bd_addr, bdstr, sizeof(bdstr));
 
   return btif_config_exist(bdstr, "Restricted");
+}
+
+/*******************************************************************************
+ * Function         btif_storage_load_hidd
+ *
+ * Description      Loads hidd bonded device and "plugs" it into hidd
+ *
+ * Returns          BT_STATUS_SUCCESS if successful, BT_STATUS_FAIL otherwise
+ *
+ ******************************************************************************/
+bt_status_t btif_storage_load_hidd(void) {
+  bt_bdaddr_t bd_addr;
+
+  for (const btif_config_section_iter_t* iter = btif_config_section_begin();
+       iter != btif_config_section_end();
+       iter = btif_config_section_next(iter)) {
+    const char* name = btif_config_section_name(iter);
+    if (!string_is_bdaddr(name)) continue;
+
+    BTIF_TRACE_DEBUG("Remote device:%s", name);
+    int value;
+    if (btif_in_fetch_bonded_device(name) == BT_STATUS_SUCCESS) {
+      if (btif_config_get_int(name, "HidDeviceCabled", &value)) {
+        string_to_bdaddr(name, &bd_addr);
+        BTA_HdAddDevice(bd_addr.address);
+        break;
+      }
+    }
+  }
+
+  return BT_STATUS_SUCCESS;
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_storage_set_hidd
+ *
+ * Description      Stores hidd bonded device info in nvram.
+ *
+ * Returns          BT_STATUS_SUCCESS
+ *
+ ******************************************************************************/
+bt_status_t btif_storage_set_hidd(bt_bdaddr_t* remote_bd_addr) {
+  bdstr_t bdstr = {0};
+  bdaddr_to_string(remote_bd_addr, bdstr, sizeof(bdstr));
+  btif_config_set_int(bdstr, "HidDeviceCabled", 1);
+  btif_config_save();
+  return BT_STATUS_SUCCESS;
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_storage_remove_hidd
+ *
+ * Description      Removes hidd bonded device info from nvram
+ *
+ * Returns          BT_STATUS_SUCCESS
+ *
+ ******************************************************************************/
+bt_status_t btif_storage_remove_hidd(bt_bdaddr_t* remote_bd_addr) {
+  bdstr_t bdstr;
+  bdaddr_to_string(remote_bd_addr, bdstr, sizeof(bdstr));
+
+  btif_config_remove(bdstr, "HidDeviceCabled");
+  btif_config_save();
+
+  return BT_STATUS_SUCCESS;
 }

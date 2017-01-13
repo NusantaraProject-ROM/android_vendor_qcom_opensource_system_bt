@@ -20,10 +20,6 @@
 
 #include <stdbool.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct semaphore_t;
 typedef struct semaphore_t semaphore_t;
 
@@ -42,8 +38,7 @@ void semaphore_wait(semaphore_t* semaphore);
 
 // Tries to decrement the value of |semaphore|. Returns true if the value was
 // decremented, false if the value was 0. This function never blocks.
-// |semaphore|
-// may not be NULL.
+// |semaphore| may not be NULL.
 bool semaphore_try_wait(semaphore_t* semaphore);
 
 // Increments the value of |semaphore|. |semaphore| may not be NULL.
@@ -60,7 +55,3 @@ void semaphore_post(semaphore_t* semaphore);
 // The caller must not close the returned file descriptor. |semaphore| may not
 // be NULL.
 int semaphore_get_fd(const semaphore_t* semaphore);
-
-#ifdef __cplusplus
-}
-#endif

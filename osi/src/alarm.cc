@@ -22,17 +22,18 @@
 
 #include "osi/include/alarm.h"
 
-#include <assert.h>
+#include <base/logging.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
 #include <malloc.h>
-#include <pthread.h>
 #include <signal.h>
 #include <string.h>
 #include <time.h>
 
 #include <hardware/bluetooth.h>
+
+#include <mutex>
 
 #include "osi/include/allocator.h"
 #include "osi/include/fixed_queue.h"
@@ -70,12 +71,12 @@ typedef struct {
 } alarm_stats_t;
 
 struct alarm_t {
-  // The lock is held while the callback for this alarm is being executed.
+  // The mutex is held while the callback for this alarm is being executed.
   // It allows us to release the coarse-grained monitor lock while a
   // potentially long-running callback is executing. |alarm_cancel| uses this
-  // lock to provide a guarantee to its caller that the callback will not be
+  // mutex to provide a guarantee to its caller that the callback will not be
   // in progress when it returns.
-  pthread_mutex_t callback_lock;
+  std::recursive_mutex* callback_mutex;
   period_ms_t creation_time;
   period_ms_t period;
   period_ms_t deadline;
@@ -104,7 +105,7 @@ static const clockid_t CLOCK_ID_ALARM = CLOCK_BOOTTIME_ALARM;
 // This mutex ensures that the |alarm_set|, |alarm_cancel|, and alarm callback
 // functions execute serially and not concurrently. As a result, this mutex
 // also protects the |alarms| list.
-static pthread_mutex_t monitor;
+static std::mutex alarms_mutex;
 static list_t* alarms;
 static timer_t timer;
 static timer_t wakeup_timer;
@@ -152,61 +153,36 @@ alarm_t* alarm_new_periodic(const char* name) {
 static alarm_t* alarm_new_internal(const char* name, bool is_periodic) {
   // Make sure we have a list we can insert alarms into.
   if (!alarms && !lazy_initialize()) {
-    assert(false);  // if initialization failed, we should not continue
+    CHECK(false);  // if initialization failed, we should not continue
     return NULL;
   }
 
-  pthread_mutexattr_t attr;
-  pthread_mutexattr_init(&attr);
-
   alarm_t* ret = static_cast<alarm_t*>(osi_calloc(sizeof(alarm_t)));
 
-  // Make this a recursive mutex to make it safe to call |alarm_cancel| from
-  // within the callback function of the alarm.
-  int error = pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-  if (error) {
-    LOG_ERROR(LOG_TAG, "%s unable to create a recursive mutex: %s", __func__,
-              strerror(error));
-    goto error;
-  }
-
-  error = pthread_mutex_init(&ret->callback_lock, &attr);
-  if (error) {
-    LOG_ERROR(LOG_TAG, "%s unable to initialize mutex: %s", __func__,
-              strerror(error));
-    goto error;
-  }
-
+  ret->callback_mutex = new std::recursive_mutex;
   ret->is_periodic = is_periodic;
   ret->stats.name = osi_strdup(name);
   // NOTE: The stats were reset by osi_calloc() above
 
-  pthread_mutexattr_destroy(&attr);
   return ret;
-
-error:
-  pthread_mutexattr_destroy(&attr);
-  osi_free(ret);
-  return NULL;
 }
 
 void alarm_free(alarm_t* alarm) {
   if (!alarm) return;
 
   alarm_cancel(alarm);
-  pthread_mutex_destroy(&alarm->callback_lock);
+  delete alarm->callback_mutex;
   osi_free((void*)alarm->stats.name);
   osi_free(alarm);
 }
 
 period_ms_t alarm_get_remaining_ms(const alarm_t* alarm) {
-  assert(alarm != NULL);
+  CHECK(alarm != NULL);
   period_ms_t remaining_ms = 0;
   period_ms_t just_now = now();
 
-  pthread_mutex_lock(&monitor);
+  std::lock_guard<std::mutex> lock(alarms_mutex);
   if (alarm->deadline > just_now) remaining_ms = alarm->deadline - just_now;
-  pthread_mutex_unlock(&monitor);
 
   return remaining_ms;
 }
@@ -218,7 +194,7 @@ void alarm_set(alarm_t* alarm, period_ms_t interval_ms, alarm_callback_t cb,
 
 void alarm_set_on_queue(alarm_t* alarm, period_ms_t interval_ms,
                         alarm_callback_t cb, void* data, fixed_queue_t* queue) {
-  assert(queue != NULL);
+  CHECK(queue != NULL);
   alarm_set_internal(alarm, interval_ms, cb, data, queue);
 }
 
@@ -226,11 +202,11 @@ void alarm_set_on_queue(alarm_t* alarm, period_ms_t interval_ms,
 static void alarm_set_internal(alarm_t* alarm, period_ms_t period,
                                alarm_callback_t cb, void* data,
                                fixed_queue_t* queue) {
-  assert(alarms != NULL);
-  assert(alarm != NULL);
-  assert(cb != NULL);
+  CHECK(alarms != NULL);
+  CHECK(alarm != NULL);
+  CHECK(cb != NULL);
 
-  pthread_mutex_lock(&monitor);
+  std::lock_guard<std::mutex> lock(alarms_mutex);
 
   alarm->creation_time = now();
   alarm->period = period;
@@ -240,25 +216,23 @@ static void alarm_set_internal(alarm_t* alarm, period_ms_t period,
 
   schedule_next_instance(alarm);
   alarm->stats.scheduled_count++;
-
-  pthread_mutex_unlock(&monitor);
 }
 
 void alarm_cancel(alarm_t* alarm) {
-  assert(alarms != NULL);
+  CHECK(alarms != NULL);
   if (!alarm) return;
 
-  pthread_mutex_lock(&monitor);
-  alarm_cancel_internal(alarm);
-  pthread_mutex_unlock(&monitor);
+  {
+    std::lock_guard<std::mutex> lock(alarms_mutex);
+    alarm_cancel_internal(alarm);
+  }
 
   // If the callback for |alarm| is in progress, wait here until it completes.
-  pthread_mutex_lock(&alarm->callback_lock);
-  pthread_mutex_unlock(&alarm->callback_lock);
+  std::lock_guard<std::recursive_mutex> lock(*alarm->callback_mutex);
 }
 
 // Internal implementation of canceling an alarm.
-// The caller must hold the |monitor| lock.
+// The caller must hold the |alarms_mutex|
 static void alarm_cancel_internal(alarm_t* alarm) {
   bool needs_reschedule =
       (!list_is_empty(alarms) && list_front(alarms) == alarm);
@@ -289,7 +263,7 @@ void alarm_cleanup(void) {
   thread_free(dispatcher_thread);
   dispatcher_thread = NULL;
 
-  pthread_mutex_lock(&monitor);
+  std::lock_guard<std::mutex> lock(alarms_mutex);
 
   fixed_queue_free(default_callback_queue, NULL);
   default_callback_queue = NULL;
@@ -303,20 +277,17 @@ void alarm_cleanup(void) {
 
   list_free(alarms);
   alarms = NULL;
-
-  pthread_mutex_unlock(&monitor);
-  pthread_mutex_destroy(&monitor);
 }
 
 static bool lazy_initialize(void) {
-  assert(alarms == NULL);
+  CHECK(alarms == NULL);
 
   // timer_t doesn't have an invalid value so we must track whether
   // the |timer| variable is valid ourselves.
   bool timer_initialized = false;
   bool wakeup_timer_initialized = false;
 
-  pthread_mutex_init(&monitor, NULL);
+  std::lock_guard<std::mutex> lock(alarms_mutex);
 
   alarms = list_new(NULL);
   if (!alarms) {
@@ -385,13 +356,11 @@ error:
   list_free(alarms);
   alarms = NULL;
 
-  pthread_mutex_destroy(&monitor);
-
   return false;
 }
 
 static period_ms_t now(void) {
-  assert(alarms != NULL);
+  CHECK(alarms != NULL);
 
   struct timespec ts;
   if (clock_gettime(CLOCK_ID, &ts) == -1) {
@@ -404,7 +373,7 @@ static period_ms_t now(void) {
 }
 
 // Remove alarm from internal alarm list and the processing queue
-// The caller must hold the |monitor| lock.
+// The caller must hold the |alarms_mutex|
 static void remove_pending_alarm(alarm_t* alarm) {
   list_remove(alarms, alarm);
   while (fixed_queue_try_remove_from_queue(alarm->queue, alarm) != NULL) {
@@ -413,7 +382,7 @@ static void remove_pending_alarm(alarm_t* alarm) {
   }
 }
 
-// Must be called with monitor held
+// Must be called with |alarms_mutex| held
 static void schedule_next_instance(alarm_t* alarm) {
   // If the alarm is currently set and it's at the start of the list,
   // we'll need to re-schedule since we've adjusted the earliest deadline.
@@ -452,9 +421,9 @@ static void schedule_next_instance(alarm_t* alarm) {
   }
 }
 
-// NOTE: must be called with monitor lock.
+// NOTE: must be called with |alarms_mutex| held
 static void reschedule_root_alarm(void) {
-  assert(alarms != NULL);
+  CHECK(alarms != NULL);
 
   const bool timer_was_set = timer_set;
   alarm_t* next;
@@ -544,21 +513,21 @@ done:
 }
 
 void alarm_register_processing_queue(fixed_queue_t* queue, thread_t* thread) {
-  assert(queue != NULL);
-  assert(thread != NULL);
+  CHECK(queue != NULL);
+  CHECK(thread != NULL);
 
   fixed_queue_register_dequeue(queue, thread_get_reactor(thread),
                                alarm_queue_ready, NULL);
 }
 
 void alarm_unregister_processing_queue(fixed_queue_t* queue) {
-  assert(alarms != NULL);
-  assert(queue != NULL);
+  CHECK(alarms != NULL);
+  CHECK(queue != NULL);
 
   fixed_queue_unregister_dequeue(queue);
 
   // Cancel all alarms that are using this queue
-  pthread_mutex_lock(&monitor);
+  std::lock_guard<std::mutex> lock(alarms_mutex);
   for (list_node_t* node = list_begin(alarms); node != list_end(alarms);) {
     alarm_t* alarm = (alarm_t*)list_node(node);
     node = list_next(node);
@@ -567,16 +536,14 @@ void alarm_unregister_processing_queue(fixed_queue_t* queue) {
     // an assert.
     if (alarm->queue == queue) alarm_cancel_internal(alarm);
   }
-  pthread_mutex_unlock(&monitor);
 }
 
 static void alarm_queue_ready(fixed_queue_t* queue, UNUSED_ATTR void* context) {
-  assert(queue != NULL);
+  CHECK(queue != NULL);
 
-  pthread_mutex_lock(&monitor);
+  std::unique_lock<std::mutex> lock(alarms_mutex);
   alarm_t* alarm = (alarm_t*)fixed_queue_try_dequeue(queue);
   if (alarm == NULL) {
-    pthread_mutex_unlock(&monitor);
     return;  // The alarm was probably canceled
   }
 
@@ -598,19 +565,17 @@ static void alarm_queue_ready(fixed_queue_t* queue, UNUSED_ATTR void* context) {
     alarm->data = NULL;
   }
 
-  pthread_mutex_lock(&alarm->callback_lock);
-  pthread_mutex_unlock(&monitor);
+  std::lock_guard<std::recursive_mutex> cb_lock(*alarm->callback_mutex);
+  lock.unlock();
 
   period_ms_t t0 = now();
   callback(data);
   period_ms_t t1 = now();
 
   // Update the statistics
-  assert(t1 >= t0);
+  CHECK(t1 >= t0);
   period_ms_t delta = t1 - t0;
   update_scheduling_stats(&alarm->stats, t0, deadline, delta);
-
-  pthread_mutex_unlock(&alarm->callback_lock);
 }
 
 // Callback function for wake alarms and our posix timer
@@ -627,17 +592,15 @@ static void callback_dispatch(UNUSED_ATTR void* context) {
     semaphore_wait(alarm_expired);
     if (!dispatcher_thread_active) break;
 
-    pthread_mutex_lock(&monitor);
+    std::lock_guard<std::mutex> lock(alarms_mutex);
     alarm_t* alarm;
 
     // Take into account that the alarm may get cancelled before we get to it.
     // We're done here if there are no alarms or the alarm at the front is in
-    // the future. Release the monitor lock and exit right away since there's
-    // nothing left to do.
+    // the future. Exit right away since there's nothing left to do.
     if (list_is_empty(alarms) ||
         (alarm = static_cast<alarm_t*>(list_front(alarms)))->deadline > now()) {
       reschedule_root_alarm();
-      pthread_mutex_unlock(&monitor);
       continue;
     }
 
@@ -652,15 +615,13 @@ static void callback_dispatch(UNUSED_ATTR void* context) {
 
     // Enqueue the alarm for processing
     fixed_queue_enqueue(alarm->queue, alarm);
-
-    pthread_mutex_unlock(&monitor);
   }
 
   LOG_DEBUG(LOG_TAG, "%s Callback thread exited", __func__);
 }
 
 static bool timer_create_internal(const clockid_t clock_id, timer_t* timer) {
-  assert(timer != NULL);
+  CHECK(timer != NULL);
 
   struct sigevent sigevent;
   memset(&sigevent, 0, sizeof(sigevent));
@@ -716,10 +677,9 @@ static void dump_stat(int fd, stat_t* stat, const char* description) {
 void alarm_debug_dump(int fd) {
   dprintf(fd, "\nBluetooth Alarms Statistics:\n");
 
-  pthread_mutex_lock(&monitor);
+  std::lock_guard<std::mutex> lock(alarms_mutex);
 
   if (alarms == NULL) {
-    pthread_mutex_unlock(&monitor);
     dprintf(fd, "  None\n");
     return;
   }
@@ -763,5 +723,4 @@ void alarm_debug_dump(int fd) {
 
     dprintf(fd, "\n");
   }
-  pthread_mutex_unlock(&monitor);
 }

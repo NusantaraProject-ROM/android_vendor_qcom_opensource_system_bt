@@ -59,6 +59,10 @@
 #define BTA_PAN_INCLUDED TRUE
 #endif
 
+#ifndef BTA_HD_INCLUDED
+#define BTA_HD_INCLUDED TRUE
+#endif
+
 #ifndef BTA_HH_INCLUDED
 #define BTA_HH_INCLUDED TRUE
 #endif
@@ -113,18 +117,6 @@
 /* TRUE to use SCMS-T content protection */
 #ifndef BTA_AV_CO_CP_SCMS_T
 #define BTA_AV_CO_CP_SCMS_T FALSE
-#endif
-
-#ifndef BTIF_A2DP_SRC_SAMPLING_RATE
-#define BTIF_A2DP_SRC_SAMPLING_RATE 44100
-#endif
-
-#ifndef BTIF_A2DP_SRC_BIT_DEPTH
-#define BTIF_A2DP_SRC_BIT_DEPTH 16
-#endif
-
-#ifndef BTIF_A2DP_SRC_NUM_CHANNELS
-#define BTIF_A2DP_SRC_NUM_CHANNELS 2
 #endif
 
 /* This feature is used to enable interleaved scan */
@@ -665,10 +657,6 @@
  *
  *****************************************************************************/
 
-#ifndef BLE_ANDROID_CONTROLLER_SCAN_FILTER
-#define BLE_ANDROID_CONTROLLER_SCAN_FILTER TRUE
-#endif
-
 #ifndef LOCAL_BLE_CONTROLLER_ID
 #define LOCAL_BLE_CONTROLLER_ID (1)
 #endif
@@ -828,11 +816,6 @@
 /* The maximum number of UUID filters supported by SDP databases. */
 #ifndef SDP_MAX_UUID_FILTERS
 #define SDP_MAX_UUID_FILTERS 3
-#endif
-
-/* This is set to enable SDP client functionality. */
-#ifndef SDP_CLIENT_ENABLED
-#define SDP_CLIENT_ENABLED TRUE
 #endif
 
 /* The maximum number of record handles retrieved in a search. */
@@ -1117,7 +1100,7 @@
 
 /* Number of simultaneous stream endpoints. */
 #ifndef AVDT_NUM_SEPS
-#define AVDT_NUM_SEPS 3
+#define AVDT_NUM_SEPS 6
 #endif
 
 /* Number of transport channels setup by AVDT for all media streams */
@@ -1254,12 +1237,29 @@
  *
  *****************************************************************************/
 
+/* HID Device Role Included */
+#ifndef HID_DEV_INCLUDED
+#define HID_DEV_INCLUDED TRUE
+#endif
+
+#ifndef HID_DEV_SUBCLASS
+#define HID_DEV_SUBCLASS COD_MINOR_POINTING
+#endif
+
 #ifndef HID_CONTROL_BUF_SIZE
 #define HID_CONTROL_BUF_SIZE BT_DEFAULT_BUFFER_SIZE
 #endif
 
 #ifndef HID_INTERRUPT_BUF_SIZE
 #define HID_INTERRUPT_BUF_SIZE BT_DEFAULT_BUFFER_SIZE
+#endif
+
+#ifndef HID_DEV_MTU_SIZE
+#define HID_DEV_MTU_SIZE 64
+#endif
+
+#ifndef HID_DEV_FLUSH_TO
+#define HID_DEV_FLUSH_TO 0xffff
 #endif
 
 /*************************************************************************

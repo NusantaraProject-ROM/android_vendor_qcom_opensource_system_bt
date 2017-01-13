@@ -23,10 +23,6 @@
 
 #include "osi/include/list.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct fixed_queue_t;
 typedef struct fixed_queue_t fixed_queue_t;
 typedef struct reactor_t reactor_t;
@@ -126,19 +122,12 @@ int fixed_queue_get_enqueue_fd(const fixed_queue_t* queue);
 int fixed_queue_get_dequeue_fd(const fixed_queue_t* queue);
 
 // Registers |queue| with |reactor| for dequeue operations. When there is an
-// element
-// in the queue, ready_cb will be called. The |context| parameter is passed,
-// untouched,
-// to the callback routine. Neither |queue|, nor |reactor|, nor |read_cb| may be
-// NULL.
-// |context| may be NULL.
+// element in the queue, ready_cb will be called. The |context| parameter is
+// passed, untouched, to the callback routine. Neither |queue|, nor |reactor|,
+// nor |read_cb| may be NULL. |context| may be NULL.
 void fixed_queue_register_dequeue(fixed_queue_t* queue, reactor_t* reactor,
                                   fixed_queue_cb ready_cb, void* context);
 
 // Unregisters the dequeue ready callback for |queue| from whichever reactor
 // it is registered with, if any. This function is idempotent.
 void fixed_queue_unregister_dequeue(fixed_queue_t* queue);
-
-#ifdef __cplusplus
-}
-#endif

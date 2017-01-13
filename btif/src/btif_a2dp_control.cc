@@ -19,7 +19,7 @@
 
 #define LOG_TAG "bt_btif_a2dp_control"
 
-#include <assert.h>
+#include <base/logging.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -30,6 +30,7 @@
 #include "btif_a2dp_sink.h"
 #include "btif_a2dp_source.h"
 #include "btif_av.h"
+#include "btif_av_co.h"
 #include "btif_hf.h"
 #include "osi/include/osi.h"
 #include "uipc.h"
@@ -162,14 +163,94 @@ static void btif_a2dp_recv_ctrl_data(void) {
       btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
       break;
 
-    case A2DP_CTRL_GET_AUDIO_CONFIG: {
-      uint32_t sample_rate = btif_a2dp_sink_get_sample_rate();
-      uint8_t channel_count = btif_a2dp_sink_get_channel_count();
+    case A2DP_CTRL_GET_INPUT_AUDIO_CONFIG: {
+      tA2DP_SAMPLE_RATE sample_rate = btif_a2dp_sink_get_sample_rate();
+      tA2DP_CHANNEL_COUNT channel_count = btif_a2dp_sink_get_channel_count();
 
       btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
       UIPC_Send(UIPC_CH_ID_AV_CTRL, 0, reinterpret_cast<uint8_t*>(&sample_rate),
-                sizeof(sample_rate));
-      UIPC_Send(UIPC_CH_ID_AV_CTRL, 0, &channel_count, sizeof(channel_count));
+                sizeof(tA2DP_SAMPLE_RATE));
+      UIPC_Send(UIPC_CH_ID_AV_CTRL, 0, &channel_count,
+                sizeof(tA2DP_CHANNEL_COUNT));
+      break;
+    }
+
+    case A2DP_CTRL_GET_OUTPUT_AUDIO_CONFIG: {
+      btav_a2dp_codec_config_t codec_config;
+      btav_a2dp_codec_config_t codec_capability;
+      codec_config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_NONE;
+      codec_config.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_NONE;
+      codec_config.channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_NONE;
+      codec_capability.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_NONE;
+      codec_capability.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_NONE;
+      codec_capability.channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_NONE;
+
+      A2dpCodecConfig* current_codec = bta_av_get_a2dp_current_codec();
+      if (current_codec != nullptr) {
+        codec_config = current_codec->getCodecConfig();
+        codec_capability = current_codec->getCodecCapability();
+      }
+
+      btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+      // Send the current codec config
+      UIPC_Send(UIPC_CH_ID_AV_CTRL, 0,
+                reinterpret_cast<const uint8_t*>(&codec_config.sample_rate),
+                sizeof(btav_a2dp_codec_sample_rate_t));
+      UIPC_Send(UIPC_CH_ID_AV_CTRL, 0,
+                reinterpret_cast<const uint8_t*>(&codec_config.bits_per_sample),
+                sizeof(btav_a2dp_codec_bits_per_sample_t));
+      UIPC_Send(UIPC_CH_ID_AV_CTRL, 0,
+                reinterpret_cast<const uint8_t*>(&codec_config.channel_mode),
+                sizeof(btav_a2dp_codec_channel_mode_t));
+      // Send the current codec capability
+      UIPC_Send(UIPC_CH_ID_AV_CTRL, 0,
+                reinterpret_cast<const uint8_t*>(&codec_capability.sample_rate),
+                sizeof(btav_a2dp_codec_sample_rate_t));
+      UIPC_Send(UIPC_CH_ID_AV_CTRL, 0, reinterpret_cast<const uint8_t*>(
+                                           &codec_capability.bits_per_sample),
+                sizeof(btav_a2dp_codec_bits_per_sample_t));
+      UIPC_Send(UIPC_CH_ID_AV_CTRL, 0, reinterpret_cast<const uint8_t*>(
+                                           &codec_capability.channel_mode),
+                sizeof(btav_a2dp_codec_channel_mode_t));
+      break;
+    }
+
+    case A2DP_CTRL_SET_OUTPUT_AUDIO_CONFIG: {
+      btav_a2dp_codec_config_t codec_config;
+      codec_config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_NONE;
+      codec_config.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_NONE;
+      codec_config.channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_NONE;
+
+      btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+      // Send the current codec config
+      if (UIPC_Read(UIPC_CH_ID_AV_CTRL, 0,
+                    reinterpret_cast<uint8_t*>(&codec_config.sample_rate),
+                    sizeof(btav_a2dp_codec_sample_rate_t)) !=
+          sizeof(btav_a2dp_codec_sample_rate_t)) {
+        APPL_TRACE_ERROR("Error reading sample rate from audio HAL");
+        break;
+      }
+      if (UIPC_Read(UIPC_CH_ID_AV_CTRL, 0,
+                    reinterpret_cast<uint8_t*>(&codec_config.bits_per_sample),
+                    sizeof(btav_a2dp_codec_bits_per_sample_t)) !=
+          sizeof(btav_a2dp_codec_bits_per_sample_t)) {
+        APPL_TRACE_ERROR("Error reading bits per sample from audio HAL");
+        break;
+      }
+      if (UIPC_Read(UIPC_CH_ID_AV_CTRL, 0,
+                    reinterpret_cast<uint8_t*>(&codec_config.channel_mode),
+                    sizeof(btav_a2dp_codec_channel_mode_t)) !=
+          sizeof(btav_a2dp_codec_channel_mode_t)) {
+        APPL_TRACE_ERROR("Error reading channel mode from audio HAL");
+        break;
+      }
+      APPL_TRACE_DEBUG(
+          "%s: A2DP_CTRL_SET_OUTPUT_AUDIO_CONFIG: "
+          "sample_rate=0x%x bits_per_sample=0x%x "
+          "channel_mode=0x%x",
+          __func__, codec_config.sample_rate, codec_config.bits_per_sample,
+          codec_config.channel_mode);
+      btif_a2dp_source_feeding_update_req(codec_config);
       break;
     }
 
@@ -227,9 +308,6 @@ static void btif_a2dp_data_cb(UNUSED_ATTR tUIPC_CH_ID ch_id,
       if (btif_av_get_peer_sep() == AVDT_TSEP_SNK) {
         /* Start the media task to encode the audio */
         btif_a2dp_source_start_audio_req();
-
-        /* Make sure we update any changed encoder params */
-        btif_a2dp_source_encoder_update();
       }
 
       /* ACK back when media task is fully started */

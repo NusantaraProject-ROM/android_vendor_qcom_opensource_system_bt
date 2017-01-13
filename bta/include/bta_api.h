@@ -25,14 +25,12 @@
 #ifndef BTA_API_H
 #define BTA_API_H
 
+#include <hardware/bt_common_types.h>
+#include <memory>
 #include "bt_target.h"
 #include "bt_types.h"
 #include "btm_api.h"
 #include "btm_ble_api.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /*****************************************************************************
  *  Constants and data types
@@ -87,13 +85,14 @@ typedef uint8_t tBTA_STATUS;
 #define BTA_MAP_SERVICE_ID 25        /* Message Access Profile */
 #define BTA_MN_SERVICE_ID 26         /* Message Notification Service */
 #define BTA_HDP_SERVICE_ID 27        /* Health Device Profile */
-#define BTA_PCE_SERVICE_ID 28        /* PhoneBook Access Client*/
-#define BTA_SDP_SERVICE_ID 29        /* SDP Search*/
+#define BTA_PCE_SERVICE_ID 28        /* PhoneBook Access Client */
+#define BTA_SDP_SERVICE_ID 29        /* SDP Search */
+#define BTA_HIDD_SERVICE_ID 30       /* HID Device */
 
 /* BLE profile service ID */
-#define BTA_BLE_SERVICE_ID 30  /* GATT profile */
-#define BTA_USER_SERVICE_ID 31 /* User requested UUID */
-#define BTA_MAX_SERVICE_ID 32
+#define BTA_BLE_SERVICE_ID 31  /* GATT profile */
+#define BTA_USER_SERVICE_ID 32 /* User requested UUID */
+#define BTA_MAX_SERVICE_ID 33
 
 /* service IDs (BTM_SEC_SERVICE_FIRST_EMPTY + 1) to (BTM_SEC_MAX_SERVICES - 1)
  * are used by BTA JV */
@@ -132,10 +131,11 @@ typedef uint8_t tBTA_SERVICE_ID;
 #define BTA_MN_SERVICE_MASK 0x04000000     /* Message Notification Profile */
 #define BTA_HL_SERVICE_MASK 0x08000000     /* Health Device Profile */
 #define BTA_PCE_SERVICE_MASK 0x10000000    /* Phone Book Client */
+#define BTA_HIDD_SERVICE_MASK 0x20000000   /* HID Device */
 
-#define BTA_BLE_SERVICE_MASK 0x20000000  /* GATT based service */
-#define BTA_ALL_SERVICE_MASK 0x3FFFFFFF  /* All services supported by BTA. */
-#define BTA_USER_SERVICE_MASK 0x40000000 /* Message Notification Profile */
+#define BTA_BLE_SERVICE_MASK 0x40000000  /* GATT based service */
+#define BTA_ALL_SERVICE_MASK 0x7FFFFFFF  /* All services supported by BTA. */
+#define BTA_USER_SERVICE_MASK 0x80000000 /* Message Notification Profile */
 
 typedef uint32_t tBTA_SERVICE_MASK;
 
@@ -332,18 +332,6 @@ typedef uint8_t tBTA_BLE_DISCARD_RULE;
 enum { BTA_BLE_ADV_SEEN_FIRST_TIME = 0, BTA_BLE_ADV_TRACKING_TIMEOUT = 1 };
 typedef uint8_t tBTA_BLE_ADV_CHANGE_REASON;
 
-enum {
-  BTA_BLE_BATCH_SCAN_ENB_EVT = 1,
-  BTA_BLE_BATCH_SCAN_CFG_STRG_EVT = 2,
-  BTA_BLE_BATCH_SCAN_DATA_EVT = 3,
-  BTA_BLE_BATCH_SCAN_THRES_EVT = 4,
-  BTA_BLE_BATCH_SCAN_PARAM_EVT = 5,
-  BTA_BLE_BATCH_SCAN_DIS_EVT = 6
-};
-typedef tBTM_BLE_BATCH_SCAN_EVT tBTA_BLE_BATCH_SCAN_EVT;
-
-typedef tBTM_BLE_TRACK_ADV_ACTION tBTA_BLE_TRACK_ADV_ACTION;
-
 /* BLE customer specific feature function type definitions */
 /* data type used on customer specific feature for RSSI monitoring */
 #define BTA_BLE_RSSI_ALERT_HI 0
@@ -361,93 +349,6 @@ typedef uint8_t tBTA_DM_BLE_RSSI_ALERT_MASK;
 typedef void(tBTA_DM_BLE_RSSI_CBACK)(BD_ADDR bd_addr,
                                      tBTA_DM_BLE_RSSI_ALERT_TYPE alert_type,
                                      int8_t rssi);
-
-/* max number of filter spot for different filter type */
-#define BTA_DM_BLE_MAX_UUID_FILTER BTM_BLE_MAX_UUID_FILTER /* 8 */
-#define BTA_DM_BLE_MAX_ADDR_FILTER BTM_BLE_MAX_ADDR_FILTER /* 8 */
-#define BTA_DM_BLE_PF_STR_COND_MAX \
-  BTM_BLE_PF_STR_COND_MAX /* 4    apply to manu data , or local name */
-#define BTA_DM_BLE_PF_STR_LEN_MAX \
-  BTM_BLE_PF_STR_LEN_MAX /* match for first 20 bytes */
-
-#define BTA_DM_BLE_PF_LOGIC_OR 0
-#define BTA_DM_BLE_PF_LOGIC_AND 1
-typedef uint8_t tBTA_DM_BLE_PF_LOGIC_TYPE;
-
-enum {
-  BTA_DM_BLE_SCAN_COND_ADD,
-  BTA_DM_BLE_SCAN_COND_DELETE,
-  BTA_DM_BLE_SCAN_COND_CLEAR = 2
-};
-typedef uint8_t tBTA_DM_BLE_SCAN_COND_OP;
-
-/* ADV payload filtering vendor specific call event */
-enum { BTA_BLE_SCAN_PF_ENABLE_EVT = 7, BTA_BLE_SCAN_PF_COND_EVT };
-
-/* filter selection bit index  */
-#define BTA_DM_BLE_PF_ADDR_FILTER BTM_BLE_PF_ADDR_FILTER
-#define BTA_DM_BLE_PF_SRVC_DATA BTM_BLE_PF_SRVC_DATA
-#define BTA_DM_BLE_PF_SRVC_UUID BTM_BLE_PF_SRVC_UUID
-#define BTA_DM_BLE_PF_SRVC_SOL_UUID BTM_BLE_PF_SRVC_SOL_UUID
-#define BTA_DM_BLE_PF_LOCAL_NAME BTM_BLE_PF_LOCAL_NAME
-#define BTA_DM_BLE_PF_MANU_DATA BTM_BLE_PF_MANU_DATA
-#define BTA_DM_BLE_PF_SRVC_DATA_PATTERN BTM_BLE_PF_SRVC_DATA_PATTERN
-#define BTA_DM_BLE_PF_TYPE_ALL BTM_BLE_PF_TYPE_ALL
-#define BTA_DM_BLE_PF_TYPE_MAX BTM_BLE_PF_TYPE_MAX
-typedef uint8_t tBTA_DM_BLE_PF_COND_TYPE;
-
-typedef union {
-  uint16_t uuid16_mask;
-  uint32_t uuid32_mask;
-  uint8_t uuid128_mask[LEN_UUID_128];
-} tBTA_DM_BLE_PF_COND_MASK;
-
-typedef struct {
-  tBLE_BD_ADDR*
-      p_target_addr; /* target address, if NULL, generic UUID filter */
-  tBT_UUID uuid;     /* UUID condition */
-  tBTA_DM_BLE_PF_LOGIC_TYPE cond_logic; /* AND/OR */
-  tBTA_DM_BLE_PF_COND_MASK*
-      p_uuid_mask; /* UUID condition mask, if NULL, match exact as UUID
-                      condition */
-} tBTA_DM_BLE_PF_UUID_COND;
-
-typedef struct {
-  uint8_t data_len; /* <= 20 bytes */
-  uint8_t* p_data;
-} tBTA_DM_BLE_PF_LOCAL_NAME_COND;
-
-typedef struct {
-  uint16_t company_id; /* company ID */
-  uint8_t data_len;    /* <= 20 bytes */
-  uint8_t* p_pattern;
-  uint16_t company_id_mask; /* UUID value mask */
-  uint8_t*
-      p_pattern_mask; /* Manufacturer data matching mask, same length
-                       as data pattern, set to all 0xff, match exact data */
-} tBTA_DM_BLE_PF_MANU_COND;
-
-typedef struct {
-  uint16_t uuid;    /* service ID */
-  uint8_t data_len; /* <= 20 bytes */
-  uint8_t* p_pattern;
-  uint8_t*
-      p_pattern_mask; /* Service data matching mask, same length
-                       as data pattern, set to all 0xff, match exact data */
-} tBTA_DM_BLE_PF_SRVC_PATTERN_COND;
-
-typedef union {
-  tBLE_BD_ADDR target_addr;
-  tBTA_DM_BLE_PF_LOCAL_NAME_COND local_name; /* lcoal name filtering */
-  tBTA_DM_BLE_PF_MANU_COND manu_data;        /* manufactuer data filtering */
-  tBTA_DM_BLE_PF_UUID_COND srvc_uuid;        /* service UUID filtering */
-  tBTA_DM_BLE_PF_UUID_COND
-      solicitate_uuid; /* solicitated service UUID filtering */
-  tBTA_DM_BLE_PF_SRVC_PATTERN_COND srvc_data; /* service data pattern */
-} tBTA_DM_BLE_PF_COND_PARAM;
-
-typedef uint8_t tBTA_DM_BLE_PF_FILT_INDEX;
-typedef uint8_t tBTA_DM_BLE_PF_AVBL_SPACE;
 
 typedef int8_t tBTA_DM_RSSI_VALUE;
 typedef uint8_t tBTA_DM_LINK_QUALITY_VALUE;
@@ -597,13 +498,6 @@ typedef struct {
 #define BTA_DM_SEC_PAIR_NOT_SPT BTA_DM_AUTH_SMP_PAIR_NOT_SUPPORT
 #define BTA_DM_SEC_REP_ATTEMPTS BTA_DM_AUTH_SMP_REPEATED_ATTEMPT
 typedef uint8_t tBTA_DM_BLE_SEC_GRANT;
-
-#define BTA_DM_BLE_ONN_NONE BTM_BLE_CONN_NONE
-#define BTA_DM_BLE_CONN_AUTO BTM_BLE_CONN_AUTO
-#define BTA_DM_BLE_CONN_SELECTIVE BTM_BLE_CONN_SELECTIVE
-typedef uint8_t tBTA_DM_BLE_CONN_TYPE;
-
-typedef bool(tBTA_DM_BLE_SEL_CBACK)(BD_ADDR random_bda, uint8_t* p_remote_name);
 
 /* Structure associated with BTA_DM_BLE_SEC_REQ_EVT */
 typedef struct {
@@ -805,67 +699,8 @@ typedef union {
 /* Security callback */
 typedef void(tBTA_DM_SEC_CBACK)(tBTA_DM_SEC_EVT event, tBTA_DM_SEC* p_data);
 
-typedef uint32_t tBTA_DM_BLE_REF_VALUE;
-
-#define BTA_DM_BLE_PF_ENABLE_EVT BTM_BLE_PF_ENABLE
-#define BTA_DM_BLE_PF_CONFIG_EVT BTM_BLE_PF_CONFIG
-typedef uint8_t tBTA_DM_BLE_PF_EVT;
-
-#define BTA_DM_BLE_PF_ENABLE 1
-#define BTA_DM_BLE_PF_CONFIG 2
-typedef uint8_t tBTA_DM_BLE_PF_ACTION;
-
-/* Config callback */
-typedef void(tBTA_DM_BLE_PF_CFG_CBACK)(tBTA_DM_BLE_PF_ACTION action,
-                                       tBTA_DM_BLE_PF_COND_TYPE cfg_cond,
-                                       tBTA_DM_BLE_PF_AVBL_SPACE avbl_space,
-                                       tBTA_STATUS status,
-                                       tBTA_DM_BLE_REF_VALUE ref_value);
-/* Param callback */
-typedef void(tBTA_DM_BLE_PF_PARAM_CBACK)(uint8_t action_type,
-                                         tBTA_DM_BLE_PF_AVBL_SPACE avbl_space,
-                                         tBTA_DM_BLE_REF_VALUE ref_value,
-                                         tBTA_STATUS status);
-
-/* Status callback */
-typedef void(tBTA_DM_BLE_PF_STATUS_CBACK)(uint8_t action, tBTA_STATUS status,
-                                          tBTA_DM_BLE_REF_VALUE ref_value);
-
-#define BTA_DM_BLE_PF_BRDCAST_ADDR_FILT 1
-#define BTA_DM_BLE_PF_SERV_DATA_CHG_FILT 2
-#define BTA_DM_BLE_PF_SERV_UUID 4
-#define BTA_DM_BLE_PF_SERV_SOLC_UUID 8
-#define BTA_DM_BLE_PF_LOC_NAME_CHECK 16
-#define BTA_DM_BLE_PF_MANUF_NAME_CHECK 32
-#define BTA_DM_BLE_PF_SERV_DATA_CHECK 64
-typedef uint16_t tBTA_DM_BLE_PF_FEAT_SEL;
-
 #define BTA_DM_BLE_PF_LIST_LOGIC_OR 1
-#define BTA_DM_BLE_PF_LIST_LOGIC_AND 2
-typedef uint16_t tBTA_DM_BLE_PF_LIST_LOGIC_TYPE;
-
 #define BTA_DM_BLE_PF_FILT_LOGIC_OR 0
-#define BTA_DM_BLE_PF_FILT_LOGIC_AND 1
-typedef uint16_t tBTA_DM_BLE_PF_FILT_LOGIC_TYPE;
-
-typedef uint8_t tBTA_DM_BLE_PF_RSSI_THRESHOLD;
-typedef uint8_t tBTA_DM_BLE_PF_DELIVERY_MODE;
-typedef uint16_t tBTA_DM_BLE_PF_TIMEOUT;
-typedef uint8_t tBTA_DM_BLE_PF_TIMEOUT_CNT;
-typedef uint16_t tBTA_DM_BLE_PF_ADV_TRACK_ENTRIES;
-
-typedef struct {
-  tBTA_DM_BLE_PF_FEAT_SEL feat_seln;
-  tBTA_DM_BLE_PF_LIST_LOGIC_TYPE list_logic_type;
-  tBTA_DM_BLE_PF_FILT_LOGIC_TYPE filt_logic_type;
-  tBTA_DM_BLE_PF_RSSI_THRESHOLD rssi_high_thres;
-  tBTA_DM_BLE_PF_RSSI_THRESHOLD rssi_low_thres;
-  tBTA_DM_BLE_PF_DELIVERY_MODE dely_mode;
-  tBTA_DM_BLE_PF_TIMEOUT found_timeout;
-  tBTA_DM_BLE_PF_TIMEOUT lost_timeout;
-  tBTA_DM_BLE_PF_TIMEOUT_CNT found_timeout_cnt;
-  tBTA_DM_BLE_PF_ADV_TRACK_ENTRIES num_of_tracking_entries;
-} tBTA_DM_BLE_PF_FILT_PARAMS;
 
 /* Search callback events */
 #define BTA_DM_INQ_RES_EVT 0  /* Inquiry result for a peer device. */
@@ -980,25 +815,6 @@ typedef uint8_t tBTA_DM_BLE_ADV_STATE;
 typedef uint8_t tBTA_DM_BLE_ADV_INFO_PRESENT;
 typedef uint8_t tBTA_DM_BLE_RSSI_VALUE;
 typedef uint16_t tBTA_DM_BLE_ADV_INFO_TIMESTAMP;
-
-typedef tBTM_BLE_TRACK_ADV_DATA tBTA_DM_BLE_TRACK_ADV_DATA;
-
-typedef void(tBTA_BLE_SCAN_THRESHOLD_CBACK)(tBTA_DM_BLE_REF_VALUE ref_value);
-
-typedef void(tBTA_BLE_SCAN_REP_CBACK)(tBTA_DM_BLE_REF_VALUE ref_value,
-                                      uint8_t report_format,
-                                      uint8_t num_records, uint16_t data_len,
-                                      uint8_t* p_rep_data, tBTA_STATUS status);
-
-typedef void(tBTA_BLE_SCAN_SETUP_CBACK)(tBTA_BLE_BATCH_SCAN_EVT evt,
-                                        tBTA_DM_BLE_REF_VALUE ref_value,
-                                        tBTA_STATUS status);
-
-typedef void(tBTA_BLE_TRACK_ADV_CMPL_CBACK)(
-    int action, tBTA_STATUS status, tBTA_DM_BLE_PF_AVBL_SPACE avbl_space,
-    tBTA_DM_BLE_REF_VALUE ref_value);
-
-typedef void(tBTA_BLE_TRACK_ADV_CBACK)(tBTA_DM_BLE_TRACK_ADV_DATA* p_adv_data);
 
 typedef void(tBTA_BLE_ENERGY_INFO_CBACK)(tBTA_DM_BLE_TX_TIME_MS tx_time,
                                          tBTA_DM_BLE_RX_TIME_MS rx_time,
@@ -1122,8 +938,8 @@ typedef uint8_t tBTA_DM_PM_ACTION;
 #endif
 
 #ifndef BTA_DM_PM_SNIFF2_MAX
-#define BTA_DM_PM_SNIFF2_MAX 180
-#define BTA_DM_PM_SNIFF2_MIN 150
+#define BTA_DM_PM_SNIFF2_MAX 54
+#define BTA_DM_PM_SNIFF2_MIN 30
 #define BTA_DM_PM_SNIFF2_ATTEMPT 4
 #define BTA_DM_PM_SNIFF2_TIMEOUT 1
 #endif
@@ -1569,7 +1385,7 @@ extern void bta_dmexecutecallback(tBTA_DM_EXEC_CBACK* p_callback,
 extern void BTA_DmPcmInitSamples(uint32_t src_sps, uint32_t bits,
                                  uint32_t n_channels);
 
-/**************************************************************************************
+/*******************************************************************************
  * Function         BTA_DmPcmResample
  *
  * Description      Down sampling utility to convert higher sampling rate into
@@ -1585,7 +1401,7 @@ extern void BTA_DmPcmInitSamples(uint32_t src_sps, uint32_t bits,
  *
  * Returns          int32_t: number of samples converted.
  *
- *************************************************************************************/
+ ******************************************************************************/
 extern int32_t BTA_DmPcmResample(void* p_src, uint32_t in_bytes, void* p_dst);
 #endif
 
@@ -1604,23 +1420,10 @@ extern int32_t BTA_DmPcmResample(void* p_src, uint32_t in_bytes, void* p_dst);
  ******************************************************************************/
 extern void BTA_DmBleSecurityGrant(BD_ADDR bd_addr, tBTA_DM_BLE_SEC_GRANT res);
 
-/*******************************************************************************
- *
- * Function         BTA_DmBleSetBgConnType
- *
- * Description      This function is called to set BLE connectable mode for a
- *                  peripheral device.
- *
- * Parameters       bg_conn_type: it can be auto connection, or selective
- *                                connection.
- *                  p_select_cback: callback function when selective connection
- *                                  procedure is being used.
- *
- * Returns          void
- *
- ******************************************************************************/
-extern void BTA_DmBleSetBgConnType(tBTA_DM_BLE_CONN_TYPE bg_conn_type,
-                                   tBTA_DM_BLE_SEL_CBACK* p_select_cback);
+/**
+ * Set BLE connectable mode to auto connect
+ */
+extern void BTA_DmBleStartAutoConn();
 
 /*******************************************************************************
  *
@@ -1729,45 +1532,6 @@ extern void BTA_DmSetBlePrefConnParams(const BD_ADDR bd_addr,
 extern void BTA_DmSetBleConnScanParams(uint32_t scan_interval,
                                        uint32_t scan_window);
 
-/*******************************************************************************
- *
- * Function         BTA_DmSetBleScanParams
- *
- * Description      This function is called to set scan parameters
- *
- * Parameters:      client_if - Client IF
- *                  scan_interval - scan interval
- *                  scan_window - scan window
- *                  scan_mode - scan mode
- *                  scan_param_setup_status_cback - Set scan param status
- *                                                  callback
- *
- * Returns          void
- *
- ******************************************************************************/
-extern void BTA_DmSetBleScanParams(
-    tGATT_IF client_if, uint32_t scan_interval, uint32_t scan_window,
-    tBLE_SCAN_MODE scan_mode,
-    tBLE_SCAN_PARAM_SETUP_CBACK scan_param_setup_status_cback);
-
-/*******************************************************************************
- *
- * Function         BTA_DmSetBleAdvParams
- *
- * Description      This function sets the advertising parameters BLE
- *                  functionality.
- *                  It is to be called when device act in peripheral or
- *                  broadcaster role.
- *
- * Parameters:      adv_int_min    - adv interval minimum
- *                  adv_int_max    - adv interval max
- *                  p_dir_bda      - directed adv initator address
- *
- * Returns          void
- *
- ******************************************************************************/
-extern void BTA_DmSetBleAdvParams(uint16_t adv_int_min, uint16_t adv_int_max,
-                                  tBLE_BD_ADDR* p_dir_bda);
 /*******************************************************************************
  *
  * Function         BTA_DmSearchExt
@@ -1940,169 +1704,6 @@ extern void BTA_DmBleSetDataLength(BD_ADDR remote_device,
 
 /*******************************************************************************
  *
- * Function         BTA_DmBleSetStorageParams
- *
- * Description      This function is called to set the storage parameters
- *
- * Parameters       batch_scan_full_max -Max storage space (in %) allocated to
- *                                       full scanning
- *                  batch_scan_trunc_max -Max storage space (in %) allocated to
- *                                        truncated scanning
- *                  batch_scan_notify_threshold - Setup notification level based
- *                                                on total space consumed by
- *                                                both pools. Setting it to 0
- *                                                will disable threshold
- *                                                notification
- *                  p_setup_cback - Setup callback
- *                  p_thres_cback - Threshold callback
- *                  p_rep_cback - Reports callback
- *                  ref_value - Reference value
- *
- * Returns           None
- *
- ******************************************************************************/
-extern void BTA_DmBleSetStorageParams(
-    uint8_t batch_scan_full_max, uint8_t batch_scan_trunc_max,
-    uint8_t batch_scan_notify_threshold,
-    tBTA_BLE_SCAN_SETUP_CBACK* p_setup_cback,
-    tBTA_BLE_SCAN_THRESHOLD_CBACK* p_thres_cback,
-    tBTA_BLE_SCAN_REP_CBACK* p_rep_cback, tBTA_DM_BLE_REF_VALUE ref_value);
-
-/*******************************************************************************
- *
- * Function         BTA_DmBleEnableBatchScan
- *
- * Description      This function is called to enable the batch scan
- *
- * Parameters       scan_mode -Batch scan mode
- *                  scan_interval - Scan interval
- *                  scan_window - Scan window
- *                  discard_rule -Discard rules
- *                  addr_type - Address type
- *                  ref_value - Reference value
- *
- * Returns           None
- *
- ******************************************************************************/
-extern void BTA_DmBleEnableBatchScan(tBTA_BLE_BATCH_SCAN_MODE scan_mode,
-                                     uint32_t scan_interval,
-                                     uint32_t scan_window,
-                                     tBTA_BLE_DISCARD_RULE discard_rule,
-                                     tBLE_ADDR_TYPE addr_type,
-                                     tBTA_DM_BLE_REF_VALUE ref_value);
-
-/*******************************************************************************
- *
- * Function         BTA_DmBleReadScanReports
- *
- * Description      This function is called to read the batch scan reports
- *
- * Parameters       scan_mode -Batch scan mode
- *                  ref_value - Reference value
- *
- * Returns          None
- *
- ******************************************************************************/
-extern void BTA_DmBleReadScanReports(tBTA_BLE_BATCH_SCAN_MODE scan_type,
-                                     tBTA_DM_BLE_REF_VALUE ref_value);
-
-/*******************************************************************************
- *
- * Function         BTA_DmBleDisableBatchScan
- *
- * Description      This function is called to disable the batch scanning
- *
- * Parameters       ref_value - Reference value
- *
- * Returns          None
- *
- ******************************************************************************/
-extern void BTA_DmBleDisableBatchScan(tBTA_DM_BLE_REF_VALUE ref_value);
-
-/*******************************************************************************
- *
- * Function         BTA_DmEnableScanFilter
- *
- * Description      This function is called to enable the adv data payload
- *                  filter
- *
- * Parameters       action - enable or disable the APCF feature
- *                  p_cmpl_cback - Command completed callback
- *                  ref_value - Reference value
- *
- * Returns          void
- *
- ******************************************************************************/
-extern void BTA_DmEnableScanFilter(uint8_t action,
-                                   tBTA_DM_BLE_PF_STATUS_CBACK* p_cmpl_cback,
-                                   tBTA_DM_BLE_REF_VALUE ref_value);
-
-/*******************************************************************************
- *
- * Function         BTA_DmBleScanFilterSetup
- *
- * Description      This function is called to setup the filter params
- *
- * Parameters       p_target: enable the filter condition on a target device; if
- *                            NULL
- *                  filt_index - Filter index
- *                  p_filt_params -Filter parameters
- *                  ref_value - Reference value
- *                  action - Add, delete or clear
- *                  p_cmpl_back - Command completed callback
- *
- * Returns          void
- *
- ******************************************************************************/
-extern void BTA_DmBleScanFilterSetup(uint8_t action,
-                                     tBTA_DM_BLE_PF_FILT_INDEX filt_index,
-                                     tBTA_DM_BLE_PF_FILT_PARAMS* p_filt_params,
-                                     tBLE_BD_ADDR* p_target,
-                                     tBTA_DM_BLE_PF_PARAM_CBACK* p_cmpl_cback,
-                                     tBTA_DM_BLE_REF_VALUE ref_value);
-
-/*******************************************************************************
- *
- * Function         BTA_DmBleCfgFilterCondition
- *
- * Description      This function is called to configure the adv data payload
- *                  filter condition.
- *
- * Parameters       action: to read/write/clear
- *                  cond_type: filter condition type
- *                  filt_index - Filter index
- *                  p_cond: filter condition parameter
- *                  p_cmpl_back - Command completed callback
- *                  ref_value - Reference value
- *
- * Returns          void
- *
- ******************************************************************************/
-extern void BTA_DmBleCfgFilterCondition(tBTA_DM_BLE_SCAN_COND_OP action,
-                                        tBTA_DM_BLE_PF_COND_TYPE cond_type,
-                                        tBTA_DM_BLE_PF_FILT_INDEX filt_index,
-                                        tBTA_DM_BLE_PF_COND_PARAM* p_cond,
-                                        tBTA_DM_BLE_PF_CFG_CBACK* p_cmpl_cback,
-                                        tBTA_DM_BLE_REF_VALUE ref_value);
-
-/*******************************************************************************
- *
- * Function         BTA_DmBleTrackAdvertiser
- *
- * Description      This function is called to track the advertiser
- *
- * Parameters    ref_value - Reference value
- *               p_track_adv_cback - ADV callback
- *
- * Returns          None
- *
- ******************************************************************************/
-extern void BTA_DmBleTrackAdvertiser(
-    tBTA_DM_BLE_REF_VALUE ref_value,
-    tBTA_BLE_TRACK_ADV_CBACK* p_track_adv_cback);
-
-/*******************************************************************************
- *
  * Function         BTA_DmBleGetEnergyInfo
  *
  * Description      This function is called to obtain the energy info
@@ -2137,9 +1738,5 @@ extern void BTA_VendorInit(void);
  *
  ******************************************************************************/
 extern void BTA_VendorCleanup(void);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* BTA_API_H */

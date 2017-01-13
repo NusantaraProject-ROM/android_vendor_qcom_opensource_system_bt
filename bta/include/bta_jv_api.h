@@ -30,10 +30,6 @@
 #include "btm_api.h"
 #include "l2c_api.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /*****************************************************************************
  *  Constants and data types
  ****************************************************************************/
@@ -372,16 +368,15 @@ typedef union {
 } tBTA_JV;
 
 /* JAVA DM Interface callback */
-typedef void(tBTA_JV_DM_CBACK)(tBTA_JV_EVT event, tBTA_JV* p_data,
-                               uint32_t id);
+typedef void(tBTA_JV_DM_CBACK)(tBTA_JV_EVT event, tBTA_JV* p_data, uint32_t id);
 
 /* JAVA RFCOMM interface callback */
-typedef void*(tBTA_JV_RFCOMM_CBACK)(tBTA_JV_EVT event, tBTA_JV* p_data,
-                                    void* user_data);
+typedef uint32_t(tBTA_JV_RFCOMM_CBACK)(tBTA_JV_EVT event, tBTA_JV* p_data,
+                                       uint32_t rfcomm_slot_id);
 
 /* JAVA L2CAP interface callback */
 typedef void(tBTA_JV_L2CAP_CBACK)(tBTA_JV_EVT event, tBTA_JV* p_data,
-                                  void* user_Data);
+                                  uint32_t l2cap_socket_id);
 
 /* JV configuration structure */
 typedef struct {
@@ -451,8 +446,7 @@ bool BTA_JvIsEncrypted(BD_ADDR bd_addr);
  *                  BTA_JV_FAILURE, otherwise.
  *
  ******************************************************************************/
-tBTA_JV_STATUS BTA_JvGetChannelId(int conn_type, uint32_t id,
-                                  int32_t channel);
+tBTA_JV_STATUS BTA_JvGetChannelId(int conn_type, uint32_t id, int32_t channel);
 
 /*******************************************************************************
  *
@@ -495,7 +489,7 @@ tBTA_JV_STATUS BTA_JvStartDiscovery(BD_ADDR bd_addr, uint16_t num_uuid,
  *                  BTA_JV_FAILURE, otherwise.
  *
  ******************************************************************************/
-tBTA_JV_STATUS BTA_JvCreateRecordByUser(void* user_data);
+tBTA_JV_STATUS BTA_JvCreateRecordByUser(uint32_t rfcomm_slot_id);
 
 /*******************************************************************************
  *
@@ -529,7 +523,7 @@ tBTA_JV_STATUS BTA_JvL2capConnectLE(tBTA_SEC sec_mask, tBTA_JV_ROLE role,
                                     uint16_t remote_chan, uint16_t rx_mtu,
                                     tL2CAP_CFG_INFO* cfg, BD_ADDR peer_bd_addr,
                                     tBTA_JV_L2CAP_CBACK* p_cback,
-                                    void* user_data);
+                                    uint32_t l2cap_socket_id);
 
 /*******************************************************************************
  *
@@ -552,7 +546,7 @@ tBTA_JV_STATUS BTA_JvL2capConnect(int conn_type, tBTA_SEC sec_mask,
                                   uint16_t remote_psm, uint16_t rx_mtu,
                                   tL2CAP_CFG_INFO* cfg, BD_ADDR peer_bd_addr,
                                   tBTA_JV_L2CAP_CBACK* p_cback,
-                                  void* user_data);
+                                  uint32_t l2cap_socket_id);
 
 /*******************************************************************************
  *
@@ -594,10 +588,13 @@ tBTA_JV_STATUS BTA_JvL2capCloseLE(uint32_t handle);
  *                  BTA_JV_FAILURE, otherwise.
  *
  ******************************************************************************/
-tBTA_JV_STATUS BTA_JvL2capStartServer(
-    int conn_type, tBTA_SEC sec_mask, tBTA_JV_ROLE role,
-    const tL2CAP_ERTM_INFO* ertm_info, uint16_t local_psm, uint16_t rx_mtu,
-    tL2CAP_CFG_INFO* cfg, tBTA_JV_L2CAP_CBACK* p_cback, void* user_data);
+tBTA_JV_STATUS BTA_JvL2capStartServer(int conn_type, tBTA_SEC sec_mask,
+                                      tBTA_JV_ROLE role,
+                                      const tL2CAP_ERTM_INFO* ertm_info,
+                                      uint16_t local_psm, uint16_t rx_mtu,
+                                      tL2CAP_CFG_INFO* cfg,
+                                      tBTA_JV_L2CAP_CBACK* p_cback,
+                                      uint32_t l2cap_socket_id);
 
 /*******************************************************************************
  *
@@ -619,7 +616,7 @@ tBTA_JV_STATUS BTA_JvL2capStartServerLE(tBTA_SEC sec_mask, tBTA_JV_ROLE role,
                                         uint16_t local_chan, uint16_t rx_mtu,
                                         tL2CAP_CFG_INFO* cfg,
                                         tBTA_JV_L2CAP_CBACK* p_cback,
-                                        void* user_data);
+                                        uint32_t l2cap_socket_id);
 
 /*******************************************************************************
  *
@@ -632,20 +629,22 @@ tBTA_JV_STATUS BTA_JvL2capStartServerLE(tBTA_SEC sec_mask, tBTA_JV_ROLE role,
  *                  BTA_JV_FAILURE, otherwise.
  *
  ******************************************************************************/
-tBTA_JV_STATUS BTA_JvL2capStopServerLE(uint16_t local_chan, void* user_data);
+tBTA_JV_STATUS BTA_JvL2capStopServerLE(uint16_t local_chan,
+                                       uint32_t l2cap_socket_id);
 
 /*******************************************************************************
  *
- * Function         BTA_JvL2capStopServerLE
+ * Function         BTA_JvL2capStopServer
  *
- * Description      This function stops the LE L2CAP server. If the server has
+ * Description      This function stops the L2CAP server. If the server has
  *                  an active connection, it would be closed.
  *
  * Returns          BTA_JV_SUCCESS, if the request is being processed.
  *                  BTA_JV_FAILURE, otherwise.
  *
  ******************************************************************************/
-tBTA_JV_STATUS BTA_JvL2capStopServer(uint16_t local_psm, void* user_data);
+tBTA_JV_STATUS BTA_JvL2capStopServer(uint16_t local_psm,
+                                     uint32_t l2cap_socket_id);
 
 /*******************************************************************************
  *
@@ -689,7 +688,8 @@ tBTA_JV_STATUS BTA_JvL2capReady(uint32_t handle, uint32_t* p_data_size);
  *
  ******************************************************************************/
 tBTA_JV_STATUS BTA_JvL2capWrite(uint32_t handle, uint32_t req_id,
-                                uint8_t* p_data, uint16_t len, void* user_data);
+                                uint8_t* p_data, uint16_t len,
+                                uint32_t user_id);
 
 /*******************************************************************************
  *
@@ -708,7 +708,7 @@ tBTA_JV_STATUS BTA_JvL2capWriteFixed(uint16_t channel, BD_ADDR* addr,
                                      uint32_t req_id,
                                      tBTA_JV_L2CAP_CBACK* p_cback,
                                      uint8_t* p_data, uint16_t len,
-                                     void* user_data);
+                                     uint32_t user_id);
 
 /*******************************************************************************
  *
@@ -729,7 +729,7 @@ tBTA_JV_STATUS BTA_JvL2capWriteFixed(uint16_t channel, BD_ADDR* addr,
 tBTA_JV_STATUS BTA_JvRfcommConnect(tBTA_SEC sec_mask, tBTA_JV_ROLE role,
                                    uint8_t remote_scn, BD_ADDR peer_bd_addr,
                                    tBTA_JV_RFCOMM_CBACK* p_cback,
-                                   void* user_data);
+                                   uint32_t rfcomm_slot_id);
 
 /*******************************************************************************
  *
@@ -741,7 +741,7 @@ tBTA_JV_STATUS BTA_JvRfcommConnect(tBTA_SEC sec_mask, tBTA_JV_ROLE role,
  *                  BTA_JV_FAILURE, otherwise.
  *
  ******************************************************************************/
-tBTA_JV_STATUS BTA_JvRfcommClose(uint32_t handle, void* user_data);
+tBTA_JV_STATUS BTA_JvRfcommClose(uint32_t handle, uint32_t rfcomm_slot_id);
 
 /*******************************************************************************
  *
@@ -761,7 +761,7 @@ tBTA_JV_STATUS BTA_JvRfcommClose(uint32_t handle, void* user_data);
 tBTA_JV_STATUS BTA_JvRfcommStartServer(tBTA_SEC sec_mask, tBTA_JV_ROLE role,
                                        uint8_t local_scn, uint8_t max_session,
                                        tBTA_JV_RFCOMM_CBACK* p_cback,
-                                       void* user_data);
+                                       uint32_t rfcomm_slot_id);
 
 /*******************************************************************************
  *
@@ -774,7 +774,7 @@ tBTA_JV_STATUS BTA_JvRfcommStartServer(tBTA_SEC sec_mask, tBTA_JV_ROLE role,
  *                  BTA_JV_FAILURE, otherwise.
  *
  ******************************************************************************/
-tBTA_JV_STATUS BTA_JvRfcommStopServer(uint32_t handle, void* user_data);
+tBTA_JV_STATUS BTA_JvRfcommStopServer(uint32_t handle, uint32_t rfcomm_slot_id);
 
 /*******************************************************************************
  *
@@ -813,7 +813,7 @@ tBTA_JV_STATUS BTA_JvRfcommWrite(uint32_t handle, uint32_t req_id);
  *                                  calls automatically
  *              BTA_JV_CONN_CLOSE to remove in case of connection close!
  *
- *******************************************************************************/
+ ******************************************************************************/
 tBTA_JV_STATUS BTA_JvSetPmProfile(uint32_t handle, tBTA_JV_PM_ID app_id,
                                   tBTA_JV_CONN_STATE init_st);
 
@@ -828,9 +828,5 @@ tBTA_JV_STATUS BTA_JvSetPmProfile(uint32_t handle, tBTA_JV_PM_ID app_id,
  *
  ******************************************************************************/
 uint16_t BTA_JvRfcommGetPortHdl(uint32_t handle);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* BTA_JV_API_H */

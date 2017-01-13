@@ -27,10 +27,6 @@
 #include "osi/include/allocator.h"
 #include "version.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef struct {
   void (*parse_generic_command_complete)(BT_HDR* response);
 
@@ -72,6 +68,12 @@ typedef struct {
   void (*parse_ble_read_suggested_default_data_length_response)(
       BT_HDR* response, uint16_t* ble_default_packet_length_ptr);
 
+  void (*parse_ble_read_maximum_advertising_data_length)(
+      BT_HDR* response, uint16_t* ble_maximum_advertising_data_length_ptr);
+
+  void (*parse_ble_read_number_of_supported_advertising_sets)(
+      BT_HDR* response, uint8_t* ble_number_of_supported_advertising_sets_ptr);
+
   void (*parse_read_local_supported_codecs_response)(
       BT_HDR* response, uint8_t* number_of_local_supported_codecs,
       uint8_t* local_supported_codecs);
@@ -82,7 +84,3 @@ const hci_packet_parser_t* hci_packet_parser_get_interface();
 
 const hci_packet_parser_t* hci_packet_parser_get_test_interface(
     allocator_t* buffer_allocator_interface);
-
-#ifdef __cplusplus
-}
-#endif

@@ -16,20 +16,21 @@
  *
  ******************************************************************************/
 
-/************************************************************************************
+/*******************************************************************************
  *
  *  Filename:      btif_dm.c
  *
  *  Description:   Contains Device Management (DM) related functionality
  *
  *
- ***********************************************************************************/
+ ******************************************************************************/
 
 #define LOG_TAG "bt_btif_dm"
 
 #include "btif_dm.h"
 
-#include <assert.h>
+#include <base/bind.h>
+#include <base/logging.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,12 +45,18 @@
 
 #include "bdaddr.h"
 #include "bt_common.h"
+#include "bta_closure_api.h"
 #include "bta_gatt_api.h"
 #include "btif_api.h"
 #include "btif_config.h"
+#include "btif_dm.h"
+#include "btif_hd.h"
+#include "btif_hh.h"
 #include "btif_hh.h"
 #include "btif_sdp.h"
 #include "btif_storage.h"
+#include "btif_storage.h"
+#include "btif_util.h"
 #include "btif_util.h"
 #include "btu.h"
 #include "device/include/interop.h"
@@ -186,9 +193,9 @@ static skip_sdp_entry_t sdp_blacklist[] = {{76}};  // Apple Mouse and Keyboard
 /* This flag will be true if HCI_Inquiry is in progress */
 static bool btif_dm_inquiry_in_progress = false;
 
-/************************************************************************************
+/*******************************************************************************
  *  Static variables
- ***********************************************************************************/
+ ******************************************************************************/
 static char btif_default_local_name[DEFAULT_LOCAL_NAME_MAX + 1] = {'\0'};
 static uid_set_t* uid_set = NULL;
 
@@ -223,10 +230,8 @@ static void btif_dm_ble_key_nc_req_evt(tBTA_DM_SP_KEY_NOTIF* p_notif_req);
 static void btif_dm_ble_oob_req_evt(tBTA_DM_SP_RMT_OOB* req_oob_type);
 static void btif_dm_ble_sc_oob_req_evt(tBTA_DM_SP_RMT_OOB* req_oob_type);
 
-static void bte_scan_filt_param_cfg_evt(uint8_t action_type,
-                                        tBTA_DM_BLE_PF_AVBL_SPACE avbl_space,
-                                        tBTA_DM_BLE_REF_VALUE ref_value,
-                                        tBTA_STATUS status);
+static void bte_scan_filt_param_cfg_evt(uint8_t action_type, uint8_t avbl_space,
+                                        uint8_t ref_value, uint8_t status);
 
 static char* btif_get_default_local_name();
 
@@ -247,6 +252,7 @@ extern int btif_hh_connect(bt_bdaddr_t* bd_addr);
 extern void bta_gatt_convert_uuid16_to_uuid128(uint8_t uuid_128[LEN_UUID_128],
                                                uint16_t uuid_16);
 extern void btif_av_move_idle(bt_bdaddr_t bd_addr);
+extern bt_status_t btif_hd_execute_service(bool b_enable);
 
 /******************************************************************************
  *  Functions
@@ -263,13 +269,13 @@ static void btif_dm_data_copy(uint16_t event, char* dst, char* src) {
 
   if (!src_dm_sec) return;
 
-  assert(dst_dm_sec);
+  CHECK(dst_dm_sec);
   maybe_non_aligned_memcpy(dst_dm_sec, src_dm_sec, sizeof(*src_dm_sec));
 
   if (event == BTA_DM_BLE_KEY_EVT) {
     dst_dm_sec->ble_key.p_key_value =
         (tBTM_LE_KEY_VALUE*)osi_malloc(sizeof(tBTM_LE_KEY_VALUE));
-    assert(src_dm_sec->ble_key.p_key_value);
+    CHECK(src_dm_sec->ble_key.p_key_value);
     memcpy(dst_dm_sec->ble_key.p_key_value, src_dm_sec->ble_key.p_key_value,
            sizeof(tBTM_LE_KEY_VALUE));
   }
@@ -312,6 +318,9 @@ bt_status_t btif_in_execute_service_request(tBTA_SERVICE_ID service_id,
     } break;
     case BTA_SDP_SERVICE_ID: {
       btif_sdp_execute_service(b_enable);
+    } break;
+    case BTA_HIDD_SERVICE_ID: {
+      btif_hd_execute_service(b_enable);
     } break;
     default:
       BTIF_TRACE_ERROR("%s: Unknown service %d being %s", __func__, service_id,
@@ -1337,10 +1346,10 @@ static void btif_dm_search_devices_evt(uint16_t event, char* p_param) {
     } break;
 
     case BTA_DM_INQ_CMPL_EVT: {
-      tBTA_DM_BLE_PF_FILT_PARAMS adv_filt_param;
-      memset(&adv_filt_param, 0, sizeof(tBTA_DM_BLE_PF_FILT_PARAMS));
-      BTA_DmBleScanFilterSetup(BTA_DM_BLE_SCAN_COND_DELETE, 0, &adv_filt_param,
-                               NULL, bte_scan_filt_param_cfg_evt, 0);
+      do_in_bta_thread(
+          FROM_HERE,
+          base::Bind(&BTM_BleAdvFilterParamSetup, BTM_BLE_SCAN_COND_DELETE, 0,
+                     nullptr, base::Bind(&bte_scan_filt_param_cfg_evt, 0)));
     } break;
     case BTA_DM_DISC_CMPL_EVT: {
       HAL_CBACK(bt_hal_cbacks, discovery_state_changed_cb,
@@ -1357,11 +1366,12 @@ static void btif_dm_search_devices_evt(uint16_t event, char* p_param) {
        *
        */
       if (btif_dm_inquiry_in_progress == false) {
-        tBTA_DM_BLE_PF_FILT_PARAMS adv_filt_param;
-        memset(&adv_filt_param, 0, sizeof(tBTA_DM_BLE_PF_FILT_PARAMS));
-        BTA_DmBleScanFilterSetup(BTA_DM_BLE_SCAN_COND_DELETE, 0,
-                                 &adv_filt_param, NULL,
-                                 bte_scan_filt_param_cfg_evt, 0);
+        btgatt_filt_param_setup_t adv_filt_param;
+        memset(&adv_filt_param, 0, sizeof(btgatt_filt_param_setup_t));
+        do_in_bta_thread(
+            FROM_HERE,
+            base::Bind(&BTM_BleAdvFilterParamSetup, BTM_BLE_SCAN_COND_DELETE, 0,
+                       nullptr, base::Bind(&bte_scan_filt_param_cfg_evt, 0)));
         HAL_CBACK(bt_hal_cbacks, discovery_state_changed_cb,
                   BT_DISCOVERY_STOPPED);
       }
@@ -1671,6 +1681,9 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
 /*special handling for HID devices */
 #if (defined(BTA_HH_INCLUDED) && (BTA_HH_INCLUDED == true))
       btif_hh_remove_device(bd_addr);
+#endif
+#if (defined(BTA_HD_INCLUDED) && (BTA_HD_INCLUDED == TRUE))
+      btif_hd_remove_device(bd_addr);
 #endif
       btif_storage_remove_bonded_device(&bd_addr);
       bond_state_changed(BT_STATUS_SUCCESS, &bd_addr, BT_BOND_STATE_NONE);
@@ -2109,19 +2122,9 @@ static void bta_energy_info_cb(tBTA_DM_BLE_TX_TIME_MS tx_time,
                         NULL);
 }
 
-/*******************************************************************************
- *
- * Function         bte_scan_filt_param_cfg_evt
- *
- * Description      Scan filter param config event
- *
- * Returns          void
- *
- ******************************************************************************/
-static void bte_scan_filt_param_cfg_evt(uint8_t action_type,
-                                        tBTA_DM_BLE_PF_AVBL_SPACE avbl_space,
-                                        tBTA_DM_BLE_REF_VALUE ref_value,
-                                        tBTA_STATUS status) {
+/* Scan filter param config event */
+static void bte_scan_filt_param_cfg_evt(uint8_t ref_value, uint8_t avbl_space,
+                                        uint8_t action_type, uint8_t status) {
   /* This event occurs on calling BTA_DmBleCfgFilterCondition internally,
   ** and that is why there is no HAL callback
   */
@@ -2150,24 +2153,27 @@ static void bte_scan_filt_param_cfg_evt(uint8_t action_type,
 bt_status_t btif_dm_start_discovery(void) {
   tBTA_DM_INQ inq_params;
   tBTA_SERVICE_MASK services = 0;
-  tBTA_DM_BLE_PF_FILT_PARAMS adv_filt_param;
 
   BTIF_TRACE_EVENT("%s", __func__);
 
-  memset(&adv_filt_param, 0, sizeof(tBTA_DM_BLE_PF_FILT_PARAMS));
   /* Cleanup anything remaining on index 0 */
-  BTA_DmBleScanFilterSetup(BTA_DM_BLE_SCAN_COND_DELETE, 0, &adv_filt_param,
-                           NULL, bte_scan_filt_param_cfg_evt, 0);
+  do_in_bta_thread(
+      FROM_HERE,
+      base::Bind(&BTM_BleAdvFilterParamSetup, BTM_BLE_SCAN_COND_DELETE, 0,
+                 nullptr, base::Bind(&bte_scan_filt_param_cfg_evt, 0)));
 
+  auto adv_filt_param = std::make_unique<btgatt_filt_param_setup_t>();
   /* Add an allow-all filter on index 0*/
-  adv_filt_param.dely_mode = IMMEDIATE_DELY_MODE;
-  adv_filt_param.feat_seln = ALLOW_ALL_FILTER;
-  adv_filt_param.filt_logic_type = BTA_DM_BLE_PF_FILT_LOGIC_OR;
-  adv_filt_param.list_logic_type = BTA_DM_BLE_PF_LIST_LOGIC_OR;
-  adv_filt_param.rssi_low_thres = LOWEST_RSSI_VALUE;
-  adv_filt_param.rssi_high_thres = LOWEST_RSSI_VALUE;
-  BTA_DmBleScanFilterSetup(BTA_DM_BLE_SCAN_COND_ADD, 0, &adv_filt_param, NULL,
-                           bte_scan_filt_param_cfg_evt, 0);
+  adv_filt_param->dely_mode = IMMEDIATE_DELY_MODE;
+  adv_filt_param->feat_seln = ALLOW_ALL_FILTER;
+  adv_filt_param->filt_logic_type = BTA_DM_BLE_PF_FILT_LOGIC_OR;
+  adv_filt_param->list_logic_type = BTA_DM_BLE_PF_LIST_LOGIC_OR;
+  adv_filt_param->rssi_low_thres = LOWEST_RSSI_VALUE;
+  adv_filt_param->rssi_high_thres = LOWEST_RSSI_VALUE;
+  do_in_bta_thread(
+      FROM_HERE, base::Bind(&BTM_BleAdvFilterParamSetup, BTM_BLE_SCAN_COND_ADD,
+                            0, base::Passed(&adv_filt_param),
+                            base::Bind(&bte_scan_filt_param_cfg_evt, 0)));
 
   /* TODO: Do we need to handle multiple inquiries at the same time? */
 
@@ -2740,27 +2746,32 @@ bool btif_dm_get_smp_config(tBTE_APPL_CFG* p_cfg) {
   strncpy(conf, recv, 64);
   conf[63] = 0;  // null terminate
 
-  if ((pch = strtok(conf, ",")) != NULL)
+  pch = strtok(conf, ",");
+  if (pch != NULL)
     p_cfg->ble_auth_req = (uint8_t)strtoul(pch, &endptr, 16);
   else
     return false;
 
-  if ((pch = strtok(NULL, ",")) != NULL)
+  pch = strtok(NULL, ",");
+  if (pch != NULL)
     p_cfg->ble_io_cap = (uint8_t)strtoul(pch, &endptr, 16);
   else
     return false;
 
-  if ((pch = strtok(NULL, ",")) != NULL)
+  pch = strtok(NULL, ",");
+  if (pch != NULL)
     p_cfg->ble_init_key = (uint8_t)strtoul(pch, &endptr, 16);
   else
     return false;
 
-  if ((pch = strtok(NULL, ",")) != NULL)
+  pch = strtok(NULL, ",");
+  if (pch != NULL)
     p_cfg->ble_resp_key = (uint8_t)strtoul(pch, &endptr, 16);
   else
     return false;
 
-  if ((pch = strtok(NULL, ",")) != NULL)
+  pch = strtok(NULL, ",");
+  if (pch != NULL)
     p_cfg->ble_max_key_size = (uint8_t)strtoul(pch, &endptr, 16);
   else
     return false;
@@ -3288,26 +3299,27 @@ static void btif_stats_add_bond_event(const bt_bdaddr_t* bd_addr,
   int type;
   btif_get_device_type(bd_addr->address, &type);
 
-  device_type_t device_type;
+  system_bt_osi::device_type_t device_type;
   switch (type) {
     case BT_DEVICE_TYPE_BREDR:
-      device_type = DEVICE_TYPE_BREDR;
+      device_type = system_bt_osi::DEVICE_TYPE_BREDR;
       break;
     case BT_DEVICE_TYPE_BLE:
-      device_type = DEVICE_TYPE_LE;
+      device_type = system_bt_osi::DEVICE_TYPE_LE;
       break;
     case BT_DEVICE_TYPE_DUMO:
-      device_type = DEVICE_TYPE_DUMO;
+      device_type = system_bt_osi::DEVICE_TYPE_DUMO;
       break;
     default:
-      device_type = DEVICE_TYPE_UNKNOWN;
+      device_type = system_bt_osi::DEVICE_TYPE_UNKNOWN;
       break;
   }
 
   uint32_t cod = get_cod(bd_addr);
   uint64_t ts =
       event->timestamp.tv_sec * 1000 + event->timestamp.tv_nsec / 1000000;
-  metrics_pair_event(0, ts, cod, device_type);
+  system_bt_osi::BluetoothMetricsLogger::GetInstance()->LogPairEvent(
+      0, ts, cod, device_type);
 }
 
 void btif_debug_bond_event_dump(int fd) {
