@@ -28,7 +28,6 @@ static_library("hci") {
     "src/hci_layer.cc",
     "src/hci_packet_factory.cc",
     "src/hci_packet_parser.cc",
-    "src/low_power_manager.cc",
     "src/packet_fragmenter.cc",
     "src/vendor.cc",
   ]
@@ -52,10 +51,6 @@ executable("net_test_hci") {
   sources = [
     "//osi/test/AllocationTestHarness.cc",
     "//osi/test/AlarmTestHarness.cc",
-    "test/hci_hal_h4_test.cc",
-    "test/hci_hal_mct_test.cc",
-    "test/hci_layer_test.cc",
-    "test/low_power_manager_test.cc",
     "test/packet_fragmenter_test.cc",
   ]
 

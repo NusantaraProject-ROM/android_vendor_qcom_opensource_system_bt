@@ -2013,6 +2013,8 @@ static void bta_dm_find_services(BD_ADDR bd_addr) {
   /* no more services to be discovered */
   if (bta_dm_search_cb.service_index >= BTA_MAX_SERVICE_ID) {
     tBTA_DM_MSG* p_msg = (tBTA_DM_MSG*)osi_malloc(sizeof(tBTA_DM_MSG));
+    /* initialize the data structure - includes p_raw_data and raw_data_size */
+    memset(&(p_msg->disc_result.result), 0, sizeof(tBTA_DM_DISC_RES));
     p_msg->hdr.event = BTA_DM_DISCOVERY_RESULT_EVT;
     p_msg->disc_result.result.disc_res.services =
         bta_dm_search_cb.services_found;
@@ -3940,6 +3942,12 @@ static void bta_dm_observe_results_cb(tBTM_INQ_RESULTS* p_inq, uint8_t* p_eir) {
   result.inq_res.inq_result_type = p_inq->inq_result_type;
   result.inq_res.device_type = p_inq->device_type;
   result.inq_res.flag = p_inq->flag;
+  result.inq_res.ble_evt_type = p_inq->ble_evt_type;
+  result.inq_res.ble_primary_phy = p_inq->ble_primary_phy;
+  result.inq_res.ble_secondary_phy = p_inq->ble_secondary_phy;
+  result.inq_res.ble_advertising_sid = p_inq->ble_advertising_sid;
+  result.inq_res.ble_tx_power = p_inq->ble_tx_power;
+  result.inq_res.ble_periodic_adv_int = p_inq->ble_periodic_adv_int;
 
   /* application will parse EIR to find out remote device name */
   result.inq_res.p_eir = p_eir;
