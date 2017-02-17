@@ -16,6 +16,8 @@
  *
  ******************************************************************************/
 
+#include <mutex>
+
 #include <base/logging.h>
 #include <resolv.h>
 #include <zlib.h>
@@ -25,6 +27,7 @@
 #include "hci/include/btsnoop_mem.h"
 #include "include/bt_target.h"
 #include "osi/include/ringbuffer.h"
+#include "osi/include/time.h"
 
 #define REDUCE_HCI_TYPE_TO_SIGNIFICANT_BITS(type) ((type) >> 8)
 
@@ -39,6 +42,7 @@ static const size_t BLOCK_SIZE = 16384;
 // Maximum line length in bugreport (should be multiple of 4 for base64 output)
 static const uint8_t MAX_LINE_LENGTH = 128;
 
+static std::mutex buffer_mutex;
 static ringbuffer_t* buffer = NULL;
 static uint64_t last_timestamp_ms = 0;
 
@@ -47,11 +51,13 @@ static size_t btsnoop_calculate_packet_length(uint16_t type,
                                               size_t length);
 
 static void btsnoop_cb(const uint16_t type, const uint8_t* data,
-                       const size_t length) {
+                       const size_t length, const uint64_t timestamp_us) {
   btsnooz_header_t header;
 
   size_t included_length = btsnoop_calculate_packet_length(type, data, length);
   if (included_length == 0) return;
+
+  std::lock_guard<std::mutex> lock(buffer_mutex);
 
   // Make room in the ring buffer
 
@@ -62,14 +68,12 @@ static void btsnoop_cb(const uint16_t type, const uint8_t* data,
   }
 
   // Insert data
-
-  const uint64_t now = btif_debug_ts();
-
   header.type = REDUCE_HCI_TYPE_TO_SIGNIFICANT_BITS(type);
   header.length = included_length + 1;  // +1 for type byte
   header.packet_length = length + 1;    // +1 for type byte.
-  header.delta_time_ms = last_timestamp_ms ? now - last_timestamp_ms : 0;
-  last_timestamp_ms = now;
+  header.delta_time_ms =
+      last_timestamp_ms ? timestamp_us - last_timestamp_ms : 0;
+  last_timestamp_ms = timestamp_us;
 
   ringbuffer_insert(buffer, (uint8_t*)&header, sizeof(btsnooz_header_t));
   ringbuffer_insert(buffer, data, included_length);
@@ -174,9 +178,6 @@ void btif_debug_btsnoop_init(void) {
 }
 
 void btif_debug_btsnoop_dump(int fd) {
-  dprintf(fd, "--- BEGIN:BTSNOOP_LOG_SUMMARY (%zu bytes in) ---\n",
-          ringbuffer_size(buffer));
-
   ringbuffer_t* ringbuffer = ringbuffer_init(BTSNOOP_MEM_BUFFER_SIZE);
   if (ringbuffer == NULL) {
     dprintf(fd, "%s Unable to allocate memory for compression", __func__);
@@ -198,7 +199,14 @@ void btif_debug_btsnoop_dump(int fd) {
 
   size_t line_length = 0;
 
-  bool rc = btsnoop_compress(ringbuffer, buffer);
+  bool rc;
+  {
+    std::lock_guard<std::mutex> lock(buffer_mutex);
+    dprintf(fd, "--- BEGIN:BTSNOOP_LOG_SUMMARY (%zu bytes in) ---\n",
+            ringbuffer_size(buffer));
+    rc = btsnoop_compress(ringbuffer, buffer);
+  }
+
   if (rc == false) {
     dprintf(fd, "%s Log compression failed", __func__);
     goto error;
