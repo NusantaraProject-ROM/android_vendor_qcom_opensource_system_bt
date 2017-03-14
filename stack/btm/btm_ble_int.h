@@ -41,7 +41,6 @@ extern void btm_ble_process_adv_pkt(uint8_t len, uint8_t* p);
 extern void btm_ble_process_ext_adv_pkt(uint8_t len, uint8_t* p);
 extern void btm_ble_proc_scan_rsp_rpt(uint8_t* p);
 extern tBTM_STATUS btm_ble_read_remote_name(BD_ADDR remote_bda,
-                                            tBTM_INQ_INFO* p_cur,
                                             tBTM_CMPL_CB* p_cb);
 extern bool btm_ble_cancel_remote_name(BD_ADDR remote_bda);
 
@@ -144,11 +143,11 @@ extern void btm_ble_enqueue_direct_conn_req(void* p_param);
 extern void btm_ble_dequeue_direct_conn_req(BD_ADDR rem_bda);
 
 /* BLE address management */
-extern void btm_gen_resolvable_private_addr(void* p_cmd_cplt_cback);
+extern void btm_gen_resolvable_private_addr(base::Callback<void(BT_OCTET8)> cb);
 extern void btm_gen_non_resolvable_private_addr(tBTM_BLE_ADDR_CBACK* p_cback,
                                                 void* p);
 extern tBTM_SEC_DEV_REC* btm_ble_resolve_random_addr(BD_ADDR random_bda);
-extern void btm_gen_resolve_paddr_low(tBTM_RAND_ENC* p);
+extern void btm_gen_resolve_paddr_low(BT_OCTET8 rand);
 
 /*  privacy function */
 #if (BLE_PRIVACY_SPT == TRUE)

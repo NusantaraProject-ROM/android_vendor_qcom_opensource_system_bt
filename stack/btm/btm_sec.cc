@@ -1038,7 +1038,7 @@ tBTM_STATUS btm_sec_bond_by_transport(BD_ADDR bd_addr, tBT_TRANSPORT transport,
   }
 
   for (ii = 0; ii <= HCI_EXT_FEATURES_PAGE_MAX; ii++) {
-    p_features = p_dev_rec->features[ii];
+    p_features = p_dev_rec->feature_pages[ii];
     BTM_TRACE_EVENT("  remote_features page[%1d] = %02x-%02x-%02x-%02x", ii,
                     p_features[0], p_features[1], p_features[2], p_features[3]);
     BTM_TRACE_EVENT("                              %02x-%02x-%02x-%02x",
@@ -1078,21 +1078,24 @@ tBTM_STATUS btm_sec_bond_by_transport(BD_ADDR bd_addr, tBT_TRANSPORT transport,
        * -> RNR (to learn if peer is 2.1)
        * RNR when no ACL causes HCI_RMT_HOST_SUP_FEAT_NOTIFY_EVT */
       btm_sec_change_pairing_state(BTM_PAIR_STATE_GET_REM_NAME);
-      BTM_ReadRemoteDeviceName(bd_addr, NULL, BT_TRANSPORT_BR_EDR);
+      status = BTM_ReadRemoteDeviceName(bd_addr, NULL, BT_TRANSPORT_BR_EDR);
     } else {
       /* We are accepting connection request from peer */
       btm_sec_change_pairing_state(BTM_PAIR_STATE_WAIT_PIN_REQ);
+      status = BTM_CMD_STARTED;
     }
     BTM_TRACE_DEBUG("State:%s sm4: 0x%x sec_state:%d",
                     btm_pair_state_descr(btm_cb.pairing_state), p_dev_rec->sm4,
                     p_dev_rec->sec_state);
-    return BTM_CMD_STARTED;
+  } else {
+    /* both local and peer are 2.1  */
+    status = btm_sec_dd_create_conn(p_dev_rec);
   }
 
-  /* both local and peer are 2.1  */
-  status = btm_sec_dd_create_conn(p_dev_rec);
-
   if (status != BTM_CMD_STARTED) {
+    BTM_TRACE_ERROR(
+        "%s BTM_ReadRemoteDeviceName or btm_sec_dd_create_conn error: 0x%x",
+        __func__, (int)status);
     btm_sec_change_pairing_state(BTM_PAIR_STATE_IDLE);
   }
 
@@ -1173,10 +1176,11 @@ tBTM_STATUS BTM_SecBondCancel(BD_ADDR bd_addr) {
   BTM_TRACE_API("BTM_SecBondCancel()  State: %s flags:0x%x",
                 btm_pair_state_descr(btm_cb.pairing_state),
                 btm_cb.pairing_flags);
-
-  if (((p_dev_rec = btm_find_dev(bd_addr)) == NULL) ||
-      (memcmp(btm_cb.pairing_bda, bd_addr, BD_ADDR_LEN) != 0))
+  p_dev_rec = btm_find_dev(bd_addr);
+  if ((p_dev_rec == NULL) ||
+      (memcmp(btm_cb.pairing_bda, bd_addr, BD_ADDR_LEN) != 0)) {
     return BTM_UNKNOWN_ADDR;
+  }
 
   if (btm_cb.pairing_flags & BTM_PAIR_FLAGS_LE_ACTIVE) {
     if (p_dev_rec->sec_state == BTM_SEC_STATE_AUTHENTICATING) {
@@ -1249,9 +1253,8 @@ tBTM_STATUS BTM_SecBondCancel(BD_ADDR bd_addr) {
  ******************************************************************************/
 tBTM_STATUS BTM_SecGetDeviceLinkKey(BD_ADDR bd_addr, LINK_KEY link_key) {
   tBTM_SEC_DEV_REC* p_dev_rec;
-
-  if (((p_dev_rec = btm_find_dev(bd_addr)) != NULL) &&
-      (p_dev_rec->sec_flags & BTM_SEC_LINK_KEY_KNOWN)) {
+  p_dev_rec = btm_find_dev(bd_addr);
+  if ((p_dev_rec != NULL) && (p_dev_rec->sec_flags & BTM_SEC_LINK_KEY_KNOWN)) {
     memcpy(link_key, p_dev_rec->link_key, LINK_KEY_LEN);
     return (BTM_SUCCESS);
   }
@@ -3145,16 +3148,25 @@ void btm_sec_rmt_name_request_complete(uint8_t* p_bd_addr, uint8_t* p_bd_name,
 
           btm_sec_change_pairing_state(BTM_PAIR_STATE_IDLE);
 
-          if (btm_cb.api.p_auth_complete_callback)
+          if (btm_cb.api.p_auth_complete_callback) {
             (*btm_cb.api.p_auth_complete_callback)(
                 p_dev_rec->bd_addr, p_dev_rec->dev_class,
                 p_dev_rec->sec_bd_name, HCI_ERR_MEMORY_FULL);
+          }
         }
       }
       return;
     } else {
       BTM_TRACE_WARNING("%s: wrong BDA, retry with pairing BDA", __func__);
-      BTM_ReadRemoteDeviceName(btm_cb.pairing_bda, NULL, BT_TRANSPORT_BR_EDR);
+      if (BTM_ReadRemoteDeviceName(btm_cb.pairing_bda, NULL,
+                                   BT_TRANSPORT_BR_EDR) != BTM_CMD_STARTED) {
+        BTM_TRACE_ERROR("%s: failed to start remote name request", __func__);
+        if (btm_cb.api.p_auth_complete_callback) {
+          (*btm_cb.api.p_auth_complete_callback)(
+              p_dev_rec->bd_addr, p_dev_rec->dev_class, p_dev_rec->sec_bd_name,
+              HCI_ERR_MEMORY_FULL);
+        }
+      };
       return;
     }
   }
@@ -3523,8 +3535,8 @@ void btm_proc_sp_req_evt(tBTM_SP_EVT event, uint8_t* p) {
       (p_bda[4] << 8) + p_bda[5], event,
       btm_pair_state_descr(btm_cb.pairing_state));
 
-  if (((p_dev_rec = btm_find_dev(p_bda)) != NULL) &&
-      (btm_cb.pairing_state != BTM_PAIR_STATE_IDLE) &&
+  p_dev_rec = btm_find_dev(p_bda);
+  if ((p_dev_rec != NULL) && (btm_cb.pairing_state != BTM_PAIR_STATE_IDLE) &&
       (memcmp(btm_cb.pairing_bda, p_bda, BD_ADDR_LEN) == 0)) {
     memcpy(evt_data.cfm_req.bd_addr, p_dev_rec->bd_addr, BD_ADDR_LEN);
     memcpy(evt_data.cfm_req.dev_class, p_dev_rec->dev_class, DEV_CLASS_LEN);
@@ -3632,7 +3644,8 @@ void btm_proc_sp_req_evt(tBTM_SP_EVT event, uint8_t* p) {
     On Mobile platforms, if there's a security process happening,
     the host probably can not initiate another connection.
     BTW (PC) is another story.  */
-    if (NULL != (p_dev_rec = btm_find_dev(p_bda))) {
+    p_dev_rec = btm_find_dev(p_bda);
+    if (p_dev_rec != NULL) {
       btm_sec_disconnect(p_dev_rec->hci_handle, HCI_ERR_AUTH_FAILURE);
     }
   }
@@ -3770,8 +3783,8 @@ void btm_rem_oob_req(uint8_t* p) {
 
   BTM_TRACE_EVENT("btm_rem_oob_req() BDA: %02x:%02x:%02x:%02x:%02x:%02x",
                   p_bda[0], p_bda[1], p_bda[2], p_bda[3], p_bda[4], p_bda[5]);
-
-  if ((NULL != (p_dev_rec = btm_find_dev(p_bda))) && btm_cb.api.p_sp_callback) {
+  p_dev_rec = btm_find_dev(p_bda);
+  if ((p_dev_rec != NULL) && btm_cb.api.p_sp_callback) {
     memcpy(evt_data.bd_addr, p_dev_rec->bd_addr, BD_ADDR_LEN);
     memcpy(evt_data.dev_class, p_dev_rec->dev_class, DEV_CLASS_LEN);
     strlcpy((char*)evt_data.bd_name, (char*)p_dev_rec->sec_bd_name,
@@ -4314,8 +4327,12 @@ void btm_sec_connected(uint8_t* bda, uint16_t handle, uint8_t status,
                                btu_general_alarm_queue);
           } else {
             btm_sec_change_pairing_state(BTM_PAIR_STATE_GET_REM_NAME);
-            BTM_ReadRemoteDeviceName(p_dev_rec->bd_addr, NULL,
-                                     BT_TRANSPORT_BR_EDR);
+            if (BTM_ReadRemoteDeviceName(p_dev_rec->bd_addr, NULL,
+                                         BT_TRANSPORT_BR_EDR) !=
+                BTM_CMD_STARTED) {
+              BTM_TRACE_ERROR("%s cannot read remote name", __func__);
+              btm_sec_change_pairing_state(BTM_PAIR_STATE_IDLE);
+            }
           }
 #if (BTM_DISC_DURING_RS == TRUE)
           p_dev_rec->rs_disc_pending = BTM_SEC_RS_NOT_PENDING; /* reset flag */
@@ -4352,7 +4369,11 @@ void btm_sec_connected(uint8_t* bda, uint16_t handle, uint8_t status,
       if (BTM_SEC_IS_SM4_UNKNOWN(p_dev_rec->sm4)) {
         /* Try again: RNR when no ACL causes HCI_RMT_HOST_SUP_FEAT_NOTIFY_EVT */
         btm_sec_change_pairing_state(BTM_PAIR_STATE_GET_REM_NAME);
-        BTM_ReadRemoteDeviceName(bda, NULL, BT_TRANSPORT_BR_EDR);
+        if (BTM_ReadRemoteDeviceName(bda, NULL, BT_TRANSPORT_BR_EDR) !=
+            BTM_CMD_STARTED) {
+          BTM_TRACE_ERROR("%s cannot read remote name", __func__);
+          btm_sec_change_pairing_state(BTM_PAIR_STATE_IDLE);
+        }
         return;
       }
 
@@ -5288,11 +5309,10 @@ static bool btm_sec_start_get_name(tBTM_SEC_DEV_REC* p_dev_rec) {
 
   p_dev_rec->sec_state = BTM_SEC_STATE_GETTING_NAME;
 
-  /* Device should be connected, no need to provide correct page params */
   /* 0 and NULL are as timeout and callback params because they are not used in
    * security get name case */
-  if ((btm_initiate_rem_name(p_dev_rec->bd_addr, NULL, BTM_RMT_NAME_SEC, 0,
-                             NULL)) != BTM_CMD_STARTED) {
+  if ((btm_initiate_rem_name(p_dev_rec->bd_addr, BTM_RMT_NAME_SEC, 0, NULL)) !=
+      BTM_CMD_STARTED) {
     p_dev_rec->sec_state = tempstate;
     return (false);
   }
@@ -5877,11 +5897,10 @@ void btm_sec_set_peer_sec_caps(tACL_CONN* p_acl_cb,
   if ((btm_cb.security_mode == BTM_SEC_MODE_SP ||
        btm_cb.security_mode == BTM_SEC_MODE_SP_DEBUG ||
        btm_cb.security_mode == BTM_SEC_MODE_SC) &&
-      HCI_SSP_HOST_SUPPORTED(
-          p_acl_cb->peer_lmp_features[HCI_EXT_FEATURES_PAGE_1])) {
+      HCI_SSP_HOST_SUPPORTED(p_acl_cb->peer_lmp_feature_pages[1])) {
     p_dev_rec->sm4 = BTM_SM4_TRUE;
-    p_dev_rec->remote_supports_secure_connections = (HCI_SC_HOST_SUPPORTED(
-        p_acl_cb->peer_lmp_features[HCI_EXT_FEATURES_PAGE_1]));
+    p_dev_rec->remote_supports_secure_connections =
+        (HCI_SC_HOST_SUPPORTED(p_acl_cb->peer_lmp_feature_pages[1]));
   } else {
     p_dev_rec->sm4 = BTM_SM4_KNOWN;
     p_dev_rec->remote_supports_secure_connections = false;
