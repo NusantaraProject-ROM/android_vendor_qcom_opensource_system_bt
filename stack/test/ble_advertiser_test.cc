@@ -49,7 +49,10 @@ void btm_ble_update_dmt_flag_bits(uint8_t* flag_value,
                                   const uint16_t connect_mode,
                                   const uint16_t disc_mode) {}
 void btm_acl_update_conn_addr(uint8_t conn_handle, BD_ADDR address) {}
-void btm_gen_resolvable_private_addr(base::Callback<void(uint8_t[8])> cb) {}
+void btm_gen_resolvable_private_addr(base::Callback<void(uint8_t[8])> cb) {
+  uint8_t fake_rand[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+  cb.Run(fake_rand);
+}
 void alarm_set_on_queue(alarm_t* alarm, period_ms_t interval_ms,
                         alarm_callback_t cb, void* data, fixed_queue_t* queue) {
 }
@@ -61,6 +64,12 @@ const controller_t* controller_get_interface() { return nullptr; }
 fixed_queue_t* btu_general_alarm_queue = nullptr;
 
 namespace {
+
+constexpr uint8_t INTERMEDIATE =
+    0x00;                           // Intermediate fragment of fragmented data
+constexpr uint8_t FIRST = 0x01;     // First fragment of fragmented data
+constexpr uint8_t LAST = 0x02;      // Last fragment of fragmented data
+constexpr uint8_t COMPLETE = 0x03;  // Complete extended advertising data
 
 class AdvertiserHciMock : public BleAdvertiserHciInterface {
  public:
@@ -77,6 +86,12 @@ class AdvertiserHciMock : public BleAdvertiserHciInterface {
                void(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t*, status_cb));
   MOCK_METHOD3(SetRandomAddress, void(uint8_t, BD_ADDR, status_cb));
   MOCK_METHOD5(Enable, void(uint8_t, uint8_t, uint16_t, uint8_t, status_cb));
+  MOCK_METHOD5(SetPeriodicAdvertisingParameters,
+               void(uint8_t, uint16_t, uint16_t, uint16_t, status_cb));
+  MOCK_METHOD5(SetPeriodicAdvertisingData,
+               void(uint8_t, uint8_t, uint8_t, uint8_t*, status_cb));
+  MOCK_METHOD3(SetPeriodicAdvertisingEnable, void(uint8_t, uint8_t, status_cb));
+  MOCK_METHOD2(RemoveAdvertisingSet, void(uint8_t, status_cb));
 
   MOCK_METHOD9(SetParameters1,
                void(uint8_t, uint16_t, uint32_t, uint32_t, uint8_t, uint8_t,
@@ -100,6 +115,8 @@ class AdvertiserHciMock : public BleAdvertiserHciInterface {
                    secondary_phy, advertising_sid, scan_request_notify_enable,
                    cmd_complete);
   };
+
+  bool QuirkAdvertiserZeroHandle() { return false; }
 
  private:
   DISALLOW_COPY_AND_ASSIGN(AdvertiserHciMock);
@@ -375,6 +392,7 @@ TEST_F(BleAdvertisingManagerTest, test_start_advertising) {
   tBTM_BLE_ADV_PARAMS params;
 
   status_cb set_params_cb;
+  status_cb set_address_cb;
   status_cb set_data_cb;
   status_cb set_scan_resp_data_cb;
   status_cb enable_cb;
@@ -383,6 +401,9 @@ TEST_F(BleAdvertisingManagerTest, test_start_advertising) {
   EXPECT_CALL(*hci_mock, SetParameters2(_, _, _, _, _, _, _, _))
       .Times(1)
       .WillOnce(SaveArg<7>(&set_params_cb));
+  EXPECT_CALL(*hci_mock, SetRandomAddress(advertiser_id, _, _))
+      .Times(1)
+      .WillOnce(SaveArg<2>(&set_address_cb));
   EXPECT_CALL(*hci_mock, SetAdvertisingData(advertiser_id, _, _, _, _, _))
       .Times(1)
       .WillOnce(SaveArg<5>(&set_data_cb));
@@ -400,6 +421,7 @@ TEST_F(BleAdvertisingManagerTest, test_start_advertising) {
 
   // we are a truly gracious fake controller, let the commands succeed!
   set_params_cb.Run(0);
+  set_address_cb.Run(0);
   set_data_cb.Run(0);
   set_scan_resp_data_cb.Run(0);
   enable_cb.Run(0);
@@ -450,4 +472,144 @@ TEST_F(BleAdvertisingManagerTest, test_start_advertising_set_params_failed) {
 
   // Expect the whole flow to fail right away
   EXPECT_EQ(BTM_BLE_MULTI_ADV_FAILURE, start_advertising_status);
+}
+
+TEST_F(BleAdvertisingManagerTest, test_data_sender) {
+  // prepare test input vector
+  const int max_data_size = 1650;
+  std::vector<uint8_t> data(max_data_size);
+  for (int i = 0; i < max_data_size; i++) data[i] = i;
+
+  BleAdvertisingManager::Get()->RegisterAdvertiser(base::Bind(
+      &BleAdvertisingManagerTest::RegistrationCb, base::Unretained(this)));
+  EXPECT_EQ(BTM_BLE_MULTI_ADV_SUCCESS, reg_status);
+  int advertiser_id = reg_inst_id;
+
+  status_cb set_data_cb;
+  EXPECT_CALL(*hci_mock, SetAdvertisingData(advertiser_id, FIRST, _, 251, _, _))
+      .Times(1)
+      .WillOnce(SaveArg<5>(&set_data_cb));
+  EXPECT_CALL(*hci_mock,
+              SetAdvertisingData(advertiser_id, INTERMEDIATE, _, 251, _, _))
+      .Times(5)
+      .WillRepeatedly(SaveArg<5>(&set_data_cb));
+  EXPECT_CALL(*hci_mock, SetAdvertisingData(advertiser_id, LAST, _, 144, _, _))
+      .Times(1)
+      .WillOnce(SaveArg<5>(&set_data_cb));
+  BleAdvertisingManager::Get()->SetData(
+      advertiser_id, false, data,
+      base::Bind(&BleAdvertisingManagerTest::SetDataCb,
+                 base::Unretained(this)));
+  for (int i = 0; i < 7; i++) {
+    set_data_cb.Run(0x00);
+  }
+  ::testing::Mock::VerifyAndClearExpectations(hci_mock.get());
+  // Expect the whole flow to succeed
+  EXPECT_EQ(BTM_BLE_MULTI_ADV_SUCCESS, set_data_status);
+
+  // ***************** Try again with different data size *********************
+  data.resize(503);
+  EXPECT_CALL(*hci_mock, SetAdvertisingData(advertiser_id, FIRST, _, 251, _, _))
+      .Times(1)
+      .WillOnce(SaveArg<5>(&set_data_cb));
+  EXPECT_CALL(*hci_mock,
+              SetAdvertisingData(advertiser_id, INTERMEDIATE, _, 251, _, _))
+      .Times(1)
+      .WillRepeatedly(SaveArg<5>(&set_data_cb));
+  EXPECT_CALL(*hci_mock, SetAdvertisingData(advertiser_id, LAST, _, 1, _, _))
+      .Times(1)
+      .WillOnce(SaveArg<5>(&set_data_cb));
+  BleAdvertisingManager::Get()->SetData(
+      advertiser_id, false, data,
+      base::Bind(&BleAdvertisingManagerTest::SetDataCb,
+                 base::Unretained(this)));
+  for (int i = 0; i < 3; i++) {
+    set_data_cb.Run(0x00);
+  }
+  ::testing::Mock::VerifyAndClearExpectations(hci_mock.get());
+  // Expect the whole flow to succeed
+  EXPECT_EQ(BTM_BLE_MULTI_ADV_SUCCESS, set_data_status);
+
+  // ***************** Try again with different data size *********************
+  data.resize(502);
+  EXPECT_CALL(*hci_mock, SetAdvertisingData(advertiser_id, FIRST, _, 251, _, _))
+      .Times(1)
+      .WillOnce(SaveArg<5>(&set_data_cb));
+  EXPECT_CALL(*hci_mock, SetAdvertisingData(advertiser_id, LAST, _, 251, _, _))
+      .Times(1)
+      .WillOnce(SaveArg<5>(&set_data_cb));
+  BleAdvertisingManager::Get()->SetData(
+      advertiser_id, false, data,
+      base::Bind(&BleAdvertisingManagerTest::SetDataCb,
+                 base::Unretained(this)));
+  for (int i = 0; i < 2; i++) {
+    set_data_cb.Run(0x00);
+  }
+  ::testing::Mock::VerifyAndClearExpectations(hci_mock.get());
+  // Expect the whole flow to succeed
+  EXPECT_EQ(BTM_BLE_MULTI_ADV_SUCCESS, set_data_status);
+
+  // ***************** Try again with different data size *********************
+  data.resize(501);
+  EXPECT_CALL(*hci_mock, SetAdvertisingData(advertiser_id, FIRST, _, 251, _, _))
+      .Times(1)
+      .WillOnce(SaveArg<5>(&set_data_cb));
+  EXPECT_CALL(*hci_mock, SetAdvertisingData(advertiser_id, LAST, _, 250, _, _))
+      .Times(1)
+      .WillOnce(SaveArg<5>(&set_data_cb));
+  BleAdvertisingManager::Get()->SetData(
+      advertiser_id, false, data,
+      base::Bind(&BleAdvertisingManagerTest::SetDataCb,
+                 base::Unretained(this)));
+  for (int i = 0; i < 2; i++) {
+    set_data_cb.Run(0x00);
+  }
+  ::testing::Mock::VerifyAndClearExpectations(hci_mock.get());
+  // Expect the whole flow to succeed
+  EXPECT_EQ(BTM_BLE_MULTI_ADV_SUCCESS, set_data_status);
+
+  // ***************** Try again with different data size *********************
+  data.resize(251);
+  EXPECT_CALL(*hci_mock,
+              SetAdvertisingData(advertiser_id, COMPLETE, _, 251, _, _))
+      .Times(1)
+      .WillOnce(SaveArg<5>(&set_data_cb));
+  BleAdvertisingManager::Get()->SetData(
+      advertiser_id, false, data,
+      base::Bind(&BleAdvertisingManagerTest::SetDataCb,
+                 base::Unretained(this)));
+  set_data_cb.Run(0x00);
+  ::testing::Mock::VerifyAndClearExpectations(hci_mock.get());
+  // Expect the whole flow to succeed
+  EXPECT_EQ(BTM_BLE_MULTI_ADV_SUCCESS, set_data_status);
+
+  // ***************** Try again with different data size *********************
+  data.resize(120);
+  EXPECT_CALL(*hci_mock,
+              SetAdvertisingData(advertiser_id, COMPLETE, _, 120, _, _))
+      .Times(1)
+      .WillOnce(SaveArg<5>(&set_data_cb));
+  BleAdvertisingManager::Get()->SetData(
+      advertiser_id, false, data,
+      base::Bind(&BleAdvertisingManagerTest::SetDataCb,
+                 base::Unretained(this)));
+  set_data_cb.Run(0x00);
+  ::testing::Mock::VerifyAndClearExpectations(hci_mock.get());
+  // Expect the whole flow to succeed
+  EXPECT_EQ(BTM_BLE_MULTI_ADV_SUCCESS, set_data_status);
+
+  // ***************** Try again with different data size *********************
+  data.resize(0);
+  EXPECT_CALL(*hci_mock,
+              SetAdvertisingData(advertiser_id, COMPLETE, _, 0, _, _))
+      .Times(1)
+      .WillOnce(SaveArg<5>(&set_data_cb));
+  BleAdvertisingManager::Get()->SetData(
+      advertiser_id, false, data,
+      base::Bind(&BleAdvertisingManagerTest::SetDataCb,
+                 base::Unretained(this)));
+  set_data_cb.Run(0x00);
+  ::testing::Mock::VerifyAndClearExpectations(hci_mock.get());
+  // Expect the whole flow to succeed
+  EXPECT_EQ(BTM_BLE_MULTI_ADV_SUCCESS, set_data_status);
 }

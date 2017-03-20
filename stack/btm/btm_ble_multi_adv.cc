@@ -32,9 +32,13 @@
 #include "btm_int_types.h"
 
 using base::Bind;
+using RegisterCb =
+    base::Callback<void(uint8_t /* inst_id */, uint8_t /* status */)>;
 extern void btm_gen_resolvable_private_addr(
     base::Callback<void(uint8_t[8])> cb);
 extern fixed_queue_t* btu_general_alarm_queue;
+
+constexpr int ADV_DATA_LEN_MAX = 251;
 
 struct AdvertisingInstance {
   uint8_t inst_id;
@@ -103,7 +107,23 @@ void alarm_set_closure_on_queue(const tracked_objects::Location& posted_from,
   alarm_set_on_queue(alarm, interval_ms, alarm_closure_cb, data, queue);
 }
 
-}  // namespace
+class BleAdvertisingManagerImpl;
+
+/* a temporary type for holding all the data needed in callbacks below*/
+struct CreatorParams {
+  uint8_t inst_id;
+  BleAdvertisingManagerImpl* self;
+  RegisterCb cb;
+  tBTM_BLE_ADV_PARAMS params;
+  std::vector<uint8_t> advertise_data;
+  std::vector<uint8_t> scan_response_data;
+  tBLE_PERIODIC_ADV_PARAMS periodic_params;
+  std::vector<uint8_t> periodic_data;
+  int timeout_s;
+  RegisterCb timeout_cb;
+};
+
+using c_type = std::unique_ptr<CreatorParams>;
 
 class BleAdvertisingManagerImpl
     : public BleAdvertisingManager,
@@ -292,6 +312,152 @@ class BleAdvertisingManagerImpl
     // clang-format on
   }
 
+  void StartAdvertisingSet(RegisterCb cb, tBTM_BLE_ADV_PARAMS* params,
+                           std::vector<uint8_t> advertise_data,
+                           std::vector<uint8_t> scan_response_data,
+                           tBLE_PERIODIC_ADV_PARAMS* periodic_params,
+                           std::vector<uint8_t> periodic_data, int timeout_s,
+                           RegisterCb timeout_cb) override {
+    std::unique_ptr<CreatorParams> c;
+    c.reset(new CreatorParams());
+
+    c->self = this;
+    c->cb = std::move(cb);
+    c->params = *params;
+    c->advertise_data = std::move(advertise_data);
+    c->scan_response_data = std::move(scan_response_data);
+    c->periodic_params = *periodic_params;
+    c->periodic_data = std::move(periodic_data);
+    c->timeout_s = timeout_s;
+    c->timeout_cb = std::move(timeout_cb);
+
+
+    // this code is intentionally left formatted this way to highlight the
+    // asynchronous flow
+    // clang-format off
+    c->self->RegisterAdvertiser(Bind(
+      [](c_type c, uint8_t advertiser_id, uint8_t status) {
+        if (status != 0) {
+          LOG(ERROR) << "registering advertiser failed, status: " << +status;
+          c->cb.Run(0, status);
+          return;
+        }
+
+        c->inst_id = advertiser_id;
+
+        c->self->SetParameters(c->inst_id, &c->params, Bind(
+          [](c_type c, uint8_t status) {
+            if (status != 0) {
+              c->self->Unregister(c->inst_id);
+              LOG(ERROR) << "setting parameters failed, status: " << +status;
+              c->cb.Run(0, status);
+              return;
+            }
+
+            //TODO(jpawlowski): obtain real tx_power from set parameters
+            // response, to put into adv data
+
+            BD_ADDR *rpa = &c->self->adv_inst[c->inst_id].own_address;
+            c->self->GetHciInterface()->SetRandomAddress(c->inst_id, *rpa, Bind(
+              [](c_type c, uint8_t status) {
+                if (status != 0) {
+                  c->self->Unregister(c->inst_id);
+                  LOG(ERROR) << "setting random address failed, status: " << +status;
+                  c->cb.Run(0, status);
+                  return;
+                }
+
+                c->self->SetData(c->inst_id, false, std::move(c->advertise_data), Bind(
+                  [](c_type c, uint8_t status) {
+                    if (status != 0) {
+                      c->self->Unregister(c->inst_id);
+                      LOG(ERROR) << "setting advertise data failed, status: " << +status;
+                      c->cb.Run(0, status);
+                      return;
+                    }
+
+                    c->self->SetData(c->inst_id, true, std::move(c->scan_response_data), Bind(
+                      [](c_type c, uint8_t status) {
+                        if (status != 0) {
+                          c->self->Unregister(c->inst_id);
+                          LOG(ERROR) << "setting scan response data failed, status: " << +status;
+                          c->cb.Run(0, status);
+                          return;
+                        }
+
+                        if (c->periodic_params.enable) {
+                          c->self->StartAdvertisingSetPeriodicPart(std::move(c));
+                        } else {
+                          c->self->StartAdvertisingSetFinish(std::move(c));
+                        }
+                    }, base::Passed(&c)));
+                }, base::Passed(&c)));
+            }, base::Passed(&c)));
+        }, base::Passed(&c)));
+    }, base::Passed(&c)));
+    // clang-format on
+  }
+
+  void StartAdvertisingSetPeriodicPart(c_type c) {
+    // this code is intentionally left formatted this way to highlight the
+    // asynchronous flow
+    // clang-format off
+    c->self->SetPeriodicAdvertisingParameters(c->inst_id, &c->periodic_params, Bind(
+      [](c_type c, uint8_t status) {
+        if (status != 0) {
+          c->self->Unregister(c->inst_id);
+          LOG(ERROR) << "setting periodic parameters failed, status: " << +status;
+          c->cb.Run(0, status);
+          return;
+        }
+
+        c->self->SetPeriodicAdvertisingData(c->inst_id, std::move(c->periodic_data), Bind(
+          [](c_type c, uint8_t status) {
+            if (status != 0) {
+              c->self->Unregister(c->inst_id);
+              LOG(ERROR) << "setting periodic parameters failed, status: " << +status;
+              c->cb.Run(0, status);
+              return;
+            }
+
+            c->self->SetPeriodicAdvertisingEnable(c->inst_id, true, Bind(
+              [](c_type c, uint8_t status) {
+                if (status != 0) {
+                  c->self->Unregister(c->inst_id);
+                  LOG(ERROR) << "enabling periodic advertising failed, status: " << +status;
+                  c->cb.Run(0, status);
+                  return;
+                }
+
+                c->self->StartAdvertisingSetFinish(std::move(c));
+
+              }, base::Passed(&c)));
+        }, base::Passed(&c)));
+    }, base::Passed(&c)));
+    // clang-format on
+  }
+
+  void StartAdvertisingSetFinish(c_type c) {
+    uint8_t inst_id = c->inst_id;
+    int timeout_s = c->timeout_s;
+    RegisterCb timeout_cb = std::move(c->timeout_cb);
+    BleAdvertisingManagerImpl* self = c->self;
+    MultiAdvCb enable_cb = Bind(
+        [](c_type c, uint8_t status) {
+          if (status != 0) {
+            c->self->Unregister(c->inst_id);
+            LOG(ERROR) << "enabling advertiser failed, status: " << +status;
+            c->cb.Run(0, status);
+            return;
+          }
+          c->cb.Run(c->inst_id, status);
+        },
+        base::Passed(&c));
+
+    self->Enable(inst_id, true, std::move(enable_cb), timeout_s,
+                 Bind(std::move(timeout_cb), inst_id));
+  }
+
   void EnableWithTimerCb(uint8_t inst_id, MultiAdvCb enable_cb, int timeout_s,
                          MultiAdvCb timeout_cb, uint8_t status) {
     AdvertisingInstance* p_inst = &adv_inst[inst_id];
@@ -374,8 +540,8 @@ class BleAdvertisingManagerImpl
         p_params->adv_int_min, p_params->adv_int_max, p_params->channel_map,
         p_inst->own_address_type, p_inst->own_address, 0x00, peer_address,
         p_params->adv_filter_policy, p_inst->tx_power,
-        p_params->primary_advertising_phy, 0x01, 0x01,
-        p_params->secondary_advertising_phy,
+        p_params->primary_advertising_phy, 0x01,
+        p_params->secondary_advertising_phy, 0x01 /* TODO: proper SID */,
         p_params->scan_request_notification_enable, cb);
 
     // TODO: re-enable only if it was enabled, properly call
@@ -422,14 +588,89 @@ class BleAdvertisingManagerImpl
     }
 
     VLOG(1) << "data is: " << base::HexEncode(data.data(), data.size());
+    DivideAndSendData(
+        inst_id, data, cb,
+        base::Bind(&BleAdvertisingManagerImpl::SetDataAdvDataSender,
+                   base::Unretained(this), is_scan_rsp));
+  }
 
-    if (is_scan_rsp) {
-      GetHciInterface()->SetScanResponseData(inst_id, 0x03, 0x01, data.size(),
-                                             data.data(), cb);
-    } else {
-      GetHciInterface()->SetAdvertisingData(inst_id, 0x03, 0x01, data.size(),
-                                            data.data(), cb);
+  void SetDataAdvDataSender(uint8_t is_scan_rsp, uint8_t inst_id,
+                            uint8_t operation, uint8_t length, uint8_t* data,
+                            MultiAdvCb cb) {
+    if (is_scan_rsp)
+      GetHciInterface()->SetScanResponseData(inst_id, operation, 0x01, length,
+                                             data, cb);
+    else
+      GetHciInterface()->SetAdvertisingData(inst_id, operation, 0x01, length,
+                                            data, cb);
+  }
+
+  using DataSender = base::Callback<void(
+      uint8_t /*inst_id*/, uint8_t /* operation */, uint8_t /* length */,
+      uint8_t* /* data */, MultiAdvCb /* done */)>;
+
+  void DivideAndSendData(int inst_id, std::vector<uint8_t> data,
+                         MultiAdvCb done_cb, DataSender sender) {
+    DivideAndSendDataRecursively(true, inst_id, std::move(data), 0,
+                                 std::move(done_cb), std::move(sender), 0);
+  }
+
+  static void DivideAndSendDataRecursively(bool isFirst, int inst_id,
+                                           std::vector<uint8_t> data,
+                                           int offset, MultiAdvCb done_cb,
+                                           DataSender sender, uint8_t status) {
+    constexpr uint8_t INTERMEDIATE =
+        0x00;                        // Intermediate fragment of fragmented data
+    constexpr uint8_t FIRST = 0x01;  // First fragment of fragmented data
+    constexpr uint8_t LAST = 0x02;   // Last fragment of fragmented data
+    constexpr uint8_t COMPLETE = 0x03;  // Complete extended advertising data
+
+    int dataSize = (int)data.size();
+    if (status != 0 || (!isFirst && offset == dataSize)) {
+      /* if we got error writing data, or reached the end of data */
+      done_cb.Run(status);
+      return;
     }
+
+    bool moreThanOnePacket = dataSize - offset > ADV_DATA_LEN_MAX;
+    uint8_t operation = isFirst ? moreThanOnePacket ? FIRST : COMPLETE
+                                : moreThanOnePacket ? INTERMEDIATE : LAST;
+    int length = moreThanOnePacket ? ADV_DATA_LEN_MAX : dataSize - offset;
+    int newOffset = offset + length;
+
+    sender.Run(
+        inst_id, operation, length, data.data() + offset,
+        Bind(&BleAdvertisingManagerImpl::DivideAndSendDataRecursively, false,
+             inst_id, std::move(data), newOffset, std::move(done_cb), sender));
+  }
+
+  void SetPeriodicAdvertisingParameters(uint8_t inst_id,
+                                        tBLE_PERIODIC_ADV_PARAMS* params,
+                                        MultiAdvCb cb) override {
+    VLOG(1) << __func__ << " inst_id: " << +inst_id;
+
+    GetHciInterface()->SetPeriodicAdvertisingParameters(
+        inst_id, params->min_interval, params->max_interval,
+        params->periodic_advertising_properties, cb);
+  }
+
+  void SetPeriodicAdvertisingData(uint8_t inst_id, std::vector<uint8_t> data,
+                                  MultiAdvCb cb) override {
+    VLOG(1) << __func__ << " inst_id: " << +inst_id;
+
+    VLOG(1) << "data is: " << base::HexEncode(data.data(), data.size());
+
+    DivideAndSendData(
+        inst_id, data, cb,
+        base::Bind(&BleAdvertiserHciInterface::SetPeriodicAdvertisingData,
+                   base::Unretained(GetHciInterface())));
+  }
+
+  void SetPeriodicAdvertisingEnable(uint8_t inst_id, uint8_t enable,
+                                    MultiAdvCb cb) override {
+    VLOG(1) << __func__ << " inst_id: " << +inst_id << ", enable: " << +enable;
+
+    GetHciInterface()->SetPeriodicAdvertisingEnable(enable, inst_id, cb);
   }
 
   void Unregister(uint8_t inst_id) override {
@@ -488,7 +729,6 @@ class BleAdvertisingManagerImpl
   uint8_t inst_count;
 };
 
-namespace {
 BleAdvertisingManager* instance;
 }
 

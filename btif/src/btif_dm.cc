@@ -784,7 +784,8 @@ static void search_devices_copy_cb(uint16_t event, char* p_dest, char* p_src) {
         p_dest_data->inq_res.p_eir =
             (uint8_t*)(p_dest + sizeof(tBTA_DM_SEARCH));
         memcpy(p_dest_data->inq_res.p_eir, p_src_data->inq_res.p_eir,
-               HCI_EXT_INQ_RESPONSE_LEN);
+               p_src_data->inq_res.eir_len);
+        p_dest_data->inq_res.eir_len = p_src_data->inq_res.eir_len;
       }
     } break;
 
@@ -1897,6 +1898,8 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
           controller->supports_ble_extended_advertising();
       local_le_features.le_periodic_advertising_supported =
           controller->supports_ble_periodic_advertising();
+      local_le_features.le_maximum_advertising_data_length =
+          controller->get_ble_maxium_advertising_data_length();
 
       memcpy(prop.val, &local_le_features, prop.len);
       HAL_CBACK(bt_hal_cbacks, adapter_properties_cb, BT_STATUS_SUCCESS, 1,
