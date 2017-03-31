@@ -24,6 +24,7 @@
 
 #define LOG_TAG "bt_btm_ble"
 
+#include <base/bind.h>
 #include <base/callback.h>
 #include <base/strings/string_number_conversions.h>
 #include <stddef.h>
@@ -723,7 +724,7 @@ bool BTM_BleConfigPrivacy(bool privacy_mode) {
     /* always set host random address, used when privacy 1.1 or priavcy 1.2 is
      * disabled */
     p_cb->addr_mgnt_cb.own_addr_type = BLE_ADDR_RANDOM;
-    btm_gen_resolvable_private_addr((void*)btm_gen_resolve_paddr_low);
+    btm_gen_resolvable_private_addr(base::Bind(&btm_gen_resolve_paddr_low));
 
     /* 4.2 controller only allow privacy 1.2 or mixed mode, resolvable private
      * address in controller */
@@ -1588,13 +1589,13 @@ void btm_ble_read_remote_name_cmpl(bool status, BD_ADDR bda, uint16_t length,
  * Returns          void
  *
  ******************************************************************************/
-tBTM_STATUS btm_ble_read_remote_name(BD_ADDR remote_bda, tBTM_INQ_INFO* p_cur,
-                                     tBTM_CMPL_CB* p_cb) {
+tBTM_STATUS btm_ble_read_remote_name(BD_ADDR remote_bda, tBTM_CMPL_CB* p_cb) {
   tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
 
   if (!controller_get_interface()->supports_ble()) return BTM_ERR_PROCESSING;
 
-  if (p_cur && !ble_evt_type_is_connectable(p_cur->results.ble_evt_type)) {
+  tINQ_DB_ENT* p_i = btm_inq_db_find(remote_bda);
+  if (p_i && !ble_evt_type_is_connectable(p_i->inq_info.results.ble_evt_type)) {
     BTM_TRACE_DEBUG("name request to non-connectable device failed.");
     return BTM_ERR_PROCESSING;
   }
@@ -2040,11 +2041,6 @@ void btm_ble_process_ext_adv_pkt(uint8_t data_len, uint8_t* data) {
                       pkt_data_len, rssi);
     }
 
-    // we parse legacy packets only for now.
-    if ((event_type & 0x0010) == 0) {
-      continue;
-    }
-
     btm_ble_process_adv_addr(bda, addr_type);
     btm_ble_process_adv_pkt_cont(event_type, addr_type, bda, primary_phy,
                                  secondary_phy, advertising_sid, tx_power, rssi,
@@ -2284,6 +2280,11 @@ tBTM_STATUS btm_ble_start_scan(void) {
 void btm_ble_stop_scan(void) {
   BTM_TRACE_EVENT("btm_ble_stop_scan ");
 
+  if (btm_cb.ble_ctr_cb.inq_var.scan_type == BTM_BLE_SCAN_MODE_ACTI)
+    btm_ble_clear_topology_mask(BTM_BLE_STATE_ACTIVE_SCAN_BIT);
+  else
+    btm_ble_clear_topology_mask(BTM_BLE_STATE_PASSIVE_SCAN_BIT);
+
   /* Clear the inquiry callback if set */
   btm_cb.ble_ctr_cb.inq_var.scan_type = BTM_BLE_SCAN_MODE_NONE;
 
@@ -2510,7 +2511,7 @@ static void btm_ble_observer_timer_timeout(UNUSED_ATTR void* data) {
 void btm_ble_refresh_raddr_timer_timeout(UNUSED_ATTR void* data) {
   if (btm_cb.ble_ctr_cb.addr_mgnt_cb.own_addr_type == BLE_ADDR_RANDOM) {
     /* refresh the random addr */
-    btm_gen_resolvable_private_addr((void*)btm_gen_resolve_paddr_low);
+    btm_gen_resolvable_private_addr(base::Bind(&btm_gen_resolve_paddr_low));
   }
 }
 

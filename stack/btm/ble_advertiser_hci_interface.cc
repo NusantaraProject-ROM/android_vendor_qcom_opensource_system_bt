@@ -94,11 +94,11 @@ class BleAdvertiserVscHciInterfaceImpl : public BleAdvertiserHciInterface {
 
   void SetParameters(uint8_t handle, uint16_t properties, uint32_t adv_int_min,
                      uint32_t adv_int_max, uint8_t channel_map,
-                     uint8_t own_address_type, uint8_t peer_address_type,
-                     BD_ADDR peer_address, uint8_t filter_policy,
-                     int8_t tx_power, uint8_t primary_phy,
-                     uint8_t secondary_max_skip, uint8_t secondary_phy,
-                     uint8_t advertising_sid,
+                     uint8_t own_address_type, BD_ADDR own_address,
+                     uint8_t peer_address_type, BD_ADDR peer_address,
+                     uint8_t filter_policy, int8_t tx_power,
+                     uint8_t primary_phy, uint8_t secondary_max_skip,
+                     uint8_t secondary_phy, uint8_t advertising_sid,
                      uint8_t scan_request_notify_enable,
                      status_cb command_complete) override {
     VLOG(1) << __func__;
@@ -124,7 +124,6 @@ class BleAdvertiserVscHciInterfaceImpl : public BleAdvertiserHciInterface {
     }
 
     UINT8_TO_STREAM(pp, own_address_type);
-    BD_ADDR own_address = {0, 0, 0, 0, 0, 0};
     BDADDR_TO_STREAM(pp, own_address);
     UINT8_TO_STREAM(pp, peer_address_type);
     BDADDR_TO_STREAM(pp, peer_address);
@@ -204,6 +203,24 @@ class BleAdvertiserVscHciInterfaceImpl : public BleAdvertiserHciInterface {
                command_complete);
   }
 
+  void SetPeriodicAdvertisingParameters(uint8_t, uint16_t, uint16_t, uint16_t,
+                                        status_cb command_complete) override {
+    LOG(INFO) << __func__ << " VSC can't do periodic advertising";
+    command_complete.Run(HCI_ERR_ILLEGAL_COMMAND);
+  }
+
+  void SetPeriodicAdvertisingData(uint8_t, uint8_t, uint8_t, uint8_t*,
+                                  status_cb command_complete) override {
+    LOG(INFO) << __func__ << " VSC can't do periodic advertising";
+    command_complete.Run(HCI_ERR_ILLEGAL_COMMAND);
+  }
+
+  void SetPeriodicAdvertisingEnable(uint8_t, uint8_t,
+                                    status_cb command_complete) override {
+    LOG(INFO) << __func__ << " VSC can't do periodic advertising";
+    command_complete.Run(HCI_ERR_ILLEGAL_COMMAND);
+  }
+
   bool QuirkAdvertiserZeroHandle() override {
     // Android BT HCI Requirements version 0.96 and below specify that handle 0
     // is equal to standard HCI interface, and should be accessed using non-VSC
@@ -215,6 +232,12 @@ class BleAdvertiserVscHciInterfaceImpl : public BleAdvertiserHciInterface {
     }
 
     return false;
+  }
+
+  void RemoveAdvertisingSet(uint8_t handle,
+                            status_cb command_complete) override {
+    // VSC Advertising don't have remove method.
+    command_complete.Run(0);
   }
 
  public:
@@ -273,11 +296,11 @@ class BleAdvertiserLegacyHciInterfaceImpl : public BleAdvertiserHciInterface {
 
   void SetParameters(uint8_t handle, uint16_t properties, uint32_t adv_int_min,
                      uint32_t adv_int_max, uint8_t channel_map,
-                     uint8_t own_address_type, uint8_t peer_address_type,
-                     BD_ADDR peer_address, uint8_t filter_policy,
-                     int8_t tx_power, uint8_t primary_phy,
-                     uint8_t secondary_max_skip, uint8_t secondary_phy,
-                     uint8_t advertising_sid,
+                     uint8_t own_address_type, BD_ADDR /* own_address */,
+                     uint8_t peer_address_type, BD_ADDR peer_address,
+                     uint8_t filter_policy, int8_t tx_power,
+                     uint8_t primary_phy, uint8_t secondary_max_skip,
+                     uint8_t secondary_phy, uint8_t advertising_sid,
                      uint8_t scan_request_notify_enable,
                      status_cb command_complete) override {
     VLOG(1) << __func__;
@@ -369,6 +392,30 @@ class BleAdvertiserLegacyHciInterfaceImpl : public BleAdvertiserHciInterface {
     SendAdvCmd(FROM_HERE, HCI_BLE_WRITE_ADV_ENABLE, param,
                HCIC_PARAM_SIZE_WRITE_ADV_ENABLE, command_complete);
   }
+
+  void SetPeriodicAdvertisingParameters(uint8_t, uint16_t, uint16_t, uint16_t,
+                                        status_cb command_complete) override {
+    LOG(INFO) << __func__ << "Legacy can't do periodic advertising";
+    command_complete.Run(HCI_ERR_ILLEGAL_COMMAND);
+  }
+
+  void SetPeriodicAdvertisingData(uint8_t, uint8_t, uint8_t, uint8_t*,
+                                  status_cb command_complete) override {
+    LOG(INFO) << __func__ << "Legacy can't do periodic advertising";
+    command_complete.Run(HCI_ERR_ILLEGAL_COMMAND);
+  }
+
+  void SetPeriodicAdvertisingEnable(uint8_t, uint8_t,
+                                    status_cb command_complete) override {
+    LOG(INFO) << __func__ << "Legacy can't do periodic advertising";
+    command_complete.Run(HCI_ERR_ILLEGAL_COMMAND);
+  }
+
+  void RemoveAdvertisingSet(uint8_t handle,
+                            status_cb command_complete) override {
+    // Legacy Advertising don't have remove method.
+    command_complete.Run(0);
+  }
 };
 
 class BleAdvertiserHciExtendedImpl : public BleAdvertiserHciInterface {
@@ -393,11 +440,11 @@ class BleAdvertiserHciExtendedImpl : public BleAdvertiserHciInterface {
 
   void SetParameters(uint8_t handle, uint16_t properties, uint32_t adv_int_min,
                      uint32_t adv_int_max, uint8_t channel_map,
-                     uint8_t own_address_type, uint8_t peer_address_type,
-                     BD_ADDR peer_address, uint8_t filter_policy,
-                     int8_t tx_power, uint8_t primary_phy,
-                     uint8_t secondary_max_skip, uint8_t secondary_phy,
-                     uint8_t advertising_sid,
+                     uint8_t own_address_type, BD_ADDR /* own_address */,
+                     uint8_t peer_address_type, BD_ADDR peer_address,
+                     uint8_t filter_policy, int8_t tx_power,
+                     uint8_t primary_phy, uint8_t secondary_max_skip,
+                     uint8_t secondary_phy, uint8_t advertising_sid,
                      uint8_t scan_request_notify_enable,
                      status_cb command_complete) override {
     VLOG(1) << __func__;
@@ -506,6 +553,71 @@ class BleAdvertiserHciExtendedImpl : public BleAdvertiserHciInterface {
                command_complete);
   }
 
+  void SetPeriodicAdvertisingParameters(uint8_t handle,
+                                        uint16_t periodic_adv_int_min,
+                                        uint16_t periodic_adv_int_max,
+                                        uint16_t periodic_properties,
+                                        status_cb command_complete) override {
+    VLOG(1) << __func__;
+    const uint16_t HCI_LE_SET_PRIODIC_ADVERTISING_PARAM_LEN = 7;
+    uint8_t param[HCI_LE_SET_PRIODIC_ADVERTISING_PARAM_LEN];
+    memset(param, 0, HCI_LE_SET_PRIODIC_ADVERTISING_PARAM_LEN);
+
+    uint8_t* pp = param;
+    UINT8_TO_STREAM(pp, handle);
+    UINT16_TO_STREAM(pp, periodic_properties);
+    UINT16_TO_STREAM(pp, periodic_adv_int_min);
+    UINT16_TO_STREAM(pp, periodic_adv_int_max);
+
+    SendAdvCmd(FROM_HERE, HCI_LE_SET_PERIODIC_ADVERTISING_PARAM, param,
+               HCI_LE_SET_PRIODIC_ADVERTISING_PARAM_LEN, command_complete);
+  }
+
+  void SetPeriodicAdvertisingData(uint8_t handle, uint8_t operation,
+                                  uint8_t adv_data_length, uint8_t* adv_data,
+                                  status_cb command_complete) override {
+    VLOG(1) << __func__;
+    const uint16_t HCI_LE_SET_PRIODIC_ADVERTISING_DATA_LEN =
+        3 + adv_data_length;
+    uint8_t param[HCI_LE_SET_PRIODIC_ADVERTISING_DATA_LEN];
+    memset(param, 0, HCI_LE_SET_PRIODIC_ADVERTISING_DATA_LEN);
+    uint8_t* pp = param;
+    UINT8_TO_STREAM(pp, handle);
+    UINT8_TO_STREAM(pp, operation);
+    UINT8_TO_STREAM(pp, adv_data_length);
+    ARRAY_TO_STREAM(pp, adv_data, adv_data_length);
+    SendAdvCmd(FROM_HERE, HCI_LE_SET_PERIODIC_ADVERTISING_DATA, param,
+               HCI_LE_SET_PRIODIC_ADVERTISING_DATA_LEN, command_complete);
+  }
+
+  void SetPeriodicAdvertisingEnable(uint8_t enable, uint8_t handle,
+                                    status_cb command_complete) override {
+    VLOG(1) << __func__;
+    const uint16_t HCI_LE_ENABLE_PRIODIC_ADVERTISEMENT_LEN = 2;
+    uint8_t param[HCI_LE_ENABLE_PRIODIC_ADVERTISEMENT_LEN];
+    memset(param, 0, HCI_LE_ENABLE_PRIODIC_ADVERTISEMENT_LEN);
+    uint8_t* pp = param;
+    UINT8_TO_STREAM(pp, enable);
+    UINT8_TO_STREAM(pp, handle);
+    SendAdvCmd(FROM_HERE, HCI_LE_SET_PERIODIC_ADVERTISING_ENABLE, param,
+               HCI_LE_ENABLE_PRIODIC_ADVERTISEMENT_LEN, command_complete);
+  }
+
+  void RemoveAdvertisingSet(uint8_t handle,
+                            status_cb command_complete) override {
+    VLOG(1) << __func__;
+
+    const uint16_t cmd_length = 1;
+    uint8_t param[cmd_length];
+    memset(param, 0, cmd_length);
+
+    uint8_t* pp = param;
+    UINT8_TO_STREAM(pp, handle);
+
+    SendAdvCmd(FROM_HERE, HCI_LE_REMOVE_ADVERTISING_SET, param, cmd_length,
+               command_complete);
+  }
+
  public:
   void OnAdvertisingSetTerminated(uint8_t length, uint8_t* p) {
     VLOG(1) << __func__;
@@ -545,12 +657,15 @@ void BleAdvertiserHciInterface::Initialize() {
   LOG_ASSERT(instance == nullptr) << "Was already initialized.";
 
   if (controller_get_interface()->supports_ble_extended_advertising()) {
+    LOG(INFO) << "Extended advertising will be in use";
     instance = new BleAdvertiserHciExtendedImpl();
   } else if (BTM_BleMaxMultiAdvInstanceCount()) {
+    LOG(INFO) << "VSC advertising will be in use";
     instance = new BleAdvertiserVscHciInterfaceImpl();
     BTM_RegisterForVSEvents(
         BleAdvertiserVscHciInterfaceImpl::VendorSpecificEventCback, true);
   } else {
+    LOG(INFO) << "Legacy advertising will be in use";
     instance = new BleAdvertiserLegacyHciInterfaceImpl();
   }
 }
