@@ -1,4 +1,8 @@
 /******************************************************************************
+ * Copyright (C) 2017, The Linux Foundation. All rights reserved.
+ * Not a Contribution.
+ ******************************************************************************/
+/******************************************************************************
  *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
@@ -135,6 +139,7 @@ typedef struct _btif_hf_cb {
   struct timespec call_end_timestamp;
   struct timespec connected_timestamp;
   bthf_call_state_t call_setup_state;
+  bthf_audio_state_t audio_state;
 } btif_hf_cb_t;
 
 static btif_hf_cb_t btif_hf_cb[BTIF_HF_NUM_CB];
@@ -317,6 +322,32 @@ static bt_status_t btif_hf_check_if_slc_connected() {
   }
 }
 
+/*******************************************************************************
+ *
+ * Function         btif_hf_check_if_sco_connected
+ *
+ * Description      Returns BT_STATUS_SUCCESS if SCO is up for any HF
+ *
+ * Returns          bt_status_t
+ *
+ ******************************************************************************/
+static bt_status_t btif_hf_check_if_sco_connected() {
+  if (bt_hf_callbacks == NULL) {
+    BTIF_TRACE_WARNING("BTHF: %s(): BTHF not initialized. ", __func__);
+    return BT_STATUS_NOT_READY;
+  } else {
+    for (int i = 0; i < btif_max_hf_clients; i++) {
+      if (btif_hf_cb[i].audio_state == BTHF_AUDIO_STATE_CONNECTED) {
+        BTIF_TRACE_EVENT("BTHF: %s(): sco connected for idx = %d",
+                         __func__, i);
+        return BT_STATUS_SUCCESS;
+      }
+    }
+    BTIF_TRACE_WARNING("BTHF: %s(): No SCO connection up", __func__);
+    return BT_STATUS_NOT_READY;
+  }
+}
+
 /*****************************************************************************
  *   Section name (Group of functions)
  ****************************************************************************/
@@ -422,11 +453,13 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
 
     case BTA_AG_AUDIO_OPEN_EVT:
       hf_idx = idx;
+      btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_CONNECTED;
       HAL_CBACK(bt_hf_callbacks, audio_state_cb, BTHF_AUDIO_STATE_CONNECTED,
                 &btif_hf_cb[idx].connected_bda);
       break;
 
     case BTA_AG_AUDIO_CLOSE_EVT:
+      btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_DISCONNECTED;
       HAL_CBACK(bt_hf_callbacks, audio_state_cb, BTHF_AUDIO_STATE_DISCONNECTED,
                 &btif_hf_cb[idx].connected_bda);
       break;
@@ -1455,6 +1488,40 @@ bool btif_hf_is_call_idle(void) {
         ((btif_hf_cb[i].num_held + btif_hf_cb[i].num_active) > 0))
       return false;
   }
+
+  return true;
+}
+
+/*******************************************************************************
+*
+ * Function         btif_hf_is_call_vr_idle
+ *
+ * Description      returns true if no call is in progress
+ *
+ * Returns          bool
+ *
+ ******************************************************************************/
+bool btif_hf_is_call_vr_idle() {
+  int i, j = 1;
+
+  if (bt_hf_callbacks == NULL)
+    return true;
+  for (i = 0; i < btif_max_hf_clients; i++) {
+    BTIF_TRACE_EVENT("%s: call_setup_state: %d for handle: %d",
+                     __func__, btif_hf_cb[i].call_setup_state,
+                     btif_hf_cb[i].handle);
+    BTIF_TRACE_EVENT("num_held: %d, num_active: %d for handle: %d",
+                     btif_hf_cb[i].num_held, btif_hf_cb[i].num_active,
+                     btif_hf_cb[i].handle);
+    j &= ((btif_hf_cb[i].call_setup_state == BTHF_CALL_STATE_IDLE) &&
+            ((btif_hf_cb[i].num_held + btif_hf_cb[i].num_active) == 0));
+  }
+
+  if (j && (btif_hf_check_if_sco_connected() != BT_STATUS_SUCCESS)) {
+    BTIF_TRACE_EVENT("%s: call state idle and no sco connected.", __func__);
+    return true;
+  } else
+    return false;
 
   return true;
 }

@@ -1,4 +1,8 @@
 /******************************************************************************
+ * Copyright (C) 2017, The Linux Foundation. All rights reserved.
+ * Not a Contribution.
+ ******************************************************************************/
+/******************************************************************************
  *
  *  Copyright (C) 2016 The Android Open Source Project
  *  Copyright (C) 2009-2012 Broadcom Corporation
@@ -34,16 +38,18 @@
 #include "btif_a2dp_audio_interface.h"
 
 extern bool btif_a2dp_audio_if_init;
-void btif_a2dp_on_idle(void) {
-  APPL_TRACE_EVENT("## ON A2DP IDLE ## peer_sep = %d", btif_av_get_peer_sep());
-  if (btif_av_get_peer_sep() == AVDT_TSEP_SNK) {
+extern void btif_av_reset_reconfig_flag();
+void btif_a2dp_on_idle(int index) {
+  APPL_TRACE_EVENT("## ON A2DP IDLE ## peer_sep = %d", btif_av_get_peer_sep(index));
+  if (btif_av_get_peer_sep(index) == AVDT_TSEP_SNK) {
     btif_a2dp_source_on_idle();
-  } else if (btif_av_get_peer_sep() == AVDT_TSEP_SRC) {
+  } else if (btif_av_get_peer_sep(index) == AVDT_TSEP_SRC) {
     btif_a2dp_sink_on_idle();
   }
 }
 
-bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start) {
+bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
+                          tBTA_AV_HNDL hdl) {
   bool ack = false;
 
   APPL_TRACE_EVENT("## ON A2DP STARTED ##");
@@ -52,6 +58,7 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start) {
     /* ack back a local start request */
     if (btif_av_is_split_a2dp_enabled()) {
       btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, NULL, 0);
+      return true;
     } else {
       btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
       return true;
@@ -73,10 +80,11 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start) {
         /* We were remotely started, make sure codec
          * is setup before datapath is started.
          */
-         btif_a2dp_source_setup_codec();
+         btif_a2dp_source_setup_codec(hdl);
          if (btif_av_is_split_a2dp_enabled()) {
            btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, NULL, 0);
          }
+         ack = true;
       }
 
       /* media task is autostarted upon a2dp audiopath connection */
@@ -93,7 +101,8 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start) {
 void btif_a2dp_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
   APPL_TRACE_EVENT("## ON A2DP STOPPED ##");
 
-  if (btif_av_get_peer_sep() == AVDT_TSEP_SRC) {
+  int idx = btif_av_get_latest_playing_device_idx();
+  if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SRC) {
     btif_a2dp_sink_on_stopped(p_av_suspend);
     return;
   }
@@ -109,13 +118,14 @@ void btif_a2dp_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
 
 void btif_a2dp_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
   APPL_TRACE_EVENT("## ON A2DP SUSPENDED ##");
+  int idx = btif_av_get_latest_playing_device_idx();
   if (!btif_av_is_split_a2dp_enabled()) {
-    if (btif_av_get_peer_sep() == AVDT_TSEP_SRC) {
+    if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SRC) {
       btif_a2dp_sink_on_suspended(p_av_suspend);
     } else {
       btif_a2dp_source_on_suspended(p_av_suspend);
     }
-  } else {//TODO send command to btif_a2dp_audio_interface
+  } else {
     btif_a2dp_audio_on_suspended(p_av_suspend->status);
   }
 }
@@ -140,6 +150,7 @@ void btif_a2dp_on_offload_started(tBTA_AV_STATUS status) {
   if (btif_av_is_split_a2dp_enabled()) {
     //TODO send command to btif_a2dp_audio_interface
     btif_a2dp_audio_on_started(status);
+    btif_av_reset_reconfig_flag();
   } else {
     btif_a2dp_command_ack(ack);
   }

@@ -1,4 +1,8 @@
 /******************************************************************************
+ * Copyright (C) 2017, The Linux Foundation. All rights reserved.
+ * Not a Contribution.
+ ******************************************************************************/
+/******************************************************************************
  *
  *  Copyright (C) 2009-2012 Broadcom Corporation
  *
@@ -27,6 +31,7 @@ const char* audio_a2dp_hw_dump_ctrl_event(tA2DP_CTRL_CMD event) {
     CASE_RETURN_STR(A2DP_CTRL_CMD_NONE)
     CASE_RETURN_STR(A2DP_CTRL_CMD_CHECK_READY)
     CASE_RETURN_STR(A2DP_CTRL_CMD_START)
+    CASE_RETURN_STR(A2DP_CTRL_CMD_CHECK_STREAM_STARTED)
     CASE_RETURN_STR(A2DP_CTRL_CMD_STOP)
     CASE_RETURN_STR(A2DP_CTRL_CMD_SUSPEND)
     CASE_RETURN_STR(A2DP_CTRL_GET_INPUT_AUDIO_CONFIG)

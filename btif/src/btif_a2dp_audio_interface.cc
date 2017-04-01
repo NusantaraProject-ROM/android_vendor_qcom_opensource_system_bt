@@ -60,6 +60,10 @@ uint8_t codec_info[30];
 uint8_t len,a2dp_cmd_pending = A2DP_CTRL_CMD_NONE;
 Status mapToStatus(uint8_t resp);
 uint8_t btif_a2dp_audio_process_request(uint8_t cmd);
+
+/*BTIF AV helper */
+extern bool btif_av_is_device_disconnecting();
+extern bool reconfig_a2dp;
 #if 0
 typedef enum {
   A2DP_CTRL_GET_CODEC_CONFIG = 15,
@@ -253,7 +257,14 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         status = A2DP_CTRL_ACK_FAILURE;
         break;
       }
-
+      if (!btif_hf_is_call_idle()) {
+        status  = A2DP_CTRL_ACK_INCALL_FAILURE;
+        break;
+      }
+      if (btif_av_is_under_handoff() || reconfig_a2dp) {
+        status = A2DP_CTRL_ACK_SUCCESS;
+        break;
+      }
       /* check whether AV is ready to setup A2DP datapath */
       if (btif_av_stream_ready() || btif_av_stream_started_ready()) {
         //bbif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
@@ -284,7 +295,15 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
         break;
       }*/
-
+      /* In dual a2dp mode check for stream started first*/
+      if (btif_av_stream_started_ready()) {
+        /*
+         * Already started, setup audio data channel listener and ACK
+         * back immediately.
+         */
+        status = A2DP_CTRL_ACK_SUCCESS;
+        break;
+      }
       if (btif_av_stream_ready()) {
         /* Setup audio data channel listener */
         //UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb);
@@ -295,7 +314,8 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
          * procedure is completed, othewise send it now.
          */
         btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-        if (btif_av_get_peer_sep() == AVDT_TSEP_SRC) {
+        int idx = btif_av_get_latest_device_idx_to_start();
+        if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SRC) {
           //btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
           status = A2DP_CTRL_ACK_SUCCESS;
           break;
@@ -305,16 +325,6 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         break;
       }
 
-      if (btif_av_stream_started_ready()) {
-        /*
-         * Already started, setup audio data channel listener and ACK
-         * back immediately.
-         */
-        //UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb);
-        //btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
-        status = A2DP_CTRL_ACK_SUCCESS;
-        break;
-      }
       APPL_TRACE_WARNING("%s: A2DP command %s while AV stream is not ready",
                          __func__, audio_a2dp_hw_dump_ctrl_event((tA2DP_CTRL_CMD)cmd));
       //btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
@@ -322,21 +332,35 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
       break;
 
     case A2DP_CTRL_CMD_STOP:
-      if (btif_av_get_peer_sep() == AVDT_TSEP_SNK &&
-          !btif_a2dp_source_is_streaming()) {
-        /* We are already stopped, just ack back */
+      {
+        int idx = btif_av_get_latest_playing_device_idx();
+        if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SNK &&
+            !btif_a2dp_source_is_streaming()) {
+          /* We are already stopped, just ack back */
+          //btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+          status = A2DP_CTRL_ACK_SUCCESS;
+          break;
+        }
+
+        btif_dispatch_sm_event(BTIF_AV_STOP_STREAM_REQ_EVT, NULL, 0);
         //btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+        status = A2DP_CTRL_ACK_SUCCESS;
+
+        break;
+      }
+    case A2DP_CTRL_CMD_SUSPEND:
+      /* Local suspend */
+      if (reconfig_a2dp) {
+        LOG_INFO(LOG_TAG,"Suspend called due to reconfig");
+        /*if (btif_av_is_under_handoff() && !btif_av_is_device_disconnecting()) {
+          LOG_INFO(LOG_TAG,"Under hand off,hopefully stack send success ack");
+          status = A2DP_CTRL_ACK_PENDING;
+        } else {
+          status = A2DP_CTRL_ACK_SUCCESS;
+        }*/
         status = A2DP_CTRL_ACK_SUCCESS;
         break;
       }
-
-      btif_dispatch_sm_event(BTIF_AV_STOP_STREAM_REQ_EVT, NULL, 0);
-      //btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
-      return A2DP_CTRL_ACK_SUCCESS;
-      break;
-
-    case A2DP_CTRL_CMD_SUSPEND:
-      /* Local suspend */
       if (btif_av_stream_started_ready()) {
         btif_dispatch_sm_event(BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL, 0);
         status = A2DP_CTRL_ACK_PENDING;

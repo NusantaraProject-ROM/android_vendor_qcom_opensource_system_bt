@@ -573,9 +573,13 @@ bool A2dpCodecConfigLdac::init() {
   if (!isValid()) return false;
 
   if (A2DP_GetOffloadStatus()) {
-    LOG_ERROR(LOG_TAG,"%s:Currently LDAC is not supported in offload mode",
-              __func__);
-    return false;
+    if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC)){
+      LOG_ERROR(LOG_TAG,"%s: LDAC enabled in offload mode",__func__);
+      return true;
+    } else {
+      LOG_ERROR(LOG_TAG, "%s: LDAC disabled in offload mode", __func__);
+      return false;
+    }
   }
   // Load the encoder
   if (!A2DP_VendorLoadEncoderLdac()) {
