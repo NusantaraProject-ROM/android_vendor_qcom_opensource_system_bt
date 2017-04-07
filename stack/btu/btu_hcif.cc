@@ -294,16 +294,17 @@ void btu_hcif_process_event(UNUSED_ATTR uint8_t controller_id, BT_HDR* p_msg) {
       break;
 #endif
 
-    case HCI_BLE_EVENT:
+    case HCI_BLE_EVENT: {
       STREAM_TO_UINT8(ble_sub_code, p);
 
       HCI_TRACE_EVENT("BLE HCI(id=%d) event = 0x%02x)", hci_evt_code,
                       ble_sub_code);
 
+      uint8_t ble_evt_len = hci_evt_len - 1;
       switch (ble_sub_code) {
         case HCI_BLE_ADV_PKT_RPT_EVT: /* result of inquiry */
           HCI_TRACE_EVENT("HCI_BLE_ADV_PKT_RPT_EVT");
-          btm_ble_process_adv_pkt(hci_evt_len - 1, p);
+          btm_ble_process_adv_pkt(ble_evt_len, p);
           break;
         case HCI_BLE_CONN_COMPLETE_EVT:
           btu_ble_ll_conn_complete_evt(p, hci_evt_len);
@@ -331,8 +332,11 @@ void btu_hcif_process_event(UNUSED_ATTR uint8_t controller_id, BT_HDR* p_msg) {
           btu_ble_data_length_change_evt(p, hci_evt_len);
           break;
 
+        case HCI_LE_PHY_UPDATE_COMPLETE_EVT:
+          btm_ble_process_phy_update_pkt(ble_evt_len, p);
+          break;
+
         case HCI_LE_EXTENDED_ADVERTISING_REPORT_EVT:
-          HCI_TRACE_EVENT("HCI_LE_EXTENDED_ADVERTISING_REPORT_EVT");
           btm_ble_process_ext_adv_pkt(hci_evt_len, p);
           break;
 
@@ -341,6 +345,8 @@ void btu_hcif_process_event(UNUSED_ATTR uint8_t controller_id, BT_HDR* p_msg) {
           break;
       }
       break;
+    }
+
     case HCI_VENDOR_SPECIFIC_EVT:
       btm_vendor_specific_evt(p, hci_evt_len);
       break;
@@ -1660,6 +1666,11 @@ static void btu_ble_proc_enhanced_conn_cmpl(uint8_t* p, uint16_t evt_len) {
   btm_ble_conn_complete(p, evt_len, true);
 }
 #endif
+
+extern void gatt_notify_conn_update(uint16_t handle, uint16_t interval,
+                                    uint16_t latency, uint16_t timeout,
+                                    uint8_t status);
+
 static void btu_ble_ll_conn_param_upd_evt(uint8_t* p, uint16_t evt_len) {
   /* LE connection update has completed successfully as a master. */
   /* We can enable the update request if the result is a success. */
@@ -1677,6 +1688,8 @@ static void btu_ble_ll_conn_param_upd_evt(uint8_t* p, uint16_t evt_len) {
   STREAM_TO_UINT16(timeout, p);
 
   l2cble_process_conn_update_evt(handle, status, interval, latency, timeout);
+
+  gatt_notify_conn_update(handle & 0x0FFF, interval, latency, timeout, status);
 }
 
 static void btu_ble_read_remote_feat_evt(uint8_t* p) {

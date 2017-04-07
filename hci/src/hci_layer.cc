@@ -25,6 +25,8 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include <chrono>
 #include <mutex>
 
 #include "btcore/include/module.h"
@@ -54,13 +56,14 @@ typedef struct {
   command_status_cb status_callback;
   void* context;
   BT_HDR* command;
+  std::chrono::time_point<std::chrono::steady_clock> timestamp;
 } waiting_command_t;
 
 // Using a define here, because it can be stringified for the property lookup
 #define DEFAULT_STARTUP_TIMEOUT_MS 8000
 #define STRING_VALUE_OF(x) #x
 
-// Abort if there is no response to an HCI command within two seconds.
+// Abort if there is no response to an HCI command.
 static const uint32_t COMMAND_PENDING_TIMEOUT_MS = 2000;
 
 // Our interface
@@ -346,6 +349,7 @@ static void event_command_ready(fixed_queue_t* queue,
     {
       std::lock_guard<std::recursive_mutex> lock(
           commands_pending_response_mutex);
+      wait_entry->timestamp = std::chrono::steady_clock::now();
       list_append(commands_pending_response, wait_entry);
 
       // Send it off
@@ -396,15 +400,17 @@ static void command_timed_out(UNUSED_ATTR void* context) {
   } else {
     waiting_command_t* wait_entry = reinterpret_cast<waiting_command_t*>(
         list_front(commands_pending_response));
-    lock.unlock();
 
+    int wait_time_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - wait_entry->timestamp)
+            .count();
     // We shouldn't try to recover the stack from this command timeout.
     // If it's caused by a software bug, fix it. If it's a hardware bug, fix it.
-    LOG_ERROR(
-        LOG_TAG,
-        "%s hci layer timeout waiting for response to a command. opcode: 0x%x",
-        __func__, wait_entry->opcode);
+    LOG_ERROR(LOG_TAG, "%s: Waited %d ms for a response to opcode: 0x%x",
+              __func__, wait_time_ms, wait_entry->opcode);
     LOG_EVENT_INT(BT_HCI_TIMEOUT_TAG_NUM, wait_entry->opcode);
+    lock.unlock();
   }
 
   LOG_ERROR(LOG_TAG, "%s restarting the bluetooth process.", __func__);
@@ -440,10 +446,13 @@ static bool filter_incoming_event(BT_HDR* packet) {
                  "0x%04x).",
                  __func__, opcode);
       }
-    } else if (wait_entry->complete_callback) {
-      wait_entry->complete_callback(packet, wait_entry->context);
-    } else if (wait_entry->complete_future) {
-      future_ready(wait_entry->complete_future, packet);
+    } else {
+      update_command_response_timer();
+      if (wait_entry->complete_callback) {
+        wait_entry->complete_callback(packet, wait_entry->context);
+      } else if (wait_entry->complete_future) {
+        future_ready(wait_entry->complete_future, packet);
+      }
     }
 
     goto intercepted;
@@ -457,14 +466,17 @@ static bool filter_incoming_event(BT_HDR* packet) {
     // command complete event
 
     wait_entry = get_waiting_command(opcode);
-    if (!wait_entry)
+    if (!wait_entry) {
       LOG_WARN(
           LOG_TAG,
           "%s command status event with no matching command. opcode: 0x%04x",
           __func__, opcode);
-    else if (wait_entry->status_callback)
-      wait_entry->status_callback(status, wait_entry->command,
-                                  wait_entry->context);
+    } else {
+      update_command_response_timer();
+      if (wait_entry->status_callback)
+        wait_entry->status_callback(status, wait_entry->command,
+                                    wait_entry->context);
+    }
 
     goto intercepted;
   }
@@ -472,8 +484,6 @@ static bool filter_incoming_event(BT_HDR* packet) {
   return false;
 
 intercepted:
-  update_command_response_timer();
-
   if (wait_entry) {
     // If it has a callback, it's responsible for freeing the packet
     if (event_code == HCI_COMMAND_STATUS_EVT ||

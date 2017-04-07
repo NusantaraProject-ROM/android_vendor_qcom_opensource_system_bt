@@ -38,6 +38,7 @@
 extern bool ble_evt_type_is_connectable(uint16_t evt_type);
 extern void btm_ble_refresh_raddr_timer_timeout(void* data);
 extern void btm_ble_process_adv_pkt(uint8_t len, uint8_t* p);
+extern void btm_ble_process_phy_update_pkt(uint8_t len, uint8_t* p);
 extern void btm_ble_process_ext_adv_pkt(uint8_t len, uint8_t* p);
 extern void btm_ble_proc_scan_rsp_rpt(uint8_t* p);
 extern tBTM_STATUS btm_ble_read_remote_name(BD_ADDR remote_bda,
@@ -127,7 +128,8 @@ extern void btm_send_hci_create_connection(
     uint16_t scan_int, uint16_t scan_win, uint8_t init_filter_policy,
     uint8_t addr_type_peer, BD_ADDR bda_peer, uint8_t addr_type_own,
     uint16_t conn_int_min, uint16_t conn_int_max, uint16_t conn_latency,
-    uint16_t conn_timeout, uint16_t min_ce_len, uint16_t max_ce_len);
+    uint16_t conn_timeout, uint16_t min_ce_len, uint16_t max_ce_len,
+    uint8_t phy);
 extern bool btm_ble_start_auto_conn(bool start);
 extern bool btm_ble_start_select_conn(bool start);
 extern bool btm_ble_renew_bg_conn_params(bool add, BD_ADDR bd_addr);

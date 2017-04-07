@@ -403,6 +403,8 @@ const btgatt_client_callbacks_t gatt_client_callbacks = {
     GetGattDbCallback,
     ServicesRemovedCallback,
     ServicesAddedCallback,
+    nullptr,
+    nullptr,
 };
 
 const btgatt_server_callbacks_t gatt_server_callbacks = {
@@ -420,6 +422,8 @@ const btgatt_server_callbacks_t gatt_server_callbacks = {
     IndicationSentCallback,
     nullptr,  // congestion_cb
     MtuChangedCallback,
+    nullptr,
+    nullptr,
 };
 
 const btgatt_callbacks_t gatt_callbacks = {

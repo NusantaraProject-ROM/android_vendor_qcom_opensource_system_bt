@@ -41,7 +41,7 @@ bt_status_t FakeUnregisterClient(int client_if) {
 }
 
 bt_status_t FakeConnect(int client_if, const bt_bdaddr_t* bd_addr,
-                        bool is_direct, int transport) {
+                        bool is_direct, int transport, int phy) {
   if (g_client_handler)
     return g_client_handler->Connect(client_if, bd_addr, is_direct, transport);
 
@@ -118,6 +118,8 @@ btgatt_client_interface_t fake_btgattc_iface = {
     nullptr,  // get_device_type
     nullptr,  // configure_mtu
     nullptr,  // conn_parameter_update
+    nullptr,  // set_phy
+    nullptr,  // read_phy
     nullptr,  // test_command
     nullptr,  // get_gatt_db
 };
@@ -132,6 +134,8 @@ btgatt_server_interface_t fake_btgatts_iface = {
     FakeDeleteService,
     FakeSendIndication,
     FakeSendResponse,
+    nullptr,  // set_phy
+    nullptr,  // read_phy
 };
 
 }  // namespace

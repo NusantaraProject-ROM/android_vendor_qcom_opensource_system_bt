@@ -28,6 +28,8 @@
 #define ADVERTISE_FAILED_TOO_MANY_ADVERTISERS 0x02
 
 using MultiAdvCb = base::Callback<void(uint8_t /* status */)>;
+using ParametersCb =
+    base::Callback<void(uint8_t /* status */, int8_t /* tx_power */)>;
 
 // methods we must have defined
 void btm_ble_update_dmt_flag_bits(uint8_t* flag_value,
@@ -82,7 +84,7 @@ class BleAdvertisingManager {
                                 tBTM_BLE_ADV_PARAMS* params,
                                 std::vector<uint8_t> advertise_data,
                                 std::vector<uint8_t> scan_response_data,
-                                int timeout_s, MultiAdvCb timeout_cb) = 0;
+                                int duration, MultiAdvCb timeout_cb) = 0;
 
   /* Register an advertising instance, status will be returned in |cb|
    * callback, with assigned id, if operation succeeds. Instance is freed when
@@ -93,11 +95,14 @@ class BleAdvertisingManager {
    * enabled.
    */
   virtual void StartAdvertisingSet(
-      base::Callback<void(uint8_t /* inst_id */, uint8_t /* status */)> cb,
+      base::Callback<void(uint8_t /* inst_id */, int8_t /* tx_power */,
+                          uint8_t /* status */)>
+          cb,
       tBTM_BLE_ADV_PARAMS* params, std::vector<uint8_t> advertise_data,
       std::vector<uint8_t> scan_response_data,
       tBLE_PERIODIC_ADV_PARAMS* periodic_params,
-      std::vector<uint8_t> periodic_data, int timeout_s,
+      std::vector<uint8_t> periodic_data, uint16_t duration,
+      uint8_t maxExtAdvEvents,
       base::Callback<void(uint8_t /* inst_id */, uint8_t /* status */)>
           timeout_cb) = 0;
 
@@ -111,12 +116,13 @@ class BleAdvertisingManager {
   /* This function enables/disables an advertising instance. Operation status is
    * returned in |cb| */
   virtual void Enable(uint8_t inst_id, bool enable, MultiAdvCb cb,
-                      int timeout_s, MultiAdvCb timeout_cb) = 0;
+                      uint16_t duration, uint8_t maxExtAdvEvents,
+                      MultiAdvCb timeout_cb) = 0;
 
   /* This function update a Multi-ADV instance with the specififed adv
    * parameters. */
   virtual void SetParameters(uint8_t inst_id, tBTM_BLE_ADV_PARAMS* p_params,
-                             MultiAdvCb cb) = 0;
+                             ParametersCb cb) = 0;
 
   /* This function configure a Multi-ADV instance with the specified adv data or
    * scan response data.*/

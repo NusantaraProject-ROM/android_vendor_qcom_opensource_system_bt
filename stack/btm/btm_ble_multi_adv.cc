@@ -34,6 +34,8 @@
 using base::Bind;
 using RegisterCb =
     base::Callback<void(uint8_t /* inst_id */, uint8_t /* status */)>;
+using IdTxPowerStatusCb = base::Callback<void(
+    uint8_t /* inst_id */, int8_t /* tx_power */, uint8_t /* status */)>;
 extern void btm_gen_resolvable_private_addr(
     base::Callback<void(uint8_t[8])> cb);
 extern fixed_queue_t* btu_general_alarm_queue;
@@ -46,17 +48,18 @@ struct AdvertisingInstance {
   uint8_t advertising_event_properties;
   alarm_t* adv_raddr_timer;
   int8_t tx_power;
-  int timeout_s;
+  int duration;
   alarm_t* timeout_timer;
   uint8_t own_address_type;
   BD_ADDR own_address;
+  MultiAdvCb timeout_cb;
 
   AdvertisingInstance(int inst_id)
       : inst_id(inst_id),
         in_use(false),
         advertising_event_properties(0),
         tx_power(0),
-        timeout_s(0),
+        duration(0),
         timeout_timer(nullptr),
         own_address_type(0),
         own_address{0} {
@@ -76,9 +79,8 @@ namespace {
 void DoNothing(uint8_t) {}
 void DoNothing2(uint8_t, uint8_t) {}
 
-bool is_legacy_connectable(uint16_t advertising_event_properties) {
-  if (((advertising_event_properties & 0x10) != 0) &&
-      ((advertising_event_properties & 0x01) != 0)) {
+bool is_connectable(uint16_t advertising_event_properties) {
+  if ((advertising_event_properties & 0x01) != 0) {
     return true;
   }
   return false;
@@ -113,13 +115,14 @@ class BleAdvertisingManagerImpl;
 struct CreatorParams {
   uint8_t inst_id;
   BleAdvertisingManagerImpl* self;
-  RegisterCb cb;
+  IdTxPowerStatusCb cb;
   tBTM_BLE_ADV_PARAMS params;
   std::vector<uint8_t> advertise_data;
   std::vector<uint8_t> scan_response_data;
   tBLE_PERIODIC_ADV_PARAMS periodic_params;
   std::vector<uint8_t> periodic_data;
-  int timeout_s;
+  uint16_t duration;
+  uint8_t maxExtAdvEvents;
   RegisterCb timeout_cb;
 };
 
@@ -239,7 +242,7 @@ class BleAdvertisingManagerImpl
   void StartAdvertising(uint8_t advertiser_id, MultiAdvCb cb,
                         tBTM_BLE_ADV_PARAMS* params,
                         std::vector<uint8_t> advertise_data,
-                        std::vector<uint8_t> scan_response_data, int timeout_s,
+                        std::vector<uint8_t> scan_response_data, int duration,
                         MultiAdvCb timeout_cb) override {
     /* a temporary type for holding all the data needed in callbacks below*/
     struct CreatorParams {
@@ -249,7 +252,7 @@ class BleAdvertisingManagerImpl
       tBTM_BLE_ADV_PARAMS params;
       std::vector<uint8_t> advertise_data;
       std::vector<uint8_t> scan_response_data;
-      int timeout_s;
+      int duration;
       MultiAdvCb timeout_cb;
     };
 
@@ -261,7 +264,7 @@ class BleAdvertisingManagerImpl
     c->params = *params;
     c->advertise_data = std::move(advertise_data);
     c->scan_response_data = std::move(scan_response_data);
-    c->timeout_s = timeout_s;
+    c->duration = duration;
     c->timeout_cb = std::move(timeout_cb);
     c->inst_id = advertiser_id;
 
@@ -271,12 +274,14 @@ class BleAdvertisingManagerImpl
     // asynchronous flow
     // clang-format off
     c->self->SetParameters(c->inst_id, &c->params, Bind(
-      [](c_type c, uint8_t status) {
+      [](c_type c, uint8_t status, int8_t tx_power) {
         if (status != 0) {
           LOG(ERROR) << "setting parameters failed, status: " << +status;
           c->cb.Run(status);
           return;
         }
+
+        c->self->adv_inst[c->inst_id].tx_power = tx_power;
 
         BD_ADDR *rpa = &c->self->adv_inst[c->inst_id].own_address;
         c->self->GetHciInterface()->SetRandomAddress(c->inst_id, *rpa, Bind(
@@ -303,7 +308,7 @@ class BleAdvertisingManagerImpl
                       return;
                     }
 
-                    c->self->Enable(c->inst_id, true, c->cb, c->timeout_s, std::move(c->timeout_cb));
+                    c->self->Enable(c->inst_id, true, c->cb, c->duration, 0, std::move(c->timeout_cb));
 
                 }, base::Passed(&c)));
             }, base::Passed(&c)));
@@ -312,11 +317,12 @@ class BleAdvertisingManagerImpl
     // clang-format on
   }
 
-  void StartAdvertisingSet(RegisterCb cb, tBTM_BLE_ADV_PARAMS* params,
+  void StartAdvertisingSet(IdTxPowerStatusCb cb, tBTM_BLE_ADV_PARAMS* params,
                            std::vector<uint8_t> advertise_data,
                            std::vector<uint8_t> scan_response_data,
                            tBLE_PERIODIC_ADV_PARAMS* periodic_params,
-                           std::vector<uint8_t> periodic_data, int timeout_s,
+                           std::vector<uint8_t> periodic_data,
+                           uint16_t duration, uint8_t maxExtAdvEvents,
                            RegisterCb timeout_cb) override {
     std::unique_ptr<CreatorParams> c;
     c.reset(new CreatorParams());
@@ -328,7 +334,8 @@ class BleAdvertisingManagerImpl
     c->scan_response_data = std::move(scan_response_data);
     c->periodic_params = *periodic_params;
     c->periodic_data = std::move(periodic_data);
-    c->timeout_s = timeout_s;
+    c->duration = duration;
+    c->maxExtAdvEvents = maxExtAdvEvents;
     c->timeout_cb = std::move(timeout_cb);
 
 
@@ -339,23 +346,22 @@ class BleAdvertisingManagerImpl
       [](c_type c, uint8_t advertiser_id, uint8_t status) {
         if (status != 0) {
           LOG(ERROR) << "registering advertiser failed, status: " << +status;
-          c->cb.Run(0, status);
+          c->cb.Run(0, 0, status);
           return;
         }
 
         c->inst_id = advertiser_id;
 
         c->self->SetParameters(c->inst_id, &c->params, Bind(
-          [](c_type c, uint8_t status) {
+          [](c_type c, uint8_t status, int8_t tx_power) {
             if (status != 0) {
               c->self->Unregister(c->inst_id);
               LOG(ERROR) << "setting parameters failed, status: " << +status;
-              c->cb.Run(0, status);
+              c->cb.Run(0, 0, status);
               return;
             }
 
-            //TODO(jpawlowski): obtain real tx_power from set parameters
-            // response, to put into adv data
+            c->self->adv_inst[c->inst_id].tx_power = tx_power;
 
             BD_ADDR *rpa = &c->self->adv_inst[c->inst_id].own_address;
             c->self->GetHciInterface()->SetRandomAddress(c->inst_id, *rpa, Bind(
@@ -363,7 +369,7 @@ class BleAdvertisingManagerImpl
                 if (status != 0) {
                   c->self->Unregister(c->inst_id);
                   LOG(ERROR) << "setting random address failed, status: " << +status;
-                  c->cb.Run(0, status);
+                  c->cb.Run(0, 0, status);
                   return;
                 }
 
@@ -372,7 +378,7 @@ class BleAdvertisingManagerImpl
                     if (status != 0) {
                       c->self->Unregister(c->inst_id);
                       LOG(ERROR) << "setting advertise data failed, status: " << +status;
-                      c->cb.Run(0, status);
+                      c->cb.Run(0, 0, status);
                       return;
                     }
 
@@ -381,7 +387,7 @@ class BleAdvertisingManagerImpl
                         if (status != 0) {
                           c->self->Unregister(c->inst_id);
                           LOG(ERROR) << "setting scan response data failed, status: " << +status;
-                          c->cb.Run(0, status);
+                          c->cb.Run(0, 0, status);
                           return;
                         }
 
@@ -407,7 +413,7 @@ class BleAdvertisingManagerImpl
         if (status != 0) {
           c->self->Unregister(c->inst_id);
           LOG(ERROR) << "setting periodic parameters failed, status: " << +status;
-          c->cb.Run(0, status);
+          c->cb.Run(0, 0, status);
           return;
         }
 
@@ -416,7 +422,7 @@ class BleAdvertisingManagerImpl
             if (status != 0) {
               c->self->Unregister(c->inst_id);
               LOG(ERROR) << "setting periodic parameters failed, status: " << +status;
-              c->cb.Run(0, status);
+              c->cb.Run(0, 0, status);
               return;
             }
 
@@ -425,7 +431,7 @@ class BleAdvertisingManagerImpl
                 if (status != 0) {
                   c->self->Unregister(c->inst_id);
                   LOG(ERROR) << "enabling periodic advertising failed, status: " << +status;
-                  c->cb.Run(0, status);
+                  c->cb.Run(0, 0, status);
                   return;
                 }
 
@@ -439,7 +445,8 @@ class BleAdvertisingManagerImpl
 
   void StartAdvertisingSetFinish(c_type c) {
     uint8_t inst_id = c->inst_id;
-    int timeout_s = c->timeout_s;
+    uint16_t duration = c->duration;
+    uint8_t maxExtAdvEvents = c->maxExtAdvEvents;
     RegisterCb timeout_cb = std::move(c->timeout_cb);
     BleAdvertisingManagerImpl* self = c->self;
     MultiAdvCb enable_cb = Bind(
@@ -447,39 +454,40 @@ class BleAdvertisingManagerImpl
           if (status != 0) {
             c->self->Unregister(c->inst_id);
             LOG(ERROR) << "enabling advertiser failed, status: " << +status;
-            c->cb.Run(0, status);
+            c->cb.Run(0, 0, status);
             return;
           }
-          c->cb.Run(c->inst_id, status);
+          int8_t tx_power = c->self->adv_inst[c->inst_id].tx_power;
+          c->cb.Run(c->inst_id, tx_power, status);
         },
         base::Passed(&c));
 
-    self->Enable(inst_id, true, std::move(enable_cb), timeout_s,
+    self->Enable(inst_id, true, std::move(enable_cb), duration, maxExtAdvEvents,
                  Bind(std::move(timeout_cb), inst_id));
   }
 
-  void EnableWithTimerCb(uint8_t inst_id, MultiAdvCb enable_cb, int timeout_s,
+  void EnableWithTimerCb(uint8_t inst_id, MultiAdvCb enable_cb, int duration,
                          MultiAdvCb timeout_cb, uint8_t status) {
+    VLOG(1) << __func__ << " inst_id: " << +inst_id;
     AdvertisingInstance* p_inst = &adv_inst[inst_id];
 
     // Run the regular enable callback
     enable_cb.Run(status);
 
-    p_inst->timeout_s = timeout_s;
+    p_inst->duration = duration;
     p_inst->timeout_timer = alarm_new("btm_ble.adv_timeout");
 
     base::Closure cb = Bind(&BleAdvertisingManagerImpl::Enable,
                             base::Unretained(this), inst_id, 0 /* disable */,
-                            std::move(timeout_cb), 0, base::Bind(DoNothing));
+                            std::move(timeout_cb), 0, 0, base::Bind(DoNothing));
 
     // schedule disable when the timeout passes
-    alarm_set_closure_on_queue(FROM_HERE, p_inst->timeout_timer,
-                               timeout_s * 1000, std::move(cb),
-                               btu_general_alarm_queue);
+    alarm_set_closure_on_queue(FROM_HERE, p_inst->timeout_timer, duration * 100,
+                               std::move(cb), btu_general_alarm_queue);
   }
 
-  void Enable(uint8_t inst_id, bool enable, MultiAdvCb cb, int timeout_s,
-              MultiAdvCb timeout_cb) {
+  void Enable(uint8_t inst_id, bool enable, MultiAdvCb cb, uint16_t duration,
+              uint8_t maxExtAdvEvents, MultiAdvCb timeout_cb) override {
     VLOG(1) << __func__ << " inst_id: " << +inst_id;
     if (inst_id >= inst_count) {
       LOG(ERROR) << "bad instance id " << +inst_id;
@@ -487,18 +495,24 @@ class BleAdvertisingManagerImpl
     }
 
     AdvertisingInstance* p_inst = &adv_inst[inst_id];
-    VLOG(1) << __func__ << "enable: " << enable;
+    VLOG(1) << __func__ << " enable: " << enable << ", duration: " << +duration;
     if (!p_inst->in_use) {
       LOG(ERROR) << "Invalid or no active instance";
       cb.Run(BTM_BLE_MULTI_ADV_FAILURE);
       return;
     }
 
-    if (enable && timeout_s) {
+    if (enable && (duration || maxExtAdvEvents)) {
+      p_inst->timeout_cb = timeout_cb;
+    }
+
+    if (enable && duration) {
+      // TODO(jpawlowski): HCI implementation that can't do duration should
+      // emulate it, not EnableWithTimerCb.
       GetHciInterface()->Enable(
-          enable, p_inst->inst_id, 0x0000, 0x00,
+          enable, p_inst->inst_id, duration, maxExtAdvEvents,
           Bind(&BleAdvertisingManagerImpl::EnableWithTimerCb,
-               base::Unretained(this), inst_id, std::move(cb), timeout_s,
+               base::Unretained(this), inst_id, std::move(cb), duration,
                std::move(timeout_cb)));
 
     } else {
@@ -508,12 +522,13 @@ class BleAdvertisingManagerImpl
         p_inst->timeout_timer = nullptr;
       }
 
-      GetHciInterface()->Enable(enable, p_inst->inst_id, 0x0000, 0x00, cb);
+      GetHciInterface()->Enable(enable, p_inst->inst_id, duration,
+                                maxExtAdvEvents, cb);
     }
   }
 
   void SetParameters(uint8_t inst_id, tBTM_BLE_ADV_PARAMS* p_params,
-                     MultiAdvCb cb) override {
+                     ParametersCb cb) override {
     VLOG(1) << __func__ << " inst_id: " << +inst_id;
     if (inst_id >= inst_count) {
       LOG(ERROR) << "bad instance id " << +inst_id;
@@ -523,7 +538,7 @@ class BleAdvertisingManagerImpl
     AdvertisingInstance* p_inst = &adv_inst[inst_id];
     if (!p_inst->in_use) {
       LOG(ERROR) << "adv instance not in use" << +inst_id;
-      cb.Run(BTM_BLE_MULTI_ADV_FAILURE);
+      cb.Run(BTM_BLE_MULTI_ADV_FAILURE, 0);
       return;
     }
 
@@ -561,11 +576,10 @@ class BleAdvertisingManagerImpl
     AdvertisingInstance* p_inst = &adv_inst[inst_id];
     VLOG(1) << "is_scan_rsp = " << is_scan_rsp;
 
-    if (!is_scan_rsp &&
-        is_legacy_connectable(p_inst->advertising_event_properties)) {
+    if (!is_scan_rsp && is_connectable(p_inst->advertising_event_properties)) {
       uint8_t flags_val = BTM_GENERAL_DISCOVERABLE;
 
-      if (p_inst->timeout_s) flags_val = BTM_LIMITED_DISCOVERABLE;
+      if (p_inst->duration) flags_val = BTM_LIMITED_DISCOVERABLE;
 
       std::vector<uint8_t> flags;
       flags.push_back(2);  // length
@@ -696,6 +710,17 @@ class BleAdvertisingManagerImpl
     VLOG(1) << __func__ << "status: 0x" << std::hex << +status
             << ", advertising_handle: 0x" << std::hex << +advertising_handle
             << ", connection_handle: 0x" << std::hex << +connection_handle;
+
+    if (status == 0x43 || status == 0x3C) {
+      // either duration elapsed, or maxExtAdvEvents reached
+      if (p_inst->timeout_cb.is_null()) {
+        LOG(INFO) << __func__ << "No timeout callback";
+        return;
+      }
+
+      p_inst->timeout_cb.Run(status);
+      return;
+    }
 
 #if (BLE_PRIVACY_SPT == TRUE)
     if (BTM_BleLocalPrivacyEnabled() &&

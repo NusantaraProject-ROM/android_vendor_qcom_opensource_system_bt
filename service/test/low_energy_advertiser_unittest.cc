@@ -47,31 +47,27 @@ class MockAdvertiserHandler : public BleAdvertiserInterface {
 
   MOCK_METHOD1(RegisterAdvertiser, void(IdStatusCallback));
   MOCK_METHOD1(Unregister, void(uint8_t));
-  MOCK_METHOD10(SetParameters,
-                void(uint8_t advertiser_id,
-                     uint16_t advertising_event_properties,
-                     uint32_t min_interval, uint32_t max_interval, int chnl_map,
-                     int tx_power, uint8_t primary_advertising_phy,
-                     uint8_t secondary_advertising_phy,
-                     uint8_t scan_request_notification_enable,
-                     StatusCallback cb));
-  MOCK_METHOD4(SetData, void(int advertiser_id, bool set_scan_rsp,
-                             std::vector<uint8_t> data, StatusCallback cb));
-  MOCK_METHOD5(Enable,
-               void(uint8_t advertiser_id, bool enable, StatusCallback cb,
-                    int timeout_s, StatusCallback timeout_cb));
+  MOCK_METHOD3(SetParameters,
+               void(uint8_t, AdvertiseParameters, ParametersCallback));
+  MOCK_METHOD4(SetData, void(int, bool, std::vector<uint8_t>, StatusCallback));
+  MOCK_METHOD6(Enable, void(uint8_t, bool, StatusCallback, uint16_t, uint8_t,
+                            StatusCallback));
   MOCK_METHOD7(StartAdvertising,
                void(uint8_t advertiser_id, StatusCallback cb,
                     AdvertiseParameters, std::vector<uint8_t>,
                     std::vector<uint8_t>, int, StatusCallback));
-
-  MOCK_METHOD8(StartAdvertisingSet,
-               void(IdStatusCallback cb, AdvertiseParameters params,
+  MOCK_METHOD9(StartAdvertisingSet,
+               void(IdTxPowerStatusCallback cb, AdvertiseParameters params,
                     std::vector<uint8_t> advertise_data,
                     std::vector<uint8_t> scan_response_data,
                     PeriodicAdvertisingParameters periodic_params,
-                    std::vector<uint8_t> periodic_data, int timeout_s,
-                    IdStatusCallback timeout_cb));
+                    std::vector<uint8_t> periodic_data, uint16_t duration,
+                    uint8_t maxExtAdvEvents, IdStatusCallback timeout_cb));
+  MOCK_METHOD3(SetPeriodicAdvertisingParameters,
+               void(int, PeriodicAdvertisingParameters, StatusCallback));
+  MOCK_METHOD3(SetPeriodicAdvertisingData,
+               void(int, std::vector<uint8_t>, StatusCallback));
+  MOCK_METHOD3(SetPeriodicAdvertisingEnable, void(int, bool, StatusCallback));
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockAdvertiserHandler);
@@ -120,7 +116,7 @@ class LowEnergyAdvertiserPostRegisterTest : public LowEnergyAdvertiserTest {
   }
 
   void TearDown() override {
-    EXPECT_CALL(*mock_handler_, Enable(_, false, _, _, _)).Times(1);
+    EXPECT_CALL(*mock_handler_, Enable(_, false, _, _, _, _)).Times(1);
     EXPECT_CALL(*mock_handler_, Unregister(_)).Times(1);
     le_advertiser_.reset();
     LowEnergyAdvertiserTest::TearDown();
@@ -188,7 +184,7 @@ class LowEnergyAdvertiserPostRegisterTest : public LowEnergyAdvertiserTest {
     set_data_cb->Run(BT_STATUS_SUCCESS);
 
     status_cb disable_cb;
-    EXPECT_CALL(*mock_handler_, Enable(_, false, _, _, _))
+    EXPECT_CALL(*mock_handler_, Enable(_, false, _, _, _, _))
         .Times(1)
         .WillOnce(SaveArg<2>(&disable_cb));
 
@@ -261,7 +257,7 @@ TEST_F(LowEnergyAdvertiserTest, RegisterInstance) {
   EXPECT_EQ(uuid0, cb_uuid);
 
   // The advertiser should unregister itself when deleted.
-  EXPECT_CALL(*mock_handler_, Enable(client_if0, false, _, _, _)).Times(1);
+  EXPECT_CALL(*mock_handler_, Enable(client_if0, false, _, _, _, _)).Times(1);
   EXPECT_CALL(*mock_handler_, Unregister(client_if0)).Times(1);
   advertiser.reset();
   ::testing::Mock::VerifyAndClearExpectations(mock_handler_.get());
@@ -359,7 +355,7 @@ TEST_F(LowEnergyAdvertiserPostRegisterTest, StopAdvertisingBasic) {
   };
 
   status_cb enable_cb;
-  EXPECT_CALL(*mock_handler_, Enable(_, false, _, _, _))
+  EXPECT_CALL(*mock_handler_, Enable(_, false, _, _, _, _))
       .Times(2)
       .WillRepeatedly(SaveArg<2>(&enable_cb));
 

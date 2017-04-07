@@ -42,6 +42,7 @@
 #include <hardware/bt_gatt.h>
 
 #include "bta_api.h"
+#include "bta_closure_api.h"
 #include "bta_gatt_api.h"
 #include "btif_config.h"
 #include "btif_dm.h"
@@ -179,6 +180,19 @@ void btif_gattc_upstreams_evt(uint16_t event, char* p_param) {
                 p_data->congest.conn_id, p_data->congest.congested);
       break;
 
+    case BTA_GATTC_PHY_UPDATE_EVT:
+      HAL_CBACK(bt_gatt_callbacks, client->phy_updated_cb,
+                p_data->phy_update.conn_id, p_data->phy_update.tx_phy,
+                p_data->phy_update.rx_phy, p_data->phy_update.status);
+      break;
+
+    case BTA_GATTC_CONN_UPDATE_EVT:
+      HAL_CBACK(bt_gatt_callbacks, client->conn_updated_cb,
+                p_data->conn_update.conn_id, p_data->conn_update.interval,
+                p_data->conn_update.latency, p_data->conn_update.timeout,
+                p_data->conn_update.status);
+      break;
+
     default:
       LOG_ERROR(LOG_TAG, "%s: Unhandled event (%d)!", __func__, event);
       break;
@@ -241,7 +255,7 @@ bt_status_t btif_gattc_unregister_app(int client_if) {
 }
 
 void btif_gattc_open_impl(int client_if, BD_ADDR address, bool is_direct,
-                          int transport_p) {
+                          int transport_p, int initiating_phys) {
   // Ensure device is in inquiry database
   int addr_type = 0;
   int device_type = 0;
@@ -294,19 +308,21 @@ void btif_gattc_open_impl(int client_if, BD_ADDR address, bool is_direct,
   }
 
   // Connect!
-  BTIF_TRACE_DEBUG("%s Transport=%d, device type=%d", __func__, transport,
-                   device_type);
-  BTA_GATTC_Open(client_if, address, is_direct, transport);
+  BTIF_TRACE_DEBUG("%s Transport=%d, device type=%d, phy=%d", __func__,
+                   transport, device_type, initiating_phys);
+  BTA_GATTC_Open(client_if, address, is_direct, transport, initiating_phys);
 }
 
 bt_status_t btif_gattc_open(int client_if, const bt_bdaddr_t* bd_addr,
-                            bool is_direct, int transport) {
+                            bool is_direct, int transport,
+                            int initiating_phys) {
   CHECK_BTGATT_INIT();
   // Closure will own this value and free it.
   uint8_t* address = new BD_ADDR;
   bdcpy(address, bd_addr->address);
   return do_in_jni_thread(Bind(&btif_gattc_open_impl, client_if,
-                               base::Owned(address), is_direct, transport));
+                               base::Owned(address), is_direct, transport,
+                               initiating_phys));
 }
 
 void btif_gattc_close_impl(int client_if, BD_ADDR address, int conn_id) {
@@ -527,6 +543,23 @@ bt_status_t btif_gattc_conn_parameter_update(const bt_bdaddr_t* bd_addr,
            min_interval, max_interval, latency, timeout));
 }
 
+bt_status_t btif_gattc_set_preferred_phy(int conn_id, uint8_t tx_phy,
+                                         uint8_t rx_phy, uint16_t phy_options) {
+  CHECK_BTGATT_INIT();
+  do_in_bta_thread(FROM_HERE, Bind(&GATTC_SetPreferredPHY, conn_id, tx_phy,
+                                   rx_phy, phy_options));
+  return BT_STATUS_SUCCESS;
+}
+
+bt_status_t btif_gattc_read_phy(
+    int conn_id,
+    base::Callback<void(uint8_t tx_phy, uint8_t rx_phy, uint8_t status)> cb) {
+  CHECK_BTGATT_INIT();
+  do_in_bta_thread(FROM_HERE, Bind(&GATTC_ReadPHY, conn_id,
+                                   jni_thread_wrapper(FROM_HERE, cb)));
+  return BT_STATUS_SUCCESS;
+}
+
 int btif_gattc_get_device_type(const bt_bdaddr_t* bd_addr) {
   int device_type = 0;
   char bd_addr_str[18] = {0};
@@ -561,5 +594,7 @@ const btgatt_client_interface_t btgattClientInterface = {
     btif_gattc_get_device_type,
     btif_gattc_configure_mtu,
     btif_gattc_conn_parameter_update,
+    btif_gattc_set_preferred_phy,
+    btif_gattc_read_phy,
     btif_gattc_test_command,
     btif_gattc_get_gatt_db};

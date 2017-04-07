@@ -357,7 +357,7 @@ void RegisterClientCallback(int status, int client_if, bt_uuid_t* app_uuid) {
 
   g_internal->gatt->advertiser->Enable(
       0 /* std_inst */, true, base::Bind(&EnableAdvertisingCallback),
-      0 /* no timeout */, base::Bind(&DoNothing));
+      0 /* no duration */, 0 /* no maxExtAdvEvent*/, base::Bind(&DoNothing));
 }
 
 void ServiceStoppedCallback(int status, int server_if, int srvc_handle) {
@@ -418,6 +418,8 @@ const btgatt_server_callbacks_t gatt_server_callbacks = {
     IndicationSentCallback,
     nullptr, /* congestion_cb*/
     nullptr, /* mtu_changed_cb */
+    nullptr, /* phy_update_cb */
+    nullptr, /* conn_update_cb */
 };
 
 // TODO(eisenbach): Refactor GATT interface to not require servers
@@ -440,6 +442,8 @@ const btgatt_client_callbacks_t gatt_client_callbacks = {
     nullptr, /* get_gatt_db_cb; */
     nullptr, /* services_removed_cb */
     nullptr, /* services_added_cb */
+    nullptr, /* phy_update_cb */
+    nullptr, /* conn_update_cb */
 };
 
 const btgatt_scanner_callbacks_t gatt_scanner_callbacks = {
