@@ -4438,7 +4438,7 @@ void bta_dm_ble_get_energy_info(tBTA_DM_MSG* p_data) {
 }
 
 #ifndef BTA_DM_GATT_CLOSE_DELAY_TOUT
-#define BTA_DM_GATT_CLOSE_DELAY_TOUT 1000
+#define BTA_DM_GATT_CLOSE_DELAY_TOUT 5000
 #endif
 
 /*******************************************************************************
