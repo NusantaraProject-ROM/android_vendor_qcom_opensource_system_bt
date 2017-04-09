@@ -181,7 +181,10 @@ typedef void* (*tBTA_AV_CO_DATAPATH)(const uint8_t* p_codec_info,
                                      uint32_t* p_timestamp);
 typedef void (*tBTA_AV_CO_DELAY)(tBTA_AV_HNDL hndl, uint16_t delay);
 typedef void (*tBTA_AV_CO_UPDATE_MTU)(tBTA_AV_HNDL hndl, uint16_t mtu);
-
+/* SPLITA2DP */
+typedef uint8_t (*tBTA_AV_CO_CP_GET_FLAG)(void);
+typedef bool (*tBTA_AV_CO_CP_IS_ACTIVE)(void);
+/* SPLITA2DP */
 /* the call-out functions for one stream */
 typedef struct {
   tBTA_AV_CO_INIT init;
@@ -195,6 +198,10 @@ typedef struct {
   tBTA_AV_CO_DATAPATH data;
   tBTA_AV_CO_DELAY delay;
   tBTA_AV_CO_UPDATE_MTU update_mtu;
+/* SPLITA2DP */
+  tBTA_AV_CO_CP_GET_FLAG cp_flag;
+  tBTA_AV_CO_CP_IS_ACTIVE cp_is_active;
+/* SPLITA2DP */
 } tBTA_AV_CO_FUNCTS;
 
 /* data type for BTA_AV_API_ENABLE_EVT */
@@ -565,6 +572,41 @@ typedef struct {
   uint8_t video_streams; /* handle mask of streaming video channels */
 } tBTA_AV_CB;
 
+/* SPLITA2DP */
+typedef struct {
+  uint8_t codec_type;
+  uint8_t transport_type;
+  uint8_t stream_type;
+  uint8_t dev_index;
+  uint8_t max_latency;
+  uint8_t delay_reporting;
+  uint8_t cp_active;
+  uint8_t cp_flag;
+  uint16_t sample_rate;
+  uint16_t acl_hdl;
+  uint16_t l2c_rcid;
+  uint16_t mtu;
+  uint8_t codec_info[20];
+//  tBTA_AV_SCB* p_scb;
+}tBT_VENDOR_A2DP_OFFLOAD;
+
+extern tBT_VENDOR_A2DP_OFFLOAD offload_start;
+
+/* Vendor OFFLOAD VSC */
+#define HCI_VSQC_CONTROLLER_A2DP_OPCODE 0x000A
+
+#define VS_QHCI_READ_A2DP_CFG                 0x01
+#define VS_QHCI_WRITE_SBC_CFG                 0x02
+#define VS_QHCI_WRITE_A2DP_MEDIA_CHANNEL_CFG  0x03
+#define VS_QHCI_START_A2DP_MEDIA              0x04
+#define VS_QHCI_STOP_A2DP_MEDIA               0x05
+#define VS_QHCI_A2DP_WRITE_SUGGESTED_BITRATE  0x06
+#define VS_QHCI_A2DP_TRANSPORT_CONFIGURATION  0x07
+#define VS_QHCI_A2DP_WRITE_SCMS_T_CP          0x08
+#define VS_QHCI_A2DP_SELECTED_CODEC           0x09
+#define VS_QHCI_A2DP_OFFLOAD_START            0x0A
+#define A2DP_TRANSPORT_TYPE_SLIMBUS     0
+/* SPLITA2DP */
 /*****************************************************************************
  *  Global data
  ****************************************************************************/
@@ -699,5 +741,6 @@ extern void bta_av_delay_co(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
 extern void bta_av_open_at_inc(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
 extern void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
 extern void bta_av_offload_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+extern void bta_av_vendor_offload_stop(void);
 
 #endif /* BTA_AV_INT_H */

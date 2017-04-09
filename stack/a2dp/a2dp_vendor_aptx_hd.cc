@@ -50,7 +50,9 @@ typedef struct {
 } tA2DP_APTX_HD_CIE;
 
 /* aptX-HD Source codec capabilities */
-static const tA2DP_APTX_HD_CIE a2dp_aptx_hd_caps = {
+//#ifndef BTA_AV_SPLIT_A2DP_ENABLED
+static const tA2DP_APTX_HD_CIE a2dp_aptx_hd_src_caps = {
+//static const tA2DP_APTX_HD_CIE a2dp_aptx_hd_caps = {
     A2DP_APTX_HD_VENDOR_ID,          /* vendorId */
     A2DP_APTX_HD_CODEC_ID_BLUETOOTH, /* codecId */
     (A2DP_APTX_HD_SAMPLERATE_44100 |
@@ -62,9 +64,25 @@ static const tA2DP_APTX_HD_CIE a2dp_aptx_hd_caps = {
     A2DP_APTX_HD_ACL_SPRINT_RESERVED3, /* acl_sprint_reserved3 */
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24 /* bits_per_sample */
 };
-
+//#else
+/* aptX-HD offload codec capabilities */
+static const tA2DP_APTX_HD_CIE a2dp_aptx_hd_offload_caps = {
+//static const tA2DP_APTX_HD_CIE a2dp_aptx_hd_caps = {
+    A2DP_APTX_HD_VENDOR_ID,          /* vendorId */
+    A2DP_APTX_HD_CODEC_ID_BLUETOOTH, /* codecId */
+     A2DP_APTX_HD_SAMPLERATE_48000,   /* sampleRate */
+    A2DP_APTX_HD_CHANNELS_STEREO,      /* channelMode */
+    A2DP_APTX_HD_ACL_SPRINT_RESERVED0, /* acl_sprint_reserved0 */
+    A2DP_APTX_HD_ACL_SPRINT_RESERVED1, /* acl_sprint_reserved1 */
+    A2DP_APTX_HD_ACL_SPRINT_RESERVED2, /* acl_sprint_reserved2 */
+    A2DP_APTX_HD_ACL_SPRINT_RESERVED3, /* acl_sprint_reserved3 */
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24 /* bits_per_sample */
+};
+//#endif
+//#ifndef BTA_AV_SPLIT_A2DP_ENABLED
 /* Default aptX-HD codec configuration */
-static const tA2DP_APTX_HD_CIE a2dp_aptx_hd_default_config = {
+static const tA2DP_APTX_HD_CIE a2dp_aptx_hd_default_src_config = {
+//static const tA2DP_APTX_HD_CIE a2dp_aptx_hd_default_config = {
     A2DP_APTX_HD_VENDOR_ID,            /* vendorId */
     A2DP_APTX_HD_CODEC_ID_BLUETOOTH,   /* codecId */
     A2DP_APTX_HD_SAMPLERATE_44100,     /* sampleRate */
@@ -75,6 +93,22 @@ static const tA2DP_APTX_HD_CIE a2dp_aptx_hd_default_config = {
     A2DP_APTX_HD_ACL_SPRINT_RESERVED3, /* acl_sprint_reserved3 */
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24 /* bits_per_sample */
 };
+//#else
+/* Default aptX-HD offload codec configuration */
+static const tA2DP_APTX_HD_CIE a2dp_aptx_hd_default_offload_config = {
+//static const tA2DP_APTX_HD_CIE a2dp_aptx_hd_default_config = {
+    A2DP_APTX_HD_VENDOR_ID,            /* vendorId */
+    A2DP_APTX_HD_CODEC_ID_BLUETOOTH,   /* codecId */
+    A2DP_APTX_HD_SAMPLERATE_48000,     /* sampleRate */
+    A2DP_APTX_HD_CHANNELS_STEREO,      /* channelMode */
+    A2DP_APTX_HD_ACL_SPRINT_RESERVED0, /* acl_sprint_reserved0 */
+    A2DP_APTX_HD_ACL_SPRINT_RESERVED1, /* acl_sprint_reserved1 */
+    A2DP_APTX_HD_ACL_SPRINT_RESERVED2, /* acl_sprint_reserved2 */
+    A2DP_APTX_HD_ACL_SPRINT_RESERVED3, /* acl_sprint_reserved3 */
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24 /* bits_per_sample */
+};
+//#endif
+tA2DP_APTX_HD_CIE a2dp_aptx_hd_caps, a2dp_aptx_hd_default_config;
 
 static const tA2DP_ENCODER_INTERFACE a2dp_encoder_interface_aptx_hd = {
     a2dp_vendor_aptx_hd_encoder_init,
@@ -439,6 +473,18 @@ A2dpCodecConfigAptxHd::A2dpCodecConfigAptxHd(
     : A2dpCodecConfig(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD, "aptX-HD",
                       codec_priority) {
   // Compute the local capability
+
+//#ifdef BTA_AV_SPLIT_A2DP_ENABLED
+    if (A2DP_GetOffloadStatus()) {
+//    if (a2dp_offload_status) {
+      a2dp_aptx_hd_caps = a2dp_aptx_hd_offload_caps;
+      a2dp_aptx_hd_default_config = a2dp_aptx_hd_default_offload_config;
+    } else {
+//#else
+      a2dp_aptx_hd_caps = a2dp_aptx_hd_src_caps;
+      a2dp_aptx_hd_default_config = a2dp_aptx_hd_default_src_config;
+    }
+//#endif
   if (a2dp_aptx_hd_caps.sampleRate & A2DP_APTX_HD_SAMPLERATE_44100) {
     codec_local_capability_.sample_rate |= BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
   }
@@ -459,6 +505,9 @@ A2dpCodecConfigAptxHd::~A2dpCodecConfigAptxHd() {}
 bool A2dpCodecConfigAptxHd::init() {
   if (!isValid()) return false;
 
+  //if (a2dp_vendor_aptx_hd_is_a2dp_offload_supported())
+  if (A2DP_GetOffloadStatus())
+    return true;
   // Load the encoder
   if (!A2DP_VendorLoadEncoderAptxHd()) {
     LOG_ERROR(LOG_TAG, "%s: cannot load the encoder", __func__);

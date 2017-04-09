@@ -188,5 +188,6 @@ void btif_av_clear_remote_suspend_flag(void);
  *
  ******************************************************************************/
 bool btif_av_peer_supports_3mbps(void);
-
+/*SplitA2dp Specific*/
+bool btif_av_is_split_a2dp_enabled(void);
 #endif /* BTIF_AV_H */

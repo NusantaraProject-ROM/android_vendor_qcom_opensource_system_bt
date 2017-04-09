@@ -31,7 +31,9 @@
 #include "btif_av.h"
 #include "btif_util.h"
 #include "osi/include/log.h"
+#include "btif_a2dp_audio_interface.h"
 
+extern bool btif_a2dp_audio_if_init;
 void btif_a2dp_on_idle(void) {
   APPL_TRACE_EVENT("## ON A2DP IDLE ## peer_sep = %d", btif_av_get_peer_sep());
   if (btif_av_get_peer_sep() == AVDT_TSEP_SNK) {
@@ -48,22 +50,33 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start) {
 
   if (p_av_start == NULL) {
     /* ack back a local start request */
-    btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
-    return true;
+    if (btif_av_is_split_a2dp_enabled()) {
+      btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, NULL, 0);
+    } else {
+      btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+      return true;
+    }
   }
 
   if (p_av_start->status == BTA_AV_SUCCESS) {
     if (!p_av_start->suspending) {
       if (p_av_start->initiator) {
         if (pending_start) {
-          btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+          if (btif_av_is_split_a2dp_enabled()) {
+            btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, NULL, 0);
+          } else {
+            btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+          }
           ack = true;
         }
       } else {
         /* We were remotely started, make sure codec
          * is setup before datapath is started.
          */
-        btif_a2dp_source_setup_codec();
+         btif_a2dp_source_setup_codec();
+         if (btif_av_is_split_a2dp_enabled()) {
+           btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, NULL, 0);
+         }
       }
 
       /* media task is autostarted upon a2dp audiopath connection */
@@ -84,16 +97,26 @@ void btif_a2dp_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
     btif_a2dp_sink_on_stopped(p_av_suspend);
     return;
   }
-
-  btif_a2dp_source_on_stopped(p_av_suspend);
+  if (!btif_av_is_split_a2dp_enabled()) {
+    btif_a2dp_source_on_stopped(p_av_suspend);
+  } else { //TODO send command to btif_a2dp_audio_interface
+    if (btif_a2dp_audio_if_init)
+        btif_a2dp_audio_on_stopped(p_av_suspend->status);
+    else
+        APPL_TRACE_EVENT("btif_a2dp_on_stopped, audio interface not up");
+  }
 }
 
 void btif_a2dp_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
   APPL_TRACE_EVENT("## ON A2DP SUSPENDED ##");
-  if (btif_av_get_peer_sep() == AVDT_TSEP_SRC) {
-    btif_a2dp_sink_on_suspended(p_av_suspend);
-  } else {
-    btif_a2dp_source_on_suspended(p_av_suspend);
+  if (!btif_av_is_split_a2dp_enabled()) {
+    if (btif_av_get_peer_sep() == AVDT_TSEP_SRC) {
+      btif_a2dp_sink_on_suspended(p_av_suspend);
+    } else {
+      btif_a2dp_source_on_suspended(p_av_suspend);
+    }
+  } else {//TODO send command to btif_a2dp_audio_interface
+    btif_a2dp_audio_on_suspended(p_av_suspend->status);
   }
 }
 
@@ -114,7 +137,12 @@ void btif_a2dp_on_offload_started(tBTA_AV_STATUS status) {
       ack = A2DP_CTRL_ACK_FAILURE;
       break;
   }
-  btif_a2dp_command_ack(ack);
+  if (btif_av_is_split_a2dp_enabled()) {
+    //TODO send command to btif_a2dp_audio_interface
+    btif_a2dp_audio_on_started(status);
+  } else {
+    btif_a2dp_command_ack(ack);
+  }
 }
 
 void btif_debug_a2dp_dump(int fd) {

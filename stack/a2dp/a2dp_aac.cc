@@ -35,8 +35,10 @@
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 
+
 #define A2DP_AAC_DEFAULT_BITRATE 320000  // 320 kbps
 #define A2DP_AAC_MIN_BITRATE 64000       // 64 kbps
+#define A2DP_AAC_DEFAULT_OFFLOAD_BITRATE 165000  // 165 kbps
 
 // data type for the AAC Codec Information Element */
 // NOTE: bits_per_sample is needed only for AAC encoder initialization.
@@ -50,7 +52,7 @@ typedef struct {
 } tA2DP_AAC_CIE;
 
 /* AAC Source codec capabilities */
-static const tA2DP_AAC_CIE a2dp_aac_caps = {
+static const tA2DP_AAC_CIE a2dp_aac_src_caps = {
     // objectType
     A2DP_AAC_OBJECT_TYPE_MPEG2_LC,
     // sampleRate
@@ -64,13 +66,36 @@ static const tA2DP_AAC_CIE a2dp_aac_caps = {
     // bits_per_sample
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16};
 
+static const tA2DP_AAC_CIE a2dp_aac_offload_caps = {
+    // objectType
+    A2DP_AAC_OBJECT_TYPE_MPEG2_LC,
+    // sampleRate
+    A2DP_AAC_SAMPLING_FREQ_48000,
+    // channelMode
+    A2DP_AAC_CHANNEL_MODE_STEREO,
+    // variableBitRateSupport
+    A2DP_AAC_VARIABLE_BIT_RATE_DISABLED,
+    // bitRate
+    A2DP_AAC_DEFAULT_OFFLOAD_BITRATE,
+    // bits_per_sample
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16};
+
 /* Default AAC codec configuration */
-static const tA2DP_AAC_CIE a2dp_aac_default_config = {
+static const tA2DP_AAC_CIE a2dp_aac_default_src_config = {
     A2DP_AAC_OBJECT_TYPE_MPEG2_LC,        // objectType
     A2DP_AAC_SAMPLING_FREQ_44100,         // sampleRate
     A2DP_AAC_CHANNEL_MODE_STEREO,         // channelMode
     A2DP_AAC_VARIABLE_BIT_RATE_DISABLED,  // variableBitRateSupport
     A2DP_AAC_DEFAULT_BITRATE,             // bitRate
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16    // bits_per_sample
+};
+
+static const tA2DP_AAC_CIE a2dp_aac_default_offload_config = {
+    A2DP_AAC_OBJECT_TYPE_MPEG2_LC,        // objectType
+    A2DP_AAC_SAMPLING_FREQ_48000,         // sampleRate
+    A2DP_AAC_CHANNEL_MODE_STEREO,         // channelMode
+    A2DP_AAC_VARIABLE_BIT_RATE_DISABLED,  // variableBitRateSupport
+    A2DP_AAC_DEFAULT_OFFLOAD_BITRATE,             // bitRate
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16    // bits_per_sample
 };
 
@@ -83,6 +108,8 @@ static const tA2DP_ENCODER_INTERFACE a2dp_encoder_interface_aac = {
     a2dp_aac_send_frames,
     nullptr  // set_transmit_queue_length
 };
+
+tA2DP_AAC_CIE a2dp_aac_caps, a2dp_aac_default_config;
 
 UNUSED_ATTR static tA2DP_STATUS A2DP_CodecInfoMatchesCapabilityAac(
     const tA2DP_AAC_CIE* p_cap, const uint8_t* p_codec_info,
@@ -686,6 +713,15 @@ UNUSED_ATTR static void build_codec_config(const tA2DP_AAC_CIE& config_cie,
 A2dpCodecConfigAac::A2dpCodecConfigAac(
     btav_a2dp_codec_priority_t codec_priority)
     : A2dpCodecConfig(BTAV_A2DP_CODEC_INDEX_SOURCE_AAC, "AAC", codec_priority) {
+
+  //if (a2dp_offload_status) {
+  if (A2DP_GetOffloadStatus()) {
+    a2dp_aac_caps = a2dp_aac_offload_caps;
+    a2dp_aac_default_config = a2dp_aac_default_offload_config;
+  }else {
+    a2dp_aac_caps = a2dp_aac_src_caps;
+    a2dp_aac_default_config = a2dp_aac_default_src_config;
+  }
   // Compute the local capability
   if (a2dp_aac_caps.sampleRate & A2DP_AAC_SAMPLING_FREQ_44100) {
     codec_local_capability_.sample_rate |= BTAV_A2DP_CODEC_SAMPLE_RATE_44100;

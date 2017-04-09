@@ -52,8 +52,10 @@ typedef struct {
   btav_a2dp_codec_bits_per_sample_t bits_per_sample;
 } tA2DP_SBC_CIE;
 
+//#ifndef BTA_AV_SPLIT_A2DP_ENABLED
 /* SBC SRC codec capabilities */
-static const tA2DP_SBC_CIE a2dp_sbc_caps = {
+static const tA2DP_SBC_CIE a2dp_sbc_src_caps = {
+//static const tA2DP_SBC_CIE a2dp_sbc_caps = {
     A2DP_SBC_IE_SAMP_FREQ_44,          /* samp_freq */
     A2DP_SBC_IE_CH_MD_JOINT,           /* ch_mode */
     A2DP_SBC_IE_BLOCKS_16,             /* block_len */
@@ -63,7 +65,20 @@ static const tA2DP_SBC_CIE a2dp_sbc_caps = {
     A2DP_SBC_MAX_BITPOOL,              /* max_bitpool */
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 /* bits_per_sample */
 };
-
+//#else
+/* SBC SRC offload capabilities */
+static const tA2DP_SBC_CIE a2dp_sbc_offload_caps = {
+//static const tA2DP_SBC_CIE a2dp_sbc_caps = {
+    A2DP_SBC_IE_SAMP_FREQ_48,          /* samp_freq */
+    A2DP_SBC_IE_CH_MD_JOINT,           /* ch_mode */
+    A2DP_SBC_IE_BLOCKS_16,             /* block_len */
+    A2DP_SBC_IE_SUBBAND_8,             /* num_subbands */
+    A2DP_SBC_IE_ALLOC_MD_L,            /* alloc_method */
+    A2DP_SBC_IE_MIN_BITPOOL,           /* min_bitpool */
+    A2DP_SBC_MAX_BITPOOL,              /* max_bitpool */
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 /* bits_per_sample */
+};
+//#endif
 /* SBC SINK codec capabilities */
 static const tA2DP_SBC_CIE a2dp_sbc_sink_caps = {
     (A2DP_SBC_IE_SAMP_FREQ_48 | A2DP_SBC_IE_SAMP_FREQ_44), /* samp_freq */
@@ -77,9 +92,10 @@ static const tA2DP_SBC_CIE a2dp_sbc_sink_caps = {
     A2DP_SBC_MAX_BITPOOL,                              /* max_bitpool */
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16                 /* bits_per_sample */
 };
-
+//#ifndef BTA_AV_SPLIT_A2DP_ENABLED
 /* Default SBC codec configuration */
-const tA2DP_SBC_CIE a2dp_sbc_default_config = {
+const tA2DP_SBC_CIE a2dp_sbc_src_default_config = {
+//const tA2DP_SBC_CIE a2dp_sbc_default_config = {
     A2DP_SBC_IE_SAMP_FREQ_44,          /* samp_freq */
     A2DP_SBC_IE_CH_MD_JOINT,           /* ch_mode */
     A2DP_SBC_IE_BLOCKS_16,             /* block_len */
@@ -89,6 +105,21 @@ const tA2DP_SBC_CIE a2dp_sbc_default_config = {
     A2DP_SBC_MAX_BITPOOL,              /* max_bitpool */
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 /* bits_per_sample */
 };
+//#else
+/* Default SBC offload configuration */
+const tA2DP_SBC_CIE a2dp_sbc_offload_default_config = {
+//const tA2DP_SBC_CIE a2dp_sbc_default_config = {
+    A2DP_SBC_IE_SAMP_FREQ_48,          /* samp_freq */
+    A2DP_SBC_IE_CH_MD_JOINT,           /* ch_mode */
+    A2DP_SBC_IE_BLOCKS_16,             /* block_len */
+    A2DP_SBC_IE_SUBBAND_8,             /* num_subbands */
+    A2DP_SBC_IE_ALLOC_MD_L,            /* alloc_method */
+    A2DP_SBC_IE_MIN_BITPOOL,           /* min_bitpool */
+    A2DP_SBC_MAX_BITPOOL,              /* max_bitpool */
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 /* bits_per_sample */
+};
+//#endif
+tA2DP_SBC_CIE a2dp_sbc_caps, a2dp_sbc_default_config;
 
 static const tA2DP_ENCODER_INTERFACE a2dp_encoder_interface_sbc = {
     a2dp_sbc_encoder_init,
@@ -1033,6 +1064,24 @@ UNUSED_ATTR static void build_codec_config(const tA2DP_SBC_CIE& config_cie,
 A2dpCodecConfigSbc::A2dpCodecConfigSbc(
     btav_a2dp_codec_priority_t codec_priority)
     : A2dpCodecConfig(BTAV_A2DP_CODEC_INDEX_SOURCE_SBC, "SBC", codec_priority) {
+  LOG_DEBUG(LOG_TAG,"%s",__func__);
+/*
+#ifdef BTA_AV_SPLIT_A2DP_ENABLED
+    a2dp_sbc_caps = a2dp_sbc_offload_caps;
+    a2dp_sbc_default_config = a2dp_sbc_offload_default_config;
+#else
+    a2dp_sbc_caps = a2dp_sbc_src_caps;
+    a2dp_sbc_default_config = a2dp_sbc_src_default_config;
+#endif*/
+  if (A2DP_GetOffloadStatus()) {
+  //if (a2dp_offload_status) {
+    a2dp_sbc_caps = a2dp_sbc_offload_caps;
+    a2dp_sbc_default_config = a2dp_sbc_offload_default_config;
+  }
+  else {
+    a2dp_sbc_caps = a2dp_sbc_src_caps;
+    a2dp_sbc_default_config = a2dp_sbc_src_default_config;
+  }
   // Compute the local capability
   if (a2dp_sbc_caps.samp_freq & A2DP_SBC_IE_SAMP_FREQ_44) {
     codec_local_capability_.sample_rate |= BTAV_A2DP_CODEC_SAMPLE_RATE_44100;

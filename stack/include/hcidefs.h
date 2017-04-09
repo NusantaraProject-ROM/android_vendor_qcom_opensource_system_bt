@@ -1512,7 +1512,7 @@ typedef struct {
 
 // TODO(zachoverflow): remove this once broadcom specific hacks are removed
 #define LMP_COMPID_BROADCOM 15
-
+#define LMP_COMPID_QTI 29 /* SPLITA2DP */
 /*
  * Define the packet types in the packet header, and a couple extra
 */

@@ -48,7 +48,8 @@ typedef struct {
 } tA2DP_APTX_CIE;
 
 /* aptX Source codec capabilities */
-static const tA2DP_APTX_CIE a2dp_aptx_caps = {
+//#ifndef BTA_AV_SPLIT_A2DP_ENABLED
+static const tA2DP_APTX_CIE a2dp_aptx_src_caps = {
     A2DP_APTX_VENDOR_ID,                                       /* vendorId */
     A2DP_APTX_CODEC_ID_BLUETOOTH,                              /* codecId */
     (A2DP_APTX_SAMPLERATE_44100 | A2DP_APTX_SAMPLERATE_48000), /* sampleRate */
@@ -57,9 +58,21 @@ static const tA2DP_APTX_CIE a2dp_aptx_caps = {
     A2DP_APTX_FUTURE_2,                                        /* future2 */
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 /* bits_per_sample */
 };
-
+//#else
+/* aptX offload codec capabilities */
+static const tA2DP_APTX_CIE a2dp_aptx_offload_caps = {
+    A2DP_APTX_VENDOR_ID,                                       /* vendorId */
+    A2DP_APTX_CODEC_ID_BLUETOOTH,                              /* codecId */
+    (A2DP_APTX_SAMPLERATE_48000),                              /* sampleRate */
+    A2DP_APTX_CHANNELS_STEREO,                                 /* channelMode */
+    A2DP_APTX_FUTURE_1,                                        /* future1 */
+    A2DP_APTX_FUTURE_2,                                        /* future2 */
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 /* bits_per_sample */
+};
+//#endif
 /* Default aptX codec configuration */
-static const tA2DP_APTX_CIE a2dp_aptx_default_config = {
+//#ifndef BTA_AV_SPLIT_A2DP_ENABLED
+static const tA2DP_APTX_CIE a2dp_aptx_src_default_config = {
     A2DP_APTX_VENDOR_ID,               /* vendorId */
     A2DP_APTX_CODEC_ID_BLUETOOTH,      /* codecId */
     A2DP_APTX_SAMPLERATE_44100,        /* sampleRate */
@@ -68,6 +81,19 @@ static const tA2DP_APTX_CIE a2dp_aptx_default_config = {
     A2DP_APTX_FUTURE_2,                /* future2 */
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 /* bits_per_sample */
 };
+//#else
+/* Default aptX offload codec configuration */
+static const tA2DP_APTX_CIE a2dp_aptx_offload_default_config = {
+    A2DP_APTX_VENDOR_ID,               /* vendorId */
+    A2DP_APTX_CODEC_ID_BLUETOOTH,      /* codecId */
+    A2DP_APTX_SAMPLERATE_48000,        /* sampleRate */
+    A2DP_APTX_CHANNELS_STEREO,         /* channelMode */
+    A2DP_APTX_FUTURE_1,                /* future1 */
+    A2DP_APTX_FUTURE_2,                /* future2 */
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 /* bits_per_sample */
+};
+//#endif
+tA2DP_APTX_CIE a2dp_aptx_caps, a2dp_aptx_default_config;
 
 static const tA2DP_ENCODER_INTERFACE a2dp_encoder_interface_aptx = {
     a2dp_vendor_aptx_encoder_init,
@@ -421,6 +447,17 @@ A2dpCodecConfigAptx::A2dpCodecConfigAptx(
     : A2dpCodecConfig(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX, "aptX",
                       codec_priority) {
   // Compute the local capability
+//#ifdef BTA_AV_SPLIT_A2DP_ENABLED
+    if (A2DP_GetOffloadStatus()) {
+   // if (a2dp_offload_status) {
+      a2dp_aptx_caps = a2dp_aptx_offload_caps;
+      a2dp_aptx_default_config = a2dp_aptx_offload_default_config;
+    } else {
+//#else
+      a2dp_aptx_caps = a2dp_aptx_src_caps;
+      a2dp_aptx_default_config = a2dp_aptx_src_default_config;
+    }
+//#endif
   if (a2dp_aptx_caps.sampleRate & A2DP_APTX_SAMPLERATE_44100) {
     codec_local_capability_.sample_rate |= BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
   }
@@ -441,6 +478,9 @@ A2dpCodecConfigAptx::~A2dpCodecConfigAptx() {}
 bool A2dpCodecConfigAptx::init() {
   if (!isValid()) return false;
 
+  //if (a2dp_vendor_aptx_is_a2dp_offload_supported())
+  if (A2DP_GetOffloadStatus())
+    return true;
   // Load the encoder
   if (!A2DP_VendorLoadEncoderAptx()) {
     LOG_ERROR(LOG_TAG, "%s: cannot load the encoder", __func__);
