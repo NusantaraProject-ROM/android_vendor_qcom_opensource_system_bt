@@ -40,7 +40,6 @@
 #include <mutex>
 
 #include <hardware/audio.h>
-#include <hardware/bt_av.h>
 #include <hardware/hardware.h>
 #include <system/audio.h>
 
@@ -95,7 +94,10 @@ struct a2dp_stream_in;
 struct a2dp_stream_out;
 
 struct a2dp_audio_device {
+  // Important: device must be first as an audio_hw_device* may be cast to
+  // a2dp_audio_device* when the type is implicitly known.
   struct audio_hw_device device;
+  std::recursive_mutex* mutex;  // See note below on mutex acquisition order.
   struct a2dp_stream_in* input;
   struct a2dp_stream_out* output;
 };
@@ -109,7 +111,7 @@ struct a2dp_config {
 /* move ctrl_fd outside output stream and keep open until HAL unloaded ? */
 
 struct a2dp_stream_common {
-  std::recursive_mutex* mutex;
+  std::recursive_mutex* mutex;  // See note below on mutex acquisition order.
   int ctrl_fd;
   int audio_fd;
   size_t buffer_sz;
@@ -128,6 +130,15 @@ struct a2dp_stream_in {
   struct audio_stream_in stream;
   struct a2dp_stream_common common;
 };
+
+/*
+ * Mutex acquisition order:
+ *
+ * The a2dp_audio_device (adev) mutex must be acquired before
+ * the a2dp_stream_common (out or in) mutex.
+ *
+ * This may differ from other audio HALs.
+ */
 
 /*****************************************************************************
  *  Static variables
@@ -595,6 +606,9 @@ static int a2dp_read_output_audio_config(
     common->cfg.rate = stream_config.rate;
     common->cfg.channel_mask = stream_config.channel_mask;
     common->cfg.format = stream_config.format;
+    common->buffer_sz = audio_a2dp_hw_stream_compute_buffer_size(
+        codec_config->sample_rate, codec_config->bits_per_sample,
+        codec_config->channel_mode);
   }
 
   INFO(
@@ -700,8 +714,8 @@ static void a2dp_open_ctrl_path(struct a2dp_stream_common* common) {
   /* retry logic to catch any timing variations on control channel */
   for (i = 0; i < CTRL_CHAN_RETRY_COUNT; i++) {
     /* connect control channel if not already connected */
-    if ((common->ctrl_fd = skt_connect(A2DP_CTRL_PATH, common->buffer_sz)) >
-        0) {
+    if ((common->ctrl_fd = skt_connect(
+             A2DP_CTRL_PATH, AUDIO_STREAM_CONTROL_OUTPUT_BUFFER_SZ)) > 0) {
       /* success, now check if stack is ready */
       if (check_a2dp_ready(common) == 0) break;
 
@@ -903,16 +917,111 @@ static size_t out_get_buffer_size(const struct audio_stream* stream) {
   // period_size is the AudioFlinger mixer buffer size.
   const size_t period_size =
       out->common.buffer_sz / AUDIO_STREAM_OUTPUT_BUFFER_PERIODS;
-  const size_t mixer_unit_size = 16 /* frames */ * 4 /* framesize */;
 
   DEBUG("socket buffer size: %zu  period size: %zu", out->common.buffer_sz,
         period_size);
-  if (period_size % mixer_unit_size != 0) {
-    ERROR("period size %zu not a multiple of %zu", period_size,
-          mixer_unit_size);
-  }
 
   return period_size;
+}
+
+size_t audio_a2dp_hw_stream_compute_buffer_size(
+    btav_a2dp_codec_sample_rate_t codec_sample_rate,
+    btav_a2dp_codec_bits_per_sample_t codec_bits_per_sample,
+    btav_a2dp_codec_channel_mode_t codec_channel_mode) {
+  size_t buffer_sz = AUDIO_STREAM_OUTPUT_BUFFER_SZ;  // Default value
+  const uint64_t time_period_ms = 20;                // Conservative 20ms
+  uint32_t sample_rate;
+  uint32_t bits_per_sample;
+  uint32_t number_of_channels;
+
+  // Check the codec config sample rate
+  switch (codec_sample_rate) {
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_44100:
+      sample_rate = 44100;
+      break;
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_48000:
+      sample_rate = 48000;
+      break;
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_88200:
+      sample_rate = 88200;
+      break;
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_96000:
+      sample_rate = 96000;
+      break;
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_176400:
+      sample_rate = 176400;
+      break;
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_192000:
+      sample_rate = 192000;
+      break;
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_NONE:
+    default:
+      ERROR("Invalid sample rate: 0x%x", codec_sample_rate);
+      return buffer_sz;
+  }
+
+  // Check the codec config bits per sample
+  switch (codec_bits_per_sample) {
+    case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16:
+      bits_per_sample = 16;
+      break;
+    case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24:
+      bits_per_sample = 24;
+      break;
+    case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_32:
+      bits_per_sample = 32;
+      break;
+    case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_NONE:
+    default:
+      ERROR("Invalid bits per sample: 0x%x", codec_bits_per_sample);
+      return buffer_sz;
+  }
+
+  // Check the codec config channel mode
+  switch (codec_channel_mode) {
+    case BTAV_A2DP_CODEC_CHANNEL_MODE_MONO:
+      number_of_channels = 1;
+      break;
+    case BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO:
+      number_of_channels = 2;
+      break;
+    case BTAV_A2DP_CODEC_CHANNEL_MODE_NONE:
+    default:
+      ERROR("Invalid channel mode: 0x%x", codec_channel_mode);
+      return buffer_sz;
+  }
+
+  //
+  // The buffer size is computed by using the following formula:
+  //
+  // AUDIO_STREAM_OUTPUT_BUFFER_SIZE =
+  //    (TIME_PERIOD_MS * AUDIO_STREAM_OUTPUT_BUFFER_PERIODS *
+  //     SAMPLE_RATE_HZ * NUMBER_OF_CHANNELS * (BITS_PER_SAMPLE / 8)) / 1000
+  //
+  // AUDIO_STREAM_OUTPUT_BUFFER_PERIODS controls how the socket buffer is
+  // divided for AudioFlinger data delivery. The AudioFlinger mixer delivers
+  // data in chunks of
+  // (AUDIO_STREAM_OUTPUT_BUFFER_SIZE / AUDIO_STREAM_OUTPUT_BUFFER_PERIODS) .
+  // If the number of periods is 2, the socket buffer represents "double
+  // buffering" of the AudioFlinger mixer buffer.
+  //
+  // Furthermore, the AudioFlinger expects the buffer size to be a multiple
+  // of 16 frames.
+  const size_t divisor = (AUDIO_STREAM_OUTPUT_BUFFER_PERIODS * 16 *
+                          number_of_channels * bits_per_sample) /
+                         8;
+
+  buffer_sz = (time_period_ms * AUDIO_STREAM_OUTPUT_BUFFER_PERIODS *
+               sample_rate * number_of_channels * (bits_per_sample / 8)) /
+              1000;
+
+  // Adjust the buffer size so it can be divided by the divisor
+  const size_t remainder = buffer_sz % divisor;
+  if (remainder != 0) {
+    buffer_sz += divisor - remainder;
+  }
+
+  return buffer_sz;
 }
 
 static uint32_t out_get_channels(const struct audio_stream* stream) {
@@ -1354,7 +1463,8 @@ static int adev_open_output_stream(struct audio_hw_device* dev,
   int ret = 0;
 
   INFO("opening output");
-
+  // protect against adev->output and stream_out from being inconsistent
+  std::lock_guard<std::recursive_mutex> lock(*a2dp_dev->mutex);
   out = (struct a2dp_stream_out*)calloc(1, sizeof(struct a2dp_stream_out));
 
   if (!out) return -ENOMEM;
@@ -1421,8 +1531,11 @@ static int adev_open_output_stream(struct audio_hw_device* dev,
     config->channel_mask =
         out_get_channels((const struct audio_stream*)&out->stream);
 
-    INFO("Output stream config: format=0x%x sample_rate=%d channel_mask=0x%x",
-         config->format, config->sample_rate, config->channel_mask);
+    INFO(
+        "Output stream config: format=0x%x sample_rate=%d channel_mask=0x%x "
+        "buffer_sz=%zu",
+        config->format, config->sample_rate, config->channel_mask,
+        out->common.buffer_sz);
   }
   *stream_out = &out->stream;
   a2dp_dev->output = out;
@@ -1454,17 +1567,21 @@ static void adev_close_output_stream(struct audio_hw_device* dev,
   struct a2dp_audio_device* a2dp_dev = (struct a2dp_audio_device*)dev;
   struct a2dp_stream_out* out = (struct a2dp_stream_out*)stream;
 
-  INFO("closing output (state %d)", out->common.state);
+  // prevent interference with adev_set_parameters.
+  std::lock_guard<std::recursive_mutex> lock(*a2dp_dev->mutex);
+  {
+    std::lock_guard<std::recursive_mutex> lock(*out->common.mutex);
+    const a2dp_state_t state = out->common.state;
+    INFO("closing output (state %d)", (int)state);
+    if ((state == AUDIO_A2DP_STATE_STARTED) ||
+        (state == AUDIO_A2DP_STATE_STOPPING)) {
+      stop_audio_datapath(&out->common);
+    }
 
-  std::unique_lock<std::recursive_mutex> lock(*out->common.mutex);
-  if ((out->common.state == AUDIO_A2DP_STATE_STARTED) ||
-      (out->common.state == AUDIO_A2DP_STATE_STOPPING)) {
-    stop_audio_datapath(&out->common);
+    skt_disconnect(out->common.ctrl_fd);
+    out->common.ctrl_fd = AUDIO_SKT_DISCONNECTED;
   }
 
-  skt_disconnect(out->common.ctrl_fd);
-  out->common.ctrl_fd = AUDIO_SKT_DISCONNECTED;
-  lock.unlock();
   a2dp_stream_common_destroy(&out->common);
   free(stream);
   a2dp_dev->output = NULL;
@@ -1475,8 +1592,11 @@ static void adev_close_output_stream(struct audio_hw_device* dev,
 static int adev_set_parameters(struct audio_hw_device* dev,
                                const char* kvpairs) {
   struct a2dp_audio_device* a2dp_dev = (struct a2dp_audio_device*)dev;
-  struct a2dp_stream_out* out = a2dp_dev->output;
   int retval = 0;
+
+  // prevent interference with adev_close_output_stream
+  std::lock_guard<std::recursive_mutex> lock(*a2dp_dev->mutex);
+  struct a2dp_stream_out* out = a2dp_dev->output;
 
   if (out == NULL) return retval;
 
@@ -1562,6 +1682,8 @@ static int adev_open_input_stream(struct audio_hw_device* dev,
 
   FNLOG();
 
+  // protect against adev->input and stream_in from being inconsistent
+  std::lock_guard<std::recursive_mutex> lock(*a2dp_dev->mutex);
   in = (struct a2dp_stream_in*)calloc(1, sizeof(struct a2dp_stream_in));
 
   if (!in) return -ENOMEM;
@@ -1617,16 +1739,20 @@ static void adev_close_input_stream(struct audio_hw_device* dev,
                                     struct audio_stream_in* stream) {
   struct a2dp_audio_device* a2dp_dev = (struct a2dp_audio_device*)dev;
   struct a2dp_stream_in* in = (struct a2dp_stream_in*)stream;
-  a2dp_state_t state = in->common.state;
 
-  INFO("closing input (state %d)", state);
+  std::lock_guard<std::recursive_mutex> lock(*a2dp_dev->mutex);
+  {
+    std::lock_guard<std::recursive_mutex> lock(*in->common.mutex);
+    const a2dp_state_t state = in->common.state;
+    INFO("closing input (state %d)", (int)state);
 
-  if ((state == AUDIO_A2DP_STATE_STARTED) ||
-      (state == AUDIO_A2DP_STATE_STOPPING))
-    stop_audio_datapath(&in->common);
+    if ((state == AUDIO_A2DP_STATE_STARTED) ||
+        (state == AUDIO_A2DP_STATE_STOPPING))
+      stop_audio_datapath(&in->common);
 
-  skt_disconnect(in->common.ctrl_fd);
-  in->common.ctrl_fd = AUDIO_SKT_DISCONNECTED;
+    skt_disconnect(in->common.ctrl_fd);
+    in->common.ctrl_fd = AUDIO_SKT_DISCONNECTED;
+  }
   a2dp_stream_common_destroy(&in->common);
   free(stream);
   a2dp_dev->input = NULL;
@@ -1642,8 +1768,11 @@ static int adev_dump(UNUSED_ATTR const audio_hw_device_t* device,
 }
 
 static int adev_close(hw_device_t* device) {
+  struct a2dp_audio_device* a2dp_dev = (struct a2dp_audio_device*)device;
   FNLOG();
 
+  delete a2dp_dev->mutex;
+  a2dp_dev->mutex = nullptr;
   free(device);
   return 0;
 }
@@ -1663,6 +1792,8 @@ static int adev_open(const hw_module_t* module, const char* name,
   adev = (struct a2dp_audio_device*)calloc(1, sizeof(struct a2dp_audio_device));
 
   if (!adev) return -ENOMEM;
+
+  adev->mutex = new std::recursive_mutex;
 
   adev->device.common.tag = HARDWARE_DEVICE_TAG;
   adev->device.common.version = AUDIO_DEVICE_API_VERSION_2_0;

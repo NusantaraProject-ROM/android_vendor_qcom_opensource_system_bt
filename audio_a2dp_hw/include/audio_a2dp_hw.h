@@ -29,6 +29,8 @@
 
 #include <stdint.h>
 
+#include <hardware/bt_av.h>
+
 /*****************************************************************************
  *  Constants & Macros
  *****************************************************************************/
@@ -41,9 +43,6 @@
 // If one assumes the write buffer is always full during normal BT playback,
 // then increasing this value increases our playback latency.
 //
-// FIXME: AUDIO_STREAM_OUTPUT_BUFFER_SZ should be controlled by the actual audio
-// sample rate rather than being constant.
-//
 // FIXME: The BT HAL should consume data at a constant rate.
 // AudioFlinger assumes that the HAL draws data at a constant rate, which is
 // true for most audio devices; however, the BT engine reads data at a variable
@@ -54,6 +53,7 @@
 // resulting in mixer sleep and throttling. We increase this to 28 * 512 to help
 // reduce the effect of variable data consumption.
 #define AUDIO_STREAM_OUTPUT_BUFFER_SZ (28 * 512)
+#define AUDIO_STREAM_CONTROL_OUTPUT_BUFFER_SZ 256
 
 // AUDIO_STREAM_OUTPUT_BUFFER_PERIODS controls how the socket buffer is divided
 // for AudioFlinger data delivery. The AudioFlinger mixer delivers data in
@@ -113,6 +113,37 @@ typedef uint8_t tA2DP_BITS_PER_SAMPLE;
 /*****************************************************************************
  *  Functions
  *****************************************************************************/
+
+// Computes the Audio A2DP HAL output buffer size.
+// |codec_sample_rate| is the sample rate of the output stream.
+// |codec_bits_per_sample| is the number of bits per sample of the output
+// stream.
+// |codec_channel_mode| is the channel mode of the output stream.
+//
+// The buffer size is computed by using the following formula:
+//
+// AUDIO_STREAM_OUTPUT_BUFFER_SIZE =
+//    (TIME_PERIOD_MS * AUDIO_STREAM_OUTPUT_BUFFER_PERIODS *
+//     SAMPLE_RATE_HZ * NUMBER_OF_CHANNELS * (BITS_PER_SAMPLE / 8)) / 1000
+//
+// AUDIO_STREAM_OUTPUT_BUFFER_PERIODS controls how the socket buffer is
+// divided for AudioFlinger data delivery. The AudioFlinger mixer delivers
+// data in chunks of
+// (AUDIO_STREAM_OUTPUT_BUFFER_SIZE / AUDIO_STREAM_OUTPUT_BUFFER_PERIODS) .
+// If the number of periods is 2, the socket buffer represents "double
+// buffering" of the AudioFlinger mixer buffer.
+//
+// Furthermore, the AudioFlinger expects the buffer size to be a multiple
+// of 16 frames.
+//
+// NOTE: Currently, the computation uses the conservative 20ms time period.
+//
+// Returns the computed buffer size. If any of the input parameters is
+// invalid, the return value is the default |AUDIO_STREAM_OUTPUT_BUFFER_SZ|.
+extern size_t audio_a2dp_hw_stream_compute_buffer_size(
+    btav_a2dp_codec_sample_rate_t codec_sample_rate,
+    btav_a2dp_codec_bits_per_sample_t codec_bits_per_sample,
+    btav_a2dp_codec_channel_mode_t codec_channel_mode);
 
 // Returns a string representation of |event|.
 extern const char* audio_a2dp_hw_dump_ctrl_event(tA2DP_CTRL_CMD event);
