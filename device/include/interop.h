@@ -73,6 +73,11 @@ typedef enum {
   // failure with such devices. To avoid degrading the user experience with
   // those devices, SDP is not attempted as part of pairing process.
   INTEROP_DISABLE_SDP_AFTER_PAIRING,
+  // HID Keyboards that claim support for multitouch functionality have issue
+  // with  normal functioning of keyboard because of issues in USB HID kernel
+  // driver. To avoid degrading the user experience with those devices,
+  // digitizer record is removed from the report descriptor.
+  INTEROP_REMOVE_HID_DIG_DESCRIPTOR,
 } interop_feature_t;
 
 // Check if a given |addr| matches a known interoperability workaround as
@@ -96,12 +101,19 @@ bool interop_match_name(const interop_feature_t feature, const char* name);
 bool interop_match_manufacturer(const interop_feature_t feature,
                                 uint16_t manufacturer);
 
-// Add a dynamic interop database entry for a device matching the first
-// |length| bytes of |addr|, implementing the workaround identified by
-// |feature|.|addr| may not be null. |length| must be greater than 0 and
-// less than sizeof(bt_bdaddr_t). As |interop_feature_t| is not exposed in the
-// public API, feature must be a valid integer representing an option in the
-// enum.
+// Check if a given |vendor_id, |product_id| matches a known
+// interoperability workaround as identified by the |interop_feature_t|
+// enum. This API is used for simple name based lookups where more information
+// is not available.
+bool interop_match_vendor_product_ids(const interop_feature_t feature,
+                                      uint16_t vendor_id, uint16_t product_id);
+
+// Add a dynamic interop database entry for a device matching the first |length|
+// bytes of |addr|, implementing the workaround identified by |feature|.
+// |addr| may not be null.
+// |length| must be greater than 0 and less than sizeof(bt_bdaddr_t).
+// As |interop_feature_t| is not exposed in the public API, feature must be a
+// valid integer representing an option in the enum.
 void interop_database_add(const uint16_t feature, const bt_bdaddr_t* addr,
                           size_t length);
 

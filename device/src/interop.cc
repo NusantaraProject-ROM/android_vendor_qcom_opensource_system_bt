@@ -99,6 +99,26 @@ bool interop_match_manufacturer(const interop_feature_t feature,
   return false;
 }
 
+bool interop_match_vendor_product_ids(const interop_feature_t feature,
+                                      uint16_t vendor_id, uint16_t product_id) {
+  const size_t db_size = sizeof(interop_hid_multitouch_database) /
+                         sizeof(interop_hid_multitouch_t);
+
+  for (size_t i = 0; i != db_size; ++i) {
+    if (vendor_id == interop_hid_multitouch_database[i].vendor_id &&
+        product_id == interop_hid_multitouch_database[i].product_id) {
+      LOG_WARN(LOG_TAG,
+               "%s() Device with vendor_id: %d product_id: %d is a match for "
+               "interop workaround %s",
+               __func__, vendor_id, product_id,
+               interop_feature_string_(feature));
+      return true;
+    }
+  }
+
+  return false;
+}
+
 void interop_database_add(const uint16_t feature, const bt_bdaddr_t* addr,
                           size_t length) {
   CHECK(addr);
@@ -147,6 +167,7 @@ static const char* interop_feature_string_(const interop_feature_t feature) {
     CASE_RETURN_STR(INTEROP_KEYBOARD_REQUIRES_FIXED_PIN)
     CASE_RETURN_STR(INTEROP_2MBPS_LINK_ONLY)
     CASE_RETURN_STR(INTEROP_DISABLE_SDP_AFTER_PAIRING)
+    CASE_RETURN_STR(INTEROP_REMOVE_HID_DIG_DESCRIPTOR)
   }
 
   return "UNKNOWN";
