@@ -21,10 +21,14 @@
 
 #include <hardware/bluetooth.h>
 #include <hardware/bt_hh.h>
+#include <linux/version.h>
 #include <pthread.h>
 #include <stdint.h>
 #include "bta_hh_api.h"
 #include "btu.h"
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3, 18, 00))
+#include "osi/include/fixed_queue.h"
+#endif  //  (LINUX_VERSION_CODE > KERNEL_VERSION(3,18,00))
 
 /*******************************************************************************
  *  Constants & Macros
@@ -67,6 +71,10 @@ typedef struct {
   pthread_t hh_poll_thread_id;
   uint8_t hh_keep_polling;
   alarm_t* vup_timer;
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3, 18, 00))
+  fixed_queue_t* set_rpt_id_queue;
+  fixed_queue_t* get_rpt_id_queue;
+#endif             //  (LINUX_VERSION_CODE > KERNEL_VERSION(3,18,00))
   bool local_vup;  // Indicated locally initiated VUP
 } btif_hh_device_t;
 
@@ -101,10 +109,13 @@ extern void btif_hh_remove_device(bt_bdaddr_t bd_addr);
 bool btif_hh_add_added_dev(bt_bdaddr_t bda, tBTA_HH_ATTR_MASK attr_mask);
 extern bt_status_t btif_hh_virtual_unplug(bt_bdaddr_t* bd_addr);
 extern void btif_hh_disconnect(bt_bdaddr_t* bd_addr);
+extern void btif_hh_service_registration(bool enable);
 extern void btif_hh_setreport(btif_hh_device_t* p_dev,
                               bthh_report_type_t r_type, uint16_t size,
                               uint8_t* report);
-extern void btif_hh_service_registration(bool enable);
+extern void btif_hh_getreport(btif_hh_device_t* p_dev,
+                              bthh_report_type_t r_type, uint8_t reportId,
+                              uint16_t bufferSize);
 
 bool btif_hh_add_added_dev(bt_bdaddr_t bd_addr, tBTA_HH_ATTR_MASK attr_mask);
 
