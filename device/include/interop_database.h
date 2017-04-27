@@ -111,6 +111,10 @@ static const interop_addr_entry_t interop_addr_database[] = {
     {{{0x6c, 0x5d, 0x63, 0, 0, 0}}, 3, INTEROP_DISABLE_SDP_AFTER_PAIRING},
     // Microsoft Sculpt Touch Mouse - SDP No Resources Error
     {{{0x28, 0x18, 0x78, 0, 0, 0}}, 3, INTEROP_DISABLE_SDP_AFTER_PAIRING},
+    // Tero's Game Controller
+    {{{0x60, 0x45, 0xBD, 0, 0, 0}}, 3, INTEROP_DISABLE_SDP_AFTER_PAIRING},
+    // Bluetooth Keyboard
+    {{{0x20, 0x4C, 0x10, 0, 0, 0}}, 3, INTEROP_DISABLE_SNIFF_DURING_SCO},
 };
 
 typedef struct {
@@ -139,6 +143,7 @@ static const interop_name_entry_t interop_name_database[] = {
      INTEROP_DISABLE_SDP_AFTER_PAIRING},
     {"Logitech MX Revolution Mouse", 28, INTEROP_DISABLE_SDP_AFTER_PAIRING},
     {"Microsoft Sculpt Touch Mouse", 28, INTEROP_DISABLE_SDP_AFTER_PAIRING},
+    {"Tero's Game Controller", 22, INTEROP_DISABLE_SDP_AFTER_PAIRING},
 
     // HID Moto KZ500 Keyboard - Problematic SDP digitizer descriptor
     {"Motorola Keyboard KZ500", 23, INTEROP_REMOVE_HID_DIG_DESCRIPTOR},
@@ -153,6 +158,8 @@ typedef struct {
 static const interop_manufacturer_t interop_manufacturer_database[] = {
     // Apple Devices - SDP No Resources Error
     {76, INTEROP_DISABLE_SDP_AFTER_PAIRING},
+    // Apple Devices - Lags during SCO
+    {76, INTEROP_DISABLE_SNIFF_DURING_SCO},
 };
 
 typedef struct {

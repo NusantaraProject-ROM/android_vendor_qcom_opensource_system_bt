@@ -41,6 +41,7 @@
 #define BTIF_HH_KEYSTATE_MASK_NUMLOCK 0x01
 #define BTIF_HH_KEYSTATE_MASK_CAPSLOCK 0x02
 #define BTIF_HH_KEYSTATE_MASK_SCROLLLOCK 0x04
+#define BTIF_HH_OUTPUT_REPORT_SIZE       2
 
 #define BTIF_HH_MAX_POLLING_ATTEMPTS 10
 #define BTIF_HH_POLLING_SLEEP_DURATION_US 5000
@@ -76,6 +77,7 @@ typedef struct {
   fixed_queue_t* get_rpt_id_queue;
 #endif             //  (LINUX_VERSION_CODE > KERNEL_VERSION(3,18,00))
   bool local_vup;  // Indicated locally initiated VUP
+  uint8_t last_output_rpt_data[BTIF_HH_OUTPUT_REPORT_SIZE];
 } btif_hh_device_t;
 
 /* Control block to maintain properties of devices */

@@ -780,9 +780,17 @@ void bta_hh_open_failure(tBTA_HH_DEV_CB* p_cb, tBTA_HH_DATA* p_data) {
   bdcpy(conn_dat.bda, p_cb->addr);
   HID_HostCloseDev(p_cb->hid_handle);
 
+#if BTA_HH_DEBUG
+  APPL_TRACE_DEBUG("bta_hh_open_failure: hid_handle = %d", p_cb->hid_handle);
+#endif
   /* Report OPEN fail event */
   (*bta_hh_cb.p_cback)(BTA_HH_OPEN_EVT, (tBTA_HH*)&conn_dat);
 
+  /* if virtually unplug, remove device */
+  if (p_cb->vp ) {
+    HID_HostRemoveDev( p_cb->hid_handle);
+    bta_hh_clean_up_kdev(p_cb);
+  }
 #if (BTA_HH_DEBUG == TRUE)
   bta_hh_trace_dev_db();
 #endif
@@ -818,6 +826,9 @@ void bta_hh_close_act(tBTA_HH_DEV_CB* p_cb, tBTA_HH_DATA* p_data) {
   /* if HID_HDEV_EVT_VC_UNPLUG was received, report BTA_HH_VC_UNPLUG_EVT */
   uint16_t event = p_cb->vp ? BTA_HH_VC_UNPLUG_EVT : BTA_HH_CLOSE_EVT;
 
+#if BTA_HH_DEBUG
+    APPL_TRACE_DEBUG("bta_hh_close_act: reason = %d", reason);
+#endif
   disc_dat.handle = p_cb->hid_handle;
   disc_dat.status = p_data->hid_cback.data;
 
@@ -834,6 +845,8 @@ void bta_hh_close_act(tBTA_HH_DEV_CB* p_cb, tBTA_HH_DATA* p_data) {
     conn_dat.status =
         (reason == HID_ERR_AUTH_FAILED) ? BTA_HH_ERR_AUTH_FAILED : BTA_HH_ERR;
     bdcpy(conn_dat.bda, p_cb->addr);
+    /* finalize device driver */
+    bta_hh_co_close(p_cb->hid_handle, p_cb->app_id);
     HID_HostCloseDev(p_cb->hid_handle);
 
     /* Report OPEN fail event */
@@ -1136,6 +1149,19 @@ static void bta_hh_cback(uint8_t dev_handle, BD_ADDR addr, uint8_t event,
         if (bta_hh_cb.kdev[xx].hid_handle == dev_handle) {
           bta_hh_cb.kdev[xx].vp = true;
           break;
+        }
+      }
+      if (xx == BTA_HH_MAX_DEVICE) {
+        for (xx = 0; xx < BTA_HH_MAX_DEVICE; xx++) {
+          /* No device matched entry for VC, check if VC receivied in waiting
+           * for conn state */
+          APPL_TRACE_DEBUG("bta_hh_cb.kdev[xx].state = %d",
+              bta_hh_cb.kdev[xx].state);
+          if (bta_hh_cb.kdev[xx].state == BTA_HH_W4_CONN_ST) {
+             bta_hh_cb.kdev[xx].hid_handle = dev_handle;
+             bta_hh_cb.kdev[xx].vp = TRUE;
+             break;
+          }
         }
       }
       break;
