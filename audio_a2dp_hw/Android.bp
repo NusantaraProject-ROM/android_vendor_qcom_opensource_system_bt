@@ -13,7 +13,6 @@ cc_library {
     name: "audio.a2dp.default",
     defaults: ["audio_a2dp_hw_defaults"],
     relative_install_path: "hw",
-    proprietary: true,
     srcs: [
         "src/audio_a2dp_hw.cc",
         "src/audio_a2dp_hw_utils.cc",
@@ -44,5 +43,8 @@ cc_test {
     shared_libs: [
         "liblog",
     ],
-    static_libs: ["audio.a2dp.default"],
+    static_libs: [
+        "audio.a2dp.default",
+        "libosi",
+    ],
 }
