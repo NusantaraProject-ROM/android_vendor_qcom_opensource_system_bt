@@ -34,6 +34,8 @@
 #include "gatt_int.h"
 #include "l2c_api.h"
 
+#define SYSTEM_APP_GATT_IF 3
+
 /*******************************************************************************
  *
  * Function         GATT_SetTraceLevel
@@ -1206,6 +1208,11 @@ void GATT_Deregister(tGATT_IF gatt_if) {
     if (p_tcb->in_use) {
       if (gatt_get_ch_state(p_tcb) != GATT_CH_CLOSE) {
         gatt_update_app_use_link_flag(gatt_if, p_tcb, false, true);
+        if ((gatt_if > SYSTEM_APP_GATT_IF) && (!gatt_num_apps_hold_link(p_tcb)))
+        {
+          /* this will disconnect the link or cancel the pending connect request at lower layer*/
+          gatt_disconnect(p_tcb);
+        }
       }
 
       tGATT_CLCB* p_clcb;
