@@ -46,6 +46,7 @@
 #include <hardware/bt_sdp.h>
 #include <hardware/bt_sock.h>
 #ifdef WIPOWER_SUPPORTED
+#include <hardware/vendor.h>
 #include <hardware/wipower.h>
 #endif
 
