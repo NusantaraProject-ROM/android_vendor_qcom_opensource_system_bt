@@ -122,6 +122,8 @@ static const interop_addr_entry_t interop_addr_database[] = {
     {{{0x60, 0x45, 0xBD, 0, 0, 0}}, 3, INTEROP_DISABLE_SDP_AFTER_PAIRING},
     // Bluetooth Keyboard
     {{{0x20, 0x4C, 0x10, 0, 0, 0}}, 3, INTEROP_DISABLE_SNIFF_DURING_SCO},
+    // Kinivo BTC-450 - volume is erratic when using Absolute Volume
+    {{{0x00, 0x18, 0x91, 0, 0, 0}}, 3, INTEROP_DISABLE_ABSOLUTE_VOLUME},
 };
 
 typedef struct {
