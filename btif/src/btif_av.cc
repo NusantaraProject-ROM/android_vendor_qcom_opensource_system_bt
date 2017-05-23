@@ -184,6 +184,7 @@ static bt_status_t connect_int(bt_bdaddr_t *bd_addr, uint16_t uuid);
 static void btif_av_update_current_playing_device(int index);
 static void btif_av_check_rc_connection_priority(void *p_data);
 static BD_ADDR bd_null= {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+static bt_status_t connect_int(bt_bdaddr_t* bd_addr, uint16_t uuid);
 
 #ifdef AVK_BACKPORT
 void btif_av_request_audio_focus(bool enable);
@@ -325,8 +326,7 @@ static void btif_initiate_av_open_timer_timeout(UNUSED_ATTR void* data) {
         connect_req.uuid = UUID_SERVCLASS_AUDIO_SINK;
       else if (bt_av_src_callbacks != NULL)
         connect_req.uuid = UUID_SERVCLASS_AUDIO_SOURCE;
-      btif_dispatch_sm_event(BTIF_AV_CONNECT_REQ_EVT, (char*)&connect_req,
-                           sizeof(connect_req));
+      btif_queue_connect(connect_req.uuid, connect_req.target_bda, connect_int);
     }
   } else {
     BTIF_TRACE_ERROR("%s No connected RC peers", __func__);
