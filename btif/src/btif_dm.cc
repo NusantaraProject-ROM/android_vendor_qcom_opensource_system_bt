@@ -1127,7 +1127,6 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
                "blacklisted device, skipping sdp",
                __func__);
       bt_property_t prop;
-      bt_bdaddr_t bd_addr;
       bt_uuid_t uuid;
       char uuid_str[128] = UUID_HUMAN_INTERFACE_DEVICE;
 
