@@ -157,6 +157,9 @@ static const interop_name_entry_t interop_name_database[] = {
     // HID Moto KZ500 Keyboard - Problematic SDP digitizer descriptor
     {"Motorola Keyboard KZ500", 23, INTEROP_REMOVE_HID_DIG_DESCRIPTOR},
     {"Motorola Keyboard KZ500 v122", 28, INTEROP_REMOVE_HID_DIG_DESCRIPTOR},
+
+    // Pixel C Keyboard doesn't respond to service changed indications.
+    {"Pixel C Keyboard", 16, INTEROP_GATTC_NO_SERVICE_CHANGED_IND},
 };
 
 typedef struct {
