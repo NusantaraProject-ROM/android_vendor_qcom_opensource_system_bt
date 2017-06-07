@@ -57,6 +57,7 @@
 #include "btif_a2dp.h"
 #include "btif_api.h"
 #include "btif_config.h"
+#include "device/include/controller.h"
 #include "btif_debug.h"
 #include "btif_storage.h"
 #include "btsnoop.h"
@@ -113,6 +114,7 @@ extern btrc_interface_t* btif_rc_get_interface();
 extern btrc_interface_t* btif_rc_ctrl_get_interface();
 /*SDP search client*/
 extern btsdp_interface_t* btif_sdp_get_interface();
+
 #ifdef WIPOWER_SUPPORTED
 extern wipower_interface_t *get_wipower_interface();
 #endif
