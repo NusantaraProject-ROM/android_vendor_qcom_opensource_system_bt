@@ -838,7 +838,10 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
         state = BTAV_CONNECTION_STATE_DISCONNECTED;
         av_state = BTIF_AV_STATE_IDLE;
       }
-
+      if (p_bta_data->open.status != BTA_AV_SUCCESS &&
+              p_bta_data->open.status != BTA_AV_FAIL_SDP) {
+          btif_av_check_and_start_collission_timer(index);
+      }
       /* inform the application of the event */
       btif_report_connection_state(state, &(btif_av_cb[index].peer_bda));
       /* change state to open/idle based on the status */
@@ -876,8 +879,7 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
           /* Bring up AVRCP connection too */
           BTA_AvOpenRc(btif_av_cb[index].bta_handle);
         }
-      } else if (p_bta_data->open.status != BTA_AV_FAIL_SDP)
-        btif_av_check_and_start_collission_timer(index);
+      }
       btif_queue_advance();
     } break;
 
@@ -1833,9 +1835,32 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
       return;
 
     case BTA_AV_PENDING_EVT:
-      index = HANDLE_TO_INDEX(p_bta_data->pend.hndl);
-      break;
-
+        /* In race conditions, outgoing and incoming connections
+        * at same time check for BD address at index and if it
+        * does not match then check for first avialable index.
+        */
+        index = HANDLE_TO_INDEX(p_bta_data->pend.hndl);
+        if (index >= 0 && index < btif_max_av_clients &&
+            memcmp (((tBTA_AV*)p_bta_data)->pend.bd_addr,
+            &(btif_av_cb[index].peer_bda),
+            sizeof(btif_av_cb[index].peer_bda)) == 0)
+       {
+            BTIF_TRACE_EVENT("incomming connection at index %d", index);
+       }
+       else
+       {
+           index = btif_av_idx_by_bdaddr(bd_null);
+           if (index >= btif_max_av_clients)
+           {
+               BTIF_TRACE_ERROR("No free SCB available");
+               BTA_AvDisconnect(p_bta_data->pend.bd_addr);
+           }
+           else
+           {
+               BTIF_TRACE_EVENT("updated index for connection %d", index);
+           }
+       }
+       break;
     case BTA_AV_REJECT_EVT:
       index = HANDLE_TO_INDEX(p_bta_data->reject.hndl);
       break;

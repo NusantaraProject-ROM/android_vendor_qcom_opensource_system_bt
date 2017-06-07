@@ -399,10 +399,16 @@ static bool bta_av_next_getcap(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
       } else {
         p_req = AVDT_GetCapReq;
       }
-      (*p_req)(p_scb->peer_addr, p_scb->sep_info[i].seid, p_scb->p_cap,
-               bta_av_dt_cback[p_scb->hdi]);
-      sent_cmd = true;
-      break;
+      if ((*p_req)(p_scb->peer_addr,
+                     p_scb->sep_info[i].seid,
+                     p_scb->p_cap, bta_av_dt_cback[p_scb->hdi]) == AVDT_SUCCESS)
+      {
+          sent_cmd = TRUE;
+          break;
+      }
+      else
+          APPL_TRACE_ERROR("bta_av_next_getcap command could not be sent because of resource constraint");
+
     }
   }
 
@@ -1059,6 +1065,7 @@ void bta_av_cleanup(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
   /* if de-registering shut everything down */
   msg.hdr.layer_specific = p_scb->hndl;
   p_scb->started = false;
+  p_scb->suspend_local_sent = FALSE;
   p_scb->current_codec = nullptr;
   p_scb->cong = false;
   p_scb->role = role;
@@ -1311,22 +1318,14 @@ void bta_av_setconfig_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     if (p_scb->cur_psc_mask & AVDT_PSC_DELAY_RPT)
       p_scb->avdt_version = AVDT_VERSION_SYNC;
 
-    if (A2DP_GetCodecType(p_scb->cfg.codec_info) == A2DP_MEDIA_CT_SBC ||
-        num > 1) {
-      /* if SBC is used by the SNK as INT, discover req is not sent in
-       * bta_av_config_ind.
-                 * call disc_res now */
-      /* this is called in A2DP SRC path only, In case of SINK we don't need it
-       */
-      if (local_sep == AVDT_TSEP_SRC)
+    /* For any codec used by the SNK as INT, discover req is not sent in bta_av_config_ind.
+     * This is done since we saw an IOT issue with APTX codec. Thus, we now take same
+     * path for all codecs as for SBC. call disc_res now */
+    /* this is called in A2DP SRC path only, In case of SINK we don't need it  */
+    if (local_sep == AVDT_TSEP_SRC)
         p_scb->p_cos->disc_res(p_scb->hndl, num, num, 0, p_scb->peer_addr,
                                UUID_SERVCLASS_AUDIO_SOURCE);
-    } else {
-      /* we do not know the peer device and it is using non-SBC codec
-       * we need to know all the SEPs on SNK */
-      bta_av_discover_req(p_scb, NULL);
-      return;
-    }
+
 
     for (i = 1; i < num; i++) {
       APPL_TRACE_DEBUG("%s: sep_info[%d] SEID: %d", __func__, i, p_seid[i - 1]);
@@ -1371,6 +1370,7 @@ void bta_av_str_opened(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   /* set the congestion flag, so AV would not send media packets by accident */
   p_scb->cong = true;
   p_scb->offload_start_pending = false;
+  p_scb->suspend_local_sent = FALSE;
 
   p_scb->stream_mtu =
       p_data->str_msg.msg.open_ind.peer_mtu - AVDT_MEDIA_HDR_SIZE;
@@ -1508,6 +1508,7 @@ void bta_av_do_close(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
   /* close stream */
   p_scb->started = false;
   p_scb->current_codec = nullptr;
+  p_scb->suspend_local_sent = FALSE;
 
   /* drop the buffers queued in L2CAP */
   L2CA_FlushChannel(p_scb->l2c_cid, L2CAP_FLUSH_CHANS_ALL);
@@ -1914,8 +1915,12 @@ void bta_av_setconfig_rej(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
 void bta_av_discover_req(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
   /* send avdtp discover request */
 
-  AVDT_DiscoverReq(p_scb->peer_addr, p_scb->sep_info, BTA_AV_NUM_SEPS,
-                   bta_av_dt_cback[p_scb->hdi]);
+    /* send avdtp discover request */
+    if (AVDT_DiscoverReq(p_scb->peer_addr, p_scb->sep_info, BTA_AV_NUM_SEPS, bta_av_dt_cback[p_scb->hdi]) != AVDT_SUCCESS)
+    {
+        APPL_TRACE_ERROR("bta_av_discover_req command could not be sent because of resource constraint");
+        bta_av_ssm_execute(p_scb, BTA_AV_STR_DISC_FAIL_EVT, p_data);
+    }
 }
 
 /*******************************************************************************
@@ -2045,9 +2050,10 @@ void bta_av_str_stopped(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   suspend_rsp.hndl = p_scb->hndl;
 
   if (p_data && p_data->api_stop.suspend) {
-    APPL_TRACE_DEBUG("%s: suspending: %d, sup:%d", __func__, start,
-                     p_scb->suspend_sup);
-    if ((start) && (p_scb->suspend_sup)) {
+      APPL_TRACE_DEBUG("suspending: %d, sup:%d, suspend_local_sent = %d",
+                         start, p_scb->suspend_sup,p_scb->suspend_local_sent);
+      if ((start)  && (p_scb->suspend_sup) && (!p_scb->suspend_local_sent)) {
+      p_scb->suspend_local_sent = TRUE;
       sus_evt = false;
       p_scb->l2c_bufs = 0;
       AVDT_SuspendReq(&p_scb->avdt_handle, 1);
@@ -2055,7 +2061,7 @@ void bta_av_str_stopped(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
 
     /* send SUSPEND_EVT event only if not in reconfiguring state and sus_evt is
      * true*/
-    if ((sus_evt) && (p_scb->state != BTA_AV_RCFG_SST)) {
+      if ((sus_evt) && ((p_scb->suspend_local_sent) || (p_scb->state != BTA_AV_RCFG_SST))) {
       suspend_rsp.status = BTA_AV_SUCCESS;
       suspend_rsp.initiator = true;
       (*bta_av_cb.p_cback)(BTA_AV_SUSPEND_EVT, (tBTA_AV*)&suspend_rsp);
@@ -2585,9 +2591,10 @@ void bta_av_suspend_cfm(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   tBTA_AV_SUSPEND suspend_rsp;
   uint8_t err_code = p_data->str_msg.msg.hdr.err_code;
   uint8_t policy = HCI_ENABLE_SNIFF_MODE;
+  p_scb->suspend_local_sent = FALSE;
 
-  APPL_TRACE_DEBUG("%s: audio_open_cnt = %d, err_code = %d", __func__,
-                   bta_av_cb.audio_open_cnt, err_code);
+  APPL_TRACE_DEBUG ("%s:audio_open_cnt = %d, err_code = %d, scb_started = %d",
+                    __func__,bta_av_cb.audio_open_cnt,err_code,p_scb->started);
 
   if (p_scb->started == false) {
     /* handle the condition where there is a collision of SUSPEND req from
@@ -2801,6 +2808,7 @@ void bta_av_suspend_cont(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
 
   p_scb->started = false;
   p_scb->cong = false;
+  p_scb->suspend_local_sent = FALSE;
   if (err_code) {
     if (AVDT_ERR_CONNECT == err_code) {
       /* report failure */
