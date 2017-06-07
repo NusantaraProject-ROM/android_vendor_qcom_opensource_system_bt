@@ -149,6 +149,16 @@
 //------------------End added from bdroid_buildcfg.h---------------------
 
 /******************************************************************************
+**
+** Test Application interface
+**
+******************************************************************************/
+
+#ifndef TEST_APP_INTERFACE
+#define TEST_APP_INTERFACE           TRUE
+#endif
+
+/******************************************************************************
  *
  * Buffer sizes
  *
@@ -448,6 +458,11 @@
  * BTM_RegisterForVSEvents */
 #ifndef BTM_MAX_VSE_CALLBACKS
 #define BTM_MAX_VSE_CALLBACKS 3
+#endif
+
+/* Safe reattempt even after device is blacklisted for role switch */
+#ifndef BTM_SAFE_REATTEMPT_ROLE_SWITCH
+#define BTM_SAFE_REATTEMPT_ROLE_SWITCH TRUE
 #endif
 
 /******************************************
