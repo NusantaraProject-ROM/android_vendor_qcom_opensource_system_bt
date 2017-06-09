@@ -156,7 +156,17 @@ static bool bta_av_co_set_codec_ota_config(tBTA_AV_CO_PEER* p_peer,
  ** Returns          The current flag value
  **
  ******************************************************************************/
-static uint8_t bta_av_co_cp_get_flag(void) { return bta_av_co_cb.cp.flag; }
+uint8_t bta_av_co_cp_get_flag(void) { return bta_av_co_cb.cp.flag; }
+/*******************************************************************************
+ **
+ ** Function         bta_av_co_cp_is_active
+ **
+ ** Description     Get the current configuration of content protection
+ **
+ ** Returns          TRUE if the current streaming has CP, FALSE otherwise
+ **
+ ******************************************************************************/
+bool bta_av_co_cp_is_active(void) { return bta_av_co_cb.cp.active; }
 
 /*******************************************************************************
  **
@@ -1295,6 +1305,10 @@ void bta_av_co_init(
   /* Protect access to bta_av_co_cb.codec_config */
   mutex_global_lock();
   bta_av_co_cb.codecs = new A2dpCodecs(codec_priorities);
+/* SPLITA2DP */
+  bool a2dp_offload = btif_av_is_split_a2dp_enabled();
+  A2DP_SetOffloadStatus(a2dp_offload);
+/* SPLITA2DP */
   bta_av_co_cb.codecs->init();
   A2DP_InitDefaultCodec(bta_av_co_cb.codec_config);
   mutex_global_unlock();

@@ -32,6 +32,7 @@
 #include "bt_utils.h"
 #include "bta_api.h"
 #include "btif_a2dp.h"
+#include "btif_a2dp_audio_interface.h"
 #include "btif_a2dp_control.h"
 #include "btif_a2dp_sink.h"
 #include "btif_av_co.h"
@@ -40,7 +41,7 @@
 #include "btu.h"
 #include "osi/include/allocator.h"
 #include "osi/include/osi.h"
-
+#include "osi/include/properties.h"
 /*****************************************************************************
  *  Constants & Macros
  *****************************************************************************/
@@ -101,6 +102,11 @@ static btif_av_cb_t btif_av_cb = {
     0, {{0}}, 0, 0, 0, 0, std::vector<btav_a2dp_codec_config_t>()};
 static alarm_t* av_open_on_rc_timer = NULL;
 
+/*SPLITA2DP */
+bool bt_split_a2dp_enabled = false;
+bool reconfig_a2dp = false;
+bool btif_a2dp_audio_if_init = false;
+/*SPLITA2DP */
 /* both interface and media task needs to be ready to alloc incoming request */
 #define CHECK_BTAV_INIT()                                                    \
   do {                                                                       \
@@ -539,6 +545,13 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data) {
         btif_av_cb.edr = p_bta_data->open.edr;
 
         btif_av_cb.peer_sep = p_bta_data->open.sep;
+/* SPLITA2DP */
+        if (btif_av_is_split_a2dp_enabled()) {
+          BTIF_TRACE_DEBUG("Split a2dp enabled:initialize interface ");
+          btif_a2dp_audio_if_init = true;
+          btif_a2dp_audio_interface_init();
+        }
+/* SPLITA2DP */
       } else {
         BTIF_TRACE_WARNING("BTA_AV_OPEN_EVT::FAILED status: %d",
                            p_bta_data->open.status);
@@ -838,12 +851,24 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data) {
         BTA_AvCloseRc(btif_av_cb.bta_handle);
       }
 
+/* SPLITA2DP */
+      if (btif_av_is_split_a2dp_enabled()) {
+        btif_a2dp_audio_if_init = false;
+        btif_a2dp_audio_interface_deinit();
+      }
+/* SPLITA2DP */
       /* inform the application that we are disconnecting */
       btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTING,
                                    &(btif_av_cb.peer_bda));
       break;
 
     case BTA_AV_CLOSE_EVT:
+/* SPLITA2DP */
+      if (btif_av_is_split_a2dp_enabled()) {
+        btif_a2dp_audio_if_init = false;
+        btif_a2dp_audio_interface_deinit();
+      }
+/* SPLITA2DP */
       /* avdtp link is closed */
       btif_a2dp_on_stopped(NULL);
 
@@ -983,6 +1008,12 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data) {
         BTA_AvCloseRc(btif_av_cb.bta_handle);
       }
 
+/* SPLITA2DP */
+      if (btif_av_is_split_a2dp_enabled()) {
+        btif_a2dp_audio_if_init = false;
+        btif_a2dp_audio_interface_deinit();
+      }
+/* SPLITA2DP */
       /* inform the application that we are disconnecting */
       btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTING,
                                    &(btif_av_cb.peer_bda));
@@ -1049,6 +1080,12 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data) {
 
       btif_av_cb.flags |= BTIF_AV_FLAG_PENDING_STOP;
 
+/* SPLITA2DP */
+      if (btif_av_is_split_a2dp_enabled()) {
+        btif_a2dp_audio_if_init = false;
+        btif_a2dp_audio_interface_deinit();
+      }
+/* SPLITA2DP */
       /* avdtp link is closed */
       btif_a2dp_on_stopped(NULL);
 
@@ -1060,7 +1097,16 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data) {
       break;
 
     case BTIF_AV_OFFLOAD_START_REQ_EVT:
-      BTA_AvOffloadStart(btif_av_cb.bta_handle);
+      if (btif_av_cb.flags != BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING &&
+          btif_av_cb.flags != BTIF_AV_FLAG_REMOTE_SUSPEND)
+      {
+          BTA_AvOffloadStart(btif_av_cb.bta_handle);
+      }
+      else
+      {
+          BTIF_TRACE_ERROR("%s:Suspend pending, cannot start offload",__func__);
+          btif_a2dp_on_offload_started(BTA_AV_FAIL);
+      }
       break;
 
     case BTA_AV_OFFLOAD_START_RSP_EVT:
@@ -1087,6 +1133,10 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
                    dump_av_sm_event_name((btif_av_sm_event_t)event));
   switch (event) {
     case BTIF_AV_CLEANUP_REQ_EVT:
+      if (btif_a2dp_audio_if_init) {
+       btif_a2dp_audio_if_init = false;
+       btif_a2dp_audio_interface_deinit();
+      }
       btif_a2dp_source_shutdown();
       btif_a2dp_sink_shutdown();
       break;
@@ -1258,6 +1308,13 @@ static bt_status_t init_src(
     btav_source_callbacks_t* callbacks,
     std::vector<btav_a2dp_codec_config_t> codec_priorities) {
   BTIF_TRACE_EVENT("%s()", __func__);
+  char value[PROPERTY_VALUE_MAX] = {'\0'};
+/* SPLITA2DP */
+  osi_property_get("persist.bt.enable.splita2dp", value, "false");
+  BTIF_TRACE_ERROR("split_a2dp_status = %s",value);
+  bt_split_a2dp_enabled = (strcmp(value, "true") == 0);
+  BTIF_TRACE_ERROR("split_a2dp_status = %d",bt_split_a2dp_enabled);
+/* SPLITA2DP */
 
   btif_av_cb.codec_priorities = codec_priorities;
   bt_status_t status = btif_av_init(BTA_A2DP_SOURCE_SERVICE_ID);
@@ -1745,3 +1802,10 @@ void btif_av_move_idle(bt_bdaddr_t bd_addr) {
     btif_sm_change_state(btif_av_cb.sm_handle, BTIF_AV_STATE_IDLE);
   }
 }
+
+/* SPLITA2DP*/
+bool btif_av_is_split_a2dp_enabled() {
+  BTIF_TRACE_DEBUG("btif_av_is_split_a2dp_enabled:%d",bt_split_a2dp_enabled);
+  return bt_split_a2dp_enabled;
+}
+/* SPLITA2DP*/

@@ -57,6 +57,9 @@ typedef char tBTM_LOC_BD_NAME[BTM_MAX_LOC_BD_NAME_LEN + 1];
   (controller_get_interface()->get_bt_version()->manufacturer == \
    LMP_COMPID_BROADCOM)
 
+#define BTM_IS_QTI_CONTROLLER()                                 \
+  (controller_get_interface()->get_bt_version()->manufacturer == \
+   LMP_COMPID_QTI)
 /* Define the ACL Management control structure
 */
 typedef struct {
