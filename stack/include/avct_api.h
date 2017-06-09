@@ -42,6 +42,7 @@
 /* PSM for AVCT. */
 #define AVCT_PSM 0x0017
 #define AVCT_BR_PSM 0x001B
+#define AVCT_CA_PSM 0x1021
 
 /* Protocol revision numbers */
 #define AVCT_REV_1_0 0x0100
