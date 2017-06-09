@@ -42,6 +42,11 @@
    L2CAP_EXTFEA_FIXED_CHNLS)
 #endif
 
+/* This feature is used to update any QCOM related changes in the stack*/
+#ifndef BLUETOOTH_QTI_SW
+#define BLUETOOTH_QTI_SW TRUE
+#endif
+
 #ifndef BTUI_OPS_FORMATS
 #define BTUI_OPS_FORMATS (BTA_OP_VCARD21_MASK | BTA_OP_ANY_MASK)
 #endif
