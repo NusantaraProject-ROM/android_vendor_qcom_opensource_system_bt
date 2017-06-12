@@ -145,6 +145,7 @@ uint8_t btm_handle_to_acl_index(uint16_t hci_handle) {
 bool btm_ble_get_acl_remote_addr(tBTM_SEC_DEV_REC* p_dev_rec, BD_ADDR conn_addr,
                                  tBLE_ADDR_TYPE* p_addr_type) {
   bool st = true;
+  BD_ADDR  dummy = {0};
 
   if (p_dev_rec == NULL) {
     BTM_TRACE_ERROR(
@@ -155,7 +156,10 @@ bool btm_ble_get_acl_remote_addr(tBTM_SEC_DEV_REC* p_dev_rec, BD_ADDR conn_addr,
 
   switch (p_dev_rec->ble.active_addr_type) {
     case BTM_BLE_ADDR_PSEUDO:
-      memcpy(conn_addr, p_dev_rec->bd_addr, BD_ADDR_LEN);
+      if (memcmp(dummy, p_dev_rec->ble.cur_rand_addr, BD_ADDR_LEN))
+        memcpy(conn_addr, p_dev_rec->ble.cur_rand_addr, BD_ADDR_LEN);
+      else
+        memcpy(conn_addr, p_dev_rec->bd_addr, BD_ADDR_LEN);
       *p_addr_type = p_dev_rec->ble.ble_addr_type;
       break;
 

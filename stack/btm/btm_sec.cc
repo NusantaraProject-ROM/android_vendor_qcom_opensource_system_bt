@@ -976,14 +976,17 @@ tBTM_STATUS btm_sec_bond_by_transport(BD_ADDR bd_addr, tBT_TRANSPORT transport,
   BTM_TRACE_DEBUG("before update sec_flags=0x%x", p_dev_rec->sec_flags);
 
   /* Finished if connection is active and already paired */
-  if (((p_dev_rec->hci_handle != BTM_SEC_INVALID_HANDLE) &&
+  if ((p_dev_rec->hci_handle != BTM_SEC_INVALID_HANDLE) &&
        transport == BT_TRANSPORT_BR_EDR &&
-       (p_dev_rec->sec_flags & BTM_SEC_AUTHENTICATED)) ||
-      ((p_dev_rec->ble_hci_handle != BTM_SEC_INVALID_HANDLE) &&
-       transport == BT_TRANSPORT_LE &&
-       (p_dev_rec->sec_flags & BTM_SEC_LE_AUTHENTICATED))) {
+       (p_dev_rec->sec_flags & BTM_SEC_AUTHENTICATED)) {
     BTM_TRACE_WARNING("BTM_SecBond -> Already Paired");
     return (BTM_SUCCESS);
+  }
+
+  if ((p_dev_rec->ble_hci_handle != BTM_SEC_INVALID_HANDLE) && transport == BT_TRANSPORT_LE
+       && (p_dev_rec->sec_flags & BTM_SEC_LE_AUTHENTICATED)) {
+    BTM_TRACE_WARNING("BTM_SecBond. Last Pairing still in progress. Wait!");
+    return (BTM_CMD_STARTED);
   }
 
   /* Tell controller to get rid of the link key if it has one stored */
