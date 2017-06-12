@@ -462,6 +462,7 @@ extern void bta_gattc_clear_notif_registration(tBTA_GATTC_SERV* p_srcb,
                                                uint16_t conn_id,
                                                uint16_t start_handle,
                                                uint16_t end_handle);
+extern void bta_gattc_clear_notif_reg_on_disc(tBTA_GATTC_RCB *p_clreg, BD_ADDR bda);
 extern tBTA_GATTC_SERV* bta_gattc_find_srvr_cache(BD_ADDR bda);
 
 /* discovery functions */
