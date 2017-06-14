@@ -654,7 +654,7 @@ void bta_hh_co_send_hid_info(btif_hh_device_t* p_dev, const char* dev_name,
   // Create and send hid descriptor to kernel
   memset(&ev, 0, sizeof(ev));
   ev.type = UHID_CREATE;
-  strncpy((char*)ev.u.create.name, dev_name, sizeof(ev.u.create.name) - 1);
+  strlcpy((char*)ev.u.create.name, dev_name, sizeof(ev.u.create.name));
   snprintf((char*)ev.u.create.uniq, sizeof(ev.u.create.uniq),
            "%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X", p_dev->bd_addr.address[5],
            p_dev->bd_addr.address[4], p_dev->bd_addr.address[3],
