@@ -44,22 +44,31 @@
 void bta_ag_port_cback_1(uint32_t code, uint16_t port_handle);
 void bta_ag_port_cback_2(uint32_t code, uint16_t port_handle);
 void bta_ag_port_cback_3(uint32_t code, uint16_t port_handle);
+void bta_ag_port_cback_4(uint32_t code, uint16_t port_handle);
+void bta_ag_port_cback_5(uint32_t code, uint16_t port_handle);
+void bta_ag_port_cback_6(uint32_t code, uint16_t port_handle);
 
 void bta_ag_mgmt_cback_1(uint32_t code, uint16_t port_handle);
 void bta_ag_mgmt_cback_2(uint32_t code, uint16_t port_handle);
 void bta_ag_mgmt_cback_3(uint32_t code, uint16_t port_handle);
+void bta_ag_mgmt_cback_4(uint32_t code, uint16_t port_handle);
+void bta_ag_mgmt_cback_5(uint32_t code, uint16_t port_handle);
+void bta_ag_mgmt_cback_6(uint32_t code, uint16_t port_handle);
 
 int bta_ag_data_cback_1(uint16_t port_handle, void* p_data, uint16_t len);
 int bta_ag_data_cback_2(uint16_t port_handle, void* p_data, uint16_t len);
 int bta_ag_data_cback_3(uint16_t port_handle, void* p_data, uint16_t len);
 
+
 /* rfcomm callback function tables */
 typedef tPORT_CALLBACK* tBTA_AG_PORT_CBACK;
 const tBTA_AG_PORT_CBACK bta_ag_port_cback_tbl[] = {
-    bta_ag_port_cback_1, bta_ag_port_cback_2, bta_ag_port_cback_3};
+    bta_ag_port_cback_1, bta_ag_port_cback_2, bta_ag_port_cback_3,
+    bta_ag_port_cback_4, bta_ag_port_cback_5, bta_ag_port_cback_6};
 
 const tBTA_AG_PORT_CBACK bta_ag_mgmt_cback_tbl[] = {
-    bta_ag_mgmt_cback_1, bta_ag_mgmt_cback_2, bta_ag_mgmt_cback_3};
+    bta_ag_mgmt_cback_1, bta_ag_mgmt_cback_2, bta_ag_mgmt_cback_3,
+    bta_ag_mgmt_cback_4, bta_ag_mgmt_cback_5, bta_ag_mgmt_cback_6};
 
 typedef tPORT_DATA_CALLBACK* tBTA_AG_DATA_CBACK;
 const tBTA_AG_DATA_CBACK bta_ag_data_cback_tbl[] = {
@@ -178,8 +187,8 @@ static int bta_ag_data_cback(UNUSED_ATTR uint16_t port_handle, void* p_data,
 
 /*******************************************************************************
  *
- * Function         bta_ag_port_cback_1 to 3
- *                  bta_ag_mgmt_cback_1 to 3
+ * Function         bta_ag_port_cback_1 to 6
+ *                  bta_ag_mgmt_cback_1 to 6
  *
  * Description      RFCOMM callback functions.  This is an easy way to
  *                  distinguish scb from the callback.
@@ -188,23 +197,41 @@ static int bta_ag_data_cback(UNUSED_ATTR uint16_t port_handle, void* p_data,
  * Returns          void
  *
  ******************************************************************************/
-void bta_ag_mgmt_cback_1(uint32_t code, uint16_t handle) {
-  bta_ag_mgmt_cback(code, handle, 1);
+void bta_ag_mgmt_cback_1(uint32_t code, uint16_t port_handle) {
+  bta_ag_mgmt_cback(code, port_handle, 1);
 }
-void bta_ag_mgmt_cback_2(uint32_t code, uint16_t handle) {
-  bta_ag_mgmt_cback(code, handle, 2);
+void bta_ag_mgmt_cback_2(uint32_t code, uint16_t port_handle) {
+  bta_ag_mgmt_cback(code, port_handle, 2);
 }
-void bta_ag_mgmt_cback_3(uint32_t code, uint16_t handle) {
-  bta_ag_mgmt_cback(code, handle, 3);
+void bta_ag_mgmt_cback_3(uint32_t code, uint16_t port_handle) {
+  bta_ag_mgmt_cback(code, port_handle, 3);
 }
-void bta_ag_port_cback_1(uint32_t code, uint16_t handle) {
-  bta_ag_port_cback(code, handle, 1);
+void bta_ag_mgmt_cback_4(uint32_t code, uint16_t port_handle) {
+  bta_ag_mgmt_cback(code, port_handle, 4);
 }
-void bta_ag_port_cback_2(uint32_t code, uint16_t handle) {
-  bta_ag_port_cback(code, handle, 2);
+void bta_ag_mgmt_cback_5(uint32_t code, uint16_t port_handle) {
+  bta_ag_mgmt_cback(code, port_handle, 5);
 }
-void bta_ag_port_cback_3(uint32_t code, uint16_t handle) {
-  bta_ag_port_cback(code, handle, 3);
+void bta_ag_mgmt_cback_6(uint32_t code, uint16_t port_handle) {
+  bta_ag_mgmt_cback(code, port_handle, 6);
+}
+void bta_ag_port_cback_1(uint32_t code, uint16_t port_handle) {
+  bta_ag_port_cback(code, port_handle, 1);
+}
+void bta_ag_port_cback_2(uint32_t code, uint16_t port_handle) {
+  bta_ag_port_cback(code, port_handle, 2);
+}
+void bta_ag_port_cback_3(uint32_t code, uint16_t port_handle) {
+  bta_ag_port_cback(code, port_handle, 3);
+}
+void bta_ag_port_cback_4(uint32_t code, uint16_t port_handle) {
+  bta_ag_port_cback(code, port_handle, 4);
+}
+void bta_ag_port_cback_5(uint32_t code, uint16_t port_handle) {
+  bta_ag_port_cback(code, port_handle, 5);
+}
+void bta_ag_port_cback_6(uint32_t code, uint16_t port_handle) {
+  bta_ag_port_cback(code, port_handle, 6);
 }
 
 /*******************************************************************************

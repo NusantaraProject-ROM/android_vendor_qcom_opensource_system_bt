@@ -215,13 +215,14 @@ typedef enum
 } bthf_service_type_t;
 
 typedef enum {
-    BTHF_CALL_STATE_ACTIVE = 0,
-    BTHF_CALL_STATE_HELD,
-    BTHF_CALL_STATE_DIALING,
-    BTHF_CALL_STATE_ALERTING,
-    BTHF_CALL_STATE_INCOMING,
-    BTHF_CALL_STATE_WAITING,
-    BTHF_CALL_STATE_IDLE
+  BTHF_CALL_STATE_ACTIVE = 0,
+  BTHF_CALL_STATE_HELD,
+  BTHF_CALL_STATE_DIALING,
+  BTHF_CALL_STATE_ALERTING,
+  BTHF_CALL_STATE_INCOMING,
+  BTHF_CALL_STATE_WAITING,
+  BTHF_CALL_STATE_IDLE,
+  BTHF_CALL_STATE_DISCONNECTED
 } bthf_call_state_t;
 
 typedef enum {
@@ -246,86 +247,94 @@ typedef enum {
 } bthf_call_addrtype_t;
 /** Represents the standard BT-HF interface. */
 typedef struct {
+  /** set to sizeof(BtHfInterface) */
+  size_t size;
+  /**
+   * Register the BtHf callbacks
+   */
+  bt_status_t (*init)(bthf_callbacks_t* callbacks, int max_hf_clients,
+                      bool inband_ringing_supported);
 
-    /** set to sizeof(BtHfInterface) */
-    size_t          size;
-    /**
-     * Register the BtHf callbacks
-     */
-    bt_status_t (*init)( bthf_callbacks_t* callbacks, int max_hf_clients, bool inband_ringing_supported);
+  /** connect to headset */
+  bt_status_t (*connect)(RawAddress* bd_addr);
 
-    /** connect to headset */
-    bt_status_t (*connect)( RawAddress *bd_addr );
+  /** dis-connect from headset */
+  bt_status_t (*disconnect)(RawAddress* bd_addr);
 
-    /** dis-connect from headset */
-    bt_status_t (*disconnect)( RawAddress *bd_addr );
+  /** create an audio connection */
+  bt_status_t (*connect_audio)(RawAddress* bd_addr);
 
-    /** create an audio connection */
-    bt_status_t (*connect_audio)( RawAddress *bd_addr );
+  /** close the audio connection */
+  bt_status_t (*disconnect_audio)(RawAddress* bd_addr);
 
-    /** close the audio connection */
-    bt_status_t (*disconnect_audio)( RawAddress *bd_addr );
+  /** start voice recognition */
+  bt_status_t (*start_voice_recognition)(RawAddress* bd_addr);
 
-    /** start voice recognition */
-    bt_status_t (*start_voice_recognition)( RawAddress *bd_addr );
+  /** stop voice recognition */
+  bt_status_t (*stop_voice_recognition)(RawAddress* bd_addr);
 
-    /** stop voice recognition */
-    bt_status_t (*stop_voice_recognition)( RawAddress *bd_addr );
+  /** volume control */
+  bt_status_t (*volume_control)(bthf_volume_type_t type, int volume,
+                                RawAddress* bd_addr);
 
-    /** volume control */
-    bt_status_t (*volume_control) (bthf_volume_type_t type, int volume, RawAddress *bd_addr );
+  /** Combined device status change notification */
+  bt_status_t (*device_status_notification)(bthf_network_state_t ntk_state,
+                                            bthf_service_type_t svc_type,
+                                            int signal, int batt_chg);
 
-    /** Combined device status change notification */
-    bt_status_t (*device_status_notification)(bthf_network_state_t ntk_state, bthf_service_type_t svc_type, int signal,
-                           int batt_chg);
+  /** Response for COPS command */
+  bt_status_t (*cops_response)(const char* cops, RawAddress* bd_addr);
 
-    /** Response for COPS command */
-    bt_status_t (*cops_response)(const char *cops, RawAddress *bd_addr );
+  /** Response for CIND command */
+  bt_status_t (*cind_response)(int svc, int num_active, int num_held,
+                               bthf_call_state_t call_setup_state, int signal,
+                               int roam, int batt_chg, RawAddress* bd_addr);
 
-    /** Response for CIND command */
-    bt_status_t (*cind_response)(int svc, int num_active, int num_held, bthf_call_state_t call_setup_state,
-                                 int signal, int roam, int batt_chg, RawAddress *bd_addr );
+  /** Pre-formatted AT response, typically in response to unknown AT cmd */
+  bt_status_t (*formatted_at_response)(const char* rsp, RawAddress* bd_addr);
 
-    /** Pre-formatted AT response, typically in response to unknown AT cmd */
-    bt_status_t (*formatted_at_response)(const char *rsp, RawAddress *bd_addr );
+  /** ok/error response
+   *  ERROR (0)
+   *  OK    (1)
+   */
+  bt_status_t (*at_response)(bthf_at_response_t response_code, int error_code,
+                             RawAddress* bd_addr);
 
-    /** ok/error response
-     *  ERROR (0)
-     *  OK    (1)
-     */
-    bt_status_t (*at_response) (bthf_at_response_t response_code, int error_code, RawAddress *bd_addr );
+  /** response for CLCC command
+   *  Can be iteratively called for each call index
+   *  Call index of 0 will be treated as NULL termination (Completes response)
+   */
+  bt_status_t (*clcc_response)(int index, bthf_call_direction_t dir,
+                               bthf_call_state_t state, bthf_call_mode_t mode,
+                               bthf_call_mpty_type_t mpty, const char* number,
+                               bthf_call_addrtype_t type, RawAddress* bd_addr);
 
-    /** response for CLCC command
-     *  Can be iteratively called for each call index
-     *  Call index of 0 will be treated as NULL termination (Completes response)
-     */
-    bt_status_t (*clcc_response) (int index, bthf_call_direction_t dir,
-                                bthf_call_state_t state, bthf_call_mode_t mode,
-                                bthf_call_mpty_type_t mpty, const char *number,
-                                bthf_call_addrtype_t type, RawAddress *bd_addr );
+  /** notify of a call state change
+   *  Each update notifies
+   *    1. Number of active/held/ringing calls
+   *    2. call_state: This denotes the state change that triggered this msg
+   *                   This will take one of the values from BtHfCallState
+   *    3. number & type: valid only for incoming & waiting call
+   */
+  bt_status_t (*phone_state_change)(int num_active, int num_held,
+                                    bthf_call_state_t call_setup_state,
+                                    const char* number,
+                                    bthf_call_addrtype_t type);
 
-    /** notify of a call state change
-     *  Each update notifies
-     *    1. Number of active/held/ringing calls
-     *    2. call_state: This denotes the state change that triggered this msg
-     *                   This will take one of the values from BtHfCallState
-     *    3. number & type: valid only for incoming & waiting call
-    */
-    bt_status_t (*phone_state_change) (int num_active, int num_held, bthf_call_state_t call_setup_state,
-                                       const char *number, bthf_call_addrtype_t type);
+  /** Closes the interface. */
+  void (*cleanup)(void);
 
-    /** Closes the interface. */
-    void  (*cleanup)( void );
+  /** Whether we will initiate SCO or not **/
+  bt_status_t (*set_sco_allowed)(bool value);
 
-    /** configuration for the SCO codec */
-    bt_status_t (*configure_wbs)( RawAddress *bd_addr ,bthf_wbs_config_t config );
-
-    /** Response for HF Indicator change (+BIND) */
-    bt_status_t (*bind_response)(bthf_hf_ind_type_t ind_id, bthf_hf_ind_status_t ind_status,
-                                 RawAddress *bd_addr);
-
-    /** Whether we will initiate SCO or not **/
-    bt_status_t (*set_sco_allowed)(bool value);
+  /**
+   * Send +BSIR response code to enable/disable in-band ringtone in an active
+   * HFP service level connection
+   *
+   * @param value true for enabled, false for disable
+   * @param bd_addr remote device address
+   */
+  bt_status_t (*send_bsir)(bool value, RawAddress* bd_addr);
 } bthf_interface_t;
 
 __END_DECLS

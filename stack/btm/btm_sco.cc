@@ -23,6 +23,8 @@
  *
  ******************************************************************************/
 
+#include <device/include/esco_parameters.h>
+#include <stack/include/btm_api_types.h>
 #include <string.h>
 #include "bt_common.h"
 #include "bt_target.h"
@@ -30,6 +32,7 @@
 #include "bt_utils.h"
 #include "btm_api.h"
 #include "btm_int.h"
+#include "btm_int_types.h"
 #include "btu.h"
 #include "device/include/controller.h"
 #include "device/include/esco_parameters.h"
@@ -371,6 +374,8 @@ static tBTM_STATUS btm_send_connect_request(uint16_t acl_handle,
 
   /* Send connect request depending on version of spec */
   if (!btm_cb.sco_cb.esco_supported) {
+    LOG(INFO) << __func__ << ": sending non-eSCO request for handle="
+              << unsigned(acl_handle);
     btsnd_hcic_add_SCO_conn(acl_handle, BTM_ESCO_2_SCO(p_setup->packet_types));
   } else {
     uint16_t temp_packet_types =
@@ -409,15 +414,21 @@ static tBTM_STATUS btm_send_connect_request(uint16_t acl_handle,
 
         /* Return error if no packet types left */
         if (temp_packet_types == 0) {
-          BTM_TRACE_ERROR("%s: SCO Conn (BR/EDR SC): No packet types available",
-                          __func__);
+          LOG(ERROR) << __func__
+                     << ": SCO Conn (BR/EDR SC): No packet types available for "
+                        "acl_handle "
+                     << unsigned(acl_handle);
           return (BTM_WRONG_MODE);
         }
       } else {
-        BTM_TRACE_DEBUG(
-            "%s: SCO Conn(BR/EDR SC):local or peer does not support BR/EDR SC",
-            __func__);
+        LOG(WARNING) << __func__
+                     << ": SCO Conn(BR/EDR SC):local or peer does not support "
+                        "BR/EDR SC for acl_handle "
+                     << unsigned(acl_handle);
       }
+    } else {
+      LOG(ERROR) << __func__ << ": acl_index " << unsigned(acl_index)
+                 << " out of range for acl_handle " << unsigned(acl_handle);
     }
 
     /* Save the previous types in case command fails */
@@ -433,24 +444,27 @@ static tBTM_STATUS btm_send_connect_request(uint16_t acl_handle,
       p_setup->input_data_path = p_setup->output_data_path =
           btm_cb.sco_cb.sco_route;
 
-      BTM_TRACE_DEBUG(
-          "%s: txbw 0x%x, rxbw 0x%x, "
-          "lat 0x%x, retrans 0x%02x, pkt 0x%04x, path %u",
-          __func__, p_setup->transmit_bandwidth, p_setup->receive_bandwidth,
-          p_setup->max_latency_ms, p_setup->retransmission_effort,
-          p_setup->packet_types, p_setup->input_data_path);
+      LOG(INFO) << __func__ << std::hex << ": enhanced parameter list"
+                << " txbw=0x" << unsigned(p_setup->transmit_bandwidth)
+                << ", rxbw=0x" << unsigned(p_setup->receive_bandwidth)
+                << ", latency_ms=0x" << unsigned(p_setup->max_latency_ms)
+                << ", retransmit_effort=0x"
+                << unsigned(p_setup->retransmission_effort) << ", pkt_type=0x"
+                << unsigned(p_setup->packet_types) << ", path=0x"
+                << unsigned(p_setup->input_data_path);
 
       btsnd_hcic_enhanced_set_up_synchronous_connection(acl_handle, p_setup);
       p_setup->packet_types = saved_packet_types;
     } else { /* Use older command */
       uint16_t voice_content_format = btm_sco_voice_settings_to_legacy(p_setup);
-
-      BTM_TRACE_API(
-          "%s: txbw 0x%x, rxbw 0x%x, "
-          "lat 0x%x, voice 0x%x, retrans 0x%02x, pkt 0x%04x",
-          __func__, p_setup->transmit_bandwidth, p_setup->receive_bandwidth,
-          p_setup->max_latency_ms, voice_content_format,
-          p_setup->retransmission_effort, p_setup->packet_types);
+      LOG(INFO) << __func__ << std::hex << ": legacy parameter list"
+                << " txbw=0x" << unsigned(p_setup->transmit_bandwidth)
+                << ", rxbw=0x" << unsigned(p_setup->receive_bandwidth)
+                << ", latency_ms=0x" << unsigned(p_setup->max_latency_ms)
+                << ", retransmit_effort=0x"
+                << unsigned(p_setup->retransmission_effort)
+                << ", voice_content_format=0x" << unsigned(voice_content_format)
+                << ", pkt_type=0x" << unsigned(p_setup->packet_types);
 
       btsnd_hcic_setup_esco_conn(
           acl_handle, p_setup->transmit_bandwidth, p_setup->receive_bandwidth,
@@ -575,7 +589,7 @@ tBTM_STATUS BTM_CreateSco(const RawAddress* remote_bda, bool is_orig,
     }
     acl_handle = BTM_GetHCIConnHandle(*remote_bda, BT_TRANSPORT_BR_EDR);
     if (acl_handle == 0xFFFF) {
-      VLOG(2) << __func__ << ": cannot find ACL handle for remote device "
+      LOG(ERROR) << __func__ << ": cannot find ACL handle for remote device "
               << remote_bda;
       return BTM_UNKNOWN_ADDR;
     }
@@ -587,13 +601,20 @@ tBTM_STATUS BTM_CreateSco(const RawAddress* remote_bda, bool is_orig,
       if (((p->state == SCO_ST_CONNECTING) || (p->state == SCO_ST_LISTENING) ||
            (p->state == SCO_ST_PEND_UNPARK)) &&
           (p->esco.data.bd_addr == *remote_bda)) {
+        LOG(ERROR) << __func__ << ": a sco connection is already going on for "
+                   << *remote_bda << ", at state " << unsigned(p->state);
         return BTM_BUSY;
       }
     }
   } else {
     /* Support only 1 wildcard BD address at a time */
     for (xx = 0; xx < BTM_MAX_SCO_LINKS; xx++, p++) {
-      if ((p->state == SCO_ST_LISTENING) && (!p->rem_bd_known)) return BTM_BUSY;
+      if ((p->state == SCO_ST_LISTENING) && (!p->rem_bd_known)) {
+        LOG(ERROR)
+            << __func__
+            << ": remote_bda is null and not known and we are still listening";
+        return BTM_BUSY;
+      }
     }
   }
 
@@ -616,6 +637,9 @@ tBTM_STATUS BTM_CreateSco(const RawAddress* remote_bda, bool is_orig,
               BTM_SetPowerMode(BTM_PM_SET_ONLY_ID, *remote_bda, &pm);
               p->state = SCO_ST_PEND_UNPARK;
             }
+          } else {
+            LOG(ERROR) << __func__ << ": failed to read power mode for "
+                       << *remote_bda;
           }
 #else   // BTM_SCO_WAKE_PARKED_LINK
           if ((BTM_ReadPowerMode(*remote_bda, &mode) == BTM_SUCCESS) &&
@@ -667,12 +691,18 @@ tBTM_STATUS BTM_CreateSco(const RawAddress* remote_bda, bool is_orig,
                         acl_handle);
 
           if ((btm_send_connect_request(acl_handle, p_setup)) !=
-              BTM_CMD_STARTED)
+              BTM_CMD_STARTED) {
+            LOG(ERROR) << __func__ << ": failed to send connect request for "
+                       << *remote_bda;
             return (BTM_NO_RESOURCES);
+          }
 
           p->state = SCO_ST_CONNECTING;
-        } else
+        } else {
+          BTM_TRACE_API("%s:(e)SCO listening for ACL handle 0x%04x", __func__,
+                        acl_handle);
           p->state = SCO_ST_LISTENING;
+        }
       }
 
       *p_sco_inx = xx;
@@ -683,6 +713,7 @@ tBTM_STATUS BTM_CreateSco(const RawAddress* remote_bda, bool is_orig,
 
 #endif
   /* If here, all SCO blocks in use */
+  LOG(ERROR) << __func__ << ": all SCO control blocks are in use";
   return BTM_NO_RESOURCES;
 }
 
@@ -711,13 +742,17 @@ void btm_sco_chk_pend_unpark(uint8_t hci_status, uint16_t hci_handle) {
 
     {
       BTM_TRACE_API(
-          "%s:(e)SCO Link for ACL "
+          "%s:unparked, sending SCO connection request for ACL "
           "handle 0x%04x, hci_status 0x%02x",
           __func__, acl_handle, hci_status);
 
       if ((btm_send_connect_request(acl_handle, &p->esco.setup)) ==
           BTM_CMD_STARTED)
         p->state = SCO_ST_CONNECTING;
+      else {
+        LOG(ERROR) << __func__ << ": failed to send connection request for "
+                   << p->esco.data.bd_addr;
+      }
     }
   }
 #endif  // BTM_MAX_SCO_LINKS
@@ -878,8 +913,8 @@ void btm_sco_conn_req(const RawAddress& bda, DEV_CLASS dev_class,
 
 #endif
   /* If here, no one wants the SCO connection. Reject it */
-  BTM_TRACE_WARNING(
-      "btm_sco_conn_req: No one wants this SCO connection; rejecting it");
+  BTM_TRACE_WARNING("%s: rejecting SCO for %s", __func__,
+                    bda.ToString().c_str());
   btm_esco_conn_rsp(BTM_MAX_SCO_LINKS, HCI_ERR_HOST_REJECT_RESOURCES, bda,
                     NULL);
 }
