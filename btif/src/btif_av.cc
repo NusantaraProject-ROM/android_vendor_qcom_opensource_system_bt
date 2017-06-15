@@ -1638,11 +1638,15 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       btif_av_cb[index].flags |= BTIF_AV_FLAG_PENDING_STOP;
       btif_av_cb[index].current_playing = false;
       if (btif_av_is_connected_on_other_idx(index)) {
-        if (enable_multicast == false) {
-          APPL_TRACE_WARNING("other Idx is connected, move to SUSPENDED");
-          btif_rc_send_pause_command(&btif_av_cb[index].peer_bda);
-          btif_a2dp_on_stopped(&p_av->suspend);
+        if (!btif_av_is_split_a2dp_enabled()) {
+          if (enable_multicast == false) {
+            APPL_TRACE_WARNING("other Idx is connected, move to SUSPENDED");
+            btif_rc_send_pause_command(&btif_av_cb[index].peer_bda);
+            btif_a2dp_on_stopped(&p_av->suspend);
+          }
         }
+        else
+          btif_a2dp_on_stopped(&p_av->suspend);
       }
       else {
         APPL_TRACE_WARNING("Stop the AV Data channel as no connection is present");
@@ -2310,7 +2314,7 @@ static bt_status_t init_src(
   BTIF_TRACE_EVENT("%s() with max conn = %d", __func__, max_a2dp_connections);
   char value[PROPERTY_VALUE_MAX] = {'\0'};
 
-  osi_property_get("persist.bt.enable.splita2dp", value, "false");
+  osi_property_get("persist.bt.enable.splita2dp", value, "true");
   BTIF_TRACE_ERROR("split_a2dp_status = %s",value);
   bt_split_a2dp_enabled = (strcmp(value, "true") == 0);
   BTIF_TRACE_ERROR("split_a2dp_status = %d",bt_split_a2dp_enabled);
