@@ -91,6 +91,8 @@ typedef struct {
 #define BTM_ACL_SWKEY_STATE_ENCRYPTION_ON 4
 #define BTM_ACL_SWKEY_STATE_IN_PROGRESS 5
   uint8_t switch_role_state;
+#define BTM_MAX_SW_ROLE_FAILED_ATTEMPTS 3
+  uint8_t switch_role_failed_attempts;
 
 #define BTM_ACL_ENCRYPT_STATE_IDLE 0
 #define BTM_ACL_ENCRYPT_STATE_ENCRYPT_OFF 1 /* encryption turning off */
@@ -586,7 +588,10 @@ typedef struct {
 #define BTM_SEC_NO_LAST_SERVICE_ID 0
   uint8_t last_author_service_id; /* ID of last serviced authorized: Reset after
                                      each l2cap connection */
-
+#if (defined(BTM_SAFE_REATTEMPT_ROLE_SWITCH) && BTM_SAFE_REATTEMPT_ROLE_SWITCH == TRUE)
+#define BTM_MAX_BL_SW_ROLE_ATTEMPTS 1
+  uint8_t switch_role_attempts;
+#endif
 } tBTM_SEC_DEV_REC;
 
 #define BTM_SEC_IS_SM4(sm) ((bool)(BTM_SM4_TRUE == ((sm)&BTM_SM4_TRUE)))

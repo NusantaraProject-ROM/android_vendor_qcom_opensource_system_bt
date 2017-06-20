@@ -46,9 +46,9 @@
 #include <hardware/bt_sdp.h>
 #include <hardware/bt_sock.h>
 #ifdef WIPOWER_SUPPORTED
-#include <hardware/vendor.h>
 #include <hardware/wipower.h>
 #endif
+#include <hardware/vendor.h>
 
 #include "bt_utils.h"
 #include "bta/include/bta_hf_client_api.h"
@@ -119,12 +119,15 @@ extern wipower_interface_t *get_wipower_interface();
 
 /* List all test interface here */
 extern btmcap_test_interface_t* stack_mcap_get_interface();
+/* vendor  */
+extern btvendor_interface_t *btif_vendor_get_interface();
+
 
 /*******************************************************************************
  *  Functions
  ******************************************************************************/
 
-static bool interface_ready(void) { return bt_hal_cbacks != NULL; }
+bool interface_ready(void) { return bt_hal_cbacks != NULL; }
 
 static bool is_profile(const char* p1, const char* p2) {
   CHECK(p1);
@@ -376,6 +379,9 @@ static const void* get_profile_interface(const char* profile_id) {
 
   if (is_profile(profile_id, BT_PROFILE_AV_RC_CTRL_ID))
     return btif_rc_ctrl_get_interface();
+
+  if (is_profile(profile_id, BT_PROFILE_VENDOR_ID))
+    return btif_vendor_get_interface();
 
 #ifdef WIPOWER_SUPPORTED
   if (is_profile(profile_id, BT_PROFILE_WIPOWER_VENDOR_ID))

@@ -47,6 +47,7 @@
 #include "osi/include/osi.h"
 #include "sdp_api.h"
 #include "utl.h"
+#include "device/include/interop_config.h"
 
 #if (GAP_INCLUDED == TRUE)
 #include "gap_api.h"
@@ -692,8 +693,11 @@ void bta_dm_remove_device(tBTA_DM_MSG* p_data) {
   bdcpy(other_address, p_dev->bd_addr);
 
   /* If ACL exists for the device in the remove_bond message*/
+  bt_bdaddr_t remote_bdaddr;
+  bdcpy(remote_bdaddr.address, p_dev->bd_addr);
   bool continue_delete_dev = false;
   uint8_t other_transport = BT_TRANSPORT_INVALID;
+  interop_database_remove_addr(INTEROP_DYNAMIC_ROLE_SWITCH, (bt_bdaddr_t *)&remote_bdaddr);
 
   if (BTM_IsAclConnectionUp(p_dev->bd_addr, BT_TRANSPORT_LE) ||
       BTM_IsAclConnectionUp(p_dev->bd_addr, BT_TRANSPORT_BR_EDR)) {

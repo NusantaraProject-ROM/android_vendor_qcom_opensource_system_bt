@@ -12,11 +12,11 @@ cc_library_static {
         "system/bt/hci/include",
         "system/bt/include",
         "system/bt/stack/include",
+        "vendor/qcom/opensource/bluetooth_ext/system_bt_ext",
     ],
     srcs: [
         "src/controller.cc",
         "src/esco_parameters.cc",
-        "src/interop.cc",
     ],
     shared_libs: [
         "liblog",
@@ -38,6 +38,7 @@ cc_test {
     ],
     static_libs: [
         "libbtdevice",
+        "libbtdevice_ext",
         "libbtcore",
         "libosi",
         "libosi-AllocationTestHarness",
