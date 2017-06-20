@@ -721,18 +721,17 @@ void handle_rc_connect(tBTA_AV_RC_OPEN* p_rc_open) {
   p_dev->rc_state = BTRC_CONNECTION_STATE_CONNECTED;
   /* on locally initiated connection we will get remote features as part of
    * connect */
-  if (p_dev->rc_features != 0 && bt_rc_callbacks != NULL) {
-    handle_rc_features(p_dev);
-  }
-
   p_dev->rc_playing_uid = RC_INVALID_TRACK_ID;
   bt_bdaddr_t rc_addr;
   bdcpy(rc_addr.address, p_dev->rc_addr);
+  if (p_dev->rc_features && bt_rc_callbacks != NULL) {
+    if (BTA_AV_FEAT_RCCT)
+      HAL_CBACK(bt_rc_callbacks, connection_state_cb, true, false, &rc_addr);
+    handle_rc_features(p_dev);
+  }
+
   if (bt_rc_ctrl_callbacks != NULL) {
     HAL_CBACK(bt_rc_ctrl_callbacks, connection_state_cb, true, false, &rc_addr);
-  }
-  if (p_dev->rc_features & BTA_AV_FEAT_RCCT) {
-    HAL_CBACK(bt_rc_callbacks, connection_state_cb, true, false, &rc_addr);
   }
   /* report connection state if remote device is AVRCP target */
   handle_rc_ctrl_features(p_dev);
