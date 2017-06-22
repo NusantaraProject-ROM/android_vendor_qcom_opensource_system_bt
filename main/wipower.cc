@@ -479,6 +479,7 @@ int enable_data_notify(bool enable)
     else {
         if (wp_data_timer != 0)
             timer_delete(wp_data_timer);
+            wp_data_timer = 0;
     }
 
     return status;
