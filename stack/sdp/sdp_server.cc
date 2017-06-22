@@ -37,6 +37,9 @@
 #include "hcimsgs.h"
 #include "l2cdefs.h"
 
+#include "btif/include/btif_storage.h"
+#include "btcore/include/bdaddr.h"
+#include "device/include/interop.h"
 #include "osi/include/osi.h"
 #include "sdp_api.h"
 #include "sdpint.h"
@@ -49,6 +52,8 @@ extern fixed_queue_t* btu_general_alarm_queue;
 #define SDP_MAX_SERVICE_RSPHDR_LEN 12
 #define SDP_MAX_SERVATTR_RSPHDR_LEN 10
 #define SDP_MAX_ATTR_RSPHDR_LEN 10
+#define PBAP_SKIP_GOEP_L2CAP_PSM_LEN    0x06
+#define PBAP_SKIP_SUPP_FEA_LEN          0x08
 
 /******************************************************************************/
 /*            L O C A L    F U N C T I O N     P R O T O T Y P E S            */
@@ -65,6 +70,10 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
                                             uint16_t param_len, uint8_t* p_req,
                                             UNUSED_ATTR uint8_t* p_req_end);
 
+static bool is_pbap_record_blacklisted (tSDP_ATTRIBUTE attr, BD_ADDR remote_address);
+
+static tSDP_RECORD *sdp_update_pbap_record_if_blacklisted(tSDP_RECORD *p_rec,
+                                      BD_ADDR remote_address);
 /******************************************************************************/
 /*                E R R O R   T E X T   S T R I N G S                         */
 /*                                                                            */
@@ -351,6 +360,7 @@ static void process_service_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
                             SDP_TEXT_BAD_HANDLE);
     return;
   }
+  p_rec = sdp_update_pbap_record_if_blacklisted(p_rec, p_ccb->device_address);
 
   /* Free and reallocate buffer */
   osi_free(p_ccb->rsp_list);
@@ -541,11 +551,13 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
   uint8_t *p_rsp, *p_rsp_start, *p_rsp_param_len;
   uint16_t rsp_param_len, xx;
   tSDP_RECORD* p_rec;
+  tSDP_RECORD* p_prev_rec;
   tSDP_ATTR_SEQ attr_seq, attr_seq_sav;
   tSDP_ATTRIBUTE* p_attr;
   bool maxxed_out = false, is_cont = false;
   uint8_t* p_seq_start = NULL;
   uint16_t seq_len, attr_len;
+  uint16_t blacklist_skip_len = 0;
 
   /* Extract the UUID sequence to search for */
   p_req = sdpu_extract_uid_seq(p_req, param_len, &uid_seq);
@@ -620,6 +632,34 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
   for (p_rec = sdp_db_service_search(p_ccb->cont_info.prev_sdp_rec, &uid_seq);
        p_rec; p_rec = sdp_db_service_search(p_rec, &uid_seq)) {
     p_ccb->cont_info.curr_sdp_rec = p_rec;
+    /* Store the actual record pointer which would be reused later */
+    p_prev_rec = p_rec;
+    p_rec = sdp_update_pbap_record_if_blacklisted(p_rec, p_ccb->device_address);
+    if (p_rec != p_prev_rec) {
+      /* Remote device is blacklisted for PBAP, calculate the reduction in length */
+      for (xx = p_ccb->cont_info.next_attr_index; xx < attr_seq_sav.num_attr; xx++) {
+        if (attr_seq_sav.attr_entry[xx].start == attr_seq_sav.attr_entry[xx].end) {
+          if (attr_seq_sav.attr_entry[xx].start == ATTR_ID_GOEP_L2CAP_PSM) {
+            blacklist_skip_len += PBAP_SKIP_GOEP_L2CAP_PSM_LEN;
+            SDP_TRACE_ERROR("%s: ATTR_ID_GOEP_L2CAP_PSM requested,"
+                " need to reduce length by %d", __func__,
+                blacklist_skip_len);
+          } else if (attr_seq_sav.attr_entry[xx].start ==
+            ATTR_ID_PBAP_SUPPORTED_FEATURES) {
+            blacklist_skip_len += PBAP_SKIP_SUPP_FEA_LEN;
+            SDP_TRACE_DEBUG("%s: ATTR_ID_PBAP_SUPPORTED_FEATURES requested,"
+                " need to reduce length by %d", __func__,
+                blacklist_skip_len);
+          }
+        } else {
+          blacklist_skip_len = PBAP_SKIP_GOEP_L2CAP_PSM_LEN +
+              PBAP_SKIP_SUPP_FEA_LEN;
+          SDP_TRACE_DEBUG("%s: All attributes requested"
+              " need to reduce length by %d", __func__,
+              blacklist_skip_len);
+        }
+      }
+    }
     /* Allow space for attribute sequence type and length */
     p_seq_start = p_rsp;
     if (p_ccb->cont_info.last_attr_seq_desc_sent == false) {
@@ -720,6 +760,8 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
 
     /* Reset the next attr index */
     p_ccb->cont_info.next_attr_index = 0;
+    /* restore the record pointer.*/
+    p_rec = p_prev_rec;
     p_ccb->cont_info.prev_sdp_rec = p_rec;
     p_ccb->cont_info.last_attr_seq_desc_sent = false;
   }
@@ -758,6 +800,13 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
   if (!is_cont) {
     /* Get the total list length for requested uid and attribute sequence */
     p_ccb->list_len = sdpu_get_list_len(&uid_seq, &attr_seq_sav) + 3;
+    if (blacklist_skip_len &&
+      p_ccb->list_len > blacklist_skip_len) {
+      p_ccb->list_len -= blacklist_skip_len;
+      SDP_TRACE_DEBUG("%s: reducing list_len by %d for blacklisted device",
+          __func__, blacklist_skip_len);
+      blacklist_skip_len = 0;
+    }
     /* Put in the sequence header (2 or 3 bytes) */
     if (p_ccb->list_len > 255) {
       p_ccb->rsp_list[0] =
@@ -798,6 +847,14 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
 
   p_ccb->cont_offset += len_to_send;
 
+  if (blacklist_skip_len &&
+    p_ccb->list_len > blacklist_skip_len) {
+    p_ccb->list_len -= blacklist_skip_len;
+    SDP_TRACE_DEBUG("%s: reducing list_len by %d for blacklisted device",
+        __func__, blacklist_skip_len);
+    blacklist_skip_len = 0;
+  }
+
   /* If anything left to send, continuation needed */
   if (p_ccb->cont_offset < p_ccb->list_len) {
     is_cont = true;
@@ -816,6 +873,98 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
 
   /* Send the buffer through L2CAP */
   L2CA_DataWrite(p_ccb->connection_id, p_buf);
+}
+
+/*************************************************************************************
+**
+** Function        is_pbap_record_blacklisted
+**
+** Description     Checks if given PBAP record is for PBAP PSE and blacklisted
+**
+** Returns         BOOLEAN
+**
+***************************************************************************************/
+static bool is_pbap_record_blacklisted (tSDP_ATTRIBUTE attr,
+                                      BD_ADDR remote_address)
+{
+  if ((attr.id == ATTR_ID_SERVICE_CLASS_ID_LIST) &&
+      (((attr.value_ptr[1] << 8) | (attr.value_ptr[2])) ==
+      UUID_SERVCLASS_PBAP_PSE)) {
+    bt_bdaddr_t remote_bdaddr;
+    bdcpy(remote_bdaddr.address, remote_address);
+
+    bt_property_t prop_name;
+    bt_bdname_t bdname;
+
+    memset(&bdname, 0, sizeof(bt_bdname_t));
+    BTIF_STORAGE_FILL_PROPERTY(&prop_name, BT_PROPERTY_BDNAME,
+                           sizeof(bt_bdname_t), &bdname);
+    if (btif_storage_get_remote_device_property(&remote_bdaddr,
+                                          &prop_name) != BT_STATUS_SUCCESS) {
+      SDP_TRACE_DEBUG("%s: BT_PROPERTY_BDNAME failed", __func__);
+    }
+    if (interop_match_addr(INTEROP_ADV_PBAP_VER_1_1, &remote_bdaddr) ||
+        (strlen((const char *)bdname.name) != 0 &&
+        interop_match_name(INTEROP_ADV_PBAP_VER_1_1,
+        (const char *)bdname.name))) {
+      SDP_TRACE_DEBUG("%s: device is blacklisted for pbap version downgrade", __func__);
+      return true;
+    }
+  }
+  return false;
+}
+
+/*************************************************************************************
+**
+** Function        sdp_update_pbap_record_if_blacklisted
+**
+** Description     updates pbap record after checking if blacklisted
+**
+** Returns         the address of updated record
+**
+***************************************************************************************/
+static tSDP_RECORD *sdp_update_pbap_record_if_blacklisted(tSDP_RECORD *p_rec,
+                                      BD_ADDR remote_address)
+{
+  static tSDP_RECORD pbap_temp_sdp_rec;
+  static bool is_blacklisted_rec_created = false;
+
+  /* Check if the given SDP record is blacklisted and requires updatiion */
+  if (is_pbap_record_blacklisted(p_rec->attribute[1], remote_address)) {
+    if (is_blacklisted_rec_created)
+        return &pbap_temp_sdp_rec;
+
+    bool status = TRUE;
+    int xx;
+    uint8_t supported_repositories = 0x03;
+    uint16_t legacy_version = 0x0101;
+    memset(&pbap_temp_sdp_rec, 0, sizeof(tSDP_RECORD));
+
+    tSDP_ATTRIBUTE  *p_attr = &p_rec->attribute[0];
+
+    /* Copying contents of the PBAP PSE record to a temporary record */
+    for (xx = 0; xx < p_rec->num_attributes; xx++, p_attr++) {
+      SDP_AddAttributeToRecord (&pbap_temp_sdp_rec, p_attr->id,
+      p_attr->type, p_attr->len, p_attr->value_ptr);
+    }
+
+    status &= SDP_DeleteAttributeFromRecord (&pbap_temp_sdp_rec,
+        ATTR_ID_PBAP_SUPPORTED_FEATURES);
+    status &= SDP_DeleteAttributeFromRecord (&pbap_temp_sdp_rec,
+        ATTR_ID_GOEP_L2CAP_PSM);
+    status &= SDP_AddAttributeToRecord (&pbap_temp_sdp_rec,
+        ATTR_ID_SUPPORTED_REPOSITORIES, UINT_DESC_TYPE, (uint32_t)1,
+        (uint8_t*)&supported_repositories);
+    status &= SDP_AddProfileDescriptorListToRecord(&pbap_temp_sdp_rec,
+        UUID_SERVCLASS_PHONE_ACCESS, legacy_version);
+    if (!status) {
+      SDP_TRACE_ERROR("%s() FAILED", __func__);
+      return p_rec;
+    }
+    is_blacklisted_rec_created = true;
+    return &pbap_temp_sdp_rec;
+  }
+  return p_rec;
 }
 
 #endif /* SDP_SERVER_ENABLED == TRUE */
