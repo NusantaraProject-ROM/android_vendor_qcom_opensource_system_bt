@@ -466,7 +466,7 @@ int enable_data_notify(bool enable)
     if (enable) {
         se.sigev_notify_function = wp_data_timeout;
         se.sigev_notify = SIGEV_THREAD;
-        se.sigev_value.sival_ptr = &wp_data_timer;
+        se.sigev_value.sival_ptr = NULL;
         se.sigev_notify_attributes = NULL;
 
         ret = timer_create(CLOCK_MONOTONIC, &se, &wp_data_timer);
