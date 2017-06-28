@@ -86,6 +86,9 @@ typedef enum {
 #define HOST_ROLE_SLAVE                    0x01
 #define HOST_ROLE_UNKNOWN                  0xff
 
+/* Default sink latency value while delay report is not supported by SNK */
+#define BTIF_AV_DEFAULT_SINK_LATENCY 0
+#define BTIF_AV_DEFAULT_MULTICAST_SINK_LATENCY 200
 
 /*****************************************************************************
  *  Local type definitions
@@ -107,6 +110,7 @@ typedef struct {
   bool is_slave;
   bool is_device_playing;
   bool reconfig_pending; /* flag used for codec switch */
+  tBTA_AV_LATENCY sink_latency;
 } btif_av_cb_t;
 
 typedef struct {
@@ -127,9 +131,9 @@ static btav_source_callbacks_t* bt_av_src_callbacks = NULL;
 static btav_sink_callbacks_t* bt_av_sink_callbacks = NULL;
 static btif_av_cb_t btif_av_cb[BTIF_AV_NUM_CB] = {
     { 0, {{0}}, 0, 0, 0, 0, std::vector<btav_a2dp_codec_config_t>(), false,
-    false, false, BTIF_AV_STATE_IDLE, BTA_A2DP_SOURCE_SERVICE_ID, false, false, false},
+    false, false, BTIF_AV_STATE_IDLE, BTA_A2DP_SOURCE_SERVICE_ID, false, false, false, 0},
     { 0, {{0}}, 0, 0, 0, 0, std::vector<btav_a2dp_codec_config_t>(), false,
-    false, false, BTIF_AV_STATE_IDLE, BTA_A2DP_SOURCE_SERVICE_ID, false, false, false},
+    false, false, BTIF_AV_STATE_IDLE, BTA_A2DP_SOURCE_SERVICE_ID, false, false, false, 0},
 };
 static alarm_t* av_open_on_rc_timer = NULL;
 static btif_sm_event_t idle_rc_event;
@@ -270,6 +274,7 @@ const char* dump_av_sm_event_name(btif_av_sm_event_t event) {
     CASE_RETURN_STR(BTA_AV_REJECT_EVT)
     CASE_RETURN_STR(BTA_AV_RC_FEAT_EVT)
     CASE_RETURN_STR(BTA_AV_OFFLOAD_START_RSP_EVT)
+    CASE_RETURN_STR(BTA_AV_DELAY_REPORT_EVT)
     CASE_RETURN_STR(BTIF_SM_ENTER_EVT)
     CASE_RETURN_STR(BTIF_SM_EXIT_EVT)
     CASE_RETURN_STR(BTIF_AV_CONNECT_REQ_EVT)
@@ -511,6 +516,7 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       btif_av_cb[index].is_slave = false;
       btif_av_cb[index].is_device_playing = false;
       btif_av_cb[index].reconfig_pending = false;
+      btif_av_cb[index].sink_latency = 0;
       for (int i = 0; i < btif_max_av_clients; i++)
         btif_av_cb[i].dual_handoff = false;
       osi_property_get("persist.service.bt.a2dp.sink", a2dp_role, "false");
@@ -983,6 +989,14 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
        btif_rc_handler(event, (tBTA_AV*)p_data);;
        break;
 
+    case BTA_AV_DELAY_REPORT_EVT:
+      /* Initial delay report after avdtp stream configuration */
+      BTIF_TRACE_DEBUG("%s : BTA_AV_DELAY_REPORT_EVT received", __func__);
+      if (btif_av_cb[index].peer_sep == AVDT_TSEP_SNK) {
+        btif_av_cb[index].sink_latency = ((tBTA_AV*)p_data)->delay_rpt.sink_delay;
+      }
+      break;
+
       CHECK_RC_EVENT(event, (tBTA_AV*)p_data);
 
     default:
@@ -1402,6 +1416,14 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
       btif_av_check_rc_connection_priority(p_data);
     }  break;
 
+    case BTA_AV_DELAY_REPORT_EVT:
+      /* Initial delay report after avdtp stream configuration */
+      BTIF_TRACE_DEBUG("%s : BTA_AV_DELAY_REPORT_EVT received", __func__);
+      if (btif_av_cb[index].peer_sep == AVDT_TSEP_SNK) {
+        btif_av_cb[index].sink_latency = ((tBTA_AV*)p_data)->delay_rpt.sink_delay;
+      }
+      break;
+
       CHECK_RC_EVENT(event, (tBTA_AV*)p_data);
 
     default: {
@@ -1736,6 +1758,12 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       btif_av_cb[index].current_playing = true;
       break;
 
+    case BTA_AV_DELAY_REPORT_EVT:
+      /* Todo Implement: Delay report during A2dp streaming
+       * Update latency to A2dp StateMachine if need support
+       * dynamic audio/video sync */
+      break;
+
       CHECK_RC_EVENT(event, (tBTA_AV*)p_data);
 
     default:
@@ -1912,6 +1940,11 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
     case BTA_AV_OFFLOAD_START_RSP_EVT:
       index = btif_av_get_latest_playing_device_idx();
       break;
+
+    case BTA_AV_DELAY_REPORT_EVT:
+      index = HANDLE_TO_INDEX(p_bta_data->delay_rpt.hndl);
+      break;
+
       /* Handle all RC events on default index. RC handling should take
        * care of the events. All events come with BD Address
        * Handled well in AV Opening, opened and started state
@@ -3168,6 +3201,70 @@ static void btif_av_update_current_playing_device(int index) {
   for (i = 0; i < btif_max_av_clients; i++)
     if (i != index)
       btif_av_cb[i].current_playing = true;
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_av_get_current_playing_dev_idx
+ *
+ * Description      get current playing device index
+ *
+ * Returns          int
+ *
+ ******************************************************************************/
+static int btif_av_get_current_playing_dev_idx(void)
+{
+  int i;
+
+  for (i = 0; i < btif_max_av_clients; i++) {
+    if (btif_av_cb[i].current_playing == TRUE) {
+      BTIF_TRACE_DEBUG("current playing on index = %d", i);
+      return i;
+    }
+  }
+
+  return 0;
+}
+
+/******************************************************************************
+**
+** Function        btif_av_get_sink_latency
+**
+** Description     get initial sink latency
+**
+** Returns         tBTA_AV_LATENCY
+**
+********************************************************************************/
+tBTA_AV_LATENCY btif_av_get_sink_latency() {
+  int index = 0;
+  int i;
+  tBTA_AV_LATENCY latency = 0;
+  tBTA_AV_LATENCY sink_latency = 0;
+
+  if (enable_multicast == false) {
+    index = btif_av_get_current_playing_dev_idx();
+    /* Set sink latency to be latency reported from sink if delay reporting
+     * is enabled, or else set sink latency to be default sink latency value */
+    if (btif_av_cb[index].sink_latency > 0)
+      sink_latency = btif_av_cb[index].sink_latency;
+    else
+      sink_latency = BTIF_AV_DEFAULT_SINK_LATENCY;
+  } else {
+    BTIF_TRACE_DEBUG("%s, multicast enabled, calculate average sink latency", __func__);
+    for (i = 0; i < btif_max_av_clients; i++) {
+      if (btif_av_cb[i].sink_latency > 0)
+        latency += btif_av_cb[i].sink_latency;
+      else
+        latency += BTIF_AV_DEFAULT_MULTICAST_SINK_LATENCY;
+    }
+    if (latency > 0)
+      sink_latency = latency / btif_max_av_clients;
+    else
+      sink_latency = BTIF_AV_DEFAULT_MULTICAST_SINK_LATENCY;
+  }
+
+  BTIF_TRACE_DEBUG("%s, return sink latency: %d", __func__, sink_latency);
+  return sink_latency;
 }
 
 uint8_t btif_av_get_peer_sep(int index) {

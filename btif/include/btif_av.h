@@ -375,4 +375,14 @@ int btif_av_get_latest_device_idx_to_start();
 ********************************************************************************/
 bool btif_av_is_under_handoff();
 
+/******************************************************************************
+**
+** Function        btif_av_get_sink_latency
+**
+** Description     get initial sink latency
+**
+** Returns         tBTA_AV_LATENCY
+********************************************************************************/
+tBTA_AV_LATENCY btif_av_get_sink_latency();
+
 #endif /* BTIF_AV_H */

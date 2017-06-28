@@ -154,6 +154,13 @@ class BluetoothAudioCallbacks : public IBluetoothAudioCallbacks {
         return mapToStatus(resp);
         //return ::android::hardware::bluetooth_audio::V1_0::Status {};
     }
+    Return<uint16_t> a2dp_get_sink_latency() {
+        uint16_t sink_latency;
+        LOG_INFO(LOG_TAG,"a2dp_get_sink_latency");
+
+        sink_latency = btif_av_get_sink_latency();
+        return sink_latency;
+    }
 };
 
 Status mapToStatus(uint8_t resp)

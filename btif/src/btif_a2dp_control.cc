@@ -281,6 +281,18 @@ static void btif_a2dp_recv_ctrl_data(void) {
       btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, NULL, 0);
       break;
 
+    case A2DP_CTRL_GET_SINK_LATENCY: {
+      tA2DP_LATENCY sink_latency;
+
+      sink_latency = btif_av_get_sink_latency();
+      btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+      /* Send sink latency */
+      UIPC_Send(UIPC_CH_ID_AV_CTRL, 0,
+                reinterpret_cast<const uint8_t*>(&sink_latency),
+                sizeof(tA2DP_LATENCY));
+      break;
+    }
+
     default:
       APPL_TRACE_ERROR("UNSUPPORTED CMD (%d)", cmd);
       btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);

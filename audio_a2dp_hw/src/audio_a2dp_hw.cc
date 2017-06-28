@@ -85,6 +85,9 @@ static int number =0;
 // sockets
 #define WRITE_POLL_MS 20
 
+// default sink latency
+#define A2DP_DEFAULT_SINK_LATENCY 200
+
 #define FNLOG() LOG_VERBOSE(LOG_TAG, "%s", __func__);
 #define DEBUG(fmt, ...) \
   LOG_VERBOSE(LOG_TAG, "%s: " fmt, __func__, ##__VA_ARGS__)
@@ -111,6 +114,8 @@ typedef enum {
   AUDIO_A2DP_STATE_SUSPENDED,
   AUDIO_A2DP_STATE_STANDBY /* allows write to autoresume */
 } a2dp_state_t;
+
+static bool update_initial_sink_latency = false;
 
 struct a2dp_stream_in;
 struct a2dp_stream_out;
@@ -139,6 +144,7 @@ struct a2dp_stream_common {
   size_t buffer_sz;
   struct a2dp_config cfg;
   a2dp_state_t state;
+  tA2DP_LATENCY sink_latency;
 };
 
 struct a2dp_stream_out {
@@ -772,6 +778,23 @@ static int a2dp_write_output_audio_config(struct a2dp_stream_common* common) {
   return 0;
 }
 
+static tA2DP_LATENCY a2dp_get_sink_latency(struct a2dp_stream_common* common) {
+  tA2DP_LATENCY sink_latency;
+
+  if (a2dp_command(common, A2DP_CTRL_GET_SINK_LATENCY) < 0) {
+    ERROR("a2dp get sink latency failed");
+    return -1;
+  }
+
+  if (a2dp_ctrl_receive(common, &sink_latency, sizeof(tA2DP_LATENCY)) < 0) {
+    ERROR("receive a2dp sink latency failed");
+    return -1;
+  }
+
+  INFO("a2dp get sink latency: %d", sink_latency);
+  return sink_latency;
+}
+
 static void a2dp_open_ctrl_path(struct a2dp_stream_common* common) {
   int i;
 
@@ -813,6 +836,7 @@ static void a2dp_stream_common_init(struct a2dp_stream_common* common) {
 
   /* manages max capacity of socket pipe */
   common->buffer_sz = AUDIO_STREAM_OUTPUT_BUFFER_SZ;
+  common->sink_latency = A2DP_DEFAULT_SINK_LATENCY;
 }
 
 static void a2dp_stream_common_destroy(struct a2dp_stream_common* common) {
@@ -865,6 +889,8 @@ static int start_audio_datapath(struct a2dp_stream_common* common) {
     }
   }
   common->state = (a2dp_state_t)AUDIO_A2DP_STATE_STARTED;
+  /* update initial sink latency after start stream */
+  update_initial_sink_latency = true;
   return 0;
 
 error:
@@ -1337,6 +1363,9 @@ done:
 
 static uint32_t out_get_latency(const struct audio_stream_out* stream) {
   int latency_us;
+  int src_latency;
+  tA2DP_LATENCY sink_latency;
+  int total_latency;
 
   struct a2dp_stream_out* out = (struct a2dp_stream_out*)stream;
 
@@ -1347,7 +1376,19 @@ static uint32_t out_get_latency(const struct audio_stream_out* stream) {
        audio_stream_out_frame_size(&out->stream) / out->common.cfg.rate) *
       1000;
 
-  return (latency_us / 1000) + 200;
+  src_latency = (latency_us / 1000);
+  /* get initial sink latency if update_initial_sink_latency is true */
+  if (update_initial_sink_latency) {
+    sink_latency = a2dp_get_sink_latency(&out->common);
+    if (sink_latency <= 0)
+      out->common.sink_latency = A2DP_DEFAULT_SINK_LATENCY;
+    else
+      out->common.sink_latency = sink_latency;
+    update_initial_sink_latency = false;
+  }
+
+  total_latency = src_latency + out->common.sink_latency;
+  return total_latency;
 }
 
 static int out_set_volume(UNUSED_ATTR struct audio_stream_out* stream,
