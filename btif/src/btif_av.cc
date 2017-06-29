@@ -708,8 +708,6 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
                     (p_bta_data->open.status == BTA_AV_SUCCESS)) {
         /* if queued PLAY command,  send it now */
         btif_rc_check_handle_pending_play(p_bta_data->open.bd_addr, false);
-        /* if queued PLAY command,  send it now */
-        btif_rc_check_handle_pending_play(p_bta_data->open.bd_addr, false);
         /* Bring up AVRCP connection too */
         BTA_AvOpenRc(btif_av_cb[index].bta_handle);
       }
