@@ -1689,22 +1689,6 @@ void bta_hh_le_srvc_search_cmpl(tBTA_GATTC_SEARCH_CMPL* p_data) {
           break;
         }
       }
-    } else if (service->uuid.uu.uuid16 == UUID_SERVCLASS_GAP_SERVER) {
-      // TODO(jpawlowski): this should be done by GAP profile, remove when GAP
-      // is fixed.
-      for (list_node_t* cn = list_begin(service->characteristics);
-           cn != list_end(service->characteristics); cn = list_next(cn)) {
-        tBTA_GATTC_CHARACTERISTIC* p_char =
-            (tBTA_GATTC_CHARACTERISTIC*)list_node(cn);
-        if (p_char->uuid.len == LEN_UUID_16 &&
-            p_char->uuid.uu.uuid16 == GATT_UUID_GAP_PREF_CONN_PARAM) {
-          /* read the char value */
-          gatt_queue_read_op(GATT_READ_CHAR, p_dev_cb->conn_id, p_char->handle,
-                             read_pref_conn_params_cb, p_dev_cb);
-
-          break;
-        }
-      }
     }
   }
 
