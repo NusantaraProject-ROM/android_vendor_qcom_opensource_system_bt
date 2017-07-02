@@ -237,6 +237,7 @@ void btif_av_reset_reconfig_flag();
 bool btif_av_is_device_disconnecting();
 tBTA_AV_HNDL btif_av_get_reconfig_dev_hndl();
 void btif_av_reset_codec_reconfig_flag();
+void btif_av_reinit_audio_interface();
 
 const char* dump_av_sm_state_name(btif_av_state_t state) {
   switch (state) {
@@ -1362,9 +1363,11 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
       }
 
 /* SPLITA2DP */
-      if (btif_av_is_split_a2dp_enabled()) {
-        btif_a2dp_audio_if_init = false;
-        btif_a2dp_audio_interface_deinit();
+      if (!btif_av_is_connected_on_other_idx(index)) {
+        if (btif_av_is_split_a2dp_enabled()) {
+          btif_a2dp_audio_if_init = false;
+          btif_a2dp_audio_interface_deinit();
+        }
       }
 /* SPLITA2DP */
       /* inform the application that we are disconnecting */
@@ -1920,6 +1923,9 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
         index = HANDLE_TO_INDEX(hdl);
       }
       break;
+    case BTIF_AV_REINIT_AUDIO_IF:
+      btif_av_reinit_audio_interface();
+      return;
       // Events from the stack, BTA
     case BTA_AV_ENABLE_EVT:
       index = 0;
@@ -3769,5 +3775,19 @@ void btif_av_reset_codec_reconfig_flag() {
     if (btif_av_cb[i].reconfig_pending)
      btif_av_cb[i].reconfig_pending = false;
   }
+}
+
+/******************************************************************************
+**
+** Function        btif_av_reinit_audio_interface
+**
+** Description     Reinit audio interface,this function is called when BT
+**                 audio hal server is died
+**
+** Returns         void
+********************************************************************************/
+void btif_av_reinit_audio_interface() {
+  BTIF_TRACE_DEBUG(LOG_TAG,"btif_av_reint_audio_interface");
+  btif_a2dp_audio_interface_init();
 }
 /*SPLITA2DP*/

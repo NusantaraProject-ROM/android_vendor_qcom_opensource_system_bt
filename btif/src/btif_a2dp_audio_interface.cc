@@ -34,6 +34,7 @@
 #include "btif_av_co.h"
 #include "btif_hf.h"
 #include "a2dp_sbc.h"
+#include <pthread.h>
 #include "osi/include/osi.h"
 #include <base/logging.h>
 #include <utils/RefBase.h>
@@ -51,6 +52,8 @@ using ::android::hardware::Return;
 using ::android::hardware::Void;
 using ::android::hardware::hidl_vec;
 using ::android::sp;
+using ::android::hardware::hidl_death_recipient;
+using ::android::wp;
 android::sp<IBluetoothAudio> btAudio;
 
 #define CASE_RETURN_STR(const) \
@@ -61,7 +64,8 @@ uint8_t codec_info[30];
 uint8_t len,a2dp_cmd_pending = A2DP_CTRL_CMD_NONE;
 Status mapToStatus(uint8_t resp);
 uint8_t btif_a2dp_audio_process_request(uint8_t cmd);
-
+volatile bool server_died = false;
+static pthread_t audio_hal_monitor;
 /*BTIF AV helper */
 extern bool btif_av_is_device_disconnecting();
 extern bool reconfig_a2dp;
@@ -99,6 +103,19 @@ typedef enum {
 #define A2DP_SBC_NON_EDR_MAX_RATE 229
 #endif
 #endif
+
+void on_hidl_server_died();
+//using OnServerDead = std::function<void(void)>;
+struct HidlDeathRecipient : public hidl_death_recipient {
+  virtual void serviceDied(
+      uint64_t /*cookie*/,
+      const wp<::android::hidl::base::V1_0::IBase>& /*who*/) {
+    LOG_INFO(LOG_TAG,"serviceDied");
+    //on_hidl_server_died();
+    server_died = true;
+  }
+};
+sp<HidlDeathRecipient> BTAudioHidlDeathRecipient = new HidlDeathRecipient();
 
 class BluetoothAudioCallbacks : public IBluetoothAudioCallbacks {
  public:
@@ -173,11 +190,25 @@ Status mapToStatus(uint8_t resp)
     }
   return Status::SUCCESS;
 }
+
+/* Thread to handle hal sever death receipt*/
+static void* server_thread(UNUSED_ATTR void* arg) {
+  LOG_INFO(LOG_TAG,"%s",__func__);
+  while (server_died == false);
+  if (btAudio != nullptr) {
+    LOG_INFO(LOG_TAG,"%s:audio hal died",__func__);
+    server_died = false;
+    on_hidl_server_died();
+  }
+  pthread_join(audio_hal_monitor, NULL);
+  LOG_INFO(LOG_TAG,"%s EXIT",__func__);
+  return NULL;
+}
+
 void btif_a2dp_audio_interface_init() {
   LOG_INFO(LOG_TAG,"btif_a2dp_audio_interface_init");
   btAudio = IBluetoothAudio::getService();
   CHECK(btAudio != nullptr);
-
   LOG_INFO(LOG_TAG, "%s: IBluetoothAudio::getService() returned %p (%s)",
            __func__, btAudio.get(), (btAudio->isRemote() ? "remote" : "local"));
   {
@@ -186,8 +217,14 @@ void btif_a2dp_audio_interface_init() {
     btAudio->initialize_callbacks(callbacks);
   }
   deinit_pending = false;
+  server_died = false;
+  int ret = pthread_create(&audio_hal_monitor, (const pthread_attr_t*)NULL, server_thread, nullptr);
+  if (ret != 0)
+    LOG_ERROR(LOG_TAG,"pthread create falied");
+  btAudio->linkToDeath(BTAudioHidlDeathRecipient, 0);
   LOG_INFO(LOG_TAG,"%s:Init returned",__func__);
 }
+
 void btif_a2dp_audio_interface_deinit() {
   LOG_INFO(LOG_TAG,"btif_a2dp_audio_interface_deinit");
   deinit_pending = true;
@@ -198,9 +235,12 @@ void btif_a2dp_audio_interface_deinit() {
     }
   }
   deinit_pending = false;
+  btAudio->unlinkToDeath(BTAudioHidlDeathRecipient);
   btAudio = nullptr;
+  server_died = true; //Exit thread
   LOG_INFO(LOG_TAG,"btif_a2dp_audio_interface_deinit:Exit");
 }
+
 void btif_a2dp_audio_on_started(tBTA_AV_STATUS status)
 {
   LOG_INFO(LOG_TAG,"btif_a2dp_audio_on_started : status = %d",status);
@@ -323,7 +363,15 @@ void btif_a2dp_audio_send_sink_latency()
     if (!ret.isOk()) LOG_ERROR(LOG_TAG,"server died");
   }
 }
-
+void on_hidl_server_died() {
+  LOG_INFO(LOG_TAG,"on_hidl_server_died");
+  if (btAudio != nullptr) {
+    btAudio->unlinkToDeath(BTAudioHidlDeathRecipient);
+    btAudio = nullptr;
+    usleep(2000000); //sleep for 2sec for hal server to restart
+    btif_dispatch_sm_event(BTIF_AV_REINIT_AUDIO_IF,NULL,0);
+  }
+}
 uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
 {
   APPL_TRACE_DEBUG(LOG_TAG,"btif_a2dp_audio_process_request %s", audio_a2dp_hw_dump_ctrl_event((tA2DP_CTRL_CMD)cmd));
