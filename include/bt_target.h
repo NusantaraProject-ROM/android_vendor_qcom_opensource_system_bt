@@ -129,6 +129,15 @@
 #define BTA_HOST_INTERLEAVE_SEARCH FALSE
 #endif
 
+#ifndef BT_TRACE_BTIF
+#define BT_TRACE_BTIF  TRUE
+#endif
+
+
+#ifndef BT_TRACE_LATENCY_AUDIO
+#define BT_TRACE_LATENCY_AUDIO  TRUE
+#endif
+
 #ifndef BTA_DM_SDP_DB_SIZE
 #define BTA_DM_SDP_DB_SIZE 8000
 #endif

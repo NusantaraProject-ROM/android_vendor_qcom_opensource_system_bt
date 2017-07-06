@@ -495,7 +495,7 @@ static void btif_av_check_and_start_collission_timer(int index) {
 static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int index) {
   char a2dp_role[255] = "false";
   bt_bdaddr_t * bt_addr = NULL;
-  BTIF_TRACE_DEBUG("%s event:%s flags %x on index %x", __func__,
+  BTIF_TRACE_IMP("%s event:%s flags %x on index %x", __func__,
                    dump_av_sm_event_name((btif_av_sm_event_t)event),
                    btif_av_cb[index].flags, index);
 
@@ -762,7 +762,7 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
                                           int index) {
   int i;
   bt_bdaddr_t * bt_addr = NULL;
-  BTIF_TRACE_DEBUG("%s event:%s flags %x on index %x", __func__,
+  BTIF_TRACE_IMP("%s event:%s flags %x on index %x", __func__,
                    dump_av_sm_event_name((btif_av_sm_event_t)event),
                    btif_av_cb[index].flags, index);
 
@@ -1007,7 +1007,7 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
 static bool btif_av_state_closing_handler(btif_sm_event_t event, void* p_data, int index) {
   bt_bdaddr_t * bt_addr = NULL;
 
-  BTIF_TRACE_DEBUG("%s event:%s flags %x and index %x", __func__,
+  BTIF_TRACE_IMP("%s event:%s flags %x and index %x", __func__,
                    dump_av_sm_event_name((btif_av_sm_event_t)event),
                    btif_av_cb[index].flags, index);
 
@@ -1130,7 +1130,7 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
   bt_bdaddr_t * bt_addr = NULL;
   tBTA_AV* p_av = (tBTA_AV*)p_data;
 
-  BTIF_TRACE_DEBUG("%s event:%s flags %x peer_sep %x and index %x", __func__,
+  BTIF_TRACE_IMP("%s event:%s flags %x peer_sep %x and index %x", __func__,
                    dump_av_sm_event_name((btif_av_sm_event_t)event),
                    btif_av_cb[index].flags, btif_av_cb[index].peer_sep, index);
 
@@ -1431,7 +1431,7 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
   btif_sm_state_t state = BTIF_AV_STATE_IDLE;
   int i;
 
-  BTIF_TRACE_DEBUG("%s event:%s flags %x  index =%d", __func__,
+  BTIF_TRACE_IMP("%s event:%s flags %x  index =%d", __func__,
                    dump_av_sm_event_name((btif_av_sm_event_t)event),
                    btif_av_cb[index].flags, index);
 
@@ -2919,7 +2919,9 @@ bool btif_av_stream_started_ready(void)
 /* used to pass events to AV statemachine from other tasks */
 void btif_dispatch_sm_event(btif_av_sm_event_t event, void* p_data, int len) {
   /* Switch to BTIF context */
+  BTIF_TRACE_IMP("%s: event: %d, len: %d", __FUNCTION__, event, len);
   btif_transfer_context(btif_av_handle_event, event, (char*)p_data, len, NULL);
+  BTIF_TRACE_IMP("%s: event %d sent", __FUNCTION__, event);
 }
 
 /*******************************************************************************

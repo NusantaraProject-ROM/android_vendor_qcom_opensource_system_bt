@@ -1085,7 +1085,7 @@ uint16_t AVRC_Open(uint8_t* p_handle, tAVRC_CONN_CB* p_ccb,
     avrc_cb.ccb_int[*p_handle].tle = alarm_new("avrcp.commandTimer");
     avrc_cb.ccb_int[*p_handle].cmd_q = fixed_queue_new(SIZE_MAX);
   }
-  AVRC_TRACE_DEBUG("%s role: %d, control:%d status:%d, handle:%d", __func__,
+  BTIF_TRACE_IMP("%s role: %d, control:%d status:%d, handle:%d", __func__,
                    cc.role, cc.control, status, *p_handle);
 
   return status;
