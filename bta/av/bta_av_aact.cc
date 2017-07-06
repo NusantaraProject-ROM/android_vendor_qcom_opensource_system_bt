@@ -3145,6 +3145,21 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
         {
           uint8_t param[2];
           APPL_TRACE_DEBUG("VS_QHCI_WRITE_A2DP_MEDIA_CHANNEL_CFG successful");
+#if (BTA_AV_CO_CP_SCMS_T == TRUE)
+          param[0] = VS_QHCI_A2DP_WRITE_SCMS_T_CP;
+          param[1] = offload_start.cp_flag;
+#else
+          param[0] = VS_QHCI_START_A2DP_MEDIA;
+          param[1] = 0;
+#endif
+          BTM_VendorSpecificCommand(HCI_VSQC_CONTROLLER_A2DP_OPCODE,2,
+                                    param, offload_vendor_callback);
+          break;
+        }
+      case VS_QHCI_A2DP_WRITE_SCMS_T_CP:
+        {
+          uint8_t param[2];
+          APPL_TRACE_DEBUG("VS_QHCI_A2DP_WRITE_SCMS_T_CP successful");
           param[0] = VS_QHCI_START_A2DP_MEDIA;
           param[1] = 0;
           BTM_VendorSpecificCommand(HCI_VSQC_CONTROLLER_A2DP_OPCODE,2,
