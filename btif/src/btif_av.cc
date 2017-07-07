@@ -1661,21 +1661,8 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       btif_av_cb[index].flags |= BTIF_AV_FLAG_PENDING_STOP;
       if (!btif_av_cb[index].reconfig_pending)
         btif_av_cb[index].current_playing = false;
-      if (btif_av_is_connected_on_other_idx(index)) {
-        if (!btif_av_is_split_a2dp_enabled()) {
-          if (enable_multicast == false) {
-            APPL_TRACE_WARNING("other Idx is connected, move to SUSPENDED");
-            btif_rc_send_pause_command(&btif_av_cb[index].peer_bda);
-            btif_a2dp_on_stopped(&p_av->suspend);
-          }
-        }
-        else
-          btif_a2dp_on_stopped(&p_av->suspend);
-      }
-      else {
-        APPL_TRACE_WARNING("Stop the AV Data channel as no connection is present");
-        btif_a2dp_on_stopped(&p_av->suspend);
-      }
+      BTIF_TRACE_DEBUG("Stop the AV Data channel");
+      btif_a2dp_on_stopped(&p_av->suspend);
       btif_av_cb[index].is_device_playing = false;
       btif_report_audio_state(BTAV_AUDIO_STATE_STOPPED, &(btif_av_cb[index].peer_bda));
       // if stop was successful, change state to open
