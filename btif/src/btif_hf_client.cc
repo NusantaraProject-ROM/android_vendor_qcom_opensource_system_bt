@@ -50,6 +50,7 @@
 #include <hardware/bluetooth.h>
 #include <hardware/bt_hf_client.h>
 
+#include "bt_target.h"
 #include "bt_utils.h"
 #include "bta_hf_client_api.h"
 #include "btcore/include/bdaddr.h"
@@ -71,11 +72,20 @@
 #define BTIF_HF_CLIENT_SECURITY (BTA_SEC_AUTHENTICATE | BTA_SEC_ENCRYPT)
 #endif
 
+#if (BTM_WBS_INCLUDED == TRUE)
 #ifndef BTIF_HF_CLIENT_FEATURES
 #define BTIF_HF_CLIENT_FEATURES                                                \
   (BTA_HF_CLIENT_FEAT_ECNR | BTA_HF_CLIENT_FEAT_3WAY |                         \
    BTA_HF_CLIENT_FEAT_CLI | BTA_HF_CLIENT_FEAT_VREC | BTA_HF_CLIENT_FEAT_VOL | \
    BTA_HF_CLIENT_FEAT_ECS | BTA_HF_CLIENT_FEAT_ECC | BTA_HF_CLIENT_FEAT_CODEC)
+#endif
+#else
+#ifndef BTIF_HF_CLIENT_FEATURES
+#define BTIF_HF_CLIENT_FEATURES                                                \
+  (BTA_HF_CLIENT_FEAT_ECNR | BTA_HF_CLIENT_FEAT_3WAY |                         \
+   BTA_HF_CLIENT_FEAT_CLI | BTA_HF_CLIENT_FEAT_VREC | BTA_HF_CLIENT_FEAT_VOL | \
+   BTA_HF_CLIENT_FEAT_ECS | BTA_HF_CLIENT_FEAT_ECC)
+#endif
 #endif
 
 /*******************************************************************************
