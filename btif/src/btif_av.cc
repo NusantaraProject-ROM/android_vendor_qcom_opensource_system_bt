@@ -2679,12 +2679,6 @@ static void cleanup(int service_uuid) {
 
   alarm_free(av_open_on_rc_timer);
   av_open_on_rc_timer = NULL;
-
-  /* Also shut down the AV state machine */
-  for (int i = 0; i < btif_max_av_clients; i++) {
-    btif_sm_shutdown(btif_av_cb[i].sm_handle);
-    btif_av_cb[i].sm_handle = NULL;
-  }
 }
 
 static void cleanup_src(void) {
