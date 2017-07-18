@@ -244,7 +244,7 @@ void rfc_port_sm_sabme_wait_ua(tPORT* p_port, uint16_t event, void* p_data) {
  *
  * Description      This function handles events for the port in the
  *                  WAIT_SEC_CHECK state.  SABME has been received from the
- *                  peer and Security Manager verifes BD_ADDR, before we can
+ *                  peer and Security Manager verifes address, before we can
  *                  send ESTABLISH_IND to the Port entity
  *
  * Returns          void

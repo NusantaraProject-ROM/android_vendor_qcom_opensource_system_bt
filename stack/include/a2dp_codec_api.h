@@ -413,8 +413,8 @@ class A2dpCodecs {
 
  private:
   struct CompareBtBdaddr
-      : public std::binary_function<bt_bdaddr_t, bt_bdaddr_t, bool> {
-    bool operator()(const bt_bdaddr_t& lhs, const bt_bdaddr_t& rhs) const {
+      : public std::binary_function<RawAddress, RawAddress, bool> {
+    bool operator()(const RawAddress& lhs, const RawAddress& rhs) const {
       return (memcmp(&lhs, &rhs, sizeof(lhs)) < 0);
     }
   };
@@ -434,7 +434,7 @@ class A2dpCodecs {
   // A2DP Sink codecs ordered by priority
   std::list<A2dpCodecConfig*> ordered_sink_codecs_;
 
-  std::map<bt_bdaddr_t, IndexedCodecs*, CompareBtBdaddr> peer_codecs_;
+  std::map<RawAddress, IndexedCodecs*, CompareBtBdaddr> peer_codecs_;
 };
 
 /**
@@ -582,12 +582,6 @@ bool A2DP_CodecEquals(const uint8_t* p_codec_info_a,
 // Returns the track sample rate on success, or -1 if |p_codec_info|
 // contains invalid codec information.
 int A2DP_GetTrackSampleRate(const uint8_t* p_codec_info);
-
-// Gets the bits per audio sample for the A2DP codec.
-// |p_codec_info| is a pointer to the codec_info to decode.
-// Returns the bits per audio sample on success, or -1 if |p_codec_info|
-// contains invalid codec information.
-int A2DP_GetTrackBitsPerSample(const uint8_t* p_codec_info);
 
 // Gets the channel count for the A2DP codec.
 // |p_codec_info| is a pointer to the codec_info to decode.

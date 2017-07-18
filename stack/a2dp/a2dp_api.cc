@@ -43,6 +43,11 @@
  *  Global data
  ****************************************************************************/
 tA2DP_CB a2dp_cb;
+static uint16_t a2dp_attr_list[] = {
+    ATTR_ID_SERVICE_CLASS_ID_LIST, /* update A2DP_NUM_ATTR, if changed */
+    ATTR_ID_BT_PROFILE_DESC_LIST,  ATTR_ID_SUPPORTED_FEATURES,
+    ATTR_ID_SERVICE_NAME,          ATTR_ID_PROTOCOL_DESC_LIST,
+    ATTR_ID_PROVIDER_NAME};
 
 /******************************************************************************
  *
@@ -278,16 +283,11 @@ tA2DP_STATUS A2DP_AddRecord(uint16_t service_uuid, char* p_service_name,
  *                  A2DP_FAIL if function execution failed.
  *
  *****************************************************************************/
-tA2DP_STATUS A2DP_FindService(uint16_t service_uuid, BD_ADDR bd_addr,
+tA2DP_STATUS A2DP_FindService(uint16_t service_uuid, const RawAddress& bd_addr,
                               tA2DP_SDP_DB_PARAMS* p_db,
                               tA2DP_FIND_CBACK* p_cback) {
   tSDP_UUID uuid_list;
   bool result = true;
-  uint16_t a2dp_attr_list[] = {
-      ATTR_ID_SERVICE_CLASS_ID_LIST, /* update A2DP_NUM_ATTR, if changed */
-      ATTR_ID_BT_PROFILE_DESC_LIST,  ATTR_ID_SUPPORTED_FEATURES,
-      ATTR_ID_SERVICE_NAME,          ATTR_ID_PROTOCOL_DESC_LIST,
-      ATTR_ID_PROVIDER_NAME};
 
   LOG_VERBOSE(LOG_TAG, "%s: uuid: 0x%x", __func__, service_uuid);
   if ((service_uuid != UUID_SERVCLASS_AUDIO_SOURCE &&

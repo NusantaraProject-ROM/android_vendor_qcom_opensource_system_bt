@@ -35,7 +35,7 @@ using ParametersCb =
 void btm_ble_update_dmt_flag_bits(uint8_t* flag_value,
                                   const uint16_t connect_mode,
                                   const uint16_t disc_mode);
-void btm_acl_update_conn_addr(uint8_t conn_handle, BD_ADDR address);
+void btm_acl_update_conn_addr(uint8_t conn_handle, const RawAddress& address);
 
 // methods we expose to c code:
 void btm_ble_multi_adv_cleanup(void);
@@ -71,6 +71,7 @@ class BleAdvertisingManager {
 
   static void Initialize(BleAdvertiserHciInterface* interface);
   static void CleanUp();
+  static bool IsInitialized();
   static BleAdvertisingManager* Get();
 
   /* Register an advertising instance, status will be returned in |cb|
@@ -152,7 +153,7 @@ class BleAdvertisingManager {
       uint8_t num_completed_extended_adv_events) = 0;
 
   using GetAddressCallback =
-      base::Callback<void(uint8_t /* address_type*/, bt_bdaddr_t /*address*/)>;
+      base::Callback<void(uint8_t /* address_type*/, RawAddress /*address*/)>;
   virtual void GetOwnAddress(uint8_t inst_id, GetAddressCallback cb) = 0;
 };
 

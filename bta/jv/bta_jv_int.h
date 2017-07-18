@@ -79,7 +79,7 @@ typedef struct {
 /* data type for BTA_JV_API_START_DISCOVERY_EVT */
 typedef struct {
   BT_HDR hdr;
-  BD_ADDR bd_addr;
+  RawAddress bd_addr;
   uint16_t num_uuid;
   tSDP_UUID uuid_list[BTA_JV_MAX_UUIDS];
   uint16_t num_attr;
@@ -98,8 +98,12 @@ typedef struct {
   uint32_t handle;      /* The connection handle */
   uint8_t state;        /* state: see above enum */
   tBTA_JV_PM_ID app_id; /* JV app specific id indicating power table to use */
+<<<<<<< HEAD
   BD_ADDR peer_bd_addr; /* Peer BD address */
   alarm_t         *idle_timer; /* intermediate idle timer for paricular scb */
+=======
+  RawAddress peer_bd_addr; /* Peer BD address */
+>>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
 } tBTA_JV_PM_CB;
 
 enum {
@@ -165,7 +169,7 @@ typedef struct {
     uint16_t remote_chan;
   };
   uint16_t rx_mtu;
-  BD_ADDR peer_bd_addr;
+  RawAddress peer_bd_addr;
   int32_t has_cfg;
   tL2CAP_CFG_INFO cfg;
   int32_t has_ertm_info;
@@ -226,7 +230,7 @@ typedef struct {
 typedef struct {
   BT_HDR hdr;
   uint16_t channel;
-  BD_ADDR addr;
+  RawAddress addr;
   uint32_t req_id;
   tBTA_JV_L2CAP_CBACK* p_cback;
   uint8_t* p_data;
@@ -240,7 +244,7 @@ typedef struct {
   tBTA_SEC sec_mask;
   tBTA_JV_ROLE role;
   uint8_t remote_scn;
-  BD_ADDR peer_bd_addr;
+  RawAddress peer_bd_addr;
   tBTA_JV_RFCOMM_CBACK* p_cback;
   uint32_t rfcomm_slot_id;
 } tBTA_JV_API_RFCOMM_CONNECT;

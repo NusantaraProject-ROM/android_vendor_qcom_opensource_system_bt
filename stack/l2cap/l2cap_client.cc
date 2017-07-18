@@ -23,7 +23,6 @@
 #include <base/logging.h>
 #include <string.h>
 
-#include "btcore/include/bdaddr.h"
 #include "osi/include/allocator.h"
 #include "osi/include/buffer.h"
 #include "osi/include/list.h"
@@ -131,17 +130,16 @@ void l2cap_client_free(l2cap_client_t* client) {
 }
 
 bool l2cap_client_connect(l2cap_client_t* client,
-                          const bt_bdaddr_t* remote_bdaddr, uint16_t psm) {
+                          const RawAddress& remote_bdaddr, uint16_t psm) {
   CHECK(client != NULL);
-  CHECK(remote_bdaddr != NULL);
   CHECK(psm != 0);
-  CHECK(!bdaddr_is_empty(remote_bdaddr));
+  CHECK(!remote_bdaddr.IsEmpty());
   CHECK(client->local_channel_id == 0);
   CHECK(!client->configured_self);
   CHECK(!client->configured_peer);
   CHECK(!L2C_INVALID_PSM(psm));
 
-  client->local_channel_id = L2CA_ConnectReq(psm, (uint8_t*)remote_bdaddr);
+  client->local_channel_id = L2CA_ConnectReq(psm, remote_bdaddr);
   if (!client->local_channel_id) {
     LOG_ERROR(LOG_TAG, "%s unable to create L2CAP connection.", __func__);
     return false;

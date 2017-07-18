@@ -54,11 +54,6 @@ thread_t* bt_workqueue_thread;
 static const char* BT_WORKQUEUE_NAME = "bt_workqueue";
 
 extern void PLATFORM_DisableHciTransport(uint8_t bDisable);
-/*****************************************************************************
- *                          V A R I A B L E S                                *
- *****************************************************************************/
-// TODO(cmanton) Move this out of this file
-const BD_ADDR BT_BD_ANY = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 void btu_task_start_up(void* context);
 void btu_task_shut_down(void* context);

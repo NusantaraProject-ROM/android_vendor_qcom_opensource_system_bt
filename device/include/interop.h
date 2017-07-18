@@ -20,7 +20,7 @@
 
 #include <stdbool.h>
 
-#include "btcore/include/bdaddr.h"
+#include "raw_address.h"
 
 static const char INTEROP_MODULE[] = "interop_module";
 
@@ -165,8 +165,21 @@ typedef enum {
   // but fail to play the reconfigured audio stream.
   INTEROP_DISABLE_AVDTP_RECONFIGURE,
 
+<<<<<<< HEAD
   END_OF_INTEROP_LIST
 
+=======
+  // Create dynamic blacklist to disable role switch.
+  // Some car kits indicate that role switch is supported, but then reject
+  // role switch attempts. After rejecting several role switch attempts,
+  // such car kits will go into bad state.
+  INTEROP_DYNAMIC_ROLE_SWITCH,
+
+  // Disable role switch for headsets/car-kits.
+  // Some car kits allow role switch but when the Phone initiates role switch,
+  // the Remote device will go into bad state that will lead to LMP time out.
+  INTEROP_DISABLE_ROLE_SWITCH
+>>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
 } interop_feature_t;
 
 // Check if a given |addr| matches a known interoperability workaround as
@@ -174,7 +187,7 @@ typedef enum {
 // address based lookups where more information is not available. No
 // look-ups or random address resolution are performed on |addr|.
 bool interop_match_addr(const interop_feature_t feature,
-                        const bt_bdaddr_t* addr);
+                        const RawAddress* addr);
 
 // Check if a given remote device |name| matches a known workaround.
 // Name comparisons are case sensitive and do not allow for partial matches.
@@ -200,10 +213,10 @@ bool interop_match_vendor_product_ids(const interop_feature_t feature,
 // Add a dynamic interop database entry for a device matching the first |length|
 // bytes of |addr|, implementing the workaround identified by |feature|.
 // |addr| may not be null.
-// |length| must be greater than 0 and less than sizeof(bt_bdaddr_t).
+// |length| must be greater than 0 and less than sizeof(RawAddress).
 // As |interop_feature_t| is not exposed in the public API, feature must be a
 // valid integer representing an option in the enum.
-void interop_database_add(const uint16_t feature, const bt_bdaddr_t* addr,
+void interop_database_add(const uint16_t feature, const RawAddress* addr,
                           size_t length);
 
 // Clear the dynamic portion of the interoperability workaround database.

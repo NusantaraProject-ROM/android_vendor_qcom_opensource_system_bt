@@ -22,8 +22,10 @@
  ******************************************************************************/
 
 #define LOG_TAG "bt_btif_a2dp_source"
+#define ATRACE_TAG ATRACE_TAG_AUDIO
 
 #include <base/logging.h>
+#include <cutils/trace.h>
 #include <limits.h>
 #include <string.h>
 #include <algorithm>
@@ -31,7 +33,6 @@
 #include "audio_a2dp_hw/include/audio_a2dp_hw.h"
 #include "bt_common.h"
 #include "bta_av_ci.h"
-#include "btcore/include/bdaddr.h"
 #include "btif_a2dp.h"
 #include "btif_a2dp_control.h"
 #include "btif_a2dp_source.h"
@@ -697,10 +698,11 @@ static void btif_a2dp_source_audio_handle_timer(UNUSED_ATTR void* context) {
 
   if (alarm_is_scheduled(btif_a2dp_source_cb.media_alarm)) {
     CHECK(btif_a2dp_source_cb.encoder_interface != NULL);
+    size_t transmit_queue_length =
+        fixed_queue_length(btif_a2dp_source_cb.tx_audio_queue);
+    ATRACE_INT("btif TX queue", transmit_queue_length);
     if (btif_a2dp_source_cb.encoder_interface->set_transmit_queue_length !=
         NULL) {
-      size_t transmit_queue_length =
-          fixed_queue_length(btif_a2dp_source_cb.tx_audio_queue);
       btif_a2dp_source_cb.encoder_interface->set_transmit_queue_length(
           transmit_queue_length);
     }
@@ -775,9 +777,14 @@ static bool btif_a2dp_source_enqueue_callback(BT_HDR* p_buf, size_t frames_n) {
     }
 
     // Request RSSI for log purposes if we had to flush buffers
+<<<<<<< HEAD
     bt_bdaddr_t peer_bda;
     btif_av_get_peer_addr(&peer_bda);
     BTM_ReadRSSI(peer_bda.address, btm_read_rssi_cb);
+=======
+    RawAddress peer_bda = btif_av_get_addr();
+    BTM_ReadRSSI(peer_bda, btm_read_rssi_cb);
+>>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
   }
 
   /* Update the statistics */
@@ -1124,9 +1131,6 @@ static void btm_read_rssi_cb(void* data) {
     return;
   }
 
-  char temp_buffer[20] = {0};
   LOG_WARN(LOG_TAG, "%s device: %s, rssi: %d", __func__,
-           bdaddr_to_string((bt_bdaddr_t*)result->rem_bda, temp_buffer,
-                            sizeof(temp_buffer)),
-           result->rssi);
+           result->rem_bda.ToString().c_str(), result->rssi);
 }

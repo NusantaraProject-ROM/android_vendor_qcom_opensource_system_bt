@@ -844,7 +844,7 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
   val.hdr.app_id = p_scb->app_id;
   val.hdr.status = BTA_AG_SUCCESS;
   val.num = int_arg;
-  bdcpy(val.bd_addr, p_scb->peer_addr);
+  val.bd_addr = p_scb->peer_addr;
   strlcpy(val.str, p_arg, sizeof(val.str));
 
   /**

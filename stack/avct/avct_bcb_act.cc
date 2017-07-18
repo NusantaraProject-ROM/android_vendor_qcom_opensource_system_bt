@@ -160,20 +160,19 @@ void avct_bcb_open_ind(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data) {
         bind = true;
         p_ccb_bind = p_ccb;
         p_ccb->cc.p_ctrl_cback(avct_ccb_to_idx(p_ccb), AVCT_BROWSE_CONN_CFM_EVT,
-                               0, p_ccb->p_lcb->peer_addr);
+                               0, &p_ccb->p_lcb->peer_addr);
       }
       /* if unbound acceptor and lcb allocated and bd_addr are the same for bcb
          and lcb */
       else if ((p_ccb->p_bcb == NULL) && (p_ccb->cc.role == AVCT_ACP) &&
                (p_ccb->p_lcb != NULL) &&
-               (!memcmp(p_bcb->peer_addr, p_ccb->p_lcb->peer_addr,
-                        BD_ADDR_LEN))) {
+               p_bcb->peer_addr == p_ccb->p_lcb->peer_addr) {
         /* bind bcb to ccb and send connect ind event */
         bind = true;
         p_ccb_bind = p_ccb;
         p_ccb->p_bcb = p_bcb;
         p_ccb->cc.p_ctrl_cback(avct_ccb_to_idx(p_ccb), AVCT_BROWSE_CONN_IND_EVT,
-                               0, p_ccb->p_lcb->peer_addr);
+                               0, &p_ccb->p_lcb->peer_addr);
       }
     }
   }
@@ -240,7 +239,7 @@ void avct_bcb_close_ind(tAVCT_BCB* p_bcb, UNUSED_ATTR tAVCT_LCB_EVT* p_data) {
       if (p_ccb->cc.role == AVCT_INT) {
         (*p_ccb->cc.p_ctrl_cback)(avct_ccb_to_idx(p_ccb),
                                   AVCT_BROWSE_DISCONN_CFM_EVT, 0,
-                                  p_lcb->peer_addr);
+                                  &p_lcb->peer_addr);
       } else {
         (*p_ccb->cc.p_ctrl_cback)(avct_ccb_to_idx(p_ccb),
                                   AVCT_BROWSE_DISCONN_IND_EVT, 0, NULL);
@@ -283,7 +282,7 @@ void avct_bcb_close_cfm(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data) {
       p_ccb->p_bcb = NULL;
       if (p_ccb->p_lcb == NULL) avct_ccb_dealloc(p_ccb, AVCT_NO_EVT, 0, NULL);
       (*p_cback)(avct_ccb_to_idx(p_ccb), event, p_data->result,
-                 p_bcb->peer_addr);
+                 &p_bcb->peer_addr);
     }
   }
 }
@@ -303,7 +302,7 @@ void avct_bcb_bind_conn(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data) {
   p_data->p_ccb->p_bcb = p_bcb;
   (*p_data->p_ccb->cc.p_ctrl_cback)(avct_ccb_to_idx(p_data->p_ccb),
                                     AVCT_BROWSE_CONN_CFM_EVT, 0,
-                                    p_lcb->peer_addr);
+                                    &p_lcb->peer_addr);
 }
 
 /*******************************************************************************
@@ -383,7 +382,7 @@ void avct_bcb_cong_ind(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data) {
   for (int idx = 0; idx < AVCT_NUM_CONN; idx++, p_ccb++) {
     if (p_ccb->allocated && (p_ccb->p_bcb == p_bcb)) {
       (*p_ccb->cc.p_ctrl_cback)(avct_ccb_to_idx(p_ccb), event, 0,
-                                p_lcb->peer_addr);
+                                &p_lcb->peer_addr);
     }
   }
 }

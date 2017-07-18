@@ -271,13 +271,13 @@ void BTA_DmSearchCancel(void) {
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmDiscover(BD_ADDR bd_addr, tBTA_SERVICE_MASK services,
+void BTA_DmDiscover(const RawAddress& bd_addr, tBTA_SERVICE_MASK services,
                     tBTA_DM_SEARCH_CBACK* p_cback, bool sdp_search) {
   tBTA_DM_API_DISCOVER* p_msg =
       (tBTA_DM_API_DISCOVER*)osi_calloc(sizeof(tBTA_DM_API_DISCOVER));
 
   p_msg->hdr.event = BTA_DM_API_DISCOVER_EVT;
-  bdcpy(p_msg->bd_addr, bd_addr);
+  p_msg->bd_addr = bd_addr;
   p_msg->services = services;
   p_msg->p_cback = p_cback;
   p_msg->sdp_search = sdp_search;
@@ -296,13 +296,13 @@ void BTA_DmDiscover(BD_ADDR bd_addr, tBTA_SERVICE_MASK services,
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmDiscoverUUID(BD_ADDR bd_addr, tSDP_UUID* uuid,
+void BTA_DmDiscoverUUID(const RawAddress& bd_addr, tSDP_UUID* uuid,
                         tBTA_DM_SEARCH_CBACK* p_cback, bool sdp_search) {
   tBTA_DM_API_DISCOVER* p_msg =
       (tBTA_DM_API_DISCOVER*)osi_malloc(sizeof(tBTA_DM_API_DISCOVER));
 
   p_msg->hdr.event = BTA_DM_API_DISCOVER_EVT;
-  bdcpy(p_msg->bd_addr, bd_addr);
+  p_msg->bd_addr = bd_addr;
   p_msg->services = BTA_USER_SERVICE_MASK;  // Not exposed at API level
   p_msg->p_cback = p_cback;
   p_msg->sdp_search = sdp_search;
@@ -326,12 +326,12 @@ void BTA_DmDiscoverUUID(BD_ADDR bd_addr, tSDP_UUID* uuid,
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmBond(BD_ADDR bd_addr) {
+void BTA_DmBond(const RawAddress& bd_addr) {
   tBTA_DM_API_BOND* p_msg =
       (tBTA_DM_API_BOND*)osi_malloc(sizeof(tBTA_DM_API_BOND));
 
   p_msg->hdr.event = BTA_DM_API_BOND_EVT;
-  bdcpy(p_msg->bd_addr, bd_addr);
+  p_msg->bd_addr = bd_addr;
   p_msg->transport = BTA_TRANSPORT_UNKNOWN;
 
   bta_sys_sendmsg(p_msg);
@@ -348,12 +348,13 @@ void BTA_DmBond(BD_ADDR bd_addr) {
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmBondByTransport(BD_ADDR bd_addr, tBTA_TRANSPORT transport) {
+void BTA_DmBondByTransport(const RawAddress& bd_addr,
+                           tBTA_TRANSPORT transport) {
   tBTA_DM_API_BOND* p_msg =
       (tBTA_DM_API_BOND*)osi_malloc(sizeof(tBTA_DM_API_BOND));
 
   p_msg->hdr.event = BTA_DM_API_BOND_EVT;
-  bdcpy(p_msg->bd_addr, bd_addr);
+  p_msg->bd_addr = bd_addr;
   p_msg->transport = transport;
 
   bta_sys_sendmsg(p_msg);
@@ -370,12 +371,12 @@ void BTA_DmBondByTransport(BD_ADDR bd_addr, tBTA_TRANSPORT transport) {
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmBondCancel(BD_ADDR bd_addr) {
+void BTA_DmBondCancel(const RawAddress& bd_addr) {
   tBTA_DM_API_BOND_CANCEL* p_msg =
       (tBTA_DM_API_BOND_CANCEL*)osi_malloc(sizeof(tBTA_DM_API_BOND_CANCEL));
 
   p_msg->hdr.event = BTA_DM_API_BOND_CANCEL_EVT;
-  bdcpy(p_msg->bd_addr, bd_addr);
+  p_msg->bd_addr = bd_addr;
 
   bta_sys_sendmsg(p_msg);
 }
@@ -391,7 +392,7 @@ void BTA_DmBondCancel(BD_ADDR bd_addr) {
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmPinReply(BD_ADDR bd_addr, bool accept, uint8_t pin_len,
+void BTA_DmPinReply(const RawAddress& bd_addr, bool accept, uint8_t pin_len,
                     uint8_t* p_pin)
 
 {
@@ -399,7 +400,7 @@ void BTA_DmPinReply(BD_ADDR bd_addr, bool accept, uint8_t pin_len,
       (tBTA_DM_API_PIN_REPLY*)osi_malloc(sizeof(tBTA_DM_API_PIN_REPLY));
 
   p_msg->hdr.event = BTA_DM_API_PIN_REPLY_EVT;
-  bdcpy(p_msg->bd_addr, bd_addr);
+  p_msg->bd_addr = bd_addr;
   p_msg->accept = accept;
   if (accept) {
     p_msg->pin_len = pin_len;
@@ -440,12 +441,12 @@ void BTA_DmLocalOob(void) {
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmConfirm(BD_ADDR bd_addr, bool accept) {
+void BTA_DmConfirm(const RawAddress& bd_addr, bool accept) {
   tBTA_DM_API_CONFIRM* p_msg =
       (tBTA_DM_API_CONFIRM*)osi_malloc(sizeof(tBTA_DM_API_CONFIRM));
 
   p_msg->hdr.event = BTA_DM_API_CONFIRM_EVT;
-  bdcpy(p_msg->bd_addr, bd_addr);
+  p_msg->bd_addr = bd_addr;
   p_msg->accept = accept;
 
   bta_sys_sendmsg(p_msg);
@@ -462,14 +463,15 @@ void BTA_DmConfirm(BD_ADDR bd_addr, bool accept) {
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmAddDevice(BD_ADDR bd_addr, DEV_CLASS dev_class, LINK_KEY link_key,
-                     tBTA_SERVICE_MASK trusted_mask, bool is_trusted,
-                     uint8_t key_type, tBTA_IO_CAP io_cap, uint8_t pin_length) {
+void BTA_DmAddDevice(const RawAddress& bd_addr, DEV_CLASS dev_class,
+                     LINK_KEY link_key, tBTA_SERVICE_MASK trusted_mask,
+                     bool is_trusted, uint8_t key_type, tBTA_IO_CAP io_cap,
+                     uint8_t pin_length) {
   tBTA_DM_API_ADD_DEVICE* p_msg =
       (tBTA_DM_API_ADD_DEVICE*)osi_calloc(sizeof(tBTA_DM_API_ADD_DEVICE));
 
   p_msg->hdr.event = BTA_DM_API_ADD_DEVICE_EVT;
-  bdcpy(p_msg->bd_addr, bd_addr);
+  p_msg->bd_addr = bd_addr;
   p_msg->tm = trusted_mask;
   p_msg->is_trusted = is_trusted;
   p_msg->io_cap = io_cap;
@@ -505,12 +507,12 @@ void BTA_DmAddDevice(BD_ADDR bd_addr, DEV_CLASS dev_class, LINK_KEY link_key,
  * Returns          void
  *
  ******************************************************************************/
-tBTA_STATUS BTA_DmRemoveDevice(BD_ADDR bd_addr) {
+tBTA_STATUS BTA_DmRemoveDevice(const RawAddress& bd_addr) {
   tBTA_DM_API_REMOVE_DEVICE* p_msg =
       (tBTA_DM_API_REMOVE_DEVICE*)osi_calloc(sizeof(tBTA_DM_API_REMOVE_DEVICE));
 
   p_msg->hdr.event = BTA_DM_API_REMOVE_DEVICE_EVT;
-  bdcpy(p_msg->bd_addr, bd_addr);
+  p_msg->bd_addr = bd_addr;
 
   bta_sys_sendmsg(p_msg);
 
@@ -571,7 +573,7 @@ void BTA_GetEirService(uint8_t* p_eir, size_t eir_len,
  * Returns          0 if the device is NOT connected.
  *
  ******************************************************************************/
-uint16_t BTA_DmGetConnectionState(const BD_ADDR bd_addr) {
+uint16_t BTA_DmGetConnectionState(const RawAddress& bd_addr) {
   tBTA_DM_PEER_DEVICE* p_dev = bta_dm_find_peer_device(bd_addr);
   return (p_dev && p_dev->conn_state == BTA_DM_CONNECTED);
 }
@@ -647,14 +649,14 @@ void bta_dmexecutecallback(tBTA_DM_EXEC_CBACK* p_callback, void* p_param) {
  *                  BTA_FAIL if operation failed.
  *
  ******************************************************************************/
-void BTA_DmAddBleKey(BD_ADDR bd_addr, tBTA_LE_KEY_VALUE* p_le_key,
+void BTA_DmAddBleKey(const RawAddress& bd_addr, tBTA_LE_KEY_VALUE* p_le_key,
                      tBTA_LE_KEY_TYPE key_type) {
   tBTA_DM_API_ADD_BLEKEY* p_msg =
       (tBTA_DM_API_ADD_BLEKEY*)osi_calloc(sizeof(tBTA_DM_API_ADD_BLEKEY));
 
   p_msg->hdr.event = BTA_DM_API_ADD_BLEKEY_EVT;
   p_msg->key_type = key_type;
-  bdcpy(p_msg->bd_addr, bd_addr);
+  p_msg->bd_addr = bd_addr;
   memcpy(&p_msg->blekey, p_le_key, sizeof(tBTA_LE_KEY_VALUE));
 
   bta_sys_sendmsg(p_msg);
@@ -675,13 +677,13 @@ void BTA_DmAddBleKey(BD_ADDR bd_addr, tBTA_LE_KEY_VALUE* p_le_key,
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmAddBleDevice(BD_ADDR bd_addr, tBLE_ADDR_TYPE addr_type,
+void BTA_DmAddBleDevice(const RawAddress& bd_addr, tBLE_ADDR_TYPE addr_type,
                         tBT_DEVICE_TYPE dev_type) {
   tBTA_DM_API_ADD_BLE_DEVICE* p_msg = (tBTA_DM_API_ADD_BLE_DEVICE*)osi_calloc(
       sizeof(tBTA_DM_API_ADD_BLE_DEVICE));
 
   p_msg->hdr.event = BTA_DM_API_ADD_BLEDEVICE_EVT;
-  bdcpy(p_msg->bd_addr, bd_addr);
+  p_msg->bd_addr = bd_addr;
   p_msg->addr_type = addr_type;
   p_msg->dev_type = dev_type;
 
@@ -702,12 +704,13 @@ void BTA_DmAddBleDevice(BD_ADDR bd_addr, tBLE_ADDR_TYPE addr_type,
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmBlePasskeyReply(BD_ADDR bd_addr, bool accept, uint32_t passkey) {
+void BTA_DmBlePasskeyReply(const RawAddress& bd_addr, bool accept,
+                           uint32_t passkey) {
   tBTA_DM_API_PASSKEY_REPLY* p_msg =
       (tBTA_DM_API_PASSKEY_REPLY*)osi_calloc(sizeof(tBTA_DM_API_PASSKEY_REPLY));
 
   p_msg->hdr.event = BTA_DM_API_BLE_PASSKEY_REPLY_EVT;
-  bdcpy(p_msg->bd_addr, bd_addr);
+  p_msg->bd_addr = bd_addr;
   p_msg->accept = accept;
 
   if (accept) p_msg->passkey = passkey;
@@ -728,12 +731,12 @@ void BTA_DmBlePasskeyReply(BD_ADDR bd_addr, bool accept, uint32_t passkey) {
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmBleConfirmReply(BD_ADDR bd_addr, bool accept) {
+void BTA_DmBleConfirmReply(const RawAddress& bd_addr, bool accept) {
   tBTA_DM_API_CONFIRM* p_msg =
       (tBTA_DM_API_CONFIRM*)osi_calloc(sizeof(tBTA_DM_API_CONFIRM));
 
   p_msg->hdr.event = BTA_DM_API_BLE_CONFIRM_REPLY_EVT;
-  bdcpy(p_msg->bd_addr, bd_addr);
+  p_msg->bd_addr = bd_addr;
   p_msg->accept = accept;
 
   bta_sys_sendmsg(p_msg);
@@ -751,12 +754,13 @@ void BTA_DmBleConfirmReply(BD_ADDR bd_addr, bool accept) {
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmBleSecurityGrant(BD_ADDR bd_addr, tBTA_DM_BLE_SEC_GRANT res) {
+void BTA_DmBleSecurityGrant(const RawAddress& bd_addr,
+                            tBTA_DM_BLE_SEC_GRANT res) {
   tBTA_DM_API_BLE_SEC_GRANT* p_msg =
       (tBTA_DM_API_BLE_SEC_GRANT*)osi_calloc(sizeof(tBTA_DM_API_BLE_SEC_GRANT));
 
   p_msg->hdr.event = BTA_DM_API_BLE_SEC_GRANT_EVT;
-  bdcpy(p_msg->bd_addr, bd_addr);
+  p_msg->bd_addr = bd_addr;
   p_msg->res = res;
 
   bta_sys_sendmsg(p_msg);
@@ -781,14 +785,15 @@ void BTA_DmBleSecurityGrant(BD_ADDR bd_addr, tBTA_DM_BLE_SEC_GRANT res) {
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmSetBlePrefConnParams(const BD_ADDR bd_addr, uint16_t min_conn_int,
-                                uint16_t max_conn_int, uint16_t slave_latency,
+void BTA_DmSetBlePrefConnParams(const RawAddress& bd_addr,
+                                uint16_t min_conn_int, uint16_t max_conn_int,
+                                uint16_t slave_latency,
                                 uint16_t supervision_tout) {
   tBTA_DM_API_BLE_CONN_PARAMS* p_msg = (tBTA_DM_API_BLE_CONN_PARAMS*)osi_calloc(
       sizeof(tBTA_DM_API_BLE_CONN_PARAMS));
 
   p_msg->hdr.event = BTA_DM_API_BLE_CONN_PARAM_EVT;
-  memcpy(p_msg->peer_bda, bd_addr, BD_ADDR_LEN);
+  p_msg->peer_bda = bd_addr;
   p_msg->conn_int_max = max_conn_int;
   p_msg->conn_int_min = min_conn_int;
   p_msg->slave_latency = slave_latency;
@@ -841,7 +846,7 @@ void BTA_DmBleStartAutoConn() {
  * Returns          void
  *
  ******************************************************************************/
-static void bta_dm_discover_send_msg(BD_ADDR bd_addr,
+static void bta_dm_discover_send_msg(const RawAddress& bd_addr,
                                      tBTA_SERVICE_MASK_EXT* p_services,
                                      tBTA_DM_SEARCH_CBACK* p_cback,
                                      bool sdp_search,
@@ -852,7 +857,7 @@ static void bta_dm_discover_send_msg(BD_ADDR bd_addr,
   tBTA_DM_API_DISCOVER* p_msg = (tBTA_DM_API_DISCOVER*)osi_calloc(len);
 
   p_msg->hdr.event = BTA_DM_API_DISCOVER_EVT;
-  bdcpy(p_msg->bd_addr, bd_addr);
+  p_msg->bd_addr = bd_addr;
   p_msg->p_cback = p_cback;
   p_msg->sdp_search = sdp_search;
   p_msg->transport = transport;
@@ -886,7 +891,7 @@ static void bta_dm_discover_send_msg(BD_ADDR bd_addr,
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmDiscoverByTransport(BD_ADDR bd_addr,
+void BTA_DmDiscoverByTransport(const RawAddress& bd_addr,
                                tBTA_SERVICE_MASK_EXT* p_services,
                                tBTA_DM_SEARCH_CBACK* p_cback, bool sdp_search,
                                tBTA_TRANSPORT transport) {
@@ -908,7 +913,8 @@ void BTA_DmDiscoverByTransport(BD_ADDR bd_addr,
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmDiscoverExt(BD_ADDR bd_addr, tBTA_SERVICE_MASK_EXT* p_services,
+void BTA_DmDiscoverExt(const RawAddress& bd_addr,
+                       tBTA_SERVICE_MASK_EXT* p_services,
                        tBTA_DM_SEARCH_CBACK* p_cback, bool sdp_search) {
   bta_dm_discover_send_msg(bd_addr, p_services, p_cback, sdp_search,
                            BTA_TRANSPORT_UNKNOWN);
@@ -980,7 +986,7 @@ void BTA_DmSearchExt(tBTA_DM_INQ* p_dm_inq, tBTA_SERVICE_MASK_EXT* p_services,
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmBleUpdateConnectionParam(BD_ADDR bd_addr, uint16_t min_int,
+void BTA_DmBleUpdateConnectionParam(const RawAddress& bd_addr, uint16_t min_int,
                                     uint16_t max_int, uint16_t latency,
                                     uint16_t timeout) {
   tBTA_DM_API_UPDATE_CONN_PARAM* p_msg =
@@ -988,7 +994,7 @@ void BTA_DmBleUpdateConnectionParam(BD_ADDR bd_addr, uint16_t min_int,
           sizeof(tBTA_DM_API_UPDATE_CONN_PARAM));
 
   p_msg->hdr.event = BTA_DM_API_UPDATE_CONN_PARAM_EVT;
-  bdcpy(p_msg->bd_addr, bd_addr);
+  p_msg->bd_addr = bd_addr;
   p_msg->min_int = min_int;
   p_msg->max_int = max_int;
   p_msg->latency = latency;
@@ -1063,15 +1069,15 @@ void BTA_DmBleGetEnergyInfo(tBTA_BLE_ENERGY_INFO_CBACK* p_cmpl_cback) {
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmBleUpdateConnectionParams(const BD_ADDR bd_addr, uint16_t min_int,
-                                     uint16_t max_int, uint16_t latency,
-                                     uint16_t timeout) {
+void BTA_DmBleUpdateConnectionParams(const RawAddress& bd_addr,
+                                     uint16_t min_int, uint16_t max_int,
+                                     uint16_t latency, uint16_t timeout) {
   tBTA_DM_API_UPDATE_CONN_PARAM* p_msg =
       (tBTA_DM_API_UPDATE_CONN_PARAM*)osi_calloc(
           sizeof(tBTA_DM_API_UPDATE_CONN_PARAM));
 
   p_msg->hdr.event = BTA_DM_API_UPDATE_CONN_PARAM_EVT;
-  bdcpy(p_msg->bd_addr, bd_addr);
+  p_msg->bd_addr = bd_addr;
   p_msg->min_int = min_int;
   p_msg->max_int = max_int;
   p_msg->latency = latency;
@@ -1090,12 +1096,13 @@ void BTA_DmBleUpdateConnectionParams(const BD_ADDR bd_addr, uint16_t min_int,
  *
  *
  ******************************************************************************/
-void BTA_DmBleSetDataLength(BD_ADDR remote_device, uint16_t tx_data_length) {
+void BTA_DmBleSetDataLength(const RawAddress& remote_device,
+                            uint16_t tx_data_length) {
   tBTA_DM_API_BLE_SET_DATA_LENGTH* p_msg =
       (tBTA_DM_API_BLE_SET_DATA_LENGTH*)osi_malloc(
           sizeof(tBTA_DM_API_BLE_SET_DATA_LENGTH));
 
-  bdcpy(p_msg->remote_bda, remote_device);
+  p_msg->remote_bda = remote_device;
   p_msg->hdr.event = BTA_DM_API_SET_DATA_LENGTH_EVT;
   p_msg->tx_data_length = tx_data_length;
 
@@ -1124,7 +1131,7 @@ void BTA_DmBleSetDataLength(BD_ADDR remote_device, uint16_t tx_data_length) {
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmSetEncryption(BD_ADDR bd_addr, tBTA_TRANSPORT transport,
+void BTA_DmSetEncryption(const RawAddress& bd_addr, tBTA_TRANSPORT transport,
                          tBTA_DM_ENCRYPT_CBACK* p_callback,
                          tBTA_DM_BLE_SEC_ACT sec_act) {
   tBTA_DM_API_SET_ENCRYPTION* p_msg = (tBTA_DM_API_SET_ENCRYPTION*)osi_calloc(
@@ -1133,7 +1140,7 @@ void BTA_DmSetEncryption(BD_ADDR bd_addr, tBTA_TRANSPORT transport,
   APPL_TRACE_API("%s", __func__);
 
   p_msg->hdr.event = BTA_DM_API_SET_ENCRYPTION_EVT;
-  memcpy(p_msg->bd_addr, bd_addr, BD_ADDR_LEN);
+  p_msg->bd_addr = bd_addr;
   p_msg->transport = transport;
   p_msg->p_callback = p_callback;
   p_msg->sec_act = sec_act;
@@ -1154,7 +1161,7 @@ void BTA_DmSetEncryption(BD_ADDR bd_addr, tBTA_TRANSPORT transport,
  * Returns          void
  *
  ******************************************************************************/
-void BTA_DmCloseACL(BD_ADDR bd_addr, bool remove_dev,
+void BTA_DmCloseACL(const RawAddress& bd_addr, bool remove_dev,
                     tBTA_TRANSPORT transport) {
   tBTA_DM_API_REMOVE_ACL* p_msg =
       (tBTA_DM_API_REMOVE_ACL*)osi_calloc(sizeof(tBTA_DM_API_REMOVE_ACL));
@@ -1162,7 +1169,7 @@ void BTA_DmCloseACL(BD_ADDR bd_addr, bool remove_dev,
   APPL_TRACE_API("%s", __func__);
 
   p_msg->hdr.event = BTA_DM_API_REMOVE_ACL_EVT;
-  memcpy(p_msg->bd_addr, bd_addr, BD_ADDR_LEN);
+  p_msg->bd_addr = bd_addr;
   p_msg->remove_dev = remove_dev;
   p_msg->transport = transport;
 

@@ -53,10 +53,18 @@ typedef struct {
 } tA2DP_SBC_CIE;
 
 /* SBC SRC codec capabilities */
+<<<<<<< HEAD
 static const tA2DP_SBC_CIE a2dp_sbc_src_caps = {
     A2DP_SBC_IE_SAMP_FREQ_44,          /* samp_freq */
     A2DP_SBC_IE_CH_MD_JOINT,           /* ch_mode */
     A2DP_SBC_IE_BLOCKS_16,             /* block_len */
+=======
+static const tA2DP_SBC_CIE a2dp_sbc_caps = {
+    A2DP_SBC_IE_SAMP_FREQ_44,                           /* samp_freq */
+    (A2DP_SBC_IE_CH_MD_MONO | A2DP_SBC_IE_CH_MD_JOINT), /* ch_mode */
+    (A2DP_SBC_IE_BLOCKS_16 | A2DP_SBC_IE_BLOCKS_12 | A2DP_SBC_IE_BLOCKS_8 |
+     A2DP_SBC_IE_BLOCKS_4),            /* block_len */
+>>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
     A2DP_SBC_IE_SUBBAND_8,             /* num_subbands */
     A2DP_SBC_IE_ALLOC_MD_L,            /* alloc_method */
     A2DP_SBC_IE_MIN_BITPOOL,           /* min_bitpool */
@@ -538,19 +546,6 @@ int A2DP_GetTrackSampleRateSbc(const uint8_t* p_codec_info) {
   }
 
   return -1;
-}
-
-int A2DP_GetTrackBitsPerSampleSbc(const uint8_t* p_codec_info) {
-  tA2DP_SBC_CIE sbc_cie;
-
-  tA2DP_STATUS a2dp_status = A2DP_ParseInfoSbc(&sbc_cie, p_codec_info, false);
-  if (a2dp_status != A2DP_SUCCESS) {
-    LOG_ERROR(LOG_TAG, "%s: cannot decode codec information: %d", __func__,
-              a2dp_status);
-    return -1;
-  }
-
-  return 16;  // For SBC we always use 16 bits per audio sample
 }
 
 int A2DP_GetTrackChannelCountSbc(const uint8_t* p_codec_info) {

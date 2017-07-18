@@ -70,7 +70,7 @@ typedef struct {
 } tBTA_AV_CO_SINK;
 
 typedef struct {
-  BD_ADDR addr; /* address of audio/video peer */
+  RawAddress addr; /* address of audio/video peer */
   tBTA_AV_CO_SINK
       sinks[BTAV_A2DP_CODEC_INDEX_MAX]; /* array of supported sinks */
   tBTA_AV_CO_SINK srcs[BTAV_A2DP_CODEC_INDEX_MAX]; /* array of supported srcs */
@@ -258,8 +258,8 @@ bool bta_av_co_audio_init(btav_a2dp_codec_index_t codec_index,
  **
  ******************************************************************************/
 void bta_av_co_audio_disc_res(tBTA_AV_HNDL hndl, uint8_t num_seps,
-                              uint8_t num_sink, uint8_t num_src, BD_ADDR addr,
-                              uint16_t uuid_local) {
+                              uint8_t num_sink, uint8_t num_src,
+                              const RawAddress& addr, uint16_t uuid_local) {
   tBTA_AV_CO_PEER* p_peer;
 
   APPL_TRACE_DEBUG("%s: h:x%x num_seps:%d num_sink:%d num_src:%d", __func__,
@@ -278,7 +278,7 @@ void bta_av_co_audio_disc_res(tBTA_AV_HNDL hndl, uint8_t num_seps,
   }
 
   /* Copy the discovery results */
-  bdcpy(p_peer->addr, addr);
+  p_peer->addr = addr;
   p_peer->num_sinks = num_sink;
   p_peer->num_srcs = num_src;
   p_peer->num_seps = num_seps;
@@ -511,7 +511,8 @@ tA2DP_STATUS bta_av_co_audio_getconfig(tBTA_AV_HNDL hndl, uint8_t* p_codec_info,
  ******************************************************************************/
 void bta_av_co_audio_setconfig(tBTA_AV_HNDL hndl, const uint8_t* p_codec_info,
                                UNUSED_ATTR uint8_t seid,
-                               UNUSED_ATTR BD_ADDR addr, uint8_t num_protect,
+                               UNUSED_ATTR const RawAddress& addr,
+                               uint8_t num_protect,
                                const uint8_t* p_protect_info,
                                uint8_t t_local_sep, uint8_t avdt_handle) {
   tBTA_AV_CO_PEER* p_peer;

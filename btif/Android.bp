@@ -127,6 +127,7 @@ cc_test {
         "libbtif",
         "libbtif_ext",
         "libbt-stack",
+        "libbluetooth-types",
         "libosi",
     ],
     cflags: ["-DBUILDCFG"],

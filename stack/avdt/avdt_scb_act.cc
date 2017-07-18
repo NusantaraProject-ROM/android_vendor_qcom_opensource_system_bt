@@ -593,9 +593,10 @@ void avdt_scb_hdl_setconfig_cmd(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
       memcpy(&p_scb->req_cfg, p_cfg, sizeof(tAVDT_CFG));
       /* call app callback */
       /* handle of scb- which is same as sep handle of bta_av_cb.p_scb*/
-      (*p_scb->cs.p_ctrl_cback)(
-          avdt_scb_to_hdl(p_scb), p_scb->p_ccb ? p_scb->p_ccb->peer_addr : NULL,
-          AVDT_CONFIG_IND_EVT, (tAVDT_CTRL*)&p_data->msg.config_cmd);
+      (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
+                                p_scb->p_ccb ? &p_scb->p_ccb->peer_addr : NULL,
+                                AVDT_CONFIG_IND_EVT,
+                                (tAVDT_CTRL*)&p_data->msg.config_cmd);
     } else {
       p_data->msg.hdr.err_code = AVDT_ERR_UNSUP_CFG;
       p_data->msg.hdr.err_param = 0;
@@ -668,7 +669,7 @@ void avdt_scb_hdl_setconfig_rsp(tAVDT_SCB* p_scb,
 void avdt_scb_hdl_start_cmd(tAVDT_SCB* p_scb,
                             UNUSED_ATTR tAVDT_SCB_EVT* p_data) {
   (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
-                            p_scb->p_ccb ? p_scb->p_ccb->peer_addr : NULL,
+                            p_scb->p_ccb ? &p_scb->p_ccb->peer_addr : NULL,
                             AVDT_START_IND_EVT, NULL);
 }
 
@@ -684,7 +685,7 @@ void avdt_scb_hdl_start_cmd(tAVDT_SCB* p_scb,
  ******************************************************************************/
 void avdt_scb_hdl_start_rsp(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
   (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
-                            p_scb->p_ccb ? p_scb->p_ccb->peer_addr : NULL,
+                            p_scb->p_ccb ? &p_scb->p_ccb->peer_addr : NULL,
                             AVDT_START_CFM_EVT, (tAVDT_CTRL*)&p_data->msg.hdr);
 }
 
@@ -701,7 +702,7 @@ void avdt_scb_hdl_start_rsp(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
 void avdt_scb_hdl_suspend_cmd(tAVDT_SCB* p_scb,
                               UNUSED_ATTR tAVDT_SCB_EVT* p_data) {
   (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
-                            p_scb->p_ccb ? p_scb->p_ccb->peer_addr : NULL,
+                            p_scb->p_ccb ? &p_scb->p_ccb->peer_addr : NULL,
                             AVDT_SUSPEND_IND_EVT, NULL);
 }
 
@@ -717,7 +718,7 @@ void avdt_scb_hdl_suspend_cmd(tAVDT_SCB* p_scb,
  ******************************************************************************/
 void avdt_scb_hdl_suspend_rsp(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
   (*p_scb->cs.p_ctrl_cback)(
-      avdt_scb_to_hdl(p_scb), p_scb->p_ccb ? p_scb->p_ccb->peer_addr : NULL,
+      avdt_scb_to_hdl(p_scb), p_scb->p_ccb ? &p_scb->p_ccb->peer_addr : NULL,
       AVDT_SUSPEND_CFM_EVT, (tAVDT_CTRL*)&p_data->msg.hdr);
 }
 
@@ -743,9 +744,7 @@ void avdt_scb_hdl_tc_close(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
   tAVDT_CTRL avdt_ctrl;
   uint8_t event;
   tAVDT_CCB* p_ccb = p_scb->p_ccb;
-  BD_ADDR remote_addr;
-
-  memcpy(remote_addr, p_ccb->peer_addr, BD_ADDR_LEN);
+  RawAddress remote_addr = p_ccb->peer_addr;
 
   /* set up hdr */
   avdt_ctrl.hdr.err_code = p_scb->close_code;
@@ -773,7 +772,7 @@ void avdt_scb_hdl_tc_close(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
   }
 
   /* call app callback */
-  (*p_ctrl_cback)(hdl, remote_addr, event, &avdt_ctrl);
+  (*p_ctrl_cback)(hdl, &remote_addr, event, &avdt_ctrl);
 }
 
 /*******************************************************************************
@@ -803,7 +802,7 @@ void avdt_scb_snd_delay_rpt_req(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
  ******************************************************************************/
 void avdt_scb_hdl_delay_rpt_cmd(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
   (*p_scb->cs.p_ctrl_cback)(
-      avdt_scb_to_hdl(p_scb), p_scb->p_ccb ? p_scb->p_ccb->peer_addr : NULL,
+      avdt_scb_to_hdl(p_scb), p_scb->p_ccb ? &p_scb->p_ccb->peer_addr : NULL,
       AVDT_DELAY_REPORT_EVT, (tAVDT_CTRL*)&p_data->msg.hdr);
 
   if (p_scb->p_ccb)
@@ -824,7 +823,7 @@ void avdt_scb_hdl_delay_rpt_cmd(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
  ******************************************************************************/
 void avdt_scb_hdl_delay_rpt_rsp(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
   (*p_scb->cs.p_ctrl_cback)(
-      avdt_scb_to_hdl(p_scb), p_scb->p_ccb ? p_scb->p_ccb->peer_addr : NULL,
+      avdt_scb_to_hdl(p_scb), p_scb->p_ccb ? &p_scb->p_ccb->peer_addr : NULL,
       AVDT_DELAY_REPORT_CFM_EVT, (tAVDT_CTRL*)&p_data->msg.hdr);
 }
 
@@ -850,7 +849,7 @@ void avdt_scb_hdl_tc_close_sto(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
       avdt_ctrl.hdr.err_param = 0;
       /* call app callback */
       (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
-                                p_scb->p_ccb ? p_scb->p_ccb->peer_addr : NULL,
+                                p_scb->p_ccb ? &p_scb->p_ccb->peer_addr : NULL,
                                 AVDT_REPORT_DISCONN_EVT, &avdt_ctrl);
     }
   } else {
@@ -898,7 +897,7 @@ void avdt_scb_hdl_tc_open(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
 
   /* call app callback */
   (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
-                            p_scb->p_ccb ? p_scb->p_ccb->peer_addr : NULL,
+                            p_scb->p_ccb ? &p_scb->p_ccb->peer_addr : NULL,
                             event, (tAVDT_CTRL*)&p_data->open);
 }
 
@@ -924,7 +923,7 @@ void avdt_scb_hdl_tc_open_sto(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
     avdt_ctrl.hdr.err_code = 0;
     avdt_ctrl.hdr.err_param = 1;
     (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb),
-                              p_scb->p_ccb ? p_scb->p_ccb->peer_addr : NULL,
+                              p_scb->p_ccb ? &p_scb->p_ccb->peer_addr : NULL,
                               AVDT_REPORT_CONN_EVT, &avdt_ctrl);
   }
 }
