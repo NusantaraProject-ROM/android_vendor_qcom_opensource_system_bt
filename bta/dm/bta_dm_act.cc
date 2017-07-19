@@ -2649,6 +2649,7 @@ static uint8_t bta_dm_authentication_complete_cback(
 
     memcpy(sec_event.auth_cmpl.bd_name, bd_name, (BD_NAME_LEN - 1));
     sec_event.auth_cmpl.bd_name[BD_NAME_LEN - 1] = 0;
+    sec_event.auth_cmpl.is_sm4_dev = btm_is_sm4_dev(bd_addr);
 
     // Report the BR link key based on the BR/EDR address and type
     BTM_ReadDevInfo(bd_addr, &sec_event.auth_cmpl.dev_type,

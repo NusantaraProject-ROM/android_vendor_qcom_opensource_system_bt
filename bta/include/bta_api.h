@@ -525,6 +525,7 @@ typedef struct {
   tBLE_ADDR_TYPE addr_type; /* Peer device address type */
   tBT_DEVICE_TYPE dev_type;
   bool smp_over_br;        /* SMP pairing done over BR/EDR link CID 7 */
+  bool is_sm4_dev;         /* True if remote ssp supported */
 } tBTA_DM_AUTH_CMPL;
 
 /* Structure associated with BTA_DM_AUTHORIZE_EVT */
