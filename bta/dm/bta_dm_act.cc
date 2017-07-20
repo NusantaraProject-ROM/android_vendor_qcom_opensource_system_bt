@@ -94,6 +94,7 @@ static void bta_dm_eir_search_services(tBTM_INQ_RESULTS* p_result,
 
 static void bta_dm_search_timer_cback(void* data);
 static void bta_dm_disable_conn_down_timer_cback(void* data);
+static void bta_dm_bond_retrail_cback(void* data);
 static void bta_dm_rm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
                             uint8_t app_id, BD_ADDR peer_addr);
 static void bta_dm_adjust_roles(bool delay_role_switch);
@@ -134,6 +135,11 @@ static void bta_dm_ctrl_features_rd_cmpl_cback(tBTM_STATUS result);
 /* Disable timer retrial interval (in milliseconds) */
 #ifndef BTA_DM_DISABLE_TIMER_RETRIAL_MS
 #define BTA_DM_DISABLE_TIMER_RETRIAL_MS 1500
+#endif
+
+/* bond retrial interval (in milliseconds) */
+#ifndef BTA_DM_BOND_TIMER_RETRIAL_MS
+#define BTA_DM_BOND_TIMER_RETRIAL_MS 100
 #endif
 
 /* Disable connection down timer (in milliseconds) */
@@ -308,6 +314,7 @@ void bta_dm_enable(tBTA_DM_MSG* p_data) {
 void bta_dm_init_cb(void) {
   memset(&bta_dm_cb, 0, sizeof(bta_dm_cb));
   bta_dm_cb.disable_timer = alarm_new("bta_dm.disable_timer");
+  bta_dm_cb.bond_retrail_timer = alarm_new("bta_dm.bond_retrail_timer");
   bta_dm_cb.switch_delay_timer = alarm_new("bta_dm.switch_delay_timer");
   for (size_t i = 0; i < BTA_DM_NUM_PM_TIMER; i++) {
     for (size_t j = 0; j < BTA_DM_PM_MODE_TIMER_MAX; j++) {
@@ -332,6 +339,7 @@ void bta_dm_deinit_cb(void) {
    * shutdown.
    */
   alarm_free(bta_dm_cb.disable_timer);
+  alarm_free(bta_dm_cb.bond_retrail_timer);
   alarm_free(bta_dm_cb.switch_delay_timer);
   for (size_t i = 0; i < BTA_DM_NUM_PM_TIMER; i++) {
     for (size_t j = 0; j < BTA_DM_PM_MODE_TIMER_MAX; j++) {
@@ -939,13 +947,23 @@ void bta_dm_bond(tBTA_DM_MSG* p_data) {
   tBTM_STATUS status;
   tBTA_DM_SEC sec_event;
   char* p_name;
+  tBTA_DM_MSG *p_msg;
 
   if (p_data->bond.transport == BTA_TRANSPORT_UNKNOWN)
     status = BTM_SecBond(p_data->bond.bd_addr, 0, NULL, 0);
   else
     status = BTM_SecBondByTransport(p_data->bond.bd_addr,
                                     p_data->bond.transport, 0, NULL, 0);
+  if (BTM_BUSY == status) {
 
+    p_msg = (tBTA_DM_MSG *)osi_malloc(sizeof(tBTA_DM_MSG));
+    memcpy(p_msg, p_data, sizeof(tBTA_DM_MSG));
+
+    alarm_set_on_queue(
+            bta_dm_cb.bond_retrail_timer, BTA_DM_BOND_TIMER_RETRIAL_MS,
+            bta_dm_bond_retrail_cback, p_msg, btu_bta_alarm_queue);
+    return;
+  }
   if (bta_dm_cb.p_sec_cback && (status != BTM_CMD_STARTED)) {
     memset(&sec_event, 0, sizeof(tBTA_DM_SEC));
     bdcpy(sec_event.auth_cmpl.bd_addr, p_data->bond.bd_addr);
@@ -4868,3 +4886,39 @@ static void bta_dm_ctrl_features_rd_cmpl_cback(tBTM_STATUS result) {
   }
 }
 #endif /* BLE_VND_INCLUDED */
+
+static void bta_dm_bond_retrail_cback(void* data) {
+
+ APPL_TRACE_EVENT("%s: retry bond", __func__);
+
+ tBTM_STATUS status;
+ tBTA_DM_SEC sec_event;
+ char* p_name;
+ tBTA_DM_MSG* p_data = (tBTA_DM_MSG*) data;
+
+ if (p_data->bond.transport == BTA_TRANSPORT_UNKNOWN)
+    status = BTM_SecBond(p_data->bond.bd_addr, 0, NULL, 0);
+ else
+    status = BTM_SecBondByTransport(p_data->bond.bd_addr,
+                             p_data->bond.transport, 0, NULL, 0);
+
+  if (bta_dm_cb.p_sec_cback && (status != BTM_CMD_STARTED)) {
+    memset(&sec_event, 0, sizeof(tBTA_DM_SEC));
+    bdcpy(sec_event.auth_cmpl.bd_addr, p_data->bond.bd_addr);
+    p_name = BTM_SecReadDevName(p_data->bond.bd_addr);
+    if (p_name != NULL) {
+      memcpy(sec_event.auth_cmpl.bd_name, p_name, (BD_NAME_LEN - 1));
+      sec_event.auth_cmpl.bd_name[BD_NAME_LEN - 1] = 0;
+    }
+
+    sec_event.auth_cmpl.fail_reason = HCI_ERR_ILLEGAL_COMMAND;
+    if (status == BTM_SUCCESS) {
+      sec_event.auth_cmpl.success = true;
+    } else {
+     /* delete this device entry from Sec Dev DB */
+      bta_dm_remove_sec_dev_entry(p_data->bond.bd_addr);
+    }
+    bta_dm_cb.p_sec_cback(BTA_DM_AUTH_CMPL_EVT, &sec_event);
+  }
+  osi_free(data);
+}
