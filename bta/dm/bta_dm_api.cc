@@ -150,7 +150,7 @@ void BTA_DmSetDeviceName(char* p_name) {
       (tBTA_DM_API_SET_NAME*)osi_malloc(sizeof(tBTA_DM_API_SET_NAME));
 
   p_msg->hdr.event = BTA_DM_API_SET_NAME_EVT;
-  strlcpy((char*)p_msg->name, p_name, BD_NAME_LEN);
+  strlcpy((char*)p_msg->name, p_name, BD_NAME_LEN+1);
 
   bta_sys_sendmsg(p_msg);
 }
