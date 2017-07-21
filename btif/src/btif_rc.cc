@@ -2268,7 +2268,7 @@ static bt_status_t register_notification_rsp_sho_mcast(
 
   /* Send the response. */
   send_metamsg_rsp(
-    p_dev, idx, p_dev->rc_notif[event_id - 1].label,
+    p_dev, -1, p_dev->rc_notif[event_id - 1].label,
     ((type == BTRC_NOTIFICATION_TYPE_INTERIM) ? AVRC_CMD_NOTIF
                                               : AVRC_RSP_CHANGED),
     &avrc_rsp);
