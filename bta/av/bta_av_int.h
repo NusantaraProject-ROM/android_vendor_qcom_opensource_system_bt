@@ -683,12 +683,8 @@ extern bool bta_av_is_scb_incoming(tBTA_AV_SCB* p_scb);
 extern void bta_av_set_scb_sst_init(tBTA_AV_SCB* p_scb);
 extern bool bta_av_is_scb_init(tBTA_AV_SCB* p_scb);
 extern void bta_av_set_scb_sst_incoming(tBTA_AV_SCB* p_scb);
-<<<<<<< HEAD
-extern tBTA_AV_LCB* bta_av_find_lcb(BD_ADDR addr, uint8_t op);
-extern bool bta_av_is_multicast_enabled();
-=======
 extern tBTA_AV_LCB* bta_av_find_lcb(const RawAddress& addr, uint8_t op);
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
+extern bool bta_av_is_multicast_enabled();
 
 /* main functions */
 extern void bta_av_api_deregister(tBTA_AV_DATA* p_data);

@@ -581,7 +581,6 @@ bt_status_t btif_hh_connect(const RawAddress* bd_addr) {
   btif_hh_added_device_t* added_dev = NULL;
   CHECK_BTHH_INIT();
   BTIF_TRACE_EVENT("BTHH: %s", __func__);
-<<<<<<< HEAD
 
   /* Check if this is not received while hid host service is disabled */
   if (btif_hh_cb.status == BTIF_HH_DISABLED) {
@@ -589,14 +588,8 @@ bt_status_t btif_hh_connect(const RawAddress* bd_addr) {
     return BT_STATUS_FAIL;
   }
 
-  dev = btif_hh_find_dev_by_bda(bd_addr);
-  snprintf(bda_str, sizeof(bda_str), "%02X:%02X:%02X:%02X:%02X:%02X", (*bda)[0],
-           (*bda)[1], (*bda)[2], (*bda)[3], (*bda)[4], (*bda)[5]);
-  if (dev == NULL && btif_hh_cb.device_num >= BTIF_HH_MAX_HID) {
-=======
   btif_hh_device_t* dev = btif_hh_find_dev_by_bda(*bd_addr);
   if (!dev && btif_hh_cb.device_num >= BTIF_HH_MAX_HID) {
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
     // No space for more HID device now.
     BTIF_TRACE_WARNING(
         "%s: Error, exceeded the maximum supported HID device number %d",
@@ -958,11 +951,7 @@ static void btif_hh_upstreams_evt(uint16_t event, char* p_param) {
           p_data->hs_data.handle, p_data->hs_data.status,
           p_data->hs_data.rsp_data.idle_rate);
       p_dev = btif_hh_find_connected_dev_by_handle(p_data->hs_data.handle);
-<<<<<<< HEAD
-      HAL_CBACK(bt_hh_callbacks, idle_time_cb, (bt_bdaddr_t*)&(p_dev->bd_addr),
-=======
       HAL_CBACK(bt_hh_callbacks, idle_time_cb, (RawAddress*)&(p_dev->bd_addr),
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
                 (bthh_status_t)p_data->hs_data.status,
                 p_data->hs_data.rsp_data.idle_rate);
       break;
@@ -1261,16 +1250,12 @@ static bt_status_t init(bthh_callbacks_t* callbacks) {
  * Returns         bt_status_t
  *
  ******************************************************************************/
-<<<<<<< HEAD
-static bt_status_t connect(bt_bdaddr_t* bd_addr) {
+static bt_status_t connect(RawAddress* bd_addr) {
   /* Check if this is not received while hid host service is disabled */
   if (btif_hh_cb.status == BTIF_HH_DISABLED) {
     BTIF_TRACE_ERROR("%s: Error, HH status = %d", __func__, btif_hh_cb.status);
     return BT_STATUS_FAIL;
   }
-=======
-static bt_status_t connect(RawAddress* bd_addr) {
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
   if (btif_hh_cb.status != BTIF_HH_DEV_CONNECTING) {
     btif_transfer_context(btif_hh_handle_evt, BTIF_HH_CONNECT_REQ_EVT,
                           (char*)bd_addr, sizeof(RawAddress), NULL);

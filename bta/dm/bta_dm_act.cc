@@ -762,13 +762,9 @@ void bta_dm_remove_device(tBTA_DM_MSG* p_data) {
     /* Take the link down first, and mark the device for removal when
      * disconnected */
     for (int i = 0; i < bta_dm_cb.device_list.count; i++) {
-<<<<<<< HEAD
-      if ((!bdcmp(bta_dm_cb.device_list.peer_device[i].peer_bdaddr, other_address))&&
+      if ( bta_dm_cb.device_list.peer_device[i].peer_bdaddr == other_address &&
             ((other_transport && (other_transport == bta_dm_cb.device_list.peer_device[i].transport)) ||
             !other_transport)) {
-=======
-      if (bta_dm_cb.device_list.peer_device[i].peer_bdaddr == other_address) {
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
         bta_dm_cb.device_list.peer_device[i].conn_state = BTA_DM_UNPAIRING;
         APPL_TRACE_DEBUG("%s:transport = %d ,other_transport = %d", __func__,
                        bta_dm_cb.device_list.peer_device[i].transport, other_transport);
@@ -2692,15 +2688,11 @@ static uint8_t bta_dm_sp_cback(tBTM_SP_EVT event, tBTM_SP_EVT_DATA* p_data) {
            call remote name request using values from cfm_req */
         if (p_data->cfm_req.bd_name[0] == 0) {
           bta_dm_cb.pin_evt = pin_evt;
-<<<<<<< HEAD
-          bdcpy(bta_dm_cb.pin_bd_addr, p_data->cfm_req.bd_addr);
+          bta_dm_cb.pin_bd_addr = p_data->cfm_req.bd_addr;
           bta_dm_cb.rmt_io_caps = sec_event.cfm_req.rmt_io_caps;
           bta_dm_cb.loc_io_caps = sec_event.cfm_req.loc_io_caps;
           bta_dm_cb.rmt_auth_req = sec_event.cfm_req.rmt_auth_req;
           bta_dm_cb.loc_auth_req = sec_event.cfm_req.loc_auth_req;
-=======
-          bta_dm_cb.pin_bd_addr = p_data->cfm_req.bd_addr;
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
           BTA_COPY_DEVICE_CLASS(bta_dm_cb.pin_dev_class,
                                 p_data->cfm_req.dev_class);
           if ((BTM_ReadRemoteDeviceName(
@@ -2726,14 +2718,10 @@ static uint8_t bta_dm_sp_cback(tBTM_SP_EVT event, tBTM_SP_EVT_DATA* p_data) {
            and initiate a name request with values from key_notif */
         if (p_data->key_notif.bd_name[0] == 0) {
           bta_dm_cb.pin_evt = pin_evt;
-<<<<<<< HEAD
           /* Store the local and remote io caps */
           bta_dm_cb.loc_io_caps = sec_event.cfm_req.loc_io_caps;
           bta_dm_cb.rmt_io_caps = sec_event.cfm_req.rmt_io_caps;
-          bdcpy(bta_dm_cb.pin_bd_addr, p_data->key_notif.bd_addr);
-=======
           bta_dm_cb.pin_bd_addr = p_data->key_notif.bd_addr;
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
           BTA_COPY_DEVICE_CLASS(bta_dm_cb.pin_dev_class,
                                 p_data->key_notif.dev_class);
           if ((BTM_ReadRemoteDeviceName(
@@ -3041,16 +3029,10 @@ void bta_dm_acl_change(tBTA_DM_MSG* p_data) {
 
     if (i == bta_dm_cb.device_list.count) {
       if (bta_dm_cb.device_list.count < BTA_DM_NUM_PEER_DEVICE) {
-<<<<<<< HEAD
         /* new acl connection,reset new peer device */
         memset(&bta_dm_cb.device_list.peer_device[i], 0, sizeof(bta_dm_cb.device_list.peer_device[i]));
-        bdcpy(bta_dm_cb.device_list.peer_device[bta_dm_cb.device_list.count]
-                  .peer_bdaddr,
-              p_bda);
-=======
         bta_dm_cb.device_list.peer_device[bta_dm_cb.device_list.count]
             .peer_bdaddr = p_bda;
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
         bta_dm_cb.device_list.peer_device[bta_dm_cb.device_list.count]
             .link_policy = bta_dm_cb.cur_policy;
         bta_dm_cb.device_list.count++;
@@ -3126,13 +3108,9 @@ void bta_dm_acl_change(tBTA_DM_MSG* p_data) {
       bta_dm_cb.device_list.le_count--;
     conn.link_down.link_type = p_data->acl_change.transport;
 
-<<<<<<< HEAD
     if ((p_data->acl_change.transport == BT_TRANSPORT_BR_EDR) &&
         bta_dm_search_cb.wait_disc &&
-        !bdcmp(bta_dm_search_cb.peer_bdaddr, p_bda)) {
-=======
-    if (bta_dm_search_cb.wait_disc && bta_dm_search_cb.peer_bdaddr == p_bda) {
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
+        bta_dm_search_cb.peer_bdaddr == p_bda) {
       bta_dm_search_cb.wait_disc = false;
 
       if (bta_dm_search_cb.sdp_results) {

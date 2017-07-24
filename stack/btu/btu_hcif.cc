@@ -51,13 +51,7 @@
 
 using tracked_objects::Location;
 
-<<<<<<< HEAD
-// TODO(zachoverflow): remove this horrible hack
-extern fixed_queue_t* btu_hci_msg_queue;
 extern void bte_main_disable(void);
-
-=======
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
 extern void btm_process_cancel_complete(uint8_t status, uint8_t mode);
 extern void btm_ble_test_command_complete(uint8_t* p);
 
@@ -1267,16 +1261,9 @@ static void btu_hcif_role_change_evt(uint8_t* p) {
   STREAM_TO_UINT8(status, p);
   STREAM_TO_BDADDR(bda, p);
   STREAM_TO_UINT8(role, p);
-<<<<<<< HEAD
-  btm_blacklist_role_change_device(bda, status);
-  l2c_link_role_changed(bda, role, status);
-  btm_acl_role_changed(status, bda, role);
-=======
-
   btm_blacklist_role_change_device(bda, status);
   l2c_link_role_changed(&bda, role, status);
   btm_acl_role_changed(status, &bda, role);
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
 }
 
 /*******************************************************************************

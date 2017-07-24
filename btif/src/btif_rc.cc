@@ -362,16 +362,11 @@ static int btif_max_rc_clients = 1;
  *  Externs
  *****************************************************************************/
 extern bool btif_hf_call_terminated_recently();
-<<<<<<< HEAD
 extern bool btif_hf_is_call_vr_idle();
-extern bool check_cod(const bt_bdaddr_t* remote_bdaddr, uint32_t cod);
-extern bool btif_av_is_split_a2dp_enabled();
-extern int btif_av_idx_by_bdaddr(BD_ADDR bd_addr);
-extern bool btif_av_check_flag_remote_suspend(int index);
-=======
 extern bool check_cod(const RawAddress* remote_bdaddr, uint32_t cod);
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
-
+extern bool btif_av_is_split_a2dp_enabled();
+extern int btif_av_idx_by_bdaddr(RawAddress bd_addr);
+extern bool btif_av_check_flag_remote_suspend(int index);
 extern fixed_queue_t* btu_general_alarm_queue;
 
 /*****************************************************************************
@@ -415,15 +410,8 @@ static int get_num_connected_devices() {
   return connected_devices;
 }
 
-<<<<<<< HEAD
-btif_rc_device_cb_t* btif_rc_get_device_by_bda(bt_bdaddr_t* bd_addr) {
-  BTIF_TRACE_DEBUG("%s: bd_addr: %02X:%02X:%02X:%02X:%02X:%02X", __func__,
-                 bd_addr->address[0], bd_addr->address[1], bd_addr->address[2],
-                 bd_addr->address[3], bd_addr->address[4], bd_addr->address[5]);
-=======
 btif_rc_device_cb_t* btif_rc_get_device_by_bda(const RawAddress* bd_addr) {
   VLOG(1) << __func__ << ": bd_addr: " << *bd_addr;
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
 
   for (int idx = 0; idx < btif_max_rc_clients; idx++) {
     if ((btif_rc_cb.rc_multi_cb[idx].rc_state !=
@@ -537,11 +525,7 @@ void handle_rc_features(btif_rc_device_cb_t* p_dev) {
   CHECK(bt_rc_callbacks);
 
   btrc_remote_features_t rc_features = BTRC_FEAT_NONE;
-<<<<<<< HEAD
   bt_bdaddr_t avdtp_addr = btif_av_get_addr(p_dev->rc_addr);
-=======
-  RawAddress avdtp_addr = btif_av_get_addr();
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
 
   BTIF_TRACE_DEBUG("%s: AVDTP Address: %s AVCTP address: %s", __func__,
                    avdtp_addr.ToString().c_str(), rc_addr.ToString().c_str());
@@ -741,17 +725,14 @@ void handle_rc_connect(tBTA_AV_RC_OPEN* p_rc_open) {
   /* on locally initiated connection we will get remote features as part of
    * connect */
   p_dev->rc_playing_uid = RC_INVALID_TRACK_ID;
-<<<<<<< HEAD
-  bt_bdaddr_t rc_addr;
-  bdcpy(rc_addr.address, p_dev->rc_addr);
+
+  RawAddress rc_addr = p_dev->rc_addr;
   if (p_dev->rc_features && bt_rc_callbacks != NULL) {
     if (BTA_AV_FEAT_RCCT)
       HAL_CBACK(bt_rc_callbacks, connection_state_cb, true, false, &rc_addr);
     handle_rc_features(p_dev);
   }
 
-=======
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
   if (bt_rc_ctrl_callbacks != NULL) {
     RawAddress rc_addr = p_dev->rc_addr;
     HAL_CBACK(bt_rc_ctrl_callbacks, connection_state_cb, true, false, &rc_addr);
@@ -778,17 +759,14 @@ void handle_rc_disconnect(tBTA_AV_RC_CLOSE* p_rc_close) {
     return;
   }
 
-<<<<<<< HEAD
-  bt_bdaddr_t rc_addr;
-  bdcpy(rc_addr.address, p_dev->rc_addr);
-=======
+  RawAddress rc_addr = p_dev->rc_addr;
+
   if (p_rc_close->rc_handle != p_dev->rc_handle &&
       p_dev->rc_addr != p_rc_close->peer_addr) {
     BTIF_TRACE_ERROR("Got disconnect of unknown device");
     return;
   }
-  RawAddress rc_addr = p_dev->rc_addr;
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
+ 
   /* Clean up AVRCP procedure flags */
   memset(&p_dev->rc_app_settings, 0, sizeof(btif_rc_player_app_settings_t));
   p_dev->rc_features_processed = false;
@@ -811,13 +789,9 @@ void handle_rc_disconnect(tBTA_AV_RC_CLOSE* p_rc_close) {
     p_dev->rc_features = 0;
     p_dev->rc_vol_label = MAX_LABEL;
     p_dev->rc_volume = MAX_VOLUME;
-<<<<<<< HEAD
     p_dev->rc_pending_play = false;
     p_dev->rc_play_processed = false;
-=======
-
     p_dev->rc_addr = RawAddress::kEmpty;
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
   }
   if (get_num_connected_devices() == 0) {
     BTIF_TRACE_DEBUG("%s: Closing all handles", __func__);
@@ -1298,19 +1272,13 @@ void btif_rc_handler(tBTA_AV_EVT event, tBTA_AV* p_data) {
  ** Description    Fetches the connected headset's address if any
  **
  ***************************************************************************/
-<<<<<<< HEAD
-bool btif_rc_get_connected_peer(BD_ADDR peer_addr) {
-  bt_bdaddr_t rc_addr;
-  bdcpy(rc_addr.address, peer_addr);
+bool btif_rc_get_connected_peer(RawAddress* peer_addr) {
+  RawAddress* rc_addr;
+  rc_addr = peer_addr;
   btif_rc_device_cb_t* p_dev = NULL;
 
-  for (int idx = 0; idx < btif_max_rc_clients; idx++) {
-    p_dev = get_connected_device(idx);
-=======
-bool btif_rc_get_connected_peer(RawAddress* peer_addr) {
   for (int idx = 0; idx < BTIF_RC_NUM_CONN; idx++) {
-    btif_rc_device_cb_t* p_dev = get_connected_device(idx);
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
+    p_dev = get_connected_device(idx);
     if (p_dev != NULL && (p_dev->rc_connected == TRUE)) {
       *peer_addr = p_dev->rc_addr;
       return true;

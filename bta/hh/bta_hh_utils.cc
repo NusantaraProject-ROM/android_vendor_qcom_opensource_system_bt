@@ -54,11 +54,10 @@ static const uint8_t bta_hh_mod_key_mask[BTA_HH_MOD_MAX_KEY] = {
 **
 **      Returns        None
 *******************************************************************************/
-static void blacklist_adjust_sniff_subrate(BD_ADDR peer_dev, UINT16 *ssr_max_lat)
+static void blacklist_adjust_sniff_subrate(RawAddress peer_dev, UINT16 *ssr_max_lat)
 {
     UINT16 old_ssr_max_lat = *ssr_max_lat;
-    bt_bdaddr_t remote_bdaddr;
-    bdcpy(remote_bdaddr.address, peer_dev);
+    RawAddress remote_bdaddr = peer_dev;
     if (interop_match_addr_get_max_lat(INTEROP_UPDATE_HID_SSR_MAX_LAT, &remote_bdaddr,
         ssr_max_lat)) {
         APPL_TRACE_WARNING("%s: Device in blacklist for ssr, max latency changed "

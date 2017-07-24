@@ -234,21 +234,10 @@ uint16_t L2CA_ErtmConnectReq(uint16_t psm, const RawAddress& p_bd_addr,
   tL2C_CCB* p_ccb;
   tL2C_RCB* p_rcb;
 
-<<<<<<< HEAD
-  L2CAP_TRACE_WARNING(
-      "L2CA_ErtmConnectReq()  PSM: 0x%04x  BDA: %08x%04x  p_ertm_info: 0x%08x "
-      "allowed:0x%x preferred:%d",
-      psm, (p_bd_addr[0] << 24) + (p_bd_addr[1] << 16) + (p_bd_addr[2] << 8) +
-               p_bd_addr[3],
-      (p_bd_addr[4] << 8) + p_bd_addr[5], p_ertm_info,
-      (p_ertm_info) ? p_ertm_info->allowed_modes : 0,
-      (p_ertm_info) ? p_ertm_info->preferred_mode : 0);
-=======
   VLOG(1) << __func__ << "BDA " << p_bd_addr
           << StringPrintf(" PSM: 0x%04x allowed:0x%x preferred:%d", psm,
                           (p_ertm_info) ? p_ertm_info->allowed_modes : 0,
                           (p_ertm_info) ? p_ertm_info->preferred_mode : 0);
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
 
   /* Fail if we have not established communications with the controller */
   if (!BTM_IsDeviceUp()) {
@@ -680,18 +669,9 @@ bool L2CA_ErtmConnectRsp(const RawAddress& p_bd_addr, uint8_t id, uint16_t lcid,
   tL2C_LCB* p_lcb;
   tL2C_CCB* p_ccb;
 
-<<<<<<< HEAD
-  L2CAP_TRACE_WARNING(
-      "L2CA_ErtmConnectRsp()  CID: 0x%04x  Result: %d  Status: %d  BDA: "
-      "%08x%04x  p_ertm_info:0x%08x",
-      lcid, result, status, (p_bd_addr[0] << 24) + (p_bd_addr[1] << 16) +
-                                (p_bd_addr[2] << 8) + p_bd_addr[3],
-      (p_bd_addr[4] << 8) + p_bd_addr[5], p_ertm_info);
-=======
   VLOG(1) << __func__ << " BDA: " << p_bd_addr
           << StringPrintf(" CID:0x%04x  Result:%d  Status:%d", lcid, result,
                           status);
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
 
   /* First, find the link control block */
   p_lcb = l2cu_find_lcb_by_bd_addr(p_bd_addr, BT_TRANSPORT_BR_EDR);

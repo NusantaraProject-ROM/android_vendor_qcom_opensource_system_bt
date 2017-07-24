@@ -839,13 +839,9 @@ void bta_hh_close_act(tBTA_HH_DEV_CB* p_cb, tBTA_HH_DATA* p_data) {
     conn_dat.handle = p_cb->hid_handle;
     conn_dat.status =
         (reason == HID_ERR_AUTH_FAILED) ? BTA_HH_ERR_AUTH_FAILED : BTA_HH_ERR;
-<<<<<<< HEAD
-    bdcpy(conn_dat.bda, p_cb->addr);
+    conn_dat.bda = p_cb->addr;
     /* finalize device driver */
     bta_hh_co_close(p_cb->hid_handle, p_cb->app_id);
-=======
-    conn_dat.bda = p_cb->addr;
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
     HID_HostCloseDev(p_cb->hid_handle);
 
     /* Report OPEN fail event */

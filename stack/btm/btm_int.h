@@ -103,13 +103,8 @@ extern void btm_process_clk_off_comp_evt(uint16_t hci_handle,
                                          uint16_t clock_offset);
 extern void btm_acl_role_changed(uint8_t hci_status, const RawAddress* bd_addr,
                                  uint8_t new_role);
-<<<<<<< HEAD
-extern void btm_blacklist_role_change_device (BD_ADDR bd_addr,
-                                 uint8_t hci_status);
-=======
 extern void btm_blacklist_role_change_device(const RawAddress& bd_addr,
                                              uint8_t hci_status);
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
 extern void btm_acl_encrypt_change(uint16_t handle, uint8_t status,
                                    uint8_t encr_enable);
 extern uint16_t btm_get_acl_disc_reason_code(void);
@@ -222,13 +217,6 @@ extern tBTM_STATUS btm_sec_l2cap_access_req(const RawAddress& bd_addr,
                                             CONNECTION_TYPE conn_type,
                                             tBTM_SEC_CALLBACK* p_callback,
                                             void* p_ref_data);
-<<<<<<< HEAD
-extern tBTM_STATUS btm_sec_mx_access_request(
-    BD_ADDR bd_addr, uint16_t psm, bool is_originator, uint32_t mx_proto_id,
-    uint32_t mx_chan_id, tBTM_SEC_CALLBACK* p_callback, void* p_ref_data);
-extern  tBTM_STATUS btm_sec_execute_procedure (tBTM_SEC_DEV_REC *p_dev_rec);
-extern void btm_sec_conn_req(uint8_t* bda, uint8_t* dc);
-=======
 extern tBTM_STATUS btm_sec_mx_access_request(const RawAddress& bd_addr,
                                              uint16_t psm, bool is_originator,
                                              uint32_t mx_proto_id,
@@ -236,7 +224,7 @@ extern tBTM_STATUS btm_sec_mx_access_request(const RawAddress& bd_addr,
                                              tBTM_SEC_CALLBACK* p_callback,
                                              void* p_ref_data);
 extern void btm_sec_conn_req(const RawAddress& bda, uint8_t* dc);
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
+extern  tBTM_STATUS btm_sec_execute_procedure (tBTM_SEC_DEV_REC *p_dev_rec);
 extern void btm_create_conn_cancel_complete(uint8_t* p);
 
 extern void btm_read_inq_tx_power_timeout(void* data);

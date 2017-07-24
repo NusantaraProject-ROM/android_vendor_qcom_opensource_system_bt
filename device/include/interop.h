@@ -165,10 +165,6 @@ typedef enum {
   // but fail to play the reconfigured audio stream.
   INTEROP_DISABLE_AVDTP_RECONFIGURE,
 
-<<<<<<< HEAD
-  END_OF_INTEROP_LIST
-
-=======
   // Create dynamic blacklist to disable role switch.
   // Some car kits indicate that role switch is supported, but then reject
   // role switch attempts. After rejecting several role switch attempts,
@@ -178,8 +174,9 @@ typedef enum {
   // Disable role switch for headsets/car-kits.
   // Some car kits allow role switch but when the Phone initiates role switch,
   // the Remote device will go into bad state that will lead to LMP time out.
-  INTEROP_DISABLE_ROLE_SWITCH
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
+  INTEROP_DISABLE_ROLE_SWITCH,
+  
+  END_OF_INTEROP_LIST
 } interop_feature_t;
 
 // Check if a given |addr| matches a known interoperability workaround as

@@ -44,12 +44,11 @@ func fluorideDefaults(ctx android.LoadHookContext) {
 }
 
 func globalDefaults(ctx android.BaseContext) ([]string, []string) {
-<<<<<<< HEAD
   var cflags []string
   var includeDirs []string
 
   board_bt_buildcfg_include_dir := ctx.DeviceConfig().BtConfigIncludeDir()
-  if (len(board_bt_buildcfg_include_dir) > 0) {
+  if len(board_bt_buildcfg_include_dir) > 0 {
     cflags = append(cflags, "-DHAS_BDROID_BUILDCFG")
     board_bt_buildcfg_include_dir_list :=
         strings.Fields(board_bt_buildcfg_include_dir)
@@ -62,22 +61,4 @@ func globalDefaults(ctx android.BaseContext) ([]string, []string) {
   cflags = append(cflags, "-DWIPOWER_SUPPORTED")
 
   return cflags, includeDirs
-=======
-	var cflags []string
-	var includeDirs []string
-
-	board_bt_buildcfg_include_dir := ctx.DeviceConfig().BtConfigIncludeDir()
-	if len(board_bt_buildcfg_include_dir) > 0 {
-		cflags = append(cflags, "-DHAS_BDROID_BUILDCFG")
-		board_bt_buildcfg_include_dir_list :=
-			strings.Fields(board_bt_buildcfg_include_dir)
-		for _, buildcfg_dir := range board_bt_buildcfg_include_dir_list {
-			includeDirs = append(includeDirs, buildcfg_dir)
-		}
-	} else {
-		cflags = append(cflags, "-DHAS_NO_BDROID_BUILDCFG")
-	}
-
-	return cflags, includeDirs
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
 }

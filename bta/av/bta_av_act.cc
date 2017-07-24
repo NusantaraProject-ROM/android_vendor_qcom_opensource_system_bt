@@ -774,7 +774,7 @@ tBTA_AV_EVT bta_av_proc_meta_cmd(tAVRC_RESPONSE* p_rc_rsp,
   tAVRC_MSG_VENDOR* p_vendor = &p_msg->msg.vendor;
   bool is_dev_avrcpv_blacklisted = FALSE;
   int i;
-  BD_ADDR     addr;
+  RawAddress     addr;
 
 #if (AVRC_METADATA_INCLUDED == TRUE)
   pdu = *(p_vendor->p_vendor_data);
@@ -1599,12 +1599,8 @@ void bta_av_signalling_timer(UNUSED_ATTR tBTA_AV_DATA* p_data) {
         bta_sys_start_timer(p_cb->link_signalling_timer,
                             BTA_AV_SIGNALLING_TIMEOUT_MS,
                             BTA_AV_SIGNALLING_TIMER_EVT, 0);
-<<<<<<< HEAD
-        bdcpy(pend.bd_addr, p_lcb->addr);
-        pend.hndl = p_cb->p_scb[xx]->hndl;
-=======
         pend.bd_addr = p_lcb->addr;
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
+        pend.hndl = p_cb->p_scb[xx]->hndl;
         (*p_cb->p_cback)(BTA_AV_PENDING_EVT, (tBTA_AV*)&pend);
       }
     }

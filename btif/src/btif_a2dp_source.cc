@@ -777,14 +777,9 @@ static bool btif_a2dp_source_enqueue_callback(BT_HDR* p_buf, size_t frames_n) {
     }
 
     // Request RSSI for log purposes if we had to flush buffers
-<<<<<<< HEAD
-    bt_bdaddr_t peer_bda;
+    RawAddress peer_bda = btif_av_get_addr();
     btif_av_get_peer_addr(&peer_bda);
     BTM_ReadRSSI(peer_bda.address, btm_read_rssi_cb);
-=======
-    RawAddress peer_bda = btif_av_get_addr();
-    BTM_ReadRSSI(peer_bda, btm_read_rssi_cb);
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
   }
 
   /* Update the statistics */

@@ -100,15 +100,10 @@ typedef struct {
   uint8_t ch_flags;   /* L2CAP configuration flags */
   BT_HDR* p_tx_msg;   /* Message to be sent - in case the browsing channel is not
                         open when MsgReg is called */
-<<<<<<< HEAD
   uint8_t ch_close;   /* CCB index+1, if CCB initiated channel close */
-  BD_ADDR peer_addr;  /* BD address of peer */
+  RawAddress peer_addr;  /* BD address of peer */
   fixed_queue_t *tx_q;/* Transmit data buffer queue       */
   bool cong;       /* TRUE, if congested */
-=======
-  uint8_t ch_close;  /* CCB index+1, if CCB initiated channel close */
-  RawAddress peer_addr; /* BD address of peer */
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
 } tAVCT_BCB;
 
 #define AVCT_ALOC_LCB 0x01

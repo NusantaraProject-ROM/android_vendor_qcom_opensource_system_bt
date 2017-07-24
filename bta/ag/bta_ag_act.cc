@@ -182,12 +182,8 @@ void bta_ag_start_dereg(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
  *
  ******************************************************************************/
 void bta_ag_start_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
-<<<<<<< HEAD
-  BD_ADDR pending_bd_addr;
-  tBTA_AG_RFC     *p_buf;
-=======
   RawAddress pending_bd_addr;
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
+  tBTA_AG_RFC     *p_buf;
 
   /* store parameters */
   if (p_data) {
@@ -552,8 +548,7 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
     if (ag_scb->in_use && alarm_is_scheduled(ag_scb->collision_timer)) {
       alarm_cancel(ag_scb->collision_timer);
 
-<<<<<<< HEAD
-      if (bdcmp(dev_addr, ag_scb->peer_addr) == 0) {
+      if (dev_addr == ag_scb->peer_addr) {
         char value[PROPERTY_VALUE_MAX];
         /* Read the property if multi hf is enabled */
         if (property_get("persist.bt.max.hs.connections", value, "") &&
@@ -577,12 +572,6 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
           p_buf->hdr.layer_specific = bta_ag_scb_to_idx(ag_scb);
           bta_sys_sendmsg(p_buf);
         }
-=======
-      if (dev_addr == ag_scb->peer_addr) {
-        /* If incoming and outgoing device are same, nothing more to do. */
-        /* Outgoing conn will be aborted because we have successful incoming
-         * conn.  */
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
       } else {
         /* Resume outgoing connection. */
         other_scb = bta_ag_get_other_idle_scb(p_scb);

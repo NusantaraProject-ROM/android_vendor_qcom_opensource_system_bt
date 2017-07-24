@@ -4857,12 +4857,8 @@ void btm_sec_link_key_request(const RawAddress& bda) {
   l2c_pin_code_request(bda);
 
   /* The link key is not in the database and it is not known to the manager */
-<<<<<<< HEAD
   LOG_INFO(LOG_TAG, "%s: btsnd_hcic_link_key_neg_reply: p_dev_rec->sec_flags : %d" , __func__, p_dev_rec->sec_flags);
-  btsnd_hcic_link_key_neg_reply(p_bda);
-=======
   btsnd_hcic_link_key_neg_reply(bda);
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
 }
 
 /*******************************************************************************

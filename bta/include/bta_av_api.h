@@ -411,14 +411,10 @@ typedef struct {
 } tBTA_AV_META_MSG;
 
 /* data associated with BTA_AV_PENDING_EVT */
-<<<<<<< HEAD
 typedef struct {
-  BD_ADDR bd_addr;
+  RawAddress bd_addr;
   tBTA_AV_HNDL hndl; /* Handle associated with the stream. */
 } tBTA_AV_PEND;
-=======
-typedef struct { RawAddress bd_addr; } tBTA_AV_PEND;
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
 
 /* data associated with BTA_AV_REJECT_EVT */
 typedef struct {

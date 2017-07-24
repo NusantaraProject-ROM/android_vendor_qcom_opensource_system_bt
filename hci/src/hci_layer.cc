@@ -701,15 +701,12 @@ static void init_layer_interface() {
   if (!interface_created) {
     // It's probably ok for this to live forever. It's small and
     // there's only one instance of the hci interface.
-<<<<<<< HEAD
     interface.event_dispatcher = data_dispatcher_new("hci_layer");
     if (!interface.event_dispatcher) {
       LOG_ERROR(LOG_TAG, "%s could not create upward dispatcher.", __func__);
       return;
     }
     soc_type = get_soc_type();
-=======
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
 
     interface.set_data_cb = set_data_cb;
     interface.transmit_command = transmit_command;

@@ -177,12 +177,6 @@ static bool btif_has_ble_keys(const char* bdstr);
  *  Static functions
  ******************************************************************************/
 
-<<<<<<< HEAD
-static int prop2cfg(bt_bdaddr_t* remote_bd_addr, bt_property_t* prop) {
-  bdstr_t bdstr = {0};
-  int name_length = 0;
-  if (remote_bd_addr) bdaddr_to_string(remote_bd_addr, bdstr, sizeof(bdstr));
-=======
 static int prop2cfg(const RawAddress* remote_bd_addr, bt_property_t* prop) {
   std::string addrstr;
   const char* bdstr = addrstr.c_str();
@@ -191,7 +185,6 @@ static int prop2cfg(const RawAddress* remote_bd_addr, bt_property_t* prop) {
     bdstr = addrstr.c_str();
   }
 
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
   BTIF_TRACE_DEBUG("in, bd addr:%s, prop type:%d, len:%d", bdstr, prop->type,
                    prop->len);
   char value[1024];

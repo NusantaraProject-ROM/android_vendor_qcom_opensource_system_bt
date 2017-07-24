@@ -176,13 +176,8 @@ uint16_t Battery_Instantiate(uint8_t app_id, tBA_REG_INFO* p_reg_info) {
   tGATT_STATUS status = GATT_ERROR;
   tBA_INST* p_inst;
 
-<<<<<<< HEAD
-  if (battery_cb.inst_id >= BA_MAX_INT_NUM) {
-    GATT_TRACE_ERROR("MAX battery service has been reached");
-=======
   if (battery_cb.inst_id == BA_MAX_INT_NUM) {
     LOG(ERROR) << "MAX battery service has been reached";
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
     return 0;
   }
 

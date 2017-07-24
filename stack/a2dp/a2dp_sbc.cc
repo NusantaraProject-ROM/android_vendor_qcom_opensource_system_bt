@@ -52,19 +52,12 @@ typedef struct {
   btav_a2dp_codec_bits_per_sample_t bits_per_sample;
 } tA2DP_SBC_CIE;
 
-/* SBC SRC codec capabilities */
-<<<<<<< HEAD
+/* SBC SRC codec capablilities */
 static const tA2DP_SBC_CIE a2dp_sbc_src_caps = {
-    A2DP_SBC_IE_SAMP_FREQ_44,          /* samp_freq */
-    A2DP_SBC_IE_CH_MD_JOINT,           /* ch_mode */
-    A2DP_SBC_IE_BLOCKS_16,             /* block_len */
-=======
-static const tA2DP_SBC_CIE a2dp_sbc_caps = {
     A2DP_SBC_IE_SAMP_FREQ_44,                           /* samp_freq */
     (A2DP_SBC_IE_CH_MD_MONO | A2DP_SBC_IE_CH_MD_JOINT), /* ch_mode */
     (A2DP_SBC_IE_BLOCKS_16 | A2DP_SBC_IE_BLOCKS_12 | A2DP_SBC_IE_BLOCKS_8 |
      A2DP_SBC_IE_BLOCKS_4),            /* block_len */
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
     A2DP_SBC_IE_SUBBAND_8,             /* num_subbands */
     A2DP_SBC_IE_ALLOC_MD_L,            /* alloc_method */
     A2DP_SBC_IE_MIN_BITPOOL,           /* min_bitpool */

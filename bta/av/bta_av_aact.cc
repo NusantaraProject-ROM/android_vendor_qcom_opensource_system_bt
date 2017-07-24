@@ -492,12 +492,8 @@ static void bta_av_proc_stream_evt(uint8_t handle, const RawAddress* bd_addr,
            * SST is at INIT state, change it to INCOMING state to handle the
            * signalling
            * from the 2nd SEP. */
-<<<<<<< HEAD
           if ((bd_addr != NULL) &&
-              (bta_av_find_lcb(bd_addr, BTA_AV_LCB_FIND) != NULL) &&
-=======
-          if ((bta_av_find_lcb(*bd_addr, BTA_AV_LCB_FIND) != NULL) &&
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
+              (bta_av_find_lcb(*bd_addr, BTA_AV_LCB_FIND) != NULL) &&
               (bta_av_is_scb_init(p_scb))) {
             bta_av_set_scb_sst_incoming(p_scb);
 
@@ -1321,22 +1317,13 @@ void bta_av_setconfig_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     if (p_scb->cur_psc_mask & AVDT_PSC_DELAY_RPT)
       p_scb->avdt_version = AVDT_VERSION_SYNC;
 
-<<<<<<< HEAD
+    if (A2DP_GetCodecType(p_scb->cfg.codec_info) == A2DP_MEDIA_CT_SBC ||
+        num > 1) {
     /* For any codec used by the SNK as INT, discover req is not sent in bta_av_config_ind.
      * This is done since we saw an IOT issue with APTX codec. Thus, we now take same
      * path for all codecs as for SBC. call disc_res now */
     /* this is called in A2DP SRC path only, In case of SINK we don't need it  */
-    if (local_sep == AVDT_TSEP_SRC)
-=======
-    if (A2DP_GetCodecType(p_scb->cfg.codec_info) == A2DP_MEDIA_CT_SBC ||
-        num > 1) {
-      /* if SBC is used by the SNK as INT, discover req is not sent in
-       * bta_av_config_ind.
-       * call disc_res now */
-      /* this is called in A2DP SRC path only, In case of SINK we don't need it
-       */
       if (local_sep == AVDT_TSEP_SRC)
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
         p_scb->p_cos->disc_res(p_scb->hndl, num, num, 0, p_scb->peer_addr,
                                UUID_SERVCLASS_AUDIO_SOURCE);
 

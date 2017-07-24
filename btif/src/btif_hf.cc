@@ -284,13 +284,8 @@ static void send_bvra_update(int index)
 static int btif_hf_idx_by_bdaddr(RawAddress* bd_addr) {
   int i;
   for (i = 0; i < btif_max_hf_clients; ++i) {
-<<<<<<< HEAD
-    if (is_connected(bd_addr) && (bdcmp(bd_addr->address,
-                         btif_hf_cb[i].connected_bda.address) == 0))
+    if (is_connected(bd_addr) && *bd_addr == btif_hf_cb[i].connected_bda))
       return i;
-=======
-    if (*bd_addr == btif_hf_cb[i].connected_bda) return i;
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
   }
   return BTIF_HF_INVALID_IDX;
 }
@@ -461,13 +456,8 @@ static bt_status_t btif_hf_check_if_sco_connected() {
  ******************************************************************************/
 static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
   tBTA_AG* p_data = (tBTA_AG*)p_param;
-<<<<<<< HEAD
-  //TODO:C_ERR bdstr_t bdstr;
   int idx;
   bool ignore_rfc_fail = false;
-=======
-  int idx = p_data->hdr.handle - 1;
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
 
   BTIF_TRACE_DEBUG("%s: event=%s", __func__, dump_hf_event(event));
   // for BTA_AG_ENABLE_EVT/BTA_AG_DISABLE_EVT, p_data is NULL
@@ -510,22 +500,17 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
              (p_data->open.status == BTA_AG_FAIL_RFCOMM) &&
              (is_connected(&btif_hf_cb[idx].connected_bda)) )
         {
-          /*TODO:C_ERR BTIF_TRACE_WARNING("%s: Ignoring RFCOMM failure due to collision for dev %s",
-                        __FUNCTION__, bd2str(&btif_hf_cb[idx].connected_bda, &bdstr)); */
+          BTIF_TRACE_WARNING("%s: Ignoring RFCOMM failure due to collision for dev %s",
+                        __func__, btif_hf_cb[idx].connected_bda.ToString().c_str());
           ignore_rfc_fail = true;
         }
         btif_hf_cb[idx].state = BTHF_CONNECTION_STATE_DISCONNECTED;
       } else {
-        /*TODO:C_ERR BTIF_TRACE_WARNING(
+        BTIF_TRACE_WARNING(
             "%s: AG open failed, but another device connected. status=%d "
             "state=%d connected device=%s",
             __func__, p_data->open.status, btif_hf_cb[idx].state,
-<<<<<<< HEAD
-            bdaddr_to_string(&btif_hf_cb[idx].connected_bda, bdstr,
-                             sizeof(bdstr)));*/
-=======
             btif_hf_cb[idx].connected_bda.ToString().c_str());
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
         break;
       }
       if (ignore_rfc_fail != true)
@@ -1015,8 +1000,7 @@ static bt_status_t disconnect_audio(RawAddress* bd_addr) {
  * Returns          bt_status_t
  *
  ******************************************************************************/
-<<<<<<< HEAD
-static bt_status_t start_voice_recognition(bt_bdaddr_t* bd_addr) {
+static bt_status_t start_voice_recognition(RawAddress* bd_addr) {
     CHECK_BTHF_INIT();
     bool is_success = FALSE;
     for (int i = 0; i < btif_max_hf_clients; i++)
@@ -1031,28 +1015,6 @@ static bt_status_t start_voice_recognition(bt_bdaddr_t* bd_addr) {
             BTA_AgResult (btif_hf_cb[i].handle, BTA_AG_BVRA_RES, &ag_res);
             is_success = TRUE;
         }
-=======
-static bt_status_t start_voice_recognition(RawAddress* bd_addr) {
-  CHECK_BTHF_INIT();
-
-  int idx = btif_hf_idx_by_bdaddr(bd_addr);
-
-  if ((idx < 0) || (idx >= BTIF_HF_NUM_CB)) {
-    BTIF_TRACE_ERROR("%s: Invalid index %d", __func__, idx);
-    return BT_STATUS_FAIL;
-  }
-
-  if (is_connected(bd_addr) && (idx != BTIF_HF_INVALID_IDX)) {
-    if (btif_hf_cb[idx].peer_feat & BTA_AG_PEER_FEAT_VREC) {
-      tBTA_AG_RES_DATA ag_res;
-      memset(&ag_res, 0, sizeof(ag_res));
-      ag_res.state = 1;
-      BTA_AgResult(btif_hf_cb[idx].handle, BTA_AG_BVRA_RES, &ag_res);
-
-      return BT_STATUS_SUCCESS;
-    } else {
-      return BT_STATUS_UNSUPPORTED;
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
     }
 
     if (is_success)
@@ -1075,8 +1037,7 @@ static bt_status_t start_voice_recognition(RawAddress* bd_addr) {
  * Returns          bt_status_t
  *
  ******************************************************************************/
-<<<<<<< HEAD
-static bt_status_t stop_voice_recognition(bt_bdaddr_t* bd_addr) {
+static bt_status_t stop_voice_recognition(RawAddress* bd_addr) {
     CHECK_BTHF_INIT();
     bool is_success = FALSE;
     for (int i = 0; i < btif_max_hf_clients; i++)
@@ -1091,28 +1052,6 @@ static bt_status_t stop_voice_recognition(bt_bdaddr_t* bd_addr) {
             BTA_AgResult (btif_hf_cb[i].handle, BTA_AG_BVRA_RES, &ag_res);
             is_success = TRUE;
         }
-=======
-static bt_status_t stop_voice_recognition(RawAddress* bd_addr) {
-  CHECK_BTHF_INIT();
-
-  int idx = btif_hf_idx_by_bdaddr(bd_addr);
-
-  if ((idx < 0) || (idx >= BTIF_HF_NUM_CB)) {
-    BTIF_TRACE_ERROR("%s: Invalid index %d", __func__, idx);
-    return BT_STATUS_FAIL;
-  }
-
-  if (is_connected(bd_addr) && (idx != BTIF_HF_INVALID_IDX)) {
-    if (btif_hf_cb[idx].peer_feat & BTA_AG_PEER_FEAT_VREC) {
-      tBTA_AG_RES_DATA ag_res;
-      memset(&ag_res, 0, sizeof(ag_res));
-      ag_res.state = 0;
-      BTA_AgResult(btif_hf_cb[idx].handle, BTA_AG_BVRA_RES, &ag_res);
-
-      return BT_STATUS_SUCCESS;
-    } else {
-      return BT_STATUS_UNSUPPORTED;
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
     }
 
     if (is_success)
@@ -1907,11 +1846,8 @@ static const bthf_interface_t bthfInterface = {
     cleanup,
     configure_wbs,
     bind_response,
-<<<<<<< HEAD
-    //voip_network_type_wifi, // TODO: Comment out libhardware dependency
-=======
     set_sco_allowed,
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
+    //voip_network_type_wifi, // TODO: Comment out libhardware dependency
 };
 
 /*******************************************************************************

@@ -33,7 +33,6 @@
 #include "gatt_int.h"
 #include "l2c_api.h"
 
-<<<<<<< HEAD
 #define SYSTEM_APP_GATT_IF 3
 
 /*******************************************************************************
@@ -61,9 +60,8 @@ uint8_t GATT_SetTraceLevel(uint8_t new_level) {
 
   return (gatt_cb.trace_level);
 }
-=======
+
 using base::StringPrintf;
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
 
 /**
  * Add an service handle range to the list in decending order of the start
