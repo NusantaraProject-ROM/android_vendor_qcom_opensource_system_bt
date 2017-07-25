@@ -1,5 +1,38 @@
 /******************************************************************************
  *
+ *  Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *  Not a Contribution.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted (subject to the limitations in the
+ *  disclaimer below) provided that the following conditions are met:
+ *
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ *  * Redistributions in binary form must reproduce the above
+ *    copyright notice, this list of conditions and the following
+ *    disclaimer in the documentation and/or other materials provided
+ *    with the distribution.
+ *
+ *  * Neither the name of The Linux Foundation nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  *  Copyright (C) 2003-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -124,6 +157,20 @@ enum {
   BTA_AG_SCO_CLOSE_OP_ST,   /* closing sco being opened */
   BTA_AG_SCO_CLOSE_XFER_ST, /* closing sco being transferred */
   BTA_AG_SCO_SHUTTING_ST    /* sco shutting down */
+};
+
+/* sco events */
+enum {
+  BTA_AG_SCO_LISTEN_E,       /* listen request */
+  BTA_AG_SCO_OPEN_E,         /* open request */
+  BTA_AG_SCO_XFER_E,         /* transfer request */
+  BTA_AG_SCO_CN_DONE_E, /* codec negotiation done */
+  BTA_AG_SCO_REOPEN_E,  /* Retry with other codec when failed */
+  BTA_AG_SCO_CLOSE_E,      /* close request */
+  BTA_AG_SCO_SHUTDOWN_E,   /* shutdown request */
+  BTA_AG_SCO_CONN_OPEN_E,  /* sco open */
+  BTA_AG_SCO_CONN_CLOSE_E, /* sco closed */
+  BTA_AG_SCO_CI_DATA_E     /* SCO data ready */
 };
 
 /*****************************************************************************
@@ -270,6 +317,9 @@ typedef struct {
       inuse_codec;     /* codec being used for the current SCO connection */
   bool codec_updated;  /* set to true whenever the app updates codec type */
   bool codec_fallback; /* If sco nego fails for mSBC, fallback to CVSD */
+#if (TWS_AG_ENABLED == TRUE)
+  bool rmt_sco_req;
+#endif
   tBTA_AG_SCO_MSBC_SETTINGS
       codec_msbc_settings; /* settings to be used for the impending eSCO */
 
@@ -299,6 +349,11 @@ typedef struct {
   tBTA_AG_CBACK* p_cback;                  /* application callback */
   tBTA_AG_PARSE_MODE parse_mode;           /* parse/pass-through mode */
   uint8_t max_hf_clients;                 /* max hf clients can be connected */
+#if (TWS_AG_ENABLED == TRUE)
+  tBTA_AG_SCO_CB twsp_sco;                 /* peer Sco detail*/
+  tBTA_AG_SCB* main_sm_scb;                /* SCB attached with main sco sm*/
+  tBTA_AG_SCB* sec_sm_scb;                /* SCB attached with secondary sm*/
+#endif
 } tBTA_AG_CB;
 
 /*****************************************************************************
@@ -410,4 +465,13 @@ extern const RawAddress& bta_ag_get_active_device();
 extern void bta_clear_active_device();
 extern void bta_ag_api_set_active_device(tBTA_AG_DATA* p_data);
 
+extern void bta_ag_create_sco(tBTA_AG_SCB* p_scb, bool is_orig);
+extern bool bta_ag_remove_sco(tBTA_AG_SCB* p_scb, bool only_active);
+extern void bta_ag_send_result(tBTA_AG_SCB* p_scb, size_t code,
+                               const char* p_arg, int16_t int_arg);
+extern void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event);
+#if (BTA_AG_SCO_DEBUG == TRUE)
+extern char* bta_ag_sco_state_str(uint8_t state);
+extern char* bta_ag_sco_evt_str(uint8_t event);
+#endif
 #endif /* BTA_AG_INT_H */

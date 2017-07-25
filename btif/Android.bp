@@ -107,6 +107,7 @@ cc_library_static {
     ],
     whole_static_libs: [
         "libaudio-a2dp-hw-utils",
+        //"libbtif_ext",
     ],
     cflags: ["-DBUILDCFG"],
 
