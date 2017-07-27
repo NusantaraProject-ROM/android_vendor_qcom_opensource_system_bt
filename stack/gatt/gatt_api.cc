@@ -1177,6 +1177,7 @@ tGATT_IF GATT_Register(tBT_UUID* p_app_uuid128, tGATT_CBACK* p_cb_info) {
  *
  ******************************************************************************/
 void GATT_Deregister(tGATT_IF gatt_if) {
+  bool is_gatt_connected = false;
   GATT_TRACE_API("GATT_Deregister gatt_if=%d", gatt_if);
 
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
@@ -1207,8 +1208,9 @@ void GATT_Deregister(tGATT_IF gatt_if) {
   for (i = 0, p_tcb = gatt_cb.tcb; i < GATT_MAX_PHY_CHANNEL; i++, p_tcb++) {
     if (p_tcb->in_use) {
       if (gatt_get_ch_state(p_tcb) != GATT_CH_CLOSE) {
+        is_gatt_connected = gatt_is_app_holding_link(gatt_if, p_tcb);
         gatt_update_app_use_link_flag(gatt_if, p_tcb, false, true);
-        if ((gatt_if > SYSTEM_APP_GATT_IF) && (!gatt_num_apps_hold_link(p_tcb)))
+        if (is_gatt_connected && (gatt_if > SYSTEM_APP_GATT_IF) && (!gatt_num_apps_hold_link(p_tcb)))
         {
           /* this will disconnect the link or cancel the pending connect request at lower layer*/
           gatt_disconnect(p_tcb);
