@@ -2947,7 +2947,7 @@ bt_status_t btif_av_execute_service(bool b_enable) {
 #if (AVRC_METADATA_INCLUDED == true)
     BTA_AvEnable(BTA_SEC_AUTHENTICATE,
       BTA_AV_FEAT_RCTG|BTA_AV_FEAT_METADATA|BTA_AV_FEAT_VENDOR|BTA_AV_FEAT_NO_SCO_SSPD
-      |BTA_AV_FEAT_ACP_START
+      |BTA_AV_FEAT_ACP_START |BTA_AV_FEAT_DELAY_RPT
 #if (AVRC_ADV_CTRL_INCLUDED == true)
       |BTA_AV_FEAT_RCCT
       |BTA_AV_FEAT_ADV_CTRL
@@ -2956,7 +2956,7 @@ bt_status_t btif_av_execute_service(bool b_enable) {
       , bte_av_callback);
 #else
     BTA_AvEnable(BTA_SEC_AUTHENTICATE, (BTA_AV_FEAT_RCTG | BTA_AV_FEAT_NO_SCO_SSPD
-                 |BTA_AV_FEAT_ACP_START), bte_av_callback);
+                 |BTA_AV_FEAT_ACP_START | BTA_AV_FEAT_DELAY_RPT), bte_av_callback);
 #endif
     for (i = 0; i < btif_max_av_clients; i++) {
       BTIF_TRACE_DEBUG("%s: BTA_AvRegister : %d", __FUNCTION__, i);
