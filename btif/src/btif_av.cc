@@ -2969,8 +2969,17 @@ void btif_dispatch_sm_event(btif_av_sm_event_t event, void* p_data, int len) {
 bt_status_t btif_av_execute_service(bool b_enable) {
   int i;
   btif_sm_state_t state;
+  bool delay_report_enabled = false;
+  char value[PROPERTY_VALUE_MAX] = {'\0'};
+  tBTA_AV_FEAT feat_delay_rpt = 0;
+
   BTIF_TRACE_DEBUG("%s(): enable: %d", __func__, b_enable);
   if (b_enable) {
+    osi_property_get("persist.bt.a2dp.delay_report", value, "false");
+    delay_report_enabled = (strcmp(value, "true") == 0);
+    if (delay_report_enabled)
+      feat_delay_rpt = BTA_AV_FEAT_DELAY_RPT;
+
     /* TODO: Removed BTA_SEC_AUTHORIZE since the Java/App does not
      * handle this request in order to allow incoming connections to succeed.
      * We need to put this back once support for this is added
@@ -2982,7 +2991,7 @@ bt_status_t btif_av_execute_service(bool b_enable) {
 #if (AVRC_METADATA_INCLUDED == true)
     BTA_AvEnable(BTA_SEC_AUTHENTICATE,
       BTA_AV_FEAT_RCTG|BTA_AV_FEAT_METADATA|BTA_AV_FEAT_VENDOR|BTA_AV_FEAT_NO_SCO_SSPD
-      |BTA_AV_FEAT_ACP_START |BTA_AV_FEAT_DELAY_RPT
+      |BTA_AV_FEAT_ACP_START|feat_delay_rpt
 #if (AVRC_ADV_CTRL_INCLUDED == true)
       |BTA_AV_FEAT_RCCT
       |BTA_AV_FEAT_ADV_CTRL
@@ -2991,8 +3000,9 @@ bt_status_t btif_av_execute_service(bool b_enable) {
       , bte_av_callback);
 #else
     BTA_AvEnable(BTA_SEC_AUTHENTICATE, (BTA_AV_FEAT_RCTG | BTA_AV_FEAT_NO_SCO_SSPD
-                 |BTA_AV_FEAT_ACP_START | BTA_AV_FEAT_DELAY_RPT), bte_av_callback);
+                 |BTA_AV_FEAT_ACP_START | feat_delay_rpt), bte_av_callback);
 #endif
+
     for (i = 0; i < btif_max_av_clients; i++) {
       BTIF_TRACE_DEBUG("%s: BTA_AvRegister : %d", __FUNCTION__, i);
       BTA_AvRegister(BTA_AV_CHNL_AUDIO, BTIF_AV_SERVICE_NAME, 0,
