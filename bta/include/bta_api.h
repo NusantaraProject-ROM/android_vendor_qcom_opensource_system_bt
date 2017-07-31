@@ -393,6 +393,7 @@ typedef uint8_t tBTA_SIG_STRENGTH_MASK;
                                     */
 #define BTA_DM_ENER_INFO_READ 28 /* Energy info read */
 #define BTA_DM_BLE_SC_OOB_REQ_EVT 29 /* SMP SC OOB request event */
+#define BTA_DM_PKT_TYPE_CHG_EVT 30 /* PACKET TYPE Change event. */
 typedef uint8_t tBTA_DM_SEC_EVT;
 
 /* Structure associated with BTA_DM_ENABLE_EVT */
@@ -553,6 +554,13 @@ typedef struct {
   uint8_t new_role; /* the new connection role */
 } tBTA_DM_ROLE_CHG;
 
+/* Structure associated with BTA_DM_PKT_TYPE_CHG_EVT */
+typedef struct
+{
+    BD_ADDR         remote_bd_addr;            /* BD address peer device. */
+    uint16_t        pkt_type;          /* new packet type */
+} tBTA_DM_PKT_TYPE_CHG;
+
 /* Structure associated with BTA_DM_BUSY_LEVEL_EVT */
 typedef struct {
   uint8_t level;       /* when paging or inquiring, level is 10.
@@ -691,6 +699,7 @@ typedef union {
       bond_cancel_cmpl;               /* Bond Cancel Complete indication */
   tBTA_DM_SP_KEY_PRESS key_press;     /* key press notification event */
   tBTA_DM_ROLE_CHG role_chg;          /* role change event */
+  tBTA_DM_PKT_TYPE_CHG pkt_type_chg;  /* packet type change event */
   tBTA_DM_BLE_SEC_REQ ble_req;        /* BLE SMP related request */
   tBTA_DM_BLE_KEY ble_key;            /* BLE SMP keys used when pairing */
   tBTA_BLE_LOCAL_ID_KEYS ble_id_keys; /* IR event */

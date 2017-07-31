@@ -2104,6 +2104,10 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
       break;
     }
 
+    case BTA_DM_PKT_TYPE_CHG_EVT: {
+      // update streaming bit rate from av
+      break;
+    }
     case BTA_DM_AUTHORIZE_EVT:
     case BTA_DM_SIG_STRENGTH_EVT:
     case BTA_DM_SP_RMT_OOB_EVT:

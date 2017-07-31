@@ -2893,6 +2893,10 @@ static void bta_dm_bl_change_cback(tBTM_BL_EVENT_DATA* p_data) {
       p_msg->hci_status = p_data->role_chg.hci_status;
       bdcpy(p_msg->bd_addr, p_data->role_chg.p_bda);
       break;
+    case BTM_BL_PKT_TYPE_CHG_EVT:
+      p_msg->pkt_type = p_data->pkt_type_chg.pkt_type;
+      bdcpy(p_msg->bd_addr, p_data->pkt_type_chg.remote_bd_addr);
+      break;
     case BTM_BL_COLLISION_EVT:
       bdcpy(p_msg->bd_addr, p_data->conn.p_bda);
       break;
@@ -3046,6 +3050,12 @@ void bta_dm_acl_change(tBTA_DM_MSG* p_data) {
         if (bta_dm_cb.p_sec_cback)
           bta_dm_cb.p_sec_cback(BTA_DM_ROLE_CHG_EVT, (tBTA_DM_SEC*)&conn);
       }
+      return;
+    case BTM_BL_PKT_TYPE_CHG_EVT:   /* packet type change event */
+      bdcpy(conn.pkt_type_chg.remote_bd_addr, p_bda);
+      conn.pkt_type_chg.pkt_type = (UINT16) p_data->acl_change.pkt_type;
+      if (bta_dm_cb.p_sec_cback )
+        bta_dm_cb.p_sec_cback(BTA_DM_PKT_TYPE_CHG_EVT, (tBTA_DM_SEC *)&conn);
       return;
   }
 
