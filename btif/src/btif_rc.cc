@@ -1960,10 +1960,15 @@ static bt_status_t init(btrc_callbacks_t* callbacks, int max_connections) {
      btif_max_rc_clients = BTIF_RC_NUM_CONN;
   }
 
-  if (btif_rc_cb.rc_multi_cb != NULL)
-    delete[] btif_rc_cb.rc_multi_cb;
+  if (btif_rc_cb.rc_multi_cb != NULL) {
+    osi_free(btif_rc_cb.rc_multi_cb);
+    btif_rc_cb.rc_multi_cb = NULL;
+  }
 
-  btif_rc_cb.rc_multi_cb = new  btif_rc_device_cb_t[btif_max_rc_clients];
+  btif_rc_cb.rc_multi_cb = (btif_rc_device_cb_t *)
+                 osi_malloc(btif_max_rc_clients * sizeof(btif_rc_device_cb_t));
+  memset(&btif_rc_cb.rc_multi_cb, 0,
+                 sizeof(btif_rc_device_cb_t) * btif_max_rc_clients);
   for (int idx = 0; idx < btif_max_rc_clients; idx++) {
     memset(&btif_rc_cb.rc_multi_cb[idx], 0,
            sizeof(btif_rc_cb.rc_multi_cb[idx]));
@@ -1993,10 +1998,14 @@ static bt_status_t init_ctrl(btrc_ctrl_callbacks_t* callbacks) {
   if (bt_rc_ctrl_callbacks) return BT_STATUS_DONE;
 
   bt_rc_ctrl_callbacks = callbacks;
-  if (btif_rc_cb.rc_multi_cb != NULL)
-    delete[] btif_rc_cb.rc_multi_cb;
+  if (btif_rc_cb.rc_multi_cb != NULL) {
+    osi_free(btif_rc_cb.rc_multi_cb);
+    btif_rc_cb.rc_multi_cb = NULL;
+  }
 
-  btif_rc_cb.rc_multi_cb = new  btif_rc_device_cb_t[btif_max_rc_clients];
+  btif_rc_cb.rc_multi_cb = (btif_rc_device_cb_t *)
+                 osi_malloc(btif_max_rc_clients * sizeof(btif_rc_device_cb_t));
+  memset(&btif_rc_cb.rc_multi_cb, 0, sizeof(btif_rc_device_cb_t) * btif_max_rc_clients);
   for (int idx = 0; idx < btif_max_rc_clients; idx++) {
     memset(&btif_rc_cb.rc_multi_cb[idx], 0,
            sizeof(btif_rc_cb.rc_multi_cb[idx]));
@@ -4837,7 +4846,8 @@ static void cleanup() {
       memset(&btif_rc_cb.rc_multi_cb[idx], 0,
              sizeof(btif_rc_cb.rc_multi_cb[idx]));
     }
-    delete[]  btif_rc_cb.rc_multi_cb;
+    osi_free(btif_rc_cb.rc_multi_cb);
+    btif_rc_cb.rc_multi_cb = NULL;
   }
 
   BTIF_TRACE_EVENT("%s: completed", __func__);
@@ -4865,10 +4875,10 @@ static void cleanup_ctrl() {
       memset(&btif_rc_cb.rc_multi_cb[idx], 0,
              sizeof(btif_rc_cb.rc_multi_cb[idx]));
     }
-    delete[]  btif_rc_cb.rc_multi_cb;
+    osi_free(btif_rc_cb.rc_multi_cb);
+    btif_rc_cb.rc_multi_cb = NULL;
   }
 
-  memset(&btif_rc_cb.rc_multi_cb, 0, sizeof(btif_rc_cb.rc_multi_cb));
   BTIF_TRACE_EVENT("%s: completed", __func__);
 }
 

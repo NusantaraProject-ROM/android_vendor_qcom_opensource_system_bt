@@ -116,8 +116,10 @@ void btif_a2dp_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
   if (!btif_av_is_split_a2dp_enabled()) {
     btif_a2dp_source_on_stopped(p_av_suspend);
   } else { //TODO send command to btif_a2dp_audio_interface
-    if (btif_a2dp_audio_if_init)
+    if (btif_a2dp_audio_if_init) {
+      if (p_av_suspend != NULL)
         btif_a2dp_audio_on_stopped(p_av_suspend->status);
+    }
     else
         APPL_TRACE_EVENT("btif_a2dp_on_stopped, audio interface not up");
   }
