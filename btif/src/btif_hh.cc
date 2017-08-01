@@ -38,7 +38,6 @@
 
 #include "bt_common.h"
 #include "bta_api.h"
-#include "btcore/include/bdaddr.h"
 #include "btif_common.h"
 #include "btif_storage.h"
 #include "btif_util.h"
@@ -1377,67 +1376,6 @@ static bt_status_t set_idle_time(RawAddress* bd_addr, uint8_t idle_time) {
     return BT_STATUS_FAIL;
   }
 
-  BTA_HhSetIdle(p_dev->dev_handle, idle_time);
-  return BT_STATUS_SUCCESS;
-}
-
-/*******************************************************************************
-**
-** Function         get_idle_time
-**
-** Description      Get the HID idle time
-**
-** Returns         bt_status_t
-**
-*******************************************************************************/
-static bt_status_t get_idle_time(bt_bdaddr_t* bd_addr) {
-  CHECK_BTHH_INIT();
-  btif_hh_device_t* p_dev;
-  char bdstr[20] = {0};
-
-  BTIF_TRACE_DEBUG("%s: addr = %s", __func__,
-                   bdaddr_to_string(bd_addr, bdstr, sizeof(bdstr)));
-
-  if (btif_hh_cb.status == BTIF_HH_DISABLED) {
-    BTIF_TRACE_ERROR("%s: Error, HH status = %d", __func__, btif_hh_cb.status);
-    return BT_STATUS_FAIL;
-  }
-
-  p_dev = btif_hh_find_connected_dev_by_bda(bd_addr);
-  if (p_dev == NULL) return BT_STATUS_FAIL;
-
-  BTA_HhGetIdle(p_dev->dev_handle);
-  return BT_STATUS_SUCCESS;
-}
-
-/*******************************************************************************
-**
-** Function         set_idle_time
-**
-** Description      Set the HID idle time
-**
-** Returns         bt_status_t
-**
-*******************************************************************************/
-static bt_status_t set_idle_time(bt_bdaddr_t* bd_addr, uint8_t idle_time) {
-  CHECK_BTHH_INIT();
-  btif_hh_device_t* p_dev;
-  char bdstr[20] = {0};
-
-  BTIF_TRACE_DEBUG("%s: addr = %s, idle time = %d", __func__,
-                   bdaddr_to_string(bd_addr, bdstr, sizeof(bdstr)), idle_time);
-
-  if (btif_hh_cb.status == BTIF_HH_DISABLED) {
-    BTIF_TRACE_ERROR("%s: Error, HH status = %d", __func__, btif_hh_cb.status);
-    return BT_STATUS_FAIL;
-  }
-
-  p_dev = btif_hh_find_connected_dev_by_bda(bd_addr);
-  if (p_dev == NULL) {
-    BTIF_TRACE_WARNING("%s: addr = %s not opened", __func__,
-                       bdaddr_to_string(bd_addr, bdstr, sizeof(bdstr)));
-    return BT_STATUS_FAIL;
-  }
   BTA_HhSetIdle(p_dev->dev_handle, idle_time);
   return BT_STATUS_SUCCESS;
 }

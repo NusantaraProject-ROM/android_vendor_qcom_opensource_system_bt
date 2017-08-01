@@ -225,7 +225,7 @@ rc_device_t device;
 
 static bool isShoMcastEnabled = false;
 static void sleep_ms(period_ms_t timeout_ms);
-static bt_status_t set_addressed_player_rsp(bt_bdaddr_t* bd_addr,
+static bt_status_t set_addressed_player_rsp(RawAddress* bd_addr,
                                             btrc_status_t rsp_status);
 
 /* Response status code - Unknown Error - this is changed to "reserved" */
@@ -365,7 +365,7 @@ extern bool btif_hf_call_terminated_recently();
 extern bool btif_hf_is_call_vr_idle();
 extern bool check_cod(const RawAddress* remote_bdaddr, uint32_t cod);
 extern bool btif_av_is_split_a2dp_enabled();
-extern int btif_av_idx_by_bdaddr(RawAddress bd_addr);
+extern int btif_av_idx_by_bdaddr(RawAddress *bd_addr);
 extern bool btif_av_check_flag_remote_suspend(int index);
 extern fixed_queue_t* btu_general_alarm_queue;
 
@@ -424,15 +424,13 @@ btif_rc_device_cb_t* btif_rc_get_device_by_bda(const RawAddress* bd_addr) {
   return NULL;
 }
 
-int btif_rc_get_idx_by_bda(bt_bdaddr_t* bd_addr) {
-  BTIF_TRACE_DEBUG("%s: bd_addr: %02X:%02X:%02X:%02X:%02X:%02X", __func__,
-                 bd_addr->address[0], bd_addr->address[1], bd_addr->address[2],
-                 bd_addr->address[3], bd_addr->address[4], bd_addr->address[5]);
+int btif_rc_get_idx_by_bda(RawAddress* bd_addr) {
+  BTIF_TRACE_DEBUG("%s: bd_addr: %s", __func__, bd_addr->ToString().c_str());
 
   for (int idx = 0; idx < btif_max_rc_clients; idx++) {
     if ((btif_rc_cb.rc_multi_cb[idx].rc_state !=
          BTRC_CONNECTION_STATE_DISCONNECTED) &&
-        (bdcmp(btif_rc_cb.rc_multi_cb[idx].rc_addr, bd_addr->address) == 0)) {
+        (btif_rc_cb.rc_multi_cb[idx].rc_addr == *bd_addr)) {
       return idx;
     }
   }
@@ -525,7 +523,7 @@ void handle_rc_features(btif_rc_device_cb_t* p_dev) {
   CHECK(bt_rc_callbacks);
 
   btrc_remote_features_t rc_features = BTRC_FEAT_NONE;
-  bt_bdaddr_t avdtp_addr = btif_av_get_addr(p_dev->rc_addr);
+  RawAddress avdtp_addr = btif_av_get_addr(p_dev->rc_addr);
 
   BTIF_TRACE_DEBUG("%s: AVDTP Address: %s AVCTP address: %s", __func__,
                    avdtp_addr.ToString().c_str(), rc_addr.ToString().c_str());
@@ -599,9 +597,9 @@ void handle_rc_features(btif_rc_device_cb_t* p_dev) {
  *                 corner case of audio suspending just before the play takes
  *                 effect.
  ***************************************************************************/
-void btif_rc_clear_priority(BD_ADDR address) {
-  bt_bdaddr_t rc_addr;
-  bdcpy(rc_addr.address, address);
+void btif_rc_clear_priority(RawAddress address) {
+  RawAddress rc_addr;
+  rc_addr = address;
 
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(&rc_addr);
 
@@ -622,10 +620,10 @@ void btif_rc_clear_priority(BD_ADDR address) {
  *                 Copies the BD address of current playing device
  *
  ***************************************************************************/
-void btif_rc_get_playing_device(BD_ADDR address) {
+void btif_rc_get_playing_device(RawAddress address) {
   for (int i = 0; i < btif_max_rc_clients; i++) {
     if (btif_rc_cb.rc_multi_cb[i].rc_play_processed)
-      bdcpy(address, btif_rc_cb.rc_multi_cb[i].rc_addr);
+      address = btif_rc_cb.rc_multi_cb[i].rc_addr;
   }
 }
 
@@ -848,9 +846,9 @@ void handle_rc_passthrough_cmd(tBTA_AV_REMOTE_CMD* p_remote_cmd) {
   if (btif_av_is_playing() &&
       (btif_av_get_multicast_state() == false)) {
     /*compare the bd addr of current playing dev and this dev*/
-    BD_ADDR address;
-    btif_get_latest_playing_device(address);
-    if (bdcmp(p_dev->rc_addr, address) == 0) {
+    RawAddress address;
+    btif_get_latest_playing_device(&address);
+    if (p_dev->rc_addr == address) {
       APPL_TRACE_WARNING("Passthrough on the playing device");
       if ((p_remote_cmd->rc_id == BTA_AV_RC_PLAY) &&
           (p_remote_cmd->key_state == AVRC_STATE_PRESS)) {
@@ -939,16 +937,16 @@ void handle_rc_passthrough_cmd(tBTA_AV_REMOTE_CMD* p_remote_cmd) {
  *  - Description: Sends PAUSE key event to Upper layer.
  *
  ***************************************************************************/
-void btif_rc_send_pause_command(bt_bdaddr_t* bda) {
+void btif_rc_send_pause_command(RawAddress bda) {
   BTIF_TRACE_DEBUG("Send pause to music if playing is remotely disconnected");
 
   // send pause only if 1 device is still connected
   if (get_num_connected_devices() > 0) {
     HAL_CBACK(bt_rc_callbacks, passthrough_cmd_cb, BTA_AV_RC_PAUSE,
-            1, bda);
+            1, &bda);
     sleep_ms(30);
     HAL_CBACK(bt_rc_callbacks, passthrough_cmd_cb, BTA_AV_RC_PAUSE,
-            0, bda);
+            0, &bda);
   }
 
   return;
@@ -1818,9 +1816,9 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
         if (btif_av_is_playing() &&
             (btif_av_get_multicast_state() == false)) {
           /* compare the bd addr of current playing dev and this dev */
-          BD_ADDR address;
-          btif_get_latest_playing_device(address);
-          if (bdcmp(p_dev->rc_addr, address) == 0) {
+          RawAddress address;
+          btif_get_latest_playing_device(&address);
+          if (p_dev->rc_addr == address) {
             APPL_TRACE_WARNING("Play item on the playing device");
           } else {
             BTIF_TRACE_DEBUG("Play item on other device");
@@ -2033,7 +2031,7 @@ static bt_status_t get_play_status_rsp(RawAddress* bd_addr,
 
   BTIF_TRACE_DEBUG("%s: song len %d song pos %d", __func__, song_len, song_pos);
   CHECK_RC_CONNECTED(p_dev);
-  av_index = btif_av_idx_by_bdaddr(bd_addr->address);
+  av_index = btif_av_idx_by_bdaddr(bd_addr);
   memset(&(avrc_rsp.get_play_status), 0, sizeof(tAVRC_GET_PLAY_STATUS_RSP));
 
   avrc_rsp.get_play_status.song_len = song_len;
@@ -2165,7 +2163,7 @@ static void reject_pending_notification(btrc_event_id_t event_id, int idx) {
 static bt_status_t register_notification_rsp_sho_mcast(
     btrc_event_id_t event_id, btrc_notification_type_t type,
     btrc_register_notification_t* p_param,
-    bt_bdaddr_t *bd_addr) {
+    RawAddress *bd_addr) {
   tAVRC_RESPONSE avrc_rsp;
   BTIF_TRACE_EVENT("%s: event_id: %s", __func__,
                    dump_rc_notification_event_id(event_id));
@@ -2182,7 +2180,7 @@ static bt_status_t register_notification_rsp_sho_mcast(
     BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
     return BT_STATUS_FAIL;
   }
-  int av_index = btif_av_idx_by_bdaddr(bd_addr->address);
+  int av_index = btif_av_idx_by_bdaddr(bd_addr);
 
   memset(&(avrc_rsp.reg_notif), 0, sizeof(tAVRC_REG_NOTIF_RSP));
 
@@ -2288,7 +2286,7 @@ static bt_status_t register_notification_rsp_sho_mcast(
 static bt_status_t register_notification_rsp(
     btrc_event_id_t event_id, btrc_notification_type_t type,
     btrc_register_notification_t* p_param,
-    bt_bdaddr_t *bd_addr) {
+    RawAddress *bd_addr) {
   tAVRC_RESPONSE avrc_rsp;
 
   if (isShoMcastEnabled == true) {
@@ -2328,7 +2326,7 @@ static bt_status_t register_notification_rsp(
     BTIF_TRACE_DEBUG(
         "%s: Avrcp Event id is registered: event_id: %x handle: 0x%x", __func__,
         event_id, btif_rc_cb.rc_multi_cb[idx].rc_handle);
-    int av_index = btif_av_idx_by_bdaddr(bd_addr->address);
+    int av_index = btif_av_idx_by_bdaddr(bd_addr);
 
     switch (event_id) {
       case BTRC_EVT_PLAY_STATUS_CHANGED:
@@ -5614,8 +5612,8 @@ static bt_status_t send_passthrough_cmd(RawAddress* bd_addr, uint8_t key_code,
  * Return          BT_STATUS_SUCCESS if active BT_STATUS_FAIL otherwise
  *
  ********************************************************************/
-static bt_status_t is_device_active_in_handoff(bt_bdaddr_t *bd_addr) {
-  BD_ADDR playing_device;
+static bt_status_t is_device_active_in_handoff(RawAddress *bd_addr) {
+  RawAddress playing_device;
   uint16_t connected_devices, playing_devices;
 
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
@@ -5632,8 +5630,8 @@ static bt_status_t is_device_active_in_handoff(bt_bdaddr_t *bd_addr) {
 
   if ((connected_devices > 1) && (playing_devices == 1)) {
     /* One playing device, check the active device */
-    btif_get_latest_playing_device(playing_device);
-    if (bdcmp(bd_addr->address, playing_device) == 0)
+    btif_get_latest_playing_device(&playing_device);
+    if (*bd_addr == playing_device)
       return BT_STATUS_SUCCESS;
     else
       return BT_STATUS_FAIL;
@@ -5643,13 +5641,12 @@ static bt_status_t is_device_active_in_handoff(bt_bdaddr_t *bd_addr) {
      */
     if (p_dev->rc_play_processed == TRUE)
       return BT_STATUS_SUCCESS;
-    else if (btif_av_is_current_device(bd_addr->address) == TRUE) {
+    else if (btif_av_is_current_device(*bd_addr) == TRUE) {
       /* Play initiated locally. check the current device and
        * make sure play is not initiated from other remote
        */
-      BD_ADDR rc_play_device = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      btif_rc_get_playing_device(rc_play_device);
-      if (bdcmp(bd_addr->address, bd_addr_null) != 0) {
+      btif_rc_get_playing_device(RawAddress::kEmpty);
+      if (!(bd_addr->IsEmpty())) {
         /* some other playing device */
         return BT_STATUS_FAIL;
       }

@@ -117,7 +117,7 @@ bool btif_av_stream_started_ready(void);
  ******************************************************************************/
 
 /* used to pass events to AV statemachine from other tasks */
-void btif_dispatch_sm_event(btif_av_sm_event_t event, void* p_data, int len);
+void btif_dispatch_sm_event(btif_av_sm_event_t event, void *p_data, int len);
 
 /*******************************************************************************
  *
@@ -257,7 +257,7 @@ bool btif_av_is_multicast_supported();
  *
  * Returns          peer address
  *******************************************************************************/
-void btif_av_get_peer_addr(bt_bdaddr_t *peer_bda);
+void btif_av_get_peer_addr(RawAddress *peer_bda);
 
 /******************************************************************************
  *
@@ -277,7 +277,7 @@ int btif_av_get_latest_playing_device_idx();
  *
  * Returns          true/false
  *******************************************************************************/
-bool btif_av_is_device_connected(BD_ADDR address);
+bool btif_av_is_device_connected(RawAddress address);
 
 /******************************************************************************
  *
@@ -311,7 +311,7 @@ int btif_av_get_latest_playing_device_idx();
  * Returns          void
  *
  ******************************************************************************/
-void btif_av_trigger_dual_handoff(bool handoff, BD_ADDR address);
+void btif_av_trigger_dual_handoff(bool handoff, RawAddress address);
 
 /*******************************************************************************
  *
@@ -322,7 +322,7 @@ void btif_av_trigger_dual_handoff(bool handoff, BD_ADDR address);
  * Returns          None
  *
  ******************************************************************************/
-void btif_get_latest_playing_device(BD_ADDR address);
+void btif_get_latest_playing_device(RawAddress* address);
 
 /*******************************************************************************
  *
@@ -352,7 +352,7 @@ uint16_t btif_av_get_num_playing_devices(void);
  *
  * Returns         true/false
  *****************************************************************************/
-bool btif_av_is_current_device(BD_ADDR address);
+bool btif_av_is_current_device(RawAddress address);
 
 /******************************************************************************
  *

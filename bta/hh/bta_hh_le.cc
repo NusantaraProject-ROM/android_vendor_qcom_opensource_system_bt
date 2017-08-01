@@ -1301,19 +1301,19 @@ void bta_hh_start_security(tBTA_HH_DEV_CB* p_cb,
  ******************************************************************************/
 void bta_hh_gatt_open(tBTA_HH_DEV_CB* p_cb, tBTA_HH_DATA* p_buf) {
   tBTA_GATTC_OPEN* p_data = &p_buf->le_open;
-  uint8_t* p2;
+//  uint8_t* p2;
   tHID_STATUS status = BTA_HH_ERR;
 
   /* if received invalid callback data , ignore it */
   if (p_cb == NULL || p_data == NULL) return;
-
-  p2 = p_data->remote_bda.address;
+/*
+  p2 = p_data->remote_bda;
 
   APPL_TRACE_DEBUG(
       "bta_hh_gatt_open BTA_GATTC_OPEN_EVT bda= [%08x%04x] status =%d",
       ((p2[0]) << 24) + ((p2[1]) << 16) + ((p2[2]) << 8) + (p2[3]),
       ((p2[4]) << 8) + p2[5], p_data->status);
-
+*/
   if (p_data->status == BTA_GATT_OK) {
     p_cb->is_le_device = true;
     p_cb->in_use = true;

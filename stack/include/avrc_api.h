@@ -715,6 +715,6 @@ extern bool AVRC_IsValidPlayerAttr(uint8_t attr);
 ** Returns          returns TRUE if incoming connection in progress
 **
 *******************************************************************************/
-extern bool AVRC_CheckIncomingConn(BD_ADDR peer_addr);
+extern bool AVRC_CheckIncomingConn(RawAddress peer_addr);
 
 #endif /* AVRC_API_H */

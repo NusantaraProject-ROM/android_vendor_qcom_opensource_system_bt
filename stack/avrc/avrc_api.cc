@@ -1411,7 +1411,7 @@ uint16_t AVRC_PassRsp(uint8_t handle, uint8_t label, tAVRC_MSG_PASS* p_msg) {
 **
 ** Returns          TRUE if incoming ocnnection in progress, FALSE otherwise
 ******************************************************************************/
-bool AVRC_CheckIncomingConn(BD_ADDR peer_addr)
+bool AVRC_CheckIncomingConn(RawAddress peer_addr)
 {
     return AVCT_CheckIncomingConn(peer_addr);
 }

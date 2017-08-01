@@ -115,16 +115,6 @@ typedef enum {
   // disable AAC for those headsets so that it switch to SBC
   INTEROP_DISABLE_AAC_CODEC,
 
-  // Some car kits notifies role switch supported but it rejects
-  // the role switch and after some attempts of role switch
-  // car kits will go to bad state.
-  INTEROP_DYNAMIC_ROLE_SWITCH,
-
-  // Disable role switch for headsets/car-kits
-  // Some car kits allow role switch but when DUT initiates role switch
-  // Remote will go to bad state and its leads to LMP time out.
-  INTEROP_DISABLE_ROLE_SWITCH,
-
   // Disable role switch for headsets/car-kits
   // Some car kits initiate a role switch but won't initiate encryption
   // after role switch complete
@@ -225,4 +215,4 @@ void interop_database_clear(void);
 // address resolution are performed on |addr|. If address is matched,
 // max latency for SSR stored for particular remote device is returned.
 bool interop_match_addr_get_max_lat(const interop_feature_t feature,
-        const bt_bdaddr_t *addr, uint16_t *max_lat);
+        const RawAddress* addr, uint16_t *max_lat);

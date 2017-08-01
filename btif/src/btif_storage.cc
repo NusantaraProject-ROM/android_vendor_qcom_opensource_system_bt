@@ -180,6 +180,7 @@ static bool btif_has_ble_keys(const char* bdstr);
 static int prop2cfg(const RawAddress* remote_bd_addr, bt_property_t* prop) {
   std::string addrstr;
   const char* bdstr = addrstr.c_str();
+  int name_length = 0;
   if (remote_bd_addr) {
     addrstr = remote_bd_addr->ToString();
     bdstr = addrstr.c_str();
@@ -794,10 +795,11 @@ bt_status_t btif_storage_remove_bonded_device(
 **                  BT_STATUS_FAIL otherwise
 **
 *******************************************************************************/
-bt_status_t btif_storage_is_device_bonded(bt_bdaddr_t *remote_bd_addr) {
+bt_status_t btif_storage_is_device_bonded(RawAddress *remote_bd_addr) {
 
-  bdstr_t bdstr;
-  bdaddr_to_string(remote_bd_addr, bdstr, sizeof(bdstr));
+  
+  std::string addrstr = remote_bd_addr->ToString();
+  const char* bdstr = addrstr.c_str();
   if((btif_config_exist(bdstr, "LinkKey")) &&
      (btif_config_exist(bdstr, "LinkKeyType")))
     return BT_STATUS_SUCCESS;

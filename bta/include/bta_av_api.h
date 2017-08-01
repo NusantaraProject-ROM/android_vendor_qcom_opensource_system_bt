@@ -344,7 +344,7 @@ typedef struct {
 /* data associated with BTA_AV_RC_COLL_DETECTED */
 typedef struct {
   uint8_t rc_handle;
-  BD_ADDR peer_addr;
+  RawAddress peer_addr;
 } tBTA_AV_RC_COLL_DETECTED;
 
 /* data associated with BTA_AV_RC_BROWSE_OPEN_EVT */
@@ -426,7 +426,7 @@ typedef struct {
 /* data associated with BTA_AV_ROLE_CHANGED */
 typedef struct
 {
-  BD_ADDR bd_addr;
+  RawAddress bd_addr;
   uint8_t new_role;  /* 0x00 master, 0x01 slave , 0xFF unkown */
   tBTA_AV_HNDL hndl; /* Handle associated with role change event */
 } tBTA_AV_ROLE_CHANGED;

@@ -145,7 +145,7 @@ tAVCT_CCB* avct_ccb_by_idx(uint8_t idx) {
 ** Returns          BD Address.
 **
 *******************************************************************************/
-bool avct_get_peer_addr_by_ccb (uint8_t idx, BD_ADDR addr)
+bool avct_get_peer_addr_by_ccb (uint8_t idx, RawAddress addr)
 {
     tAVCT_CCB   *p_ccb;
     bool     value = FALSE;
@@ -158,7 +158,7 @@ bool avct_get_peer_addr_by_ccb (uint8_t idx, BD_ADDR addr)
     {
         if (p_ccb->p_lcb != NULL)
         {
-            memcpy(addr, p_ccb->p_lcb->peer_addr, BD_ADDR_LEN);
+            addr = p_ccb->p_lcb->peer_addr;
             value = TRUE;
         }
         else

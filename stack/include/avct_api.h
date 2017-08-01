@@ -325,7 +325,7 @@ uint8_t AVCT_SetTraceLevel(uint8_t new_level);
 ** Returns          TRUE if icoming connection is in progress,
 **
 *******************************************************************************/
-extern bool AVCT_CheckIncomingConn(BD_ADDR peer_addr);
+extern bool AVCT_CheckIncomingConn(RawAddress peer_addr);
 
 /*******************************************************************************
 **
@@ -340,6 +340,6 @@ extern bool AVCT_CheckIncomingConn(BD_ADDR peer_addr);
 ** Returns          BD Address.
 **
 *******************************************************************************/
-extern bool avct_get_peer_addr_by_ccb (uint8_t idx, BD_ADDR addr);
+extern bool avct_get_peer_addr_by_ccb (uint8_t idx, RawAddress addr);
 
 #endif /* AVCT_API_H */

@@ -347,10 +347,8 @@ bool bta_ag_sdp_find_attr(tBTA_AG_SCB* p_scb, tBTA_SERVICE_MASK service) {
 
       /* Remote supports 1.7, store it in the file */
       if (p_scb->peer_version == HFP_VERSION_1_7) {
-         bt_bdaddr_t remote_bdaddr;
-         bdcpy(remote_bdaddr.address, p_scb->peer_addr);
          interop_database_add_addr(INTEROP_HFP_1_7_BLACKLIST,
-                          (bt_bdaddr_t *)&remote_bdaddr, 3);
+                          &p_scb->peer_addr, 3);
       }
     } else /* HSP */
     {

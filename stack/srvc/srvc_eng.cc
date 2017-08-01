@@ -259,7 +259,7 @@ static void srvc_eng_s_request_cback(uint16_t conn_id, uint32_t trans_id,
   uint8_t clcb_idx = srvc_eng_find_clcb_idx_by_conn_id(conn_id);
   if( clcb_idx == SRVC_MAX_APPS)
   {
-    GATT_TRACE_ERROR("srvc_eng_s_request_cback received for unknown connection");
+    VLOG(1) << "srvc_eng_s_request_cback received for unknown connection";
     return;
   }
 

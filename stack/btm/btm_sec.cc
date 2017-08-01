@@ -3920,6 +3920,7 @@ static bool btm_sec_auth_retry(uint16_t handle, uint8_t status) {
  *
  ******************************************************************************/
 void btm_sec_auth_complete(uint16_t handle, uint8_t status) {
+  uint8_t old_sm4;
   tBTM_PAIRING_STATE old_state = btm_cb.pairing_state;
   tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev_by_handle(handle);
   bool are_bonding = false;
@@ -4980,10 +4981,8 @@ static void btm_sec_pairing_timeout(UNUSED_ATTR void* data) {
             BTM_TRACE_WARNING("%s start idle timeout if no ccbs", __func__ );
             l2cu_no_dynamic_ccbs (p_lcb);
          } else {
-             BTM_TRACE_ERROR("%s hci disc triggered when last channel disconnects BDA: %08x%04x",
-                          __func__,
-                   (p_cb->pairing_bda[0]<<24) + (p_cb->pairing_bda[1]<<16) + (p_cb->pairing_bda[2]<<8) + p_cb->pairing_bda[3],
-                   (p_cb->pairing_bda[4] << 8) + p_cb->pairing_bda[5]);
+             BTM_TRACE_ERROR("%s hci disc triggered when last channel disconnects BDA: %s",
+                          __func__,p_cb->pairing_bda.ToString().c_str());
          }
       }
       if (btm_cb.api.p_auth_complete_callback) {
@@ -5128,7 +5127,7 @@ void btm_sec_pin_code_request(const RawAddress& p_bda) {
       }
     } else {
       if ((p_dev_rec->sec_state == BTM_SEC_STATE_GETTING_NAME) &&
-             (memcmp (p_dev_rec->bd_addr, p_bda, BD_ADDR_LEN) == 0)) {
+             (p_dev_rec->bd_addr == p_bda)) {
         BTM_TRACE_WARNING("RNR initiated by security module and in progress");
         return;
       }

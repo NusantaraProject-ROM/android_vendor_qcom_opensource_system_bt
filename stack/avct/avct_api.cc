@@ -447,7 +447,7 @@ uint16_t AVCT_MsgReq(uint8_t handle, uint8_t label, uint8_t cr, BT_HDR* p_msg) {
 **
 ** Return           TRUE if incoming connection in progress, FALSE otherwise
 ******************************************************************************/
-bool AVCT_CheckIncomingConn(BD_ADDR peer_addr)
+bool AVCT_CheckIncomingConn(RawAddress peer_addr)
 {
     tAVCT_LCB *p_lcb;
 

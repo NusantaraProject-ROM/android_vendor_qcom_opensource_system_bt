@@ -1156,7 +1156,7 @@ uint8_t SDP_SetTraceLevel(uint8_t new_level) {
 ** Returns          BOOLEAN
 **
 *******************************************************************************/
-bool SDP_Dev_Blacklisted_For_Avrcp15 (BD_ADDR addr)
+bool SDP_Dev_Blacklisted_For_Avrcp15 (RawAddress addr)
 {
     int ver;
     bool ret = sdp_dev_blacklisted_for_avrcp15(addr);

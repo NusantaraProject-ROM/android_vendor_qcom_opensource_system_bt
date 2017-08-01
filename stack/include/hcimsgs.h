@@ -470,9 +470,6 @@ extern void btsnd_hcic_send_keypress_notif(const RawAddress& bd_addr,
 
 /**** end of Simple Pairing Commands ****/
 
-/* Store Current Settings */
-#define MAX_FILT_COND (sizeof(BD_ADDR) + 1)
-
 extern void btsnd_hcic_set_event_filter(uint8_t filt_type,
                                         uint8_t filt_cond_type,
                                         uint8_t* filt_cond,

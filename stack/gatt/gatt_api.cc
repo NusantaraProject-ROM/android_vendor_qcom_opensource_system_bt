@@ -35,32 +35,6 @@
 
 #define SYSTEM_APP_GATT_IF 3
 
-/*******************************************************************************
- *
- * Function         GATT_SetTraceLevel
- *
- * Description      This function sets the trace level.  If called with
- *                  a value of 0xFF, it simply returns the current trace level.
- *
- *                  Input Parameters:
- *                      level:  The level to set the GATT tracing to:
- *                      0xff-returns the current setting.
- *                      0-turns off tracing.
- *                      >= 1-Errors.
- *                      >= 2-Warnings.
- *                      >= 3-APIs.
- *                      >= 4-Events.
- *                      >= 5-Debug.
- *
- * Returns          The new or current trace level
- *
- ******************************************************************************/
-uint8_t GATT_SetTraceLevel(uint8_t new_level) {
-  if (new_level != 0xFF) gatt_cb.trace_level = new_level;
-
-  return (gatt_cb.trace_level);
-}
-
 using base::StringPrintf;
 
 /**
@@ -1099,7 +1073,7 @@ void GATT_Deregister(tGATT_IF gatt_if) {
     if (p_tcb->in_use) {
       if (gatt_get_ch_state(p_tcb) != GATT_CH_CLOSE) {
         gatt_update_app_use_link_flag(gatt_if, p_tcb, false, true);
-        if ((gatt_if > SYSTEM_APP_GATT_IF) && (!gatt_num_apps_hold_link(p_tcb)))
+        if ((gatt_if > SYSTEM_APP_GATT_IF) && p_tcb->app_hold_link.empty())
         {
           /* this will disconnect the link or cancel the pending connect request at lower layer*/
           gatt_disconnect(p_tcb);

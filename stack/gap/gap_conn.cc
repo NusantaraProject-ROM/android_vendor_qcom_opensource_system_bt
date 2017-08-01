@@ -680,7 +680,7 @@ void gap_tx_complete_ind(uint16_t l2cap_cid, uint16_t sdu_sent) {
   }
   else if ((p_ccb->con_state == GAP_CCB_STATE_CONNECTED) && (sdu_sent >= 1))
   {
-    GAP_TRACE_EVENT("%s: GAP_EVT_TX_DONE", __func__);
+    DVLOG(1) << __func__ << " GAP_EVT_TX_DONE " ;
     p_ccb->p_callback (p_ccb->gap_handle, GAP_EVT_TX_DONE);
   }
 }

@@ -505,13 +505,11 @@ static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
           /* Disable sniff policy on the HID link since SCO is Up on Slave Link */
           if ((p_rem_dev) && (interop_match_addr(
               INTEROP_DISABLE_SNIFF_DURING_SCO,
-              (const bt_bdaddr_t *)peer_addr) ||
+              &peer_addr) ||
               interop_match_manufacturer(
               INTEROP_DISABLE_SNIFF_DURING_SCO, manufacturer))) {
-              char buf[18];
               APPL_TRACE_DEBUG("%s: disable sniff for manufacturer:%d "
-                  "addr = %s", __func__, manufacturer, bdaddr_to_string(
-                  (const bt_bdaddr_t *)peer_addr, buf, sizeof(buf)));
+                  "addr = %s", __func__, manufacturer, peer_addr.ToString().c_str());
               bta_dm_pm_set_sniff_policy(p_rem_dev, true);
           }
         }
@@ -1171,7 +1169,6 @@ static void bta_dm_pm_hid_check(bool bScoActive)
     APPL_TRACE_DEBUG("%s: Role on SCO Link = %d", __func__, role_on_sco_link);
   }
 
-  BD_ADDR peer_bdaddr;
   int j;
 
   for(j = 0; j < bta_dm_conn_srvcs.count; j++) {
@@ -1183,21 +1180,18 @@ static void bta_dm_pm_hid_check(bool bScoActive)
       uint8_t lmp_version = 0;
       tBTA_DM_PEER_DEVICE *p_rem_dev = NULL;
       uint8_t *p = BTM_ReadLocalFeatures();
-      bdcpy(peer_bdaddr, bta_dm_conn_srvcs.conn_srvc[j].peer_bdaddr);
-      if (BTM_ReadRemoteVersion(peer_bdaddr, &lmp_version,
+      if (BTM_ReadRemoteVersion(bta_dm_conn_srvcs.conn_srvc[j].peer_bdaddr, &lmp_version,
           &manufacturer, &lmp_sub_version) == BTM_SUCCESS) {
-          p_rem_dev = bta_dm_find_peer_device(peer_bdaddr);
+          p_rem_dev = bta_dm_find_peer_device(bta_dm_conn_srvcs.conn_srvc[j].peer_bdaddr);
         /* Disable/Enable sniff policy on the HID link if SCO Up/Down*/
         if ((p_rem_dev) && (interop_match_addr(
             INTEROP_DISABLE_SNIFF_DURING_SCO,
-            (const bt_bdaddr_t *)peer_bdaddr) ||
+            &(bta_dm_conn_srvcs.conn_srvc[j].peer_bdaddr)) ||
             interop_match_manufacturer(
             INTEROP_DISABLE_SNIFF_DURING_SCO, manufacturer))) {
-          char buf[18];
-          APPL_TRACE_DEBUG("%s: %s sniff for manufacturer:%d addr = %s",
+          APPL_TRACE_DEBUG("%s: %s sniff for manufacturer:%d ",
               __func__, bScoActive ? "disable" : "enable",
-              manufacturer, bdaddr_to_string(
-              (const bt_bdaddr_t *)peer_bdaddr, buf, sizeof(buf)));
+              manufacturer);
           bta_dm_pm_set_sniff_policy(p_rem_dev, bScoActive);
            /* Put link in sniff with specific parameters since SCO is disconnected */
           if (!bScoActive)
@@ -1209,14 +1203,14 @@ static void bta_dm_pm_hid_check(bool bScoActive)
         }
       }
       if((p != NULL && HCI_SNIFF_SUB_RATE_SUPPORTED(p))
-          &&((NULL != (p = BTM_ReadRemoteFeatures (peer_bdaddr)))
+          &&((NULL != (p = BTM_ReadRemoteFeatures (bta_dm_conn_srvcs.conn_srvc[j].peer_bdaddr)))
           && HCI_SNIFF_SUB_RATE_SUPPORTED(p))) {
         if (bScoActive) {
           APPL_TRACE_DEBUG("%s: SCO_OPEN, disabling SSR", __func__);
-          BTM_SetSsrParams(peer_bdaddr, 0, 0, 0);
+          BTM_SetSsrParams(bta_dm_conn_srvcs.conn_srvc[j].peer_bdaddr, 0, 0, 0);
         } else {
           APPL_TRACE_DEBUG("%s: SCO_CLOSE, enabling SSR", __func__);
-          bta_dm_pm_ssr(peer_bdaddr);
+          bta_dm_pm_ssr(bta_dm_conn_srvcs.conn_srvc[j].peer_bdaddr);
         }
       }
     }

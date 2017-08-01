@@ -199,13 +199,11 @@ void bta_ag_start_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
                 !strcmp(value, "2") )
     {
       // Abort the outgoing connection if incoming connection is from the same device
-      if (bdcmp (pending_bd_addr, p_scb->peer_addr) == 0)
+      if (pending_bd_addr == p_scb->peer_addr)
       {
         APPL_TRACE_WARNING("%s: p_scb %x, abort outgoing conn, there is"\
-             " an incoming conn from dev %x:%x:%x:%x:%x:%x", __func__,
-             p_scb, p_scb->peer_addr[0], p_scb->peer_addr[1],
-             p_scb->peer_addr[2], p_scb->peer_addr[3], p_scb->peer_addr[4],
-             p_scb->peer_addr[5]);
+             " an incoming conn from dev %s", __func__,
+             p_scb, p_scb->peer_addr.ToString().c_str());
         // send ourselves close event for clean up
         p_buf = (tBTA_AG_RFC *) osi_malloc(sizeof(tBTA_AG_RFC));
         p_buf->hdr.event = BTA_AG_RFC_CLOSE_EVT;
@@ -474,8 +472,6 @@ void bta_ag_rfc_close(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
  *
  ******************************************************************************/
 void bta_ag_rfc_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
-  bt_bdaddr_t remote_bdaddr;
-  bdcpy(remote_bdaddr.address, p_scb->peer_addr);
   /* initialize AT feature variables */
   p_scb->clip_enabled = false;
   p_scb->ccwa_enabled = false;
@@ -557,9 +553,8 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
           /* If incoming and outgoing device are same, nothing more to do.*/
           /* Outgoing conn will be aborted because we have successful incoming conn.*/
           APPL_TRACE_WARNING("%s: p_scb %x, abort outgoing conn,"\
-            "there is an incoming conn from dev %x:%x:%x:%x:%x:%x",
-           __func__, ag_scb, dev_addr[0], dev_addr[1], dev_addr[2],
-           dev_addr[3], dev_addr[4], dev_addr[5]);
+            "there is an incoming conn from dev %s", 
+           __func__, ag_scb, dev_addr.ToString().c_str());
           if (ag_scb->conn_handle)
           {
             RFCOMM_RemoveConnection(ag_scb->conn_handle);
@@ -875,7 +870,7 @@ void bta_ag_setcodec(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
   tBTA_AG_VAL val;
   val.hdr.handle = bta_ag_scb_to_idx(p_scb);
   val.hdr.app_id = p_scb->app_id;
-  bdcpy(val.bd_addr, p_scb->peer_addr);
+  val.bd_addr = p_scb->peer_addr;
 
   /* Check if the requested codec type is valid */
   if ((codec_type != BTA_AG_CODEC_NONE) && (codec_type != BTA_AG_CODEC_CVSD) &&

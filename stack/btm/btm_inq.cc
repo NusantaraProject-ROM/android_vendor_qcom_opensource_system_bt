@@ -1817,8 +1817,7 @@ void btm_process_inq_results(uint8_t* p, uint8_t inq_res_mode) {
       p_cur->dev_class[2] = dc[2];
       p_cur->clock_offset = clock_offset | BTM_CLOCK_OFFSET_VALID;
 
-      BTM_TRACE_WARNING ("btm_process_inq_results: BDA: %02x-%02x-%02x-%02x-%02x-%02x",
-                  bda[0], bda[1], bda[2],bda[3], bda[4], bda[5]);
+      BTM_TRACE_WARNING ("btm_process_inq_results: BDA: %s", bda.ToString().c_str());
       BTM_TRACE_WARNING ("btm_process_inq_results: Dev class: %02x-%02x-%02x",
                   p_cur->dev_class[0], p_cur->dev_class[1], p_cur->dev_class[2]);
 

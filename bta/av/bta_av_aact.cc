@@ -842,7 +842,7 @@ void bta_av_role_res(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   if (p_data->role_res.hci_status == HCI_SUCCESS) {
     APPL_TRACE_DEBUG("bta_av_role_res: Master update upper layer");
 
-    bdcpy(role_changed.bd_addr, p_scb->peer_addr);
+    role_changed.bd_addr = p_scb->peer_addr;
     role_changed.hndl = p_scb->hndl;
 
     if (BTM_GetRole (p_scb->peer_addr, &cur_role) == BTM_SUCCESS)
@@ -1309,10 +1309,10 @@ void bta_av_setconfig_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   alarm_cancel(bta_av_cb.link_signalling_timer);
 
   if (p_data->ci_setconfig.err_code == AVDT_SUCCESS) {
-    p_scb->wait = BTA_AV_WAIT_ACP_CAPS_ON;
-    if (p_data->ci_setconfig.recfg_needed)
-      p_scb->role |= BTA_AV_ROLE_SUSPEND_OPT;
-    APPL_TRACE_DEBUG("%s: recfg_needed:%d role:x%x num:%d", __func__,
+      p_scb->wait = BTA_AV_WAIT_ACP_CAPS_ON;
+      if (p_data->ci_setconfig.recfg_needed)
+          p_scb->role |= BTA_AV_ROLE_SUSPEND_OPT;
+      APPL_TRACE_DEBUG("%s: recfg_needed:%d role:x%x num:%d", __func__,
                      p_data->ci_setconfig.recfg_needed, p_scb->role, num);
     /* callout module tells BTA the number of "good" SEPs and their SEIDs.
      * getcap on these SEID */
@@ -1331,23 +1331,23 @@ void bta_av_setconfig_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
         p_scb->p_cos->disc_res(p_scb->hndl, num, num, 0, p_scb->peer_addr,
                                UUID_SERVCLASS_AUDIO_SOURCE);
 
+          for (i = 1; i < num; i++) {
+              APPL_TRACE_DEBUG("%s: sep_info[%d] SEID: %d", __func__, i, p_seid[i - 1]);
+              /* initialize the sep_info[] to get capabilities */
+              p_scb->sep_info[i].in_use = false;
+              p_scb->sep_info[i].tsep = AVDT_TSEP_SNK;
+              p_scb->sep_info[i].media_type = p_scb->media_type;
+              p_scb->sep_info[i].seid = p_seid[i - 1];
+          }
 
-    for (i = 1; i < num; i++) {
-      APPL_TRACE_DEBUG("%s: sep_info[%d] SEID: %d", __func__, i, p_seid[i - 1]);
-      /* initialize the sep_info[] to get capabilities */
-      p_scb->sep_info[i].in_use = false;
-      p_scb->sep_info[i].tsep = AVDT_TSEP_SNK;
-      p_scb->sep_info[i].media_type = p_scb->media_type;
-      p_scb->sep_info[i].seid = p_seid[i - 1];
-    }
-
-    /* only in case of local sep as SRC we need to look for other SEPs, In case
-     * of SINK we don't */
-    if (local_sep == AVDT_TSEP_SRC) {
-      /* Make sure UUID has been initialized... */
-      if (p_scb->uuid_int == 0) p_scb->uuid_int = UUID_SERVCLASS_AUDIO_SOURCE;
-      bta_av_next_getcap(p_scb, p_data);
-    }
+          /* only in case of local sep as SRC we need to look for other SEPs, In case
+           * of SINK we don't */
+          if (local_sep == AVDT_TSEP_SRC) {
+              /* Make sure UUID has been initialized... */
+              if (p_scb->uuid_int == 0) p_scb->uuid_int = UUID_SERVCLASS_AUDIO_SOURCE;
+                  bta_av_next_getcap(p_scb, p_data);
+          }
+      }
   }
 }
 

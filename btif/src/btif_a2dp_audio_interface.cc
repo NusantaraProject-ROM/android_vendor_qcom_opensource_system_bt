@@ -154,6 +154,11 @@ class BluetoothAudioCallbacks : public IBluetoothAudioCallbacks {
         return mapToStatus(resp);
         //return ::android::hardware::bluetooth_audio::V1_0::Status {};
     }
+    Return<uint16_t> a2dp_get_sink_latency() {
+      uint8_t ret = 0;
+      LOG_INFO(LOG_TAG,"a2dp_get_sink_latency");
+      return ret;
+    }
 };
 
 Status mapToStatus(uint8_t resp)
@@ -395,7 +400,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         }
         else if (A2DP_MEDIA_CT_NON_A2DP == codec_type)
         {
-          int bits_per_sample = A2DP_GetTrackBitsPerSample(p_codec_info);
+          int bits_per_sample = 16; // TODO
           int samplerate = A2DP_GetTrackSampleRate(p_codec_info);
 
           /* BR = (Sampl_Rate * PCM_DEPTH * CHNL)/Compression_Ratio */

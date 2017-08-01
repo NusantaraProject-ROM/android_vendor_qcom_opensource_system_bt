@@ -164,10 +164,10 @@ void btif_a2dp_on_offload_started(tBTA_AV_STATUS status) {
       ** returned failure for offload VSC
       */
       APPL_TRACE_ERROR("%s offload start failed", __func__);
-      bt_bdaddr_t bd_addr;
+      RawAddress bd_addr;
       btif_av_get_peer_addr(&bd_addr);
-      btif_dispatch_sm_event(BTIF_AV_DISCONNECT_REQ_EVT,(char*)&bd_addr,
-                             sizeof(bd_addr));
+      btif_dispatch_sm_event(BTIF_AV_DISCONNECT_REQ_EVT, (void *)bd_addr.address,
+                             sizeof(RawAddress));
     }
   } else {
     btif_a2dp_command_ack(ack);

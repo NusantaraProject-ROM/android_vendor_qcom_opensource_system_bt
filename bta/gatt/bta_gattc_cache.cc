@@ -65,9 +65,7 @@ tBTA_GATTC_CHARACTERISTIC* bta_gattc_get_characteristic_srcb(
 
 static void bta_gattc_generate_cache_file_name(char* buffer, size_t buffer_len,
                                                const RawAddress& bda) {
-  snprintf(buffer, buffer_len, "%s%02x%02x%02x%02x%02x%02x", GATT_CACHE_PREFIX,
-           bda.address[0], bda.address[1], bda.address[2], bda.address[3],
-           bda.address[4], bda.address[5]);
+  snprintf(buffer, buffer_len, "%s %s", GATT_CACHE_PREFIX, bda.ToString().c_str());
 }
 
 /*****************************************************************************

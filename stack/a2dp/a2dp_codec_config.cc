@@ -1335,6 +1335,8 @@ bool A2DP_IsCodecEnabledInOffload(btav_a2dp_codec_index_t codec_index) {
     }
   }
   return codec_status;
+}
+
 bool A2DP_DumpCodecInfo(const uint8_t* p_codec_info) {
   tA2DP_CODEC_TYPE codec_type = A2DP_GetCodecType(p_codec_info);
 

@@ -154,7 +154,7 @@ bool btm_ble_get_acl_remote_addr(tBTM_SEC_DEV_REC* p_dev_rec,
 
   switch (p_dev_rec->ble.active_addr_type) {
     case BTM_BLE_ADDR_PSEUDO:
-      if (dummy == p_dev_rec->ble.cur_rand_addr))
+      if (dummy == p_dev_rec->ble.cur_rand_addr)
         conn_addr = p_dev_rec->ble.cur_rand_addr;
       else
         conn_addr = p_dev_rec->bd_addr;
@@ -514,9 +514,7 @@ tBTM_STATUS BTM_GetRole(const RawAddress& remote_bd_addr, uint8_t* p_role) {
   /* Get the current role */
   *p_role = p->link_role;
   BTM_TRACE_WARNING ("BTM: Local device role : 0x%02x", *p_role );
-  BTM_TRACE_WARNING ("BTM: RemBdAddr: %02x%02x%02x%02x%02x%02x",
-                           remote_bd_addr[0], remote_bd_addr[1], remote_bd_addr[2], remote_bd_addr[3],
-                           remote_bd_addr[4], remote_bd_addr[5]);
+  BTM_TRACE_WARNING ("BTM: RemBdAddr: %s", remote_bd_addr.ToString().c_str());
   return (BTM_SUCCESS);
 }
 
@@ -594,9 +592,7 @@ tBTM_STATUS BTM_SwitchRole(const RawAddress& remote_bd_addr, uint8_t new_role,
         if(!p_dev_rec || (p_dev_rec->switch_role_attempts >= BTM_MAX_BL_SW_ROLE_ATTEMPTS))
         {
             BTM_TRACE_DEBUG (" Below device is Blacklisted ....");
-            BTM_TRACE_DEBUG (" SwitchRole can't be initiated for 0x%02x%02x%02x%02x%02x%02x",
-                          remote_bd_addr[0], remote_bd_addr[1], remote_bd_addr[2],
-                          remote_bd_addr[3], remote_bd_addr[4], remote_bd_addr[5]);
+            VLOG(1) << __func__ << " SwitchRole can't be initiated for " << remote_bd_addr;
             return BTM_REPEATED_ATTEMPTS;
         }
         else
@@ -606,9 +602,7 @@ tBTM_STATUS BTM_SwitchRole(const RawAddress& remote_bd_addr, uint8_t new_role,
         }
 #else
         BTM_TRACE_DEBUG (" Below device is Blacklisted ....");
-        BTM_TRACE_DEBUG (" SwitchRole can't be initiated for 0x%02x%02x%02x%02x%02x%02x",
-                remote_bd_addr[0], remote_bd_addr[1], remote_bd_addr[2],
-                remote_bd_addr[3], remote_bd_addr[4], remote_bd_addr[5]);
+        VLOG(1) << __func__ << " SwitchRole can't be initiated for " << remote_bd_addr;
         return BTM_REPEATED_ATTEMPTS;
 #endif
     }
@@ -656,9 +650,7 @@ tBTM_STATUS BTM_SwitchRole(const RawAddress& remote_bd_addr, uint8_t new_role,
     btm_cb.devcb.switch_role_ref_data.hci_status = HCI_ERR_UNSUPPORTED_VALUE;
     btm_cb.devcb.p_switch_role_cb = p_cb;
   }
-  BTM_TRACE_WARNING ("BTM_SwitchRole BDA: %02x-%02x-%02x-%02x-%02x-%02x",
-  remote_bd_addr[0], remote_bd_addr[1], remote_bd_addr[2],
-  remote_bd_addr[3], remote_bd_addr[4], remote_bd_addr[5]);
+  VLOG(2) << __func__ << " BTM_SwitchRole BDA: " << remote_bd_addr;
   BTM_TRACE_WARNING ("Requested New Role: %d", new_role)
   return (BTM_CMD_STARTED);
 }
@@ -765,8 +757,6 @@ tBTM_STATUS BTM_SetLinkPolicy(const RawAddress& remote_bda,
 
   /* First, check if hold mode is supported */
   if (*settings != HCI_DISABLE_ALL_LM_MODES) {
-    bt_bdaddr_t remote_address;
-    bdcpy(remote_address.address, remote_bda);
     if ((*settings & HCI_ENABLE_MASTER_SLAVE_SWITCH) &&
         (!HCI_SWITCH_SUPPORTED(localFeatures))) {
       *settings &= (~HCI_ENABLE_MASTER_SLAVE_SWITCH);
@@ -774,7 +764,7 @@ tBTM_STATUS BTM_SetLinkPolicy(const RawAddress& remote_bda,
                     *settings);
     }
     if ((*settings & HCI_ENABLE_MASTER_SLAVE_SWITCH) &&
-        (interop_database_match_addr(INTEROP_DISABLE_ROLE_SWITCH_POLICY, (bt_bdaddr_t *)&remote_address)) ) {
+        (interop_database_match_addr(INTEROP_DISABLE_ROLE_SWITCH_POLICY, &remote_bda)) ) {
       *settings &= (~HCI_ENABLE_MASTER_SLAVE_SWITCH);
       BTM_TRACE_API ("BTM_SetLinkPolicy switch not supported (settings: 0x%04x)", *settings );
     }
@@ -934,9 +924,7 @@ void btm_read_remote_version_complete(uint8_t* p) {
         l2cble_notify_le_connection(p_acl_cb->remote_addr);
         btm_use_preferred_conn_params(p_acl_cb->remote_addr);
       }
-        BTM_TRACE_WARNING ("btm_read_remote_version_complete: BDA: %02x-%02x-%02x-%02x-%02x-%02x",
-                             p_acl_cb->remote_addr[0], p_acl_cb->remote_addr[1], p_acl_cb->remote_addr[2],
-                             p_acl_cb->remote_addr[3], p_acl_cb->remote_addr[4], p_acl_cb->remote_addr[5]);
+        VLOG(2) << __func__ << " btm_read_remote_version_complete: BDA: " << p_acl_cb->remote_addr;
         BTM_TRACE_WARNING ("btm_read_remote_version_complete lmp_version %d manufacturer %d lmp_subversion %d",
                                        p_acl_cb->lmp_version,p_acl_cb->manufacturer, p_acl_cb->lmp_subversion);
       break;

@@ -44,12 +44,12 @@
 #include <cutils/properties.h>
 #include <hardware/bluetooth.h>
 
-#include "btif/include/btif_storage.h"
-#include "btcore/include/bdaddr.h"
 #include "device/include/interop.h"
 #include "osi/include/osi.h"
 #include "sdp_api.h"
 #include "sdpint.h"
+#include "service/logging_helpers.h"
+
 #include <cutils/properties.h>
 
 #if (SDP_SERVER_ENABLED == TRUE)
@@ -83,10 +83,10 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
                                             uint16_t param_len, uint8_t* p_req,
                                             UNUSED_ATTR uint8_t* p_req_end);
 
-static bool is_pbap_record_blacklisted (tSDP_ATTRIBUTE attr, BD_ADDR remote_address);
+static bool is_pbap_record_blacklisted (tSDP_ATTRIBUTE attr, RawAddress remote_address);
 
 static tSDP_RECORD *sdp_update_pbap_record_if_blacklisted(tSDP_RECORD *p_rec,
-                                      BD_ADDR remote_address);
+                                      RawAddress remote_address);
 /******************************************************************************/
 /*                E R R O R   T E X T   S T R I N G S                         */
 /*                                                                            */
@@ -151,14 +151,13 @@ uint16_t get_dut_avrcp_version() {
     }
     return profile_version;
 }
-int sdp_get_stored_avrc_tg_version(BD_ADDR addr)
+int sdp_get_stored_avrc_tg_version(RawAddress addr)
 {
     int stored_ver = AVRC_REV_INVALID;
     struct blacklist_entry data;
     FILE *fp;
 
-    SDP_TRACE_DEBUG("%s target BD Addr: %x:%x:%x", __func__,\
-                        addr[0], addr[1], addr[2]);
+    VLOG(2) << __func__ << " target BD Addr: " << addr.ToString().c_str();
 
     fp = fopen(AVRC_PEER_VERSION_CONF_FILE, "rb");
     if (!fp) {
@@ -167,9 +166,8 @@ int sdp_get_stored_avrc_tg_version(BD_ADDR addr)
        return stored_ver;
     }
     while (fread(&data, sizeof(data), 1, fp) != 0) {
-        SDP_TRACE_DEBUG("Entry: addr = %x:%x:%x, ver = 0x%x",\
-                data.addr[0], data.addr[1], data.addr[2], data.ver);
-        if(!memcmp(addr, data.addr, 3)) {
+        VLOG(2) << __func__ << "Entry: addr " <<  addr.ToString().c_str() << " ver " << data.ver;
+        if(!memcmp(&addr, data.addr, 3)) {
             stored_ver = data.ver;
             SDP_TRACE_DEBUG("Entry found with version: 0x%x", stored_ver);
             break;
@@ -189,18 +187,15 @@ int sdp_get_stored_avrc_tg_version(BD_ADDR addr)
 ** Returns          BOOLEAN
 **
 *******************************************************************************/
-bool sdp_dev_blacklisted_for_avrcp15 (BD_ADDR addr)
+bool sdp_dev_blacklisted_for_avrcp15 (RawAddress addr)
 {
-    bt_bdaddr_t remote_bdaddr;
-    bdcpy(remote_bdaddr.address, addr);
-
-    if (interop_match_addr(INTEROP_ADV_AVRCP_VER_1_3, &remote_bdaddr)) {
+    if (interop_match_addr(INTEROP_ADV_AVRCP_VER_1_3, &addr)) {
         bt_property_t prop_name;
         bt_bdname_t bdname;
 
         BTIF_STORAGE_FILL_PROPERTY(&prop_name, BT_PROPERTY_BDNAME,
                                sizeof(bt_bdname_t), &bdname);
-        if (btif_storage_get_remote_device_property(&remote_bdaddr,
+        if (btif_storage_get_remote_device_property(&addr,
                                               &prop_name) != BT_STATUS_SUCCESS)
         {
             SDP_TRACE_ERROR("%s: BT_PROPERTY_BDNAME failed, returning false", __func__);
@@ -229,7 +224,7 @@ bool sdp_dev_blacklisted_for_avrcp15 (BD_ADDR addr)
 ** Returns         bool: if we have to restore value to our local structure
 **
 ***************************************************************************************/
-bool sdp_fallback_avrcp_version (tSDP_ATTRIBUTE *p_attr, BD_ADDR remote_address)
+bool sdp_fallback_avrcp_version (tSDP_ATTRIBUTE *p_attr, RawAddress remote_address)
 {
     char a2dp_role[PROPERTY_VALUE_MAX] = "false";
     uint16_t dut_profile_version;
@@ -297,7 +292,7 @@ bool sdp_fallback_avrcp_version (tSDP_ATTRIBUTE *p_attr, BD_ADDR remote_address)
 **
 ***************************************************************************************/
 bool sdp_reset_avrcp_browsing_bit (tSDP_ATTRIBUTE attr, tSDP_ATTRIBUTE *p_attr,
-                                      BD_ADDR remote_address)
+                                      RawAddress remote_address)
 {
     if ((p_attr->id == ATTR_ID_SUPPORTED_FEATURES) && (attr.id == ATTR_ID_SERVICE_CLASS_ID_LIST) &&
         (((attr.value_ptr[1] << 8) | (attr.value_ptr[2])) == UUID_SERVCLASS_AV_REM_CTRL_TARGET))
@@ -333,7 +328,7 @@ bool sdp_reset_avrcp_browsing_bit (tSDP_ATTRIBUTE attr, tSDP_ATTRIBUTE *p_attr,
 ***************************************************************************************/
 
 bool sdp_reset_avrcp_cover_art_bit (tSDP_ATTRIBUTE attr, tSDP_ATTRIBUTE *p_attr,
-                                                 BD_ADDR remote_address)
+                                                 RawAddress remote_address)
 {
     if ((p_attr->id == ATTR_ID_SUPPORTED_FEATURES) && (attr.id == ATTR_ID_SERVICE_CLASS_ID_LIST) &&
         (((attr.value_ptr[1] << 8) | (attr.value_ptr[2])) == UUID_SERVCLASS_AV_REM_CTRL_TARGET))
@@ -364,7 +359,7 @@ bool sdp_reset_avrcp_cover_art_bit (tSDP_ATTRIBUTE attr, tSDP_ATTRIBUTE *p_attr,
 ** Returns         BOOLEAN
 **
 +***************************************************************************************/
-bool sdp_change_hfp_version (tSDP_ATTRIBUTE *p_attr, BD_ADDR remote_address)
+bool sdp_change_hfp_version (tSDP_ATTRIBUTE *p_attr, RawAddress remote_address)
 {
     bool is_blacklisted = FALSE;
     char value[PROPERTY_VALUE_MAX];
@@ -375,13 +370,10 @@ bool sdp_change_hfp_version (tSDP_ATTRIBUTE *p_attr, BD_ADDR remote_address)
         if (((p_attr->value_ptr[3] << 8) | (p_attr->value_ptr[4])) ==
                 UUID_SERVCLASS_HF_HANDSFREE)
         {
-            //is_blacklisted = is_device_present(IOT_HFP_1_7_BLACKLIST, remote_address);
-            bt_bdaddr_t remote_bdaddr;
-            bdcpy(remote_bdaddr.address, remote_address);
             is_blacklisted = interop_database_match_addr(INTEROP_HFP_1_7_BLACKLIST,
-                                                           (bt_bdaddr_t *)&remote_bdaddr);
-            SDP_TRACE_DEBUG("%s: HF version is 1.7 for BD addr: %x:%x:%x",\
-                           __func__, remote_address[0], remote_address[1], remote_address[2]);
+                                                           &remote_address);
+            SDP_TRACE_DEBUG("%s: HF version is 1.7 for BD addr: %s",\
+                           __func__, remote_address.ToString().c_str());
             /* For PTS we should show AG's HFP version as 1.7 */
             if (is_blacklisted ||
                 (property_get("bt.pts.certification", value, "false") &&
@@ -1360,13 +1352,11 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
 **
 ***************************************************************************************/
 static bool is_pbap_record_blacklisted (tSDP_ATTRIBUTE attr,
-                                      BD_ADDR remote_address)
+                                      RawAddress remote_address)
 {
   if ((attr.id == ATTR_ID_SERVICE_CLASS_ID_LIST) &&
       (((attr.value_ptr[1] << 8) | (attr.value_ptr[2])) ==
       UUID_SERVCLASS_PBAP_PSE)) {
-    bt_bdaddr_t remote_bdaddr;
-    bdcpy(remote_bdaddr.address, remote_address);
 
     bt_property_t prop_name;
     bt_bdname_t bdname;
@@ -1374,11 +1364,11 @@ static bool is_pbap_record_blacklisted (tSDP_ATTRIBUTE attr,
     memset(&bdname, 0, sizeof(bt_bdname_t));
     BTIF_STORAGE_FILL_PROPERTY(&prop_name, BT_PROPERTY_BDNAME,
                            sizeof(bt_bdname_t), &bdname);
-    if (btif_storage_get_remote_device_property(&remote_bdaddr,
+    if (btif_storage_get_remote_device_property(&remote_address,
                                           &prop_name) != BT_STATUS_SUCCESS) {
       SDP_TRACE_DEBUG("%s: BT_PROPERTY_BDNAME failed", __func__);
     }
-    if (interop_match_addr(INTEROP_ADV_PBAP_VER_1_1, &remote_bdaddr) ||
+    if (interop_match_addr(INTEROP_ADV_PBAP_VER_1_1, &remote_address) ||
         (strlen((const char *)bdname.name) != 0 &&
         interop_match_name(INTEROP_ADV_PBAP_VER_1_1,
         (const char *)bdname.name))) {
@@ -1399,7 +1389,7 @@ static bool is_pbap_record_blacklisted (tSDP_ATTRIBUTE attr,
 **
 ***************************************************************************************/
 static tSDP_RECORD *sdp_update_pbap_record_if_blacklisted(tSDP_RECORD *p_rec,
-                                      BD_ADDR remote_address)
+                                      RawAddress remote_address)
 {
   static tSDP_RECORD pbap_temp_sdp_rec;
   static bool is_blacklisted_rec_created = false;

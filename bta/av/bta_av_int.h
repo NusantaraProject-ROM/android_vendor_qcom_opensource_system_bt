@@ -370,7 +370,7 @@ typedef struct {
 /* data type for BTA_AV_AVRC_COLL_DETECTED_EVT */
 typedef struct {
   BT_HDR hdr;
-  BD_ADDR peer_addr;
+  RawAddress peer_addr;
   uint8_t handle;
 } tBTA_AV_RC_COLLISSION_DETECTED;
 

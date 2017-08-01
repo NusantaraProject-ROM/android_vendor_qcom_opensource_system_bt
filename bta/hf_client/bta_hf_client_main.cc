@@ -933,10 +933,8 @@ void bta_hf_client_dump_statistics(int fd) {
 
     dprintf(fd, "  Control block #%d\n", i + 1);
 
-    uint8_t* a = client_cb->peer_addr.address;
     // Device name
-    dprintf(fd, "    Peer Device: %02x:%02x:%02x:%02x:%02x:%02x\n", a[0], a[1],
-            a[2], a[3], a[4], a[5]);
+    dprintf(fd, "    Peer Device: %s\n", client_cb->peer_addr.ToString().c_str());
 
     // State machine state
     dprintf(fd, "    State Machine State: %s\n",

@@ -712,11 +712,9 @@ void bta_dm_remove_device(tBTA_DM_MSG* p_data) {
   RawAddress other_address = p_dev->bd_addr;
 
   /* If ACL exists for the device in the remove_bond message*/
-  bt_bdaddr_t remote_bdaddr;
-  bdcpy(remote_bdaddr.address, p_dev->bd_addr);
   bool continue_delete_dev = false;
   uint8_t other_transport = BT_TRANSPORT_INVALID;
-  interop_database_remove_addr(INTEROP_DYNAMIC_ROLE_SWITCH, (bt_bdaddr_t *)&remote_bdaddr);
+  interop_database_remove_addr(INTEROP_DYNAMIC_ROLE_SWITCH, &other_address);
 
   if (BTM_IsAclConnectionUp(p_dev->bd_addr, BT_TRANSPORT_LE) ||
       BTM_IsAclConnectionUp(p_dev->bd_addr, BT_TRANSPORT_BR_EDR)) {
@@ -4699,7 +4697,7 @@ static void bta_dm_cancel_gatt_discovery(const RawAddress& bd_addr) {
 void bta_dm_proc_open_evt(tBTA_GATTC_OPEN* p_data) {
   VLOG(1) << "DM Search state= " << bta_dm_search_cb.state
           << " search_cb.peer_dbaddr:" << bta_dm_search_cb.peer_bdaddr
-          << " connected_bda=" << p_data->remote_bda.address;
+          << " connected_bda=" << p_data->remote_bda;
 
   APPL_TRACE_DEBUG("BTA_GATTC_OPEN_EVT conn_id = %d client_if=%d status = %d",
                    p_data->conn_id, p_data->client_if, p_data->status);

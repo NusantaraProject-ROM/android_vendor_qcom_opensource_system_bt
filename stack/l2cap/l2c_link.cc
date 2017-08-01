@@ -64,7 +64,6 @@ bool l2c_link_hci_conn_req(const RawAddress& bd_addr) {
   tL2C_LCB* p_lcb_cur;
   int xx;
   bool no_links;
-  bt_bdaddr_t remote_bdaddr;
 
   /* See if we have a link control block for the remote device */
   p_lcb = l2cu_find_lcb_by_bd_addr(bd_addr, BT_TRANSPORT_BR_EDR);
@@ -100,8 +99,7 @@ bool l2c_link_hci_conn_req(const RawAddress& bd_addr) {
       else
         p_lcb->link_role = l2cu_get_conn_role(p_lcb);
     }
-    bdcpy(remote_bdaddr.address, bd_addr);
-    if ((p_lcb->link_role == BTM_ROLE_MASTER)&&(interop_database_match_addr(INTEROP_DISABLE_ROLE_SWITCH, (bt_bdaddr_t *)&remote_bdaddr))) {
+    if ((p_lcb->link_role == BTM_ROLE_MASTER)&&(interop_database_match_addr(INTEROP_DISABLE_ROLE_SWITCH, &bd_addr))) {
       p_lcb->link_role = BTM_ROLE_SLAVE;
       L2CAP_TRACE_WARNING ("l2c_link_hci_conn_req:set link_role= %d",p_lcb->link_role);
     }

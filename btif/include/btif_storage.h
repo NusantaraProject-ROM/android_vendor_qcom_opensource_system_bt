@@ -149,7 +149,7 @@ bt_status_t btif_storage_remove_bonded_device(const RawAddress* remote_bd_addr);
 **                 BT_STATUS_FAIL otherwise
 **
 *******************************************************************************/
-bt_status_t btif_storage_is_device_bonded(bt_bdaddr_t *remote_bd_addr);
+bt_status_t btif_storage_is_device_bonded(RawAddress *remote_bd_addr);
 /*******************************************************************************
 **
  * Function         btif_storage_remove_bonded_device

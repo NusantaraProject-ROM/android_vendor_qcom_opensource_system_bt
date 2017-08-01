@@ -916,13 +916,9 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
 
   // NOTE: Unconditionally dispatch the event to make sure a callback with
   // the most recent codec info is generated.
-  bt_bdaddr_t bt_addr;
-  bdcpy(bt_addr.address, p_peer->addr);
-  btif_dispatch_sm_event(BTIF_AV_SOURCE_CONFIG_UPDATED_EVT, &bt_addr,
-                   sizeof(bt_bdaddr_t));
-  APPL_TRACE_DEBUG("%s BDA:0x%02X%02X%02X%02X%02X%02X", __func__,
-                   bt_addr.address[0], bt_addr.address[1], bt_addr.address[2],
-                   bt_addr.address[3], bt_addr.address[4], bt_addr.address[5]);
+  btif_dispatch_sm_event(BTIF_AV_SOURCE_CONFIG_UPDATED_EVT, (void *)p_peer->addr.address,
+                   sizeof(RawAddress));
+  APPL_TRACE_DEBUG("%s BDA:%s", __func__, p_peer->addr.ToString().c_str());
 
   return p_sink;
 }
@@ -1172,17 +1168,13 @@ done:
   // request succeeded or failed.
   // NOTE: Currently, the input is restarted by sending an upcall
   // and informing the Media Framework about the change.
-  bt_bdaddr_t bt_addr;
-  bdcpy(bt_addr.address, p_peer->addr);
-  btif_dispatch_sm_event(BTIF_AV_SOURCE_CONFIG_UPDATED_EVT, &bt_addr,
-                         sizeof(bt_bdaddr_t));
+  btif_dispatch_sm_event(BTIF_AV_SOURCE_CONFIG_UPDATED_EVT, (void *)p_peer->addr.address,
+                         sizeof(RawAddress));
   if (!success || !restart_output) {
     APPL_TRACE_DEBUG("%s:reseting codec reconfig flag",__func__);
     btif_av_reset_codec_reconfig_flag();
   }
-  APPL_TRACE_DEBUG("%s BDA:0x%02X%02X%02X%02X%02X%02X", __func__,
-                   bt_addr.address[0], bt_addr.address[1], bt_addr.address[2],
-                   bt_addr.address[3], bt_addr.address[4], bt_addr.address[5]);
+  APPL_TRACE_DEBUG("%s BDA: %s", __func__, p_peer->addr.ToString().c_str());
 
   return success;
 }
@@ -1262,13 +1254,9 @@ static bool bta_av_co_set_codec_ota_config(tBTA_AV_CO_PEER* p_peer,
   if (restart_input || config_updated) {
     // NOTE: Currently, the input is restarted by sending an upcall
     // and informing the Media Framework about the change.
-    bt_bdaddr_t bt_addr;
-    bdcpy(bt_addr.address, p_peer->addr);
-    btif_dispatch_sm_event(BTIF_AV_SOURCE_CONFIG_UPDATED_EVT, &bt_addr,
-                           sizeof(bt_bdaddr_t));
-    APPL_TRACE_DEBUG("%s BDA:0x%02X%02X%02X%02X%02X%02X", __func__,
-                   bt_addr.address[0], bt_addr.address[1], bt_addr.address[2],
-                   bt_addr.address[3], bt_addr.address[4], bt_addr.address[5]);
+    btif_dispatch_sm_event(BTIF_AV_SOURCE_CONFIG_UPDATED_EVT, (void *)p_peer->addr.address,
+                           sizeof(RawAddress));
+    APPL_TRACE_DEBUG("%s BDA:%s", __func__, p_peer->addr.ToString().c_str());
   }
 
   return true;
@@ -1334,13 +1322,9 @@ bool bta_av_co_set_codec_audio_config(
   if (config_updated) {
     // NOTE: Currently, the input is restarted by sending an upcall
     // and informing the Media Framework about the change.
-    bt_bdaddr_t bt_addr;
-    bdcpy(bt_addr.address, p_peer->addr);
-    btif_dispatch_sm_event(BTIF_AV_SOURCE_CONFIG_UPDATED_EVT, &bt_addr,
-                           sizeof(bt_bdaddr_t));
-    APPL_TRACE_DEBUG("%s BDA:0x%02X%02X%02X%02X%02X%02X", __func__,
-                   bt_addr.address[0], bt_addr.address[1], bt_addr.address[2],
-                   bt_addr.address[3], bt_addr.address[4], bt_addr.address[5]);
+    btif_dispatch_sm_event(BTIF_AV_SOURCE_CONFIG_UPDATED_EVT, (void *)p_peer->addr.address,
+                           sizeof(RawAddress));
+    APPL_TRACE_DEBUG("%s BDA: %s", __func__, p_peer->addr.ToString().c_str());
   }
 
   return true;

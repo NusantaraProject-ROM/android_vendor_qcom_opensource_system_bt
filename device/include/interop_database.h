@@ -27,6 +27,7 @@ typedef struct {
   interop_feature_t feature;
 } interop_addr_entry_t;
 
+/*
 static const interop_addr_entry_t interop_addr_database[] = {
     // Nexus Remote (Spike)
     // Note: May affect other Asus brand devices
@@ -163,7 +164,7 @@ static const interop_addr_entry_t interop_addr_database[] = {
     // Jeep Uconnect
     {{{0x00, 0x54, 0xaf, 0, 0, 0}}, 3, INTEROP_DISABLE_ROLE_SWITCH},
 };
-
+*/
 typedef struct {
   char name[249];
   size_t length;

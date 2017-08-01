@@ -434,7 +434,7 @@ bool bta_gattc_check_notif_registry(tBTA_GATTC_RCB* p_clreg,
 ** Returns          None.
 **
 *******************************************************************************/
-void bta_gattc_clear_notif_reg_on_disc(tBTA_GATTC_RCB *p_clreg, BD_ADDR bda) {
+void bta_gattc_clear_notif_reg_on_disc(tBTA_GATTC_RCB *p_clreg, RawAddress bda) {
     if (!p_clreg) {
         APPL_TRACE_ERROR("%s, Invalid regiseration block", __func__);
         return;
@@ -443,7 +443,7 @@ void bta_gattc_clear_notif_reg_on_disc(tBTA_GATTC_RCB *p_clreg, BD_ADDR bda) {
     uint8_t i;
     for (i = 0; i < BTA_GATTC_NOTIF_REG_MAX; i++) {
         if (p_clreg->notif_reg[i].in_use &&
-                !bdcmp(p_clreg->notif_reg[i].remote_bda, bda)) {
+                !(p_clreg->notif_reg[i].remote_bda == bda)) {
             memset(&p_clreg->notif_reg[i], 0, sizeof(tBTA_GATTC_NOTIF_REG));
         }
     }

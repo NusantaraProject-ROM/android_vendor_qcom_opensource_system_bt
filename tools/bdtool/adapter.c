@@ -101,8 +101,7 @@ void bond_state_changed(bt_status_t status, RawAddress* bdaddr,
 
       // default none
   }
-  fprintf(stdout, "Bond state changed callback addr:%s state:%s\n",
-          bdaddr_to_string(bdaddr, buf, sizeof(buf)), state_name);
+  fprintf(stdout, "Bond state changed callback addr:%s state:%s\n", bd_addr->ToString().c_str(), state_name);
 
   CALLBACK_RET();
 }
@@ -139,9 +138,8 @@ void discovery_state_changed(bt_discovery_state_t state) {
 // callback
 void remote_device_properties(bt_status_t status, RawAddress* bdaddr,
                               int num_properties, bt_property_t* properties) {
-  char buf[18];
   fprintf(stdout, "Device found bdaddr:%s num_properties:%d\n",
-          bdaddr_to_string(bdaddr, buf, sizeof(buf)), num_properties);
+          bdaddr->ToString().c_str(), num_properties);
 
   parse_properties(num_properties, properties);
 
@@ -173,9 +171,7 @@ void ssp_request(RawAddress* remote_bd_addr, bt_bdname_t* bd_name, uint32_t cod,
   fprintf(stdout,
           "Got ssp request device_class:%u passkey:%x pairing_variant:%s\n",
           cod, pass_key, pairing_variant_name);
-  char buf[18];
-  fprintf(stdout, "Device found:%s %s\n",
-          bdaddr_to_string(remote_bd_addr, buf, sizeof(buf)), bd_name->name);
+  fprintf(stdout, "Device found:%s %s\n", remote_bd_addr->ToString().c_str(), bd_name->name);
 
   fprintf(stdout, "auto-accepting bond\n");
   bool accept = true;
@@ -199,8 +195,7 @@ static void parse_properties(int num_properties, bt_property_t* property) {
         char buf[18];
         const RawAddress* addr = property_as_addr(property);
         if (addr)
-          fprintf(stdout, " addr:%s\n",
-                  bdaddr_to_string(addr, buf, sizeof(buf)));
+          fprintf(stdout, " addr:%s\n",addr->ToString().c_str());
       } break;
 
       case BT_PROPERTY_UUIDS: {

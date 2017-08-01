@@ -649,7 +649,7 @@ bool SDP_FindServiceUUIDInRec(tSDP_DISC_REC* p_rec, tBT_UUID* p_uuid);
 ** Returns          TRUE if AVRCP local Avrcp Version 1.3 else FALSE
 **
 ********************************************************************************/
-bool SDP_Dev_Blacklisted_For_Avrcp15 (BD_ADDR addr);
+bool SDP_Dev_Blacklisted_For_Avrcp15 (RawAddress addr);
 
 // Converts UUID-16 to UUID-128 by including the base UUID.
 // |uuid16| is the 2-byte UUID to convert.

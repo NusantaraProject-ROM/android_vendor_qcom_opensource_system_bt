@@ -1682,15 +1682,15 @@ uint16_t bta_get_dut_avrcp_version() {
     return profile_version;
 }
 
-bool bta_av_check_store_avrc_tg_version(BD_ADDR addr, uint16_t ver)
+bool bta_av_check_store_avrc_tg_version(RawAddress addr, uint16_t ver)
 {
     bool is_present = FALSE;
     struct blacklist_entry data;
     FILE *fp;
     bool is_file_updated = FALSE;
 
-    APPL_TRACE_DEBUG("%s target BD Addr: %x:%x:%x", __func__,\
-                        addr[0], addr[1], addr[2]);
+    APPL_TRACE_DEBUG("%s target BD Addr: %s", __func__,\
+                        addr.ToString().c_str());
     fp = fopen(AVRC_PEER_VERSION_CONF_FILE, "rb");
     if (!fp)
     {
@@ -1703,7 +1703,7 @@ bool bta_av_check_store_avrc_tg_version(BD_ADDR addr, uint16_t ver)
         {
             APPL_TRACE_DEBUG("Entry: addr = %x:%x:%x, ver = 0x%x",\
                     data.addr[0], data.addr[1], data.addr[2], data.ver);
-            if(!memcmp(addr, data.addr, 3))
+            if(!memcmp(&addr, data.addr, 3))
             {
                 is_present = TRUE;
                 APPL_TRACE_DEBUG("Entry alreday present, bailing out");
@@ -1724,7 +1724,7 @@ bool bta_av_check_store_avrc_tg_version(BD_ADDR addr, uint16_t ver)
         else
         {
             data.ver = ver;
-            memcpy(data.addr, (const char *)addr, 3);
+            memcpy(data.addr, &addr, 3);
             APPL_TRACE_DEBUG("Avrcp version to store = 0x%x", ver);
             fwrite(&data, sizeof(data), 1, fp);
             fclose(fp);
@@ -1779,14 +1779,14 @@ tBTA_AV_FEAT bta_av_check_peer_features(uint16_t service_uuid) {
                                   &peer_rc_version);
 
       if (interop_match_addr(INTEROP_ADV_AVRCP_VER_1_3,
-              (const bt_bdaddr_t*) p_rec->remote_bd_addr))
+              &p_rec->remote_bd_addr))
       {
           peer_rc_version = AVRC_REV_1_3;
           APPL_TRACE_DEBUG("changing peer_rc_version as part of blacklisting to 0x%x",
                   peer_rc_version);
       }
       else if (interop_match_addr(INTEROP_STORE_REMOTE_AVRCP_VERSION_1_4,
-              (const bt_bdaddr_t*) p_rec->remote_bd_addr))
+              &p_rec->remote_bd_addr))
       {
           peer_rc_version = AVRC_REV_1_4;
           APPL_TRACE_DEBUG("changing peer_rc_version as part of blacklisting to 0x%x",
@@ -2012,7 +2012,7 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
             /* cannot create valid rc_handle for current device */
             APPL_TRACE_ERROR(" No link resources available");
             p_scb->use_rc = FALSE;
-            bdcpy(rc_open.peer_addr, p_scb->peer_addr);
+            rc_open.peer_addr = p_scb->peer_addr;
             rc_open.peer_features = 0;
             rc_open.status = BTA_AV_FAIL_RESOURCES;
             (*p_cb->p_cback)(BTA_AV_RC_CLOSE_EVT, (tBTA_AV *) &rc_open);
@@ -2062,7 +2062,7 @@ void bta_av_rc_collission_detected(tBTA_AV_DATA *p_data) {
   tBTA_AV_RC_COLLISSION_DETECTED *p_msg =
                 (tBTA_AV_RC_COLLISSION_DETECTED *)p_data;
   rc_coll.rc_handle = p_msg->handle;
-  bdcpy(rc_coll.peer_addr, p_msg->peer_addr);
+  rc_coll.peer_addr =  p_msg->peer_addr;
   (*p_cb->p_cback)(BTA_AV_RC_COLL_DETECTED_EVT, (tBTA_AV *) &rc_coll);
 }
 

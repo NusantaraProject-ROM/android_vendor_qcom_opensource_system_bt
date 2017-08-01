@@ -284,7 +284,7 @@ static void send_bvra_update(int index)
 static int btif_hf_idx_by_bdaddr(RawAddress* bd_addr) {
   int i;
   for (i = 0; i < btif_max_hf_clients; ++i) {
-    if (is_connected(bd_addr) && *bd_addr == btif_hf_cb[i].connected_bda))
+    if (is_connected(bd_addr) && (*bd_addr == btif_hf_cb[i].connected_bda))
       return i;
   }
   return BTIF_HF_INVALID_IDX;

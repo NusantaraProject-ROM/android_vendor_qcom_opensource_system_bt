@@ -499,7 +499,7 @@ bool check_sdp_bl(const RawAddress* remote_bdaddr) {
   uint8_t lmp_ver = 0;
   uint16_t lmp_subver = 0;
 
-  if (remote_bdaddr == RawAddress::kEmpty) {
+  if (remote_bdaddr->IsEmpty()) {
     LOG_WARN(LOG_TAG, "%s: remote_bdaddr = NULL, returning false", __func__);
     return false;
   }
@@ -514,7 +514,7 @@ bool check_sdp_bl(const RawAddress* remote_bdaddr) {
   BTIF_STORAGE_FILL_PROPERTY(&prop_name, BT_PROPERTY_BDNAME,
                              sizeof(bt_bdname_t), &bdname);
   if (btif_storage_get_remote_device_property(
-          (bt_bdaddr_t*)remote_bdaddr, &prop_name) != BT_STATUS_SUCCESS) {
+          remote_bdaddr, &prop_name) != BT_STATUS_SUCCESS) {
     LOG_WARN(LOG_TAG, "%s: BT_PROPERTY_BDNAME failed, returning false",
              __func__);
     return false;
@@ -577,14 +577,14 @@ static void bond_state_changed(bt_status_t status, const RawAddress& bd_addr,
   if (state == BT_BOND_STATE_BONDING) {
     pairing_cb.state = state;
     pairing_cb.bd_addr = bd_addr;
-  } else if ((state == BT_BOND_STATE_NONE)&&
-      (bd_addr == pairing_cb.bd_addr) ||
-      (bd_addr == pairing_cb.static_bdaddr)) {
+  } else if ((state == BT_BOND_STATE_NONE) &&
+      ((bd_addr == pairing_cb.bd_addr) ||
+      (bd_addr == pairing_cb.static_bdaddr))) {
      memset(&pairing_cb, 0, sizeof(pairing_cb));
   }else{
     if ((!pairing_cb.sdp_attempts)&&
-          (bd_addr == pairing_cb.bd_addr) ||
-          (bd_addr == pairing_cb.static_bdaddr))
+          ((bd_addr == pairing_cb.bd_addr) ||
+          (bd_addr == pairing_cb.static_bdaddr)))
       memset(&pairing_cb, 0, sizeof(pairing_cb));
     else
       BTIF_TRACE_DEBUG("%s: BR-EDR service discovery active", __func__);
@@ -936,7 +936,7 @@ static void btif_dm_pin_req_evt(tBTA_DM_PIN_REQ* p_pin_req) {
   memcpy(bd_name.name, p_pin_req->bd_name, BD_NAME_LEN);
 
   if (pairing_cb.state == BT_BOND_STATE_BONDING &&
-        bdcmp(bd_addr.address, pairing_cb.bd_addr) != 0) {
+        !(bd_addr == pairing_cb.bd_addr)) {
       BTIF_TRACE_WARNING("%s(): already in bonding state, reject request", __FUNCTION__);
       btif_dm_pin_reply(&bd_addr, 0, 0, NULL);
       return;
@@ -953,11 +953,11 @@ static void btif_dm_pin_req_evt(tBTA_DM_PIN_REQ* p_pin_req) {
   /* check for auto pair possiblity only if bond was initiated by local device
    */
   if (pairing_cb.is_local_initiated && (p_pin_req->min_16_digit == false)) {
-    if (bdcmp(pairing_cb.bd_addr, bd_addr.address))
+    if (pairing_cb.bd_addr == bd_addr)
       {
         /* Pin code from different device reject it as we dont support more than 1 pairing */
         BTIF_TRACE_DEBUG("%s()rejecting pairing request", __FUNCTION__);
-        BTA_DmPinReply( (uint8_t*)bd_addr.address, FALSE, 0, NULL);
+        BTA_DmPinReply(bd_addr, FALSE, 0, NULL);
         return;
       }
     if (check_cod(&bd_addr, COD_AV_HEADSETS) ||
@@ -1032,7 +1032,7 @@ static void btif_dm_ssp_cfm_req_evt(tBTA_DM_SP_CFM_REQ* p_ssp_cfm_req) {
   memcpy(bd_name.name, p_ssp_cfm_req->bd_name, BD_NAME_LEN);
 
   if (pairing_cb.state == BT_BOND_STATE_BONDING &&
-        bdcmp(bd_addr.address, pairing_cb.bd_addr) != 0) {
+        !(bd_addr == pairing_cb.bd_addr)) {
      BTIF_TRACE_WARNING("%s(): already in bonding state, reject request", __FUNCTION__);
      btif_dm_ssp_reply(&bd_addr, BT_SSP_VARIANT_PASSKEY_CONFIRMATION, 0, 0);
      return;
@@ -1201,7 +1201,7 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
     pairing_cb.timeout_retries = 0;
 
     if (check_sdp_bl(&bd_addr) && check_cod_hid(&bd_addr)) {
-      bond_state_changed(BT_STATUS_SUCCESS, &bd_addr, BT_BOND_STATE_BONDED);
+      bond_state_changed(BT_STATUS_SUCCESS, bd_addr, BT_BOND_STATE_BONDED);
       LOG_WARN(LOG_TAG,
                "%s: HID Connection from "
                "blacklisted device, skipping sdp",
@@ -1793,9 +1793,6 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
         bond_state_changed((bt_status_t)p_data->bond_cancel_cmpl.result,
                            bd_addr, BT_BOND_STATE_NONE);
 		btif_dm_remove_bond(&bd_addr);
-=======
-                           bd_addr, BT_BOND_STATE_NONE);
->>>>>>> 3712a5d947b37f05640898586f8d2f37a9fc7123
       }
       break;
 
@@ -2659,14 +2656,12 @@ bt_status_t btif_dm_get_adapter_property(bt_property_t* prop) {
  *
  ******************************************************************************/
 bt_status_t btif_dm_get_remote_services(const RawAddress& remote_addr) {
-  bdstr_t bdstr = {'\0'};
 
-  if (bdaddr_is_empty(remote_addr)) {
+  if (remote_addr.IsEmpty()) {
     BTIF_TRACE_WARNING("%s: remote_addr is null", __FUNCTION__);
     return BT_STATUS_FAIL;
   }
-  BTIF_TRACE_EVENT("%s: remote_addr=%s", __func__,
-                   bdaddr_to_string(remote_addr, bdstr, sizeof(bdstr)));
+  BTIF_TRACE_EVENT("%s: remote_addr=%s", __func__, remote_addr.ToString().c_str());
   BTA_DmDiscover(remote_addr, BTA_ALL_SERVICE_MASK, bte_dm_search_services_evt,
                  true);
 
