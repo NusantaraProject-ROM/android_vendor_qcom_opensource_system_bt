@@ -1139,6 +1139,19 @@ extern tBTA_STATUS BTA_DmHciRawCommand (uint16_t opcode, uint8_t param_len, uint
 
 /*******************************************************************************
  *
+ *
+ * Function         BTA_DmSetWifiState
+ *
+ * Description      This function sets wifi state
+ *
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+extern void BTA_DmSetWifiState(bool status);
+
+/*******************************************************************************
+**
  * Function         BTA_DmSearch
  *
  * Description      This function searches for peer Bluetooth devices.  It

@@ -229,6 +229,33 @@ bool BTM_IsDeviceUp(void) { return controller_get_interface()->get_is_ready(); }
 
 /*******************************************************************************
  *
+ * Function         BTM_SetWifiState
+ *
+ * Description      This function set wifi state.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void BTM_SetWifiState(bool status) {
+  btm_cb.is_wifi_connected = status;
+  BTM_TRACE_WARNING ("btm_cb.is_wifi_connected = %d ", btm_cb.is_wifi_connected);
+}
+
+/*******************************************************************************
+ *
+ * Function         BTM_GetWifiState
+ *
+ * Description      This function returns wifi connected status.
+ *
+ * Returns          wifi connected status
+ *
+ ******************************************************************************/
+bool BTM_GetWifiState(void) {
+  return btm_cb.is_wifi_connected;
+}
+
+/*******************************************************************************
+**
  * Function         btm_read_local_name_timeout
  *
  * Description      Callback when reading the local name times out.

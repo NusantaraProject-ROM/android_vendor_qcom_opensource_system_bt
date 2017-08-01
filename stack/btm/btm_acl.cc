@@ -78,6 +78,34 @@ void btm_acl_init(void) {
 
 /*******************************************************************************
  *
+ * Function         btm_get_bredr_acl_count
+ *
+ * Description      This function returns the number bredr acl links.
+ *
+ * Parameters       void
+ *
+ * Returns          Returns number of bredr acl links
+ *
+ ******************************************************************************/
+uint8_t btm_get_bredr_acl_count(void) {
+  tACL_CONN *p = &btm_cb.acl_db[0];
+  uint16_t xx;
+  uint8_t count = 0;
+
+  for (xx = 0; xx < MAX_L2CAP_LINKS; xx++, p++)
+  {
+    if ((p->in_use)
+#if BLE_INCLUDED == TRUE
+      && (p->transport == BT_TRANSPORT_BR_EDR)
+#endif
+         )
+      count++;
+  }
+  return(count);
+}
+
+/*******************************************************************************
+ *
  * Function        btm_bda_to_acl
  *
  * Description     This function returns the FIRST acl_db entry for the passed
@@ -576,9 +604,11 @@ tBTM_STATUS BTM_SwitchRole(BD_ADDR remote_bd_addr, uint8_t new_role,
     bt_bdaddr_t remote_address;
     bdcpy(remote_address.address, remote_bd_addr);
     /* Finished if already in desired role */
-    if ((p->link_role == new_role) || (interop_database_match_addr(
-                    INTEROP_DISABLE_ROLE_SWITCH, (bt_bdaddr_t *)&remote_address)))
-        return(BTM_SUCCESS);
+    if ((p->link_role == new_role) ||
+        (interop_database_match_addr(
+                INTEROP_DISABLE_ROLE_SWITCH, (bt_bdaddr_t *)&remote_address)) ||
+                (!btm_cb.is_wifi_connected && (btm_get_bredr_acl_count() <= 1)))
+      return(BTM_SUCCESS);
 
 #if (BTM_SCO_INCLUDED == TRUE)
   /* Check if there is any SCO Active on this BD Address */

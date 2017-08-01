@@ -262,6 +262,24 @@ void BTA_DmSearchCancel(void) {
 
 /*******************************************************************************
  *
+ * Function         BTA_DmSetWifiState
+ *
+ * Description      This function sets wifi on/off state
+ *
+ * Returns          void
+ *
+ *******************************************************************************/
+void BTA_DmSetWifiState(bool status) {
+  tBTA_DM_API_SET_WIFI_STATE *p_msg =
+      (tBTA_DM_API_SET_WIFI_STATE *)osi_calloc(sizeof(tBTA_DM_API_SET_WIFI_STATE));
+
+  p_msg->hdr.event = BTA_DM_API_SET_WIFI_STATE_EVT;
+  p_msg->status = status;
+  bta_sys_sendmsg(p_msg);
+}
+
+/*******************************************************************************
+**
  * Function         BTA_DmDiscover
  *
  * Description      This function does service discovery for services of a
