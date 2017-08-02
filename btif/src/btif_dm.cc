@@ -55,6 +55,7 @@
 #include "btif_api.h"
 #include "btif_config.h"
 #include "btif_dm.h"
+#include "btif_av.h"
 #include "btif_hd.h"
 #include "btif_hh.h"
 #include "btif_sdp.h"
@@ -262,6 +263,7 @@ extern void btif_av_move_idle(bt_bdaddr_t bd_addr);
 extern bt_status_t btif_hd_execute_service(bool b_enable);
 extern void btif_av_trigger_suspend();
 extern bool btif_av_get_ongoing_multicast();
+extern void btif_av_peer_config_dump();
 
 /******************************************************************************
  *  Functions
@@ -2110,8 +2112,10 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
     }
 
     case BTA_DM_SOC_LOGGING_EVT: {
-      if (p_data->soc_logging.soc_log_id == (LOG_ID_STATS_A2DP))
+      if (p_data->soc_logging.soc_log_id == (LOG_ID_STATS_A2DP)) {
         BTIF_TRACE_WARNING( " event(%d),dump a2dp configuration", event);
+        btif_av_peer_config_dump();
+      }
         break;
     }
 
