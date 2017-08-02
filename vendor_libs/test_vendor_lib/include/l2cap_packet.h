@@ -17,6 +17,7 @@
  ******************************************************************************/
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <iterator>
 #include <memory>
@@ -29,42 +30,51 @@ namespace test_vendor_lib {
 
 const int kSduHeaderLength = 4;
 
-class L2cap {
+class L2capPacket {
  public:
   // Returns an assembled L2cap object if successful, nullptr if failure.
-  static std::unique_ptr<L2cap> assemble(
+  static std::unique_ptr<L2capPacket> assemble(
       const std::vector<L2capSdu>& sdu_packet);
 
   // Construct a vector of just the L2CAP payload. This essentially
   // will remove the L2CAP header from the private member variable.
+  // TODO: Remove this in favor of custom iterators.
   std::vector<uint8_t> get_l2cap_payload() const;
 
   uint16_t get_l2cap_cid() const;
 
+  // Returns a fragmented vector of L2capSdu objects if successful
+  // Returns an empty vector of L2capSdu objects if unsuccessful
+  std::vector<L2capSdu> fragment(uint16_t maximum_sdu_size, uint8_t txseq,
+                                 uint8_t reqseq) const;
+
  private:
-  L2cap() = default;
+  L2capPacket() = default;
 
   // Entire L2CAP packet: length, CID, and payload in that order.
   std::vector<uint8_t> l2cap_packet_;
 
   // Returns an iterator to the beginning of the L2CAP payload on success.
-  auto get_l2cap_payload_begin() const {
-    return std::next(l2cap_packet_.begin(), kSduHeaderLength);
-  }
+  std::vector<uint8_t>::const_iterator get_l2cap_payload_begin() const;
 
-  // Returns true if the SDU control sequence for Segmentation and
-  // Reassembly is 00b, false otherwise.
-  static bool check_if_only_sdu(const uint8_t bytes);
+  DISALLOW_COPY_AND_ASSIGN(L2capPacket);
 
-  // Returns true if the SDU control sequence for Segmentation and
-  // Reassembly is 01b, false otherwise.
-  static bool check_if_starting_sdu(const uint8_t bytes);
+  // Returns an iterator to the end of the L2CAP payload.
+  std::vector<uint8_t>::const_iterator get_l2cap_payload_end() const;
 
-  // Returns true if the SDU control sequence for Segmentation and
-  // Reasembly is 10b, false otherwise.
-  static bool check_if_ending_sdu(const uint8_t bytes);
+  // Helper functions for fragmenting.
+  static void set_sdu_header_length(std::vector<uint8_t>& sdu, uint16_t length);
 
-  DISALLOW_COPY_AND_ASSIGN(L2cap);
-};  // L2cap
+  static void set_total_sdu_length(std::vector<uint8_t>& sdu,
+                                   uint16_t total_sdu_length);
+
+  static void set_sdu_cid(std::vector<uint8_t>& sdu, uint16_t cid);
+
+  static void set_sdu_control_bytes(std::vector<uint8_t>& sdu, uint8_t txseq,
+                                    uint8_t reqseq);
+
+  bool check_l2cap_packet() const;
+
+};  // L2capPacket
 
 }  // namespace test_vendor_lib

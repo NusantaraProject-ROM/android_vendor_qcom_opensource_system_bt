@@ -21,6 +21,8 @@
 
 namespace test_vendor_lib {
 
+const uint16_t kSduSarBits = 0xe000;
+
 // Define the LFSR table of precalculated values defined by the
 // Bluetooth specification version 4.2 volume 3 part A section 3.3.5.
 const uint16_t L2capSdu::lfsr_table_[256] = {
@@ -56,8 +58,29 @@ const uint16_t L2capSdu::lfsr_table_[256] = {
 };  // lfsr_table
 
 L2capSdu::L2capSdu(std::vector<uint8_t> create_from) {
-  sdu_data_.clear();
-  sdu_data_.insert(sdu_data_.end(), create_from.begin(), create_from.end());
+  sdu_data_ = std::move(create_from);
+}
+
+L2capSdu L2capSdu::L2capSduBuilder(std::vector<uint8_t> create_from) {
+  L2capSdu packet(std::move(create_from));
+
+  packet.sdu_data_.resize(packet.sdu_data_.size() + 2, 0x00);
+
+  uint16_t fcs = packet.calculate_fcs();
+
+  packet.sdu_data_[packet.sdu_data_.size() - 2] = fcs & 0xFF;
+  packet.sdu_data_[packet.sdu_data_.size() - 1] = (fcs & 0xFF00) >> 8;
+
+  return packet;
+}
+
+std::vector<uint8_t>::const_iterator L2capSdu::get_payload_begin(
+    const unsigned int offset) const {
+  return std::next(sdu_data_.begin(), offset);
+}
+
+std::vector<uint8_t>::const_iterator L2capSdu::get_payload_end() const {
+  return std::prev(sdu_data_.end(), 2);
 }
 
 uint16_t L2capSdu::convert_from_little_endian(
@@ -102,5 +125,23 @@ uint16_t L2capSdu::get_channel_id() const {
 }
 
 size_t L2capSdu::get_vector_size() const { return sdu_data_.size(); }
+
+bool L2capSdu::is_complete_l2cap(const L2capSdu& sdu) {
+  uint16_t sar_bits = (sdu.get_controls() & kSduSarBits);
+
+  return (sar_bits == 0x0000);
+}
+
+bool L2capSdu::is_starting_sdu(const L2capSdu& sdu) {
+  uint16_t sar_bits = (sdu.get_controls() & kSduSarBits);
+
+  return (sar_bits == 0x4000);
+}
+
+bool L2capSdu::is_ending_sdu(const L2capSdu& sdu) {
+  uint16_t sar_bits = (sdu.get_controls() & kSduSarBits);
+
+  return (sar_bits == 0x8000);
+}
 
 }  // namespace test_vendor_lib

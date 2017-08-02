@@ -62,21 +62,31 @@ class L2capSdu {
   // Returns a completed L2capSdu object.
   L2capSdu(std::vector<uint8_t> create_from);
 
+  static L2capSdu L2capSduBuilder(std::vector<uint8_t> create_from);
+
+  // TODO: Remove this when the move to L2capSdu* is done
+  L2capSdu& operator=(L2capSdu obj1) {
+    sdu_data_.clear();
+
+    sdu_data_ = obj1.sdu_data_;
+
+    return *this;
+  }
+
   // Get a vector iterator that points to the first byte of the
   // L2CAP payload within an SDU. The offset parameter will be the
   // number of bytes that are in the SDU header. This should always
   // be 6 bytes with the exception being the first SDU of a stream
   // of SDU packets where the first SDU packet will have an extra
   // two bytes and the offset should be 8 bytes.
-  auto get_payload_begin(const unsigned int offset) const {
-    return std::next(sdu_data_.begin(), offset);
-  }
+  std::vector<uint8_t>::const_iterator get_payload_begin(
+      const unsigned int offset) const;
 
   // Get a vector iterator that points to the last bytes of the
   // L2CAP payload within an SDU packet. There is no offset
   // parameter for this function because there will always be two
   // FCS bytes and nothing else at the end of each SDU.
-  auto get_payload_end() const { return std::prev(sdu_data_.end(), 2); }
+  std::vector<uint8_t>::const_iterator get_payload_end() const;
 
   // Get the FCS bytes from the end of the L2CAP payload of an SDU
   // packet.
@@ -96,6 +106,18 @@ class L2capSdu {
   size_t get_vector_size() const;
 
   uint16_t get_channel_id() const;
+
+  // Returns true if the SDU control sequence for Segmentation and
+  // Reassembly is 00b, false otherwise.
+  static bool is_complete_l2cap(const L2capSdu& sdu);
+
+  // Returns true if the SDU control sequence for Segmentation and
+  // Reassembly is 01b, false otherwise.
+  static bool is_starting_sdu(const L2capSdu& sdu);
+
+  // Returns true if the SDU control sequence for Segmentation and
+  // Reasembly is 10b, false otherwise.
+  static bool is_ending_sdu(const L2capSdu& sdu);
 
  private:
   // This is the SDU packet in bytes.
