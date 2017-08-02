@@ -2146,8 +2146,15 @@ void bta_av_reconfig(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   // can Suspend->Reconfigure->Start.
   // Otherwise, we have to Close->Configure->Open->Start or
   // Close->Configure->Open for streams that are / are not started.
+   APPL_TRACE_DEBUG("rcfg_idx:%d,sep_info_idx:%d,suspend:%d,recfg_sup:%d,suspend_sup:%d",
+                     p_scb->rcfg_idx,
+                     p_scb->sep_info_idx,
+                     p_rcfg->suspend,
+                     p_scb->recfg_sup,
+                     p_scb->suspend_sup);
   if ((p_scb->rcfg_idx == p_scb->sep_info_idx) && p_rcfg->suspend &&
       p_scb->recfg_sup && p_scb->suspend_sup) {
+      APPL_TRACE_DEBUG("p_scb->started:%d", p_scb->started);
     if (p_scb->started) {
       // Suspend->Reconfigure->Start
       stop.flush = false;

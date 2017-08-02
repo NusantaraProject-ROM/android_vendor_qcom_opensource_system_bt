@@ -665,7 +665,7 @@ void btif_rc_clear_playing_state(bool state) {
  *
  ***************************************************************************/
 void handle_rc_browse_connect(tBTA_AV_RC_BROWSE_OPEN* p_rc_br_open) {
-  BTIF_TRACE_DEBUG("%s: rc_handle %d status %d", __func__,
+  BTIF_TRACE_IMP("%s: rc_handle %d status %d", __func__,
                    p_rc_br_open->rc_handle, p_rc_br_open->status);
   btif_rc_device_cb_t* p_dev =
       btif_rc_get_device_by_handle(p_rc_br_open->rc_handle);
@@ -761,7 +761,7 @@ void handle_rc_connect(tBTA_AV_RC_OPEN* p_rc_open) {
 void handle_rc_disconnect(tBTA_AV_RC_CLOSE* p_rc_close) {
   btif_rc_device_cb_t* p_dev = NULL;
   tBTA_AV_FEAT rc_features = 0;
-  BTIF_TRACE_DEBUG("%s: rc_handle: %d", __func__, p_rc_close->rc_handle);
+  BTIF_TRACE_IMP("%s: rc_handle: %d", __func__, p_rc_close->rc_handle);
 
   p_dev = btif_rc_get_device_by_handle(p_rc_close->rc_handle);
   if (p_dev == NULL) {
@@ -1152,7 +1152,7 @@ void handle_rc_metamsg_cmd(tBTA_AV_META_MSG* pmeta_msg) {
  **
  ***************************************************************************/
 void btif_rc_handler(tBTA_AV_EVT event, tBTA_AV* p_data) {
-  BTIF_TRACE_DEBUG("%s: event: %s", __func__, dump_rc_event(event));
+  BTIF_TRACE_IMP("%s: event: %s", __func__, dump_rc_event(event));
   btif_rc_device_cb_t* p_dev = NULL;
   switch (event) {
     case BTA_AV_RC_OPEN_EVT: {
@@ -1616,7 +1616,7 @@ static uint8_t fill_attribute_id_array(
 static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
                                   uint8_t ctype, uint8_t label,
                                   btif_rc_device_cb_t* p_dev) {
-  BTIF_TRACE_EVENT("%s: pdu: %s handle: 0x%x ctype: %x label: %x event ID: %x",
+  BTIF_TRACE_IMP("%s: pdu: %s handle: 0x%x ctype: %x label: %x event ID: %x",
                    __func__, dump_rc_pdu(pavrc_cmd->pdu), p_dev->rc_handle,
                    ctype, label, pavrc_cmd->reg_notif.event_id);
   bt_bdaddr_t rc_addr;
@@ -1900,7 +1900,7 @@ static void btif_rc_upstreams_rsp_evt(uint16_t event,
                                       tAVRC_RESPONSE* pavrc_resp, uint8_t ctype,
                                       uint8_t label,
                                       btif_rc_device_cb_t* p_dev) {
-  BTIF_TRACE_EVENT("%s: pdu: %s: handle: 0x%x ctype: %x label: %x", __func__,
+  BTIF_TRACE_IMP("%s: pdu: %s: handle: 0x%x ctype: %x label: %x", __func__,
                    dump_rc_pdu(pavrc_resp->pdu), p_dev->rc_handle, ctype,
                    label);
   bt_bdaddr_t rc_addr;
@@ -2312,7 +2312,7 @@ static bt_status_t register_notification_rsp(
                                                bd_addr));
   }
 
-  BTIF_TRACE_EVENT("%s: event_id: %s", __func__,
+  BTIF_TRACE_IMP("%s: event_id: %s", __func__,
                    dump_rc_notification_event_id(event_id));
   std::unique_lock<std::mutex> lock(btif_rc_cb.lock);
 

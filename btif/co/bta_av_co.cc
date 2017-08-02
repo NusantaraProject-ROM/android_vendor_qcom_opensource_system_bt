@@ -374,7 +374,7 @@ static tA2DP_STATUS bta_av_audio_sink_getconfig(
       }
       memcpy(p_peer->codec_config, pref_config, AVDT_CODEC_SIZE);
 
-      APPL_TRACE_DEBUG("%s: p_codec_info[%x:%x:%x:%x:%x:%x]", __func__,
+      APPL_TRACE_IMP("%s: p_codec_info[%x:%x:%x:%x:%x:%x]", __func__,
                        p_peer->codec_config[1], p_peer->codec_config[2],
                        p_peer->codec_config[3], p_peer->codec_config[4],
                        p_peer->codec_config[5], p_peer->codec_config[6]);
@@ -519,7 +519,7 @@ void bta_av_co_audio_setconfig(tBTA_AV_HNDL hndl, const uint8_t* p_codec_info,
   uint8_t category = A2DP_SUCCESS;
   bool reconfig_needed = false;
 
-  APPL_TRACE_DEBUG("%s: p_codec_info[%x:%x:%x:%x:%x:%x]", __func__,
+  APPL_TRACE_IMP("%s: p_codec_info[%x:%x:%x:%x:%x:%x]", __func__,
                    p_codec_info[1], p_codec_info[2], p_codec_info[3],
                    p_codec_info[4], p_codec_info[5], p_codec_info[6]);
   APPL_TRACE_DEBUG("num_protect:0x%02x protect_info:0x%02x%02x%02x",
@@ -601,7 +601,7 @@ void bta_av_co_audio_setconfig(tBTA_AV_HNDL hndl, const uint8_t* p_codec_info,
   }
 
   if (status != A2DP_SUCCESS) {
-    APPL_TRACE_DEBUG("%s: reject s=%d c=%d", __func__, status, category);
+    APPL_TRACE_ERROR("%s: reject s=%d c=%d", __func__, status, category);
     /* Call call-in rejecting the configuration */
     bta_av_ci_setconfig(hndl, status, category, 0, NULL, false, avdt_handle);
     return;

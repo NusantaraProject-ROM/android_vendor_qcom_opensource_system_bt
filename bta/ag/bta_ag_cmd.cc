@@ -836,7 +836,7 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
     return;
   }
 
-  APPL_TRACE_DEBUG("%s: AT command %d, arg_type %d, int_arg %d, arg %s",
+  APPL_TRACE_IMP("%s: AT command %d, arg_type %d, int_arg %d, arg %s",
                    __func__, cmd, arg_type, int_arg, p_arg);
 
   memset(&val, 0, sizeof(tBTA_AG_VAL));
@@ -1410,7 +1410,7 @@ void bta_ag_hsp_result(tBTA_AG_SCB* p_scb, tBTA_AG_API_RESULT* p_result) {
  *
  ******************************************************************************/
 void bta_ag_hfp_result(tBTA_AG_SCB* p_scb, tBTA_AG_API_RESULT* p_result) {
-  APPL_TRACE_DEBUG("bta_ag_hfp_result : res = %d", p_result->result);
+  APPL_TRACE_IMP("bta_ag_hfp_result : res = %d", p_result->result);
 
   switch (p_result->result) {
     case BTA_AG_SPK_RES:
