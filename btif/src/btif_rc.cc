@@ -1967,8 +1967,6 @@ static bt_status_t init(btrc_callbacks_t* callbacks, int max_connections) {
 
   btif_rc_cb.rc_multi_cb = (btif_rc_device_cb_t *)
                  osi_malloc(btif_max_rc_clients * sizeof(btif_rc_device_cb_t));
-  memset(&btif_rc_cb.rc_multi_cb, 0,
-                 sizeof(btif_rc_device_cb_t) * btif_max_rc_clients);
   for (int idx = 0; idx < btif_max_rc_clients; idx++) {
     memset(&btif_rc_cb.rc_multi_cb[idx], 0,
            sizeof(btif_rc_cb.rc_multi_cb[idx]));
@@ -2005,7 +2003,6 @@ static bt_status_t init_ctrl(btrc_ctrl_callbacks_t* callbacks) {
 
   btif_rc_cb.rc_multi_cb = (btif_rc_device_cb_t *)
                  osi_malloc(btif_max_rc_clients * sizeof(btif_rc_device_cb_t));
-  memset(&btif_rc_cb.rc_multi_cb, 0, sizeof(btif_rc_device_cb_t) * btif_max_rc_clients);
   for (int idx = 0; idx < btif_max_rc_clients; idx++) {
     memset(&btif_rc_cb.rc_multi_cb[idx], 0,
            sizeof(btif_rc_cb.rc_multi_cb[idx]));
@@ -4843,8 +4840,6 @@ static void cleanup() {
   if (btif_rc_cb.rc_multi_cb != NULL) {
     for (int idx = 0; idx < btif_max_rc_clients; idx++) {
       alarm_free(btif_rc_cb.rc_multi_cb[idx].rc_play_status_timer);
-      memset(&btif_rc_cb.rc_multi_cb[idx], 0,
-             sizeof(btif_rc_cb.rc_multi_cb[idx]));
     }
     osi_free(btif_rc_cb.rc_multi_cb);
     btif_rc_cb.rc_multi_cb = NULL;
@@ -4872,8 +4867,6 @@ static void cleanup_ctrl() {
   if (btif_rc_cb.rc_multi_cb != NULL) {
     for (int idx = 0; idx < btif_max_rc_clients; idx++) {
       alarm_free(btif_rc_cb.rc_multi_cb[idx].rc_play_status_timer);
-      memset(&btif_rc_cb.rc_multi_cb[idx], 0,
-             sizeof(btif_rc_cb.rc_multi_cb[idx]));
     }
     osi_free(btif_rc_cb.rc_multi_cb);
     btif_rc_cb.rc_multi_cb = NULL;
