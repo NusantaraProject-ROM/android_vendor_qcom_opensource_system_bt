@@ -484,6 +484,8 @@ static void bta_dm_sys_hw_cback(tBTA_SYS_HW_EVT status) {
  *
  ******************************************************************************/
 void bta_dm_disable(UNUSED_ATTR tBTA_DM_MSG* p_data) {
+  int soc_type = get_soc_type();
+
   /* Set l2cap idle timeout to 0 (so BTE immediately disconnects ACL link after
    * last channel is closed) */
   L2CA_SetIdleTimeoutByBdAddr((uint8_t*)BT_BD_ANY, 0, BT_TRANSPORT_BR_EDR);
@@ -500,6 +502,14 @@ void bta_dm_disable(UNUSED_ATTR tBTA_DM_MSG* p_data) {
   bta_dm_cb.disabling = true;
 
   BTM_BleClearBgConnDev();
+  /* Disable SOC Logging */
+  if (soc_type == BT_SOC_SMD) {
+    uint8_t param[5] = {0x10,0x02,0x00,0x00,0x01};
+    BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE,5,param,NULL);
+  } else if (soc_type == BT_SOC_CHEROKEE) {
+    uint8_t param_cherokee[2] = {0x14, 0x00};
+    BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE, 2, param_cherokee, NULL);
+  }
 
   if (BTM_GetNumAclLinks() == 0) {
 #if (BTA_DISABLE_DELAY > 0)
