@@ -154,7 +154,7 @@ static tBTTRC_FUNC_MAP bttrc_set_level_map[] = {
     {0, 0, NULL, NULL, DEFAULT_CONF_TRACE_LEVEL}};
 
 void LogMsg(uint32_t trace_set_mask, const char* fmt_str, ...) {
-  static char buffer[BTE_LOG_BUF_SIZE];
+  char buffer[BTE_LOG_BUF_SIZE];
   int trace_layer = TRACE_GET_LAYER(trace_set_mask);
   if (trace_layer >= TRACE_LAYER_MAX_NUM) trace_layer = 0;
 
