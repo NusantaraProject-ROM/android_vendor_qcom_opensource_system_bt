@@ -385,4 +385,15 @@ bool btif_av_is_under_handoff();
 ********************************************************************************/
 tBTA_AV_LATENCY btif_av_get_sink_latency();
 
+/******************************************************************************
+**
+** Function         btif_av_peer_config_dump
+**
+** Description
+**
+** Returns
+********************************************************************************/
+void btif_av_peer_config_dump();
+
+
 #endif /* BTIF_AV_H */

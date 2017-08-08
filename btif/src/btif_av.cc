@@ -387,6 +387,32 @@ static void btif_report_audio_state(btav_audio_state_t state,
   }
 }
 
+void btif_av_peer_config_dump()
+{
+   int index = 0;
+   BD_ADDR bd_addr;
+   btif_sm_state_t av_state;
+   BTIF_TRACE_DEBUG("TARGET BD ADDRESS %x:%x:%x:%x:%x:%x", bd_addr[0],
+           bd_addr[1], bd_addr[2], bd_addr[3], bd_addr[4], bd_addr[5]);
+   index = btif_av_idx_by_bdaddr(bd_addr);
+   if (index == btif_max_av_clients)
+   {
+       BTIF_TRACE_DEBUG("%s: AV Index invalid", __FUNCTION__);
+       return;
+   }
+   av_state = btif_get_conn_state_of_device(bd_addr);
+   BTIF_TRACE_DEBUG("%s: Av_state: %d", __FUNCTION__, av_state);
+   BTIF_TRACE_DEBUG("%s: index: %d flags: 0x%x edr: 0x%x SHO: %d current_playing: %d",
+                    __FUNCTION__, index, btif_av_cb[index].flags, btif_av_cb[index].edr,
+                     btif_av_cb[index].dual_handoff, btif_av_cb[index].current_playing);
+   BTIF_TRACE_DEBUG("%s: is_slave: %d is_device_palaying: %d",
+          __FUNCTION__, btif_av_cb[index].is_slave, btif_av_cb[index].is_device_playing);
+   A2dpCodecs* a2dp_codecs = bta_av_get_a2dp_codecs();
+   if (a2dp_codecs != nullptr) {
+       a2dp_codecs->debug_codec_dump(-1);
+   }
+}
+
 static void btif_update_source_codec(void* p_data) {
   btav_a2dp_codec_config_t req;
   // copy to avoid alignment problems
