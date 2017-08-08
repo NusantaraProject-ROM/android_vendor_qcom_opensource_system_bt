@@ -2108,6 +2108,13 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
       // update streaming bit rate from av
       break;
     }
+
+    case BTA_DM_SOC_LOGGING_EVT: {
+      if (p_data->soc_logging.soc_log_id == (LOG_ID_STATS_A2DP))
+        BTIF_TRACE_WARNING( " event(%d),dump a2dp configuration", event);
+        break;
+    }
+
     case BTA_DM_AUTHORIZE_EVT:
     case BTA_DM_SIG_STRENGTH_EVT:
     case BTA_DM_SP_RMT_OOB_EVT:

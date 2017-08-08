@@ -273,6 +273,7 @@ typedef struct {
   BD_ADDR bd_addr;
   uint8_t hci_status;
   uint16_t pkt_type;
+  uint16_t soc_log_id;
   uint16_t handle;
   tBT_TRANSPORT transport;
 } tBTA_DM_ACL_CHANGE;

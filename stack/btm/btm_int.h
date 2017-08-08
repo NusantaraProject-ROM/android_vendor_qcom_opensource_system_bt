@@ -105,6 +105,7 @@ extern void btm_process_clk_off_comp_evt(uint16_t hci_handle,
                                          uint16_t clock_offset);
 extern void btm_process_pkt_type_change_evt (uint16_t hci_handle,
                                              uint16_t pkt_type);
+extern void btm_process_soc_logging_evt (uint16_t soc_log_id);
 extern void btm_acl_role_changed(uint8_t hci_status, BD_ADDR bd_addr,
                                  uint8_t new_role);
 extern void btm_blacklist_role_change_device (BD_ADDR bd_addr,
