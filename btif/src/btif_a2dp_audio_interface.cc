@@ -289,6 +289,15 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         break;
       }
 
+      if (btif_a2dp_source_is_remote_start()) {
+        APPL_TRACE_WARNING("%s: remote a2dp started, cancel remote start timer",
+                           __func__);
+        btif_a2dp_source_cancel_remote_start();
+        btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
+        status = A2DP_CTRL_ACK_PENDING;
+        break;
+      }
+
       /* In dual a2dp mode check for stream started first*/
       if (btif_av_stream_started_ready()) {
         /*
@@ -337,8 +346,9 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
       }
     case A2DP_CTRL_CMD_SUSPEND:
       /* Local suspend */
-      if (reconfig_a2dp) {
-        LOG_INFO(LOG_TAG,"Suspend called due to reconfig");
+      if (reconfig_a2dp ||
+          btif_a2dp_source_is_remote_start()) {
+        LOG_INFO(LOG_TAG,"Suspend called due to reconfig or remote started");
         /*if (btif_av_is_under_handoff() && !btif_av_is_device_disconnecting()) {
           LOG_INFO(LOG_TAG,"Under hand off,hopefully stack send success ack");
           status = A2DP_CTRL_ACK_PENDING;
