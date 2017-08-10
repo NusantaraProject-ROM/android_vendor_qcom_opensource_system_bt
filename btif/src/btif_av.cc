@@ -2312,6 +2312,8 @@ void btif_av_event_deep_copy(uint16_t event, char* p_dest, char* p_src) {
               (uint8_t*)osi_calloc(p_msg_src->vendor.vendor_len);
           memcpy(p_msg_dest->vendor.p_vendor_data,
                  p_msg_src->vendor.p_vendor_data, p_msg_src->vendor.vendor_len);
+        } else if (p_msg_src->hdr.opcode == AVRC_OP_BROWSE) {
+          p_msg_dest->browse.p_browse_data = av_dest->meta_msg.p_data;
         }
       }
       break;
