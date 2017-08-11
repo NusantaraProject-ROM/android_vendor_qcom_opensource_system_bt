@@ -53,6 +53,7 @@
 #include "osi/include/list.h"
 #include "osi/include/osi.h"
 #include "osi/include/properties.h"
+#include "stack/sdp/sdpint.h"
 #define RC_INVALID_TRACK_ID (0xFFFFFFFFFFFFFFFFULL)
 
 /*****************************************************************************
@@ -1681,6 +1682,15 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
                              AVRC_STS_BAD_PARAM, pavrc_cmd->cmd.opcode);
         return;
       }
+      int ver = AVRC_REV_INVALID;
+      ver = sdp_get_stored_avrc_tg_version (rc_addr.address);
+      if ((!(p_dev->rc_features & BTA_AV_FEAT_CA)) ||
+              (ver < AVRC_REV_1_6) || (ver == AVRC_REV_INVALID))
+      {
+          BTIF_TRACE_DEBUG("remove cover art element if remote doesn't support avrcp1.6");
+          if (num_attr == AVRC_MAX_NUM_MEDIA_ATTR_ID)
+              num_attr--;
+      }
       fill_pdu_queue(IDX_GET_ELEMENT_ATTR_RSP, ctype, label, true, p_dev);
       HAL_CBACK(bt_rc_callbacks, get_element_attr_cb, num_attr, element_attrs,
                 &rc_addr);
@@ -1822,6 +1832,15 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
         send_reject_response(p_dev->rc_handle, label, pavrc_cmd->pdu,
                              AVRC_STS_BAD_PARAM, pavrc_cmd->cmd.opcode);
         return;
+      }
+      int ver = AVRC_REV_INVALID;
+      ver = sdp_get_stored_avrc_tg_version (rc_addr.address);
+      if ((!(p_dev->rc_features & BTA_AV_FEAT_CA)) ||
+              (ver < AVRC_REV_1_6) || (ver == AVRC_REV_INVALID))
+      {
+          BTIF_TRACE_DEBUG("remove cover art element if remote doesn't support avrcp1.6");
+          if (num_attr == AVRC_MAX_NUM_MEDIA_ATTR_ID)
+              num_attr--;
       }
       fill_pdu_queue(IDX_GET_ITEM_ATTR_RSP, ctype, label, true, p_dev);
       BTIF_TRACE_DEBUG("%s: GET_ITEM_ATTRIBUTES: num_attr: %d", __func__,

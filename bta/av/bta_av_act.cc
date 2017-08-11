@@ -1810,10 +1810,19 @@ tBTA_AV_FEAT bta_av_check_peer_features(uint16_t service_uuid) {
         p_attr = SDP_FindAttributeInRec(p_rec, ATTR_ID_SUPPORTED_FEATURES);
         if (p_attr != NULL) {
           categories = p_attr->attr_value.v.u16;
+          APPL_TRACE_DEBUG("peer categories: 0x%x", categories);
           if (categories & AVRC_SUPF_CT_CAT2)
             peer_features |= (BTA_AV_FEAT_ADV_CTRL);
           if (categories & AVRC_SUPF_CT_BROWSE)
             peer_features |= (BTA_AV_FEAT_BROWSE);
+          uint16_t dut_avrcp_version = bta_get_dut_avrcp_version();
+          if ((categories & AVRC_SUPF_CT_COVER_ART_GET_IMAGE) &&
+              (categories & AVRC_SUPF_CT_COVER_ART_GET_THUMBNAIL)
+              && (dut_avrcp_version == AVRC_REV_1_6))
+          {
+              peer_features |= (BTA_AV_FEAT_CA);
+              APPL_TRACE_DEBUG("peer supports cover art");
+          }
         }
       }
       if ((peer_rc_version >= AVRC_REV_1_4) &&
