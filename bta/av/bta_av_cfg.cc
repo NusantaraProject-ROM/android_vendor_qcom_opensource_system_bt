@@ -74,17 +74,20 @@ const uint16_t bta_av_audio_flush_to[] = {
 /* Note: if AVRC_SUPF_TG_GROUP_NAVI is set, bta_av_cfg.avrc_group should be true
  */
 #ifndef BTA_AV_RC_SUPF_TG
-#if (AVRC_METADATA_INCLUDED == TRUE)
-#define BTA_AV_RC_SUPF_TG                          \
-  (AVRC_SUPF_TG_CAT1 | AVRC_SUPF_TG_MULTI_PLAYER | \
-   AVRC_SUPF_TG_BROWSE) /* TODO: | AVRC_SUPF_TG_APP_SETTINGS) */
+#if ((AVRC_METADATA_INCLUDED == TRUE) && (defined(AVRC_QTI_V1_3_OPTIONAL_FEAT)) \
+&& (AVRC_QTI_V1_3_OPTIONAL_FEAT == TRUE))
+#define BTA_AV_RC_SUPF_TG (AVRC_SUPF_TG_CAT1|AVRC_SUPF_TG_MULTI_PLAYER|         \
+AVRC_SUPF_TG_BROWSE|AVRC_SUPF_TG_APP_SETTINGS)
+#elif (AVRC_METADATA_INCLUDED == TRUE)
+#define BTA_AV_RC_SUPF_TG (AVRC_SUPF_TG_CAT1 | AVRC_SUPF_TG_MULTI_PLAYER | AVRC_SUPF_TG_BROWSE)
 #else
 #define BTA_AV_RC_SUPF_TG (AVRC_SUPF_TG_CAT1)
 #endif
 #endif
 
+
 /*
- * If the number of event IDs is changed in this array, BTA_AV_ NUM_RC_EVT_IDS
+ * If the number of event IDs is changed in this array, BTA_AV_NUM_RC_EVT_IDS
  * also needs to be changed.
  */
 const uint8_t bta_av_meta_caps_evt_ids[] = {
@@ -92,9 +95,9 @@ const uint8_t bta_av_meta_caps_evt_ids[] = {
     AVRC_EVT_PLAY_POS_CHANGED,   AVRC_EVT_AVAL_PLAYERS_CHANGE,
     AVRC_EVT_ADDR_PLAYER_CHANGE, AVRC_EVT_UIDS_CHANGE,
     AVRC_EVT_NOW_PLAYING_CHANGE,
-    /* TODO: Add support for these events
+#if (defined(AVRC_QTI_V1_3_OPTIONAL_FEAT) && AVRC_QTI_V1_3_OPTIONAL_FEAT == TRUE)
     AVRC_EVT_APP_SETTING_CHANGE,
-    */
+#endif
 };
 #ifndef BTA_AV_NUM_RC_EVT_IDS
 #define BTA_AV_NUM_RC_EVT_IDS \

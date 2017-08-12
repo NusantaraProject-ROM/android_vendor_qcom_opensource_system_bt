@@ -1364,6 +1364,9 @@
  * AVRCP
  *
  *****************************************************************************/
+#ifndef AVRC_QTI_V1_3_OPTIONAL_FEAT
+#define AVRC_QTI_V1_3_OPTIONAL_FEAT TRUE
+#endif
 
 #ifndef AVRC_METADATA_INCLUDED
 #define AVRC_METADATA_INCLUDED TRUE

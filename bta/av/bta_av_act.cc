@@ -1804,6 +1804,9 @@ tBTA_AV_FEAT bta_av_check_peer_features(uint16_t service_uuid) {
 
       if (peer_rc_version >= AVRC_REV_1_3)
         peer_features |= (BTA_AV_FEAT_VENDOR | BTA_AV_FEAT_METADATA);
+#if (defined(AVRC_QTI_V1_3_OPTIONAL_FEAT) && AVRC_QTI_V1_3_OPTIONAL_FEAT == TRUE)
+        peer_features |= (BTA_AV_FEAT_APP_SETTING);
+#endif
 
       if (peer_rc_version >= AVRC_REV_1_4) {
         /* get supported categories */
