@@ -1290,7 +1290,11 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
       /* Dont fail the bonding for key missing error as stack retry security */
       case HCI_ERR_KEY_MISSING:
         btif_storage_remove_bonded_device(&bd_addr);
-        return;
+        if (p_auth_cmpl->is_sm4_dev) {
+          return;
+        } else {
+          BTIF_TRACE_WARNING("%s() legacy remote ,move bond state to none", __FUNCTION__);
+        }
 
       /* map the auth failure codes, so we can retry pairing if necessary */
       case HCI_ERR_AUTH_FAILURE:

@@ -207,6 +207,7 @@ extern tBTM_SEC_DEV_REC* btm_find_or_alloc_dev(BD_ADDR bd_addr);
 extern tBTM_SEC_DEV_REC* btm_find_dev_by_handle(uint16_t handle);
 extern tBTM_BOND_TYPE btm_get_bond_type_dev(BD_ADDR bd_addr);
 extern bool btm_set_bond_type_dev(BD_ADDR bd_addr, tBTM_BOND_TYPE bond_type);
+extern bool btm_is_sm4_dev(BD_ADDR bd_addr);
 
 /* Internal functions provided by btm_sec.cc
  *********************************************
