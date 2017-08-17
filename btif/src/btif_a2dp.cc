@@ -136,7 +136,8 @@ void btif_a2dp_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
       btif_a2dp_source_on_suspended(p_av_suspend);
     }
   } else {
-    btif_a2dp_audio_on_suspended(p_av_suspend->status);
+     if (p_av_suspend != NULL)
+       btif_a2dp_audio_on_suspended(p_av_suspend->status);
   }
 }
 

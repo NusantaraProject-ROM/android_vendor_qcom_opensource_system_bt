@@ -622,11 +622,13 @@ void btif_a2dp_source_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
   if (btif_a2dp_source_state == BTIF_A2DP_SOURCE_STATE_OFF) return;
 
   /* check for status failures */
-  if (p_av_suspend->status != BTA_AV_SUCCESS) {
-    if (p_av_suspend->initiator) {
-      APPL_TRACE_WARNING("%s: A2DP suspend request failed: status = %d",
+  if (p_av_suspend != NULL) {
+    if (p_av_suspend->status != BTA_AV_SUCCESS) {
+      if (p_av_suspend->initiator) {
+        APPL_TRACE_WARNING("%s: A2DP suspend request failed: status = %d",
                          __func__, p_av_suspend->status);
-      btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+        btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+      }
     }
   }
 
