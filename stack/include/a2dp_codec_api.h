@@ -650,6 +650,12 @@ bool A2DP_InitCodecConfig(btav_a2dp_codec_index_t codec_index,
 void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap);
 bool A2DP_GetOffloadStatus();
 bool A2DP_IsCodecEnabledInOffload(btav_a2dp_codec_index_t codec_index);
+=======
+// Decodes and displays A2DP codec info when using |LOG_DEBUG|.
+// |p_codec_info| is a pointer to the codec_info to decode and display.
+// Returns true if the codec information is valid, otherwise false.
+bool A2DP_DumpCodecInfo(const uint8_t* p_codec_info);
+
 // Add enum-based flag operators to the btav_a2dp_codec_config_t fields
 #ifndef DEFINE_ENUM_FLAG_OPERATORS
 #define DEFINE_ENUM_FLAG_OPERATORS(bitmask)                                 \
