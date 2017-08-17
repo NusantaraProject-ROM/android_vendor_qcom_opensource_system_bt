@@ -648,15 +648,25 @@ void bta_ag_rfc_data(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
       break;
     }
 
+    if (strstr(buf, "AT+IPHONEACCEV") != NULL) {
+        APPL_TRACE_IMP("%s: AT+IPHONEACCEV received, not coming out of sniff", __func__);
+    } else {
+        APPL_TRACE_IMP("%s: setting sys busy", __func__);
+        bta_sys_busy(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
+    }
     /* run AT command interpreter on data */
-    bta_sys_busy(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
     bta_ag_at_parse(&p_scb->at_cb, buf, len);
     if ((p_scb->sco_idx != BTM_INVALID_SCO_INDEX) &&
         bta_ag_sco_is_open(p_scb)) {
       APPL_TRACE_IMP("%s change link policy for SCO", __func__);
       bta_sys_sco_open(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
     } else {
-      bta_sys_idle(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
+      if (strstr(buf, "AT+IPHONEACCEV") != NULL) {
+          APPL_TRACE_IMP("%s: AT+IPHONEACCEV received, not setting idle", __func__);
+      } else {
+          APPL_TRACE_IMP("%s: resetting idle timer", __func__);
+          bta_sys_idle(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
+      }
     }
 
     /* no more data to read, we're done */
