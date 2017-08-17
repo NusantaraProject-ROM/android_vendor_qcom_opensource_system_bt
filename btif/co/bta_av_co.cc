@@ -43,7 +43,7 @@
 #include "osi/include/mutex.h"
 #include "osi/include/osi.h"
 #include "osi/include/properties.h"
-
+#include "device/include/interop.h"
 /*****************************************************************************
  **  Constants
  *****************************************************************************/
@@ -153,6 +153,7 @@ static bool bta_av_co_set_codec_ota_config(tBTA_AV_CO_PEER* p_peer,
 extern int btif_max_av_clients;
 extern tBTA_AV_HNDL btif_av_get_reconfig_dev_hndl();
 extern void btif_av_reset_codec_reconfig_flag();
+extern bool bt_split_a2dp_enabled;
 /*******************************************************************************
  **
  ** Function         bta_av_co_cp_get_flag
@@ -890,6 +891,8 @@ static const tBTA_AV_CO_SINK* bta_av_co_find_peer_src_supports_codec(
 //
 static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
   tBTA_AV_CO_SINK* p_sink = NULL;
+  bt_bdaddr_t bt_addr;
+  bdcpy(bt_addr.address, p_peer->addr);
 
   // Update all selectable codecs.
   // This is needed to update the selectable parameters for each codec.
@@ -903,7 +906,14 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
   // Select the codec
   for (const auto& iter : bta_av_co_cb.codecs->orderedSourceCodecs()) {
     APPL_TRACE_DEBUG("%s: trying codec %s", __func__, iter->name().c_str());
-    p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
+    if (bt_split_a2dp_enabled && (!strcmp(iter->name().c_str(),"AAC")) && (interop_match_addr(INTEROP_DISABLE_AAC_CODEC, &bt_addr)))
+    {
+      APPL_TRACE_DEBUG("AAC is not supported for this remote device");
+    }
+    else
+    {
+     p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
+    }
     if (p_sink != NULL) {
       APPL_TRACE_DEBUG("%s: selected codec %s", __func__, iter->name().c_str());
       break;
@@ -913,8 +923,6 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
 
   // NOTE: Unconditionally dispatch the event to make sure a callback with
   // the most recent codec info is generated.
-  bt_bdaddr_t bt_addr;
-  bdcpy(bt_addr.address, p_peer->addr);
   btif_dispatch_sm_event(BTIF_AV_SOURCE_CONFIG_UPDATED_EVT, &bt_addr,
                    sizeof(bt_bdaddr_t));
   APPL_TRACE_DEBUG("%s BDA:0x%02X%02X%02X%02X%02X%02X", __func__,
