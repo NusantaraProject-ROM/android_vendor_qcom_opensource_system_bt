@@ -632,6 +632,7 @@ typedef struct {
   uint16_t state;
   bool disabling;
   alarm_t* disable_timer;
+  alarm_t* bond_retrail_timer;
   uint32_t wbt_sdp_handle; /* WIDCOMM Extensions SDP record handle */
   uint8_t wbt_scn;         /* WIDCOMM Extensions SCN */
   uint8_t num_master_only;
