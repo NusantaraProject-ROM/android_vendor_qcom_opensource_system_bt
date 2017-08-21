@@ -1019,6 +1019,15 @@ void btm_process_remote_ext_features(tACL_CONN* p_acl_cb,
            HCI_FEATURE_BYTES_PER_PAGE);
   }
 
+  if (p_dev_rec->sec_flags & BTM_SEC_NAME_KNOWN) {
+    /* Name is know, unset it so that name is retrieved again
+     * from security procedure. This will ensure, that if remote device
+     * has updated its name since last connection, we will have
+     * update name of remote device. */
+    p_dev_rec->sec_flags &= ~BTM_SEC_NAME_KNOWN;
+    p_dev_rec->sec_bd_name[0] = '\0';
+  }
+
   if (!(p_dev_rec->sec_flags & BTM_SEC_NAME_KNOWN) || p_dev_rec->is_originator) {
     BTM_TRACE_DEBUG ("Calling Next Security Procedure");
     if ((status = btm_sec_execute_procedure (p_dev_rec)) != BTM_CMD_STARTED)
