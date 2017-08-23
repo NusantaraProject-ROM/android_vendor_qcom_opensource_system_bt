@@ -2153,7 +2153,8 @@ static int btif_av_get_valid_idx_for_rc_events(RawAddress bd_addr, int rc_handle
   index = btif_av_idx_by_bdaddr(&bd_addr);
   if (index == btif_max_av_clients) {
     /* None of the SCBS matched * Allocate free SCB, null address SCB*/
-    index = btif_av_idx_by_bdaddr(nullptr);
+    RawAddress empty_addr = RawAddress::kEmpty;
+    index = btif_av_idx_by_bdaddr(&empty_addr);
     BTIF_TRACE_EVENT("btif_av_get_valid_idx_for_rc_events is %d", index);
     if (index >= btif_max_av_clients) {
       BTIF_TRACE_EVENT("disconnect only AVRCP device rc_handle %d", rc_handle);
