@@ -310,6 +310,7 @@ static void btif_initiate_av_open_timer_timeout(UNUSED_ATTR void* data) {
   BD_ADDR peer_addr;
   btif_av_connect_req_t connect_req;
 
+  memset(&connect_req, 0, sizeof(btif_av_connect_req_t));
   /* is there at least one RC connection - There should be */
   if (btif_rc_get_connected_peer(peer_addr)) {
     /* Check if this peer_addr is same as currently connected AV*/
