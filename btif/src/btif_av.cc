@@ -2113,6 +2113,7 @@ int btif_av_get_latest_device_idx_to_start() {
     if (i == btif_max_av_clients)
       return btif_max_av_clients;
     BTIF_TRACE_EVENT("Got some valid Playing device; %d", i);
+    btif_av_cb[i].current_playing = true;
     // Clear the Current playing device
     for (j = 0; j < btif_max_av_clients; j++) {
       if (j != i)
