@@ -1287,6 +1287,14 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
                 btif_av_cb[index].flags &= ~BTIF_AV_FLAG_REMOTE_SUSPEND;
             } else {
               BTIF_TRACE_DEBUG("%s: honor remote start",__func__);
+              /* If HS2 is started while HS1 is playing, trigger Dual A2dp
+                 Handoff here.
+               */
+              if (btif_av_is_playing() && !btif_av_is_under_handoff()) {
+                BTIF_TRACE_DEBUG("Trigger Dual A2dp Handoff due to remote start on %d", index);
+                btif_av_trigger_dual_handoff(true, btif_av_cb[index].peer_bda.address);
+             }
+
               btif_av_cb[index].remote_started = true;
               btif_a2dp_honor_remote_start();
             }
@@ -1653,9 +1661,9 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       if (btif_av_cb[index].remote_started) {
         if (btif_a2dp_source_is_remote_start()) {
           BTIF_TRACE_DEBUG("%s:cancel remote start timer",__func__);
-          btif_av_cb[index].remote_started = false;
           btif_a2dp_source_cancel_remote_start();
         }
+        btif_av_cb[index].remote_started = false;
       }
       if (p_av->suspend.initiator != true) {
         /* remote suspend, notify HAL and await audioflinger to
@@ -1888,6 +1896,7 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
        * In A2dp Multicast, the index selected can be any of the
        * connected device. Stack will ensure to START the steaming
        * on both the devices. */
+      index = btif_av_get_latest_device_idx_to_start();
       for (int i = 0; i < btif_max_av_clients; i++) {
         if (btif_av_cb[i].remote_started == true) {
           BTIF_TRACE_DEBUG("BTIF_AV_START_STREAM_REQ_EVT:remote started,send start on started index");
@@ -1895,7 +1904,6 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
           break;
         }
       }
-      index = btif_av_get_latest_device_idx_to_start();
       break;
 
     case BTIF_AV_STOP_STREAM_REQ_EVT:
