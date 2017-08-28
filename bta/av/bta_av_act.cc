@@ -149,7 +149,7 @@ void bta_av_del_rc(tBTA_AV_RCB* p_rcb) {
       }
     }
 
-    APPL_TRACE_EVENT(
+    APPL_TRACE_IMP(
         "bta_av_del_rc  handle: %d status=0x%x, rc_acp_handle:%d, idx:%d",
         p_rcb->handle, p_rcb->status, bta_av_cb.rc_acp_handle,
         bta_av_cb.rc_acp_idx);
@@ -384,8 +384,8 @@ uint8_t bta_av_rc_create(tBTA_AV_CB* p_cb, uint8_t role, uint8_t shdl,
                      p_cb->rc_acp_idx);
   }
   APPL_TRACE_IMP(
-      "bta_av_rc_create %d, role: %d, shdl:%d, rc_handle:%d, lidx:%d, status:0x%x", i,
-      role, shdl, p_rcb->handle, lidx, p_rcb->status);
+      "%s create %d, role: %d, shdl:%d, rc_handle:%d, lidx:%d, status:0x%x",
+      __func__, i, role, shdl, p_rcb->handle, lidx, p_rcb->status);
 
   return rc_handle;
 }

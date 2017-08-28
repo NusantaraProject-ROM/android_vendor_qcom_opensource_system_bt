@@ -100,9 +100,8 @@ static void avrc_ctrl_cback(uint8_t handle, uint8_t event, uint16_t result,
 
   if ((event == AVCT_DISCONNECT_CFM_EVT) ||
       (event == AVCT_DISCONNECT_IND_EVT)) {
-    avrc_flush_cmd_q(handle);
-    alarm_free(avrc_cb.ccb_int[handle].tle);
-    avrc_cb.ccb_int[handle].tle = NULL;
+    avrc_cb.ccb_int[handle].flags &= ~AVRC_CB_FLAGS_RSP_PENDING;
+    AVRC_TRACE_DEBUG("AVRC: Flushing command rsp pending for handle=0x%02x", handle);
   }
 }
 
@@ -1111,7 +1110,13 @@ uint16_t AVRC_Open(uint8_t* p_handle, tAVRC_CONN_CB* p_ccb,
  *
  *****************************************************************************/
 uint16_t AVRC_Close(uint8_t handle) {
-  AVRC_TRACE_DEBUG("%s handle:%d", __func__, handle);
+  BTIF_TRACE_IMP("%s handle:%d, clean up all system resources", __func__, handle);
+  avrc_cb.ccb_int[handle].flags &= ~AVRC_CB_FLAGS_RSP_PENDING;
+  alarm_cancel(avrc_cb.ccb_int[handle].tle);
+  fixed_queue_free(avrc_cb.ccb_int[handle].cmd_q, osi_free);
+  avrc_cb.ccb_int[handle].cmd_q = NULL;
+  alarm_free(avrc_cb.ccb_int[handle].tle);
+  avrc_cb.ccb_int[handle].tle = NULL;
   return AVCT_RemoveConn(handle);
 }
 
