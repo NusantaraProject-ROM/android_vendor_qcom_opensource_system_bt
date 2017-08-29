@@ -394,9 +394,11 @@ void btif_av_peer_config_dump()
    int index = 0;
    BD_ADDR bd_addr;
    btif_sm_state_t av_state;
+   index = btif_av_get_latest_playing_device_idx();
+   BTIF_TRACE_DEBUG("Latest playing device index: %d", index);
+   btif_get_latest_playing_device(bd_addr);
    BTIF_TRACE_DEBUG("TARGET BD ADDRESS %x:%x:%x:%x:%x:%x", bd_addr[0],
            bd_addr[1], bd_addr[2], bd_addr[3], bd_addr[4], bd_addr[5]);
-   index = btif_av_idx_by_bdaddr(bd_addr);
    if (index == btif_max_av_clients)
    {
        BTIF_TRACE_DEBUG("%s: AV Index invalid", __FUNCTION__);
