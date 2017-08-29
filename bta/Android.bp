@@ -20,6 +20,7 @@ cc_defaults {
         "system/bt/vnd/include",
         "system/bt/utils/include",
         "vendor/qcom/opensource/bluetooth_ext/system_bt_ext",
+        "vendor/qcom/opensource/bluetooth_ext/vhal/include",
     ],
     shared_libs: [
         "libcutils",
@@ -130,5 +131,6 @@ cc_test {
         "libbluetooth-types",
         "libosi",
         "libbt-protos",
+        "libbtdevice_ext",
     ],
 }
