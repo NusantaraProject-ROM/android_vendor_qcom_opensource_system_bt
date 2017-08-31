@@ -3619,7 +3619,7 @@ bool btif_av_is_peer_edr(void) {
   for (int index = 0; index < btif_max_av_clients; index ++) {
     state = btif_sm_get_state(btif_av_cb[index].sm_handle);
     if ((btif_av_cb[index].flags & BTIF_AV_FLAG_PENDING_START)
-            || (state == BTIF_AV_STATE_STARTED)) {
+            || btif_av_cb[index].current_playing) {
       if (btif_av_cb[index].edr)
         peer_edr = true;
       else
@@ -3671,7 +3671,7 @@ bool btif_av_peer_supports_3mbps(void) {
   for (int index = 0; index < btif_max_av_clients; index ++) {
     state = btif_sm_get_state(btif_av_cb[index].sm_handle);
     if ((btif_av_cb[index].flags & BTIF_AV_FLAG_PENDING_START)
-         || (state == BTIF_AV_STATE_STARTED))
+         || btif_av_cb[index].current_playing)
       if (btif_av_cb[index].edr_3mbps)
         return true;
   }
