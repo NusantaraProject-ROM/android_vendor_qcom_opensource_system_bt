@@ -34,6 +34,7 @@
 #include "bta_av_co.h"
 #include "bta_sys.h"
 #include "osi/include/list.h"
+#include "stack/a2dp/a2dp_int.h"
 #include "stack/include/a2dp_api.h"
 
 /*****************************************************************************

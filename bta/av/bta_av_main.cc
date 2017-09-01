@@ -574,6 +574,7 @@ static void bta_av_api_register(tBTA_AV_DATA* p_data) {
       if (bta_av_cb.features & BTA_AV_FEAT_DELAY_RPT) {
         cs.cfg.psc_mask |= AVDT_PSC_DELAY_RPT;
         a2dp_set_avdt_sdp_ver(AVDT_VERSION_SYNC);
+        a2dp_set_a2dp_sdp_ver(A2DP_VERSION_SYNC);
       }
 
       if (profile_initialized == UUID_SERVCLASS_AUDIO_SOURCE) {
