@@ -39,6 +39,7 @@
 #include "btif_hf.h"
 
 extern bool btif_a2dp_audio_if_init;
+extern tBTIF_A2DP_SOURCE_VSC btif_a2dp_src_vsc;
 extern void btif_av_reset_reconfig_flag();
 
 void btif_a2dp_on_idle(int index) {
@@ -53,6 +54,7 @@ void btif_a2dp_on_idle(int index) {
 bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
                           tBTA_AV_HNDL hdl) {
   bool ack = false;
+  tA2DP_CTRL_CMD pending_cmd = btif_a2dp_get_pending_command();
 
   APPL_TRACE_EVENT("## ON A2DP STARTED ##");
 
@@ -68,7 +70,8 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
       }
       return true;
     } else {
-      btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+      if (pending_cmd == A2DP_CTRL_CMD_START)
+        btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
       return true;
     }
   }
@@ -80,7 +83,8 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
           if (btif_av_is_split_a2dp_enabled()) {
             btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, NULL, 0);
           } else {
-            btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+            if (pending_cmd == A2DP_CTRL_CMD_START)
+              btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
           }
           ack = true;
         }
@@ -90,7 +94,7 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
          */
          btif_a2dp_source_setup_codec(hdl);
          if (btif_av_is_split_a2dp_enabled()) {
-           btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, NULL, 0);
+           APPL_TRACE_IMP("Do not Initiate VSC exchange on remote start");
          }
          ack = true;
       }
@@ -100,7 +104,8 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
   } else if (pending_start) {
     APPL_TRACE_WARNING("%s: A2DP start request failed: status = %d", __func__,
                        p_av_start->status);
-    btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+    if (pending_cmd == A2DP_CTRL_CMD_START)
+      btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
     ack = true;
   }
   return ack;
@@ -147,14 +152,18 @@ void btif_a2dp_on_offload_started(tBTA_AV_STATUS status) {
 
   switch (status) {
     case BTA_AV_SUCCESS:
+      btif_a2dp_src_vsc.tx_start_initiated = FALSE;
+      btif_a2dp_src_vsc.tx_started = TRUE;
       ack = A2DP_CTRL_ACK_SUCCESS;
       break;
     case BTA_AV_FAIL_RESOURCES:
       APPL_TRACE_ERROR("%s FAILED UNSUPPORTED", __func__);
+      btif_a2dp_src_vsc.tx_start_initiated = FALSE;
       ack = A2DP_CTRL_ACK_UNSUPPORTED;
       break;
     default:
       APPL_TRACE_ERROR("%s FAILED: status = %d", __func__, status);
+      btif_a2dp_src_vsc.tx_start_initiated = FALSE;
       ack = A2DP_CTRL_ACK_FAILURE;
       break;
   }

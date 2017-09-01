@@ -28,6 +28,13 @@
 
 #include "bta_av_api.h"
 
+typedef struct {
+  bool vs_configs_exchanged;
+  bool tx_started;
+  bool tx_stop_initiated;
+  bool tx_start_initiated;
+} tBTIF_A2DP_SOURCE_VSC;
+
 // Initialize and startup the A2DP Source module.
 // This function should be called by the BTIF state machine prior to using the
 // module.

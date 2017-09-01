@@ -142,11 +142,6 @@ typedef enum {
   // as supported version.
   INTEROP_ADV_PBAP_VER_1_1,
 
-  // Honor remote avdtp start, certain carkits send avdt_start along with avrcp
-  // passthrough cmd. If DUT suspends remote start and initiate avdtp start, remote
-  // suspends DUT's start request. So honor remote start for certain devices.
-  INTEROP_REMOTE_AVDTP_START,
-
   // Devices requiring this workaround do not handle SSR max latency values as mentioned,
   // in their SDP HID Record properly and lead to connection timeout or lags. To prevent
   // such scenarios, device requiring this workaorund need to use specific ssr max latency

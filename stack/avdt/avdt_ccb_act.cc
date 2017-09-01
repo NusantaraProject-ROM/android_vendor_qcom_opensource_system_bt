@@ -154,9 +154,16 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   tAVDT_SCB* p_scb = &avdt_cb.scb[0];
   int i;
   bt_bdaddr_t remote_bdaddr;
+  int num_conn = avdt_scb_get_max_av_client();
+  int num_codecs = AVDT_NUM_SEPS / num_conn;
+  int effective_num_seps = 0;
+
   bdcpy(remote_bdaddr.address, p_ccb->peer_addr);
   p_data->msg.discover_rsp.p_sep_info = sep_info;
   p_data->msg.discover_rsp.num_seps = 0;
+
+  AVDT_TRACE_WARNING("%s: total connections: %d, total codecs: %d",
+      __func__, num_conn, num_codecs);
 
     /* If this ccb, has done setconf and is doing discover again
      * we should show SEP for which setconfig was done earlier
@@ -178,7 +185,10 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   p_scb = &avdt_cb.scb[0];
   /* for all allocated scbs */
   for (i = 0; i < AVDT_NUM_SEPS; i++, p_scb++) {
+    if (effective_num_seps == num_codecs)
+      break;
     if ((p_scb->allocated) && (!p_scb->in_use)) {
+       effective_num_seps++;
        if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC &&
            interop_match_addr(INTEROP_DISABLE_AAC_CODEC, &remote_bdaddr)) {
           AVDT_TRACE_EVENT("%s: skipping AAC advertise\n", __func__);
@@ -193,6 +203,8 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
       p_data->msg.discover_rsp.num_seps++;
     }
   }
+
+  AVDT_TRACE_WARNING("%s: effective number of endpoints: %d", __func__, effective_num_seps);
   /* send response */
   avdt_ccb_event(p_ccb, AVDT_CCB_API_DISCOVER_RSP_EVT, p_data);
 }

@@ -581,7 +581,7 @@ typedef struct {
   tBTA_AV_LCB lcb[BTA_AV_NUM_LINKS + 1]; /* link control block */
   alarm_t* link_signalling_timer;
   alarm_t*
-      accept_signalling_timer;  /* timer to monitor signalling when accepting */
+      accept_signalling_timer[BTA_AV_NUM_STRS];  /* timer to monitor signalling when accepting */
   uint32_t sdp_a2dp_handle;     /* SDP record handle for audio src */
   uint32_t sdp_a2dp_snk_handle; /* SDP record handle for audio snk */
   uint32_t sdp_vdp_handle;      /* SDP record handle for video src */

@@ -184,9 +184,6 @@ static const interop_name_entry_t interop_name_database[] = {
     // Kenwood KMM-BT518HD - no audio when A2DP codec sample rate is changed
     {"KMM-BT51*HD", 11, INTEROP_DISABLE_AVDTP_RECONFIGURE},
 
-    // Honor remote's avdtp start request
-    {"Audi",    4, INTEROP_REMOTE_AVDTP_START},
-    {"Porsche", 7, INTEROP_REMOTE_AVDTP_START},
 };
 
 typedef struct {

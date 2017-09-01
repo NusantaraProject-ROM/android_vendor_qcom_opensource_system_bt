@@ -238,9 +238,11 @@ static void bta_av_api_enable(tBTA_AV_DATA* p_data) {
    * to alarm_free() the alarms below.
    */
   bta_av_cb.link_signalling_timer = alarm_new("bta_av.link_signalling_timer");
-  bta_av_cb.accept_signalling_timer =
+  for (int j = 0; j < BTA_AV_NUM_STRS; j++)
+  {
+    bta_av_cb.accept_signalling_timer[j] =
       alarm_new("bta_av.accept_signalling_timer");
-
+  }
   /* store parameters */
   bta_av_cb.p_cback = p_data->api_enable.p_cback;
   bta_av_cb.features = p_data->api_enable.features;
@@ -794,8 +796,7 @@ static void bta_av_api_to_ssm(tBTA_AV_DATA* p_data) {
    * streams are not yet started. We need to take care of this
    * during suspend to ensure we suspend both streams.
    */
-  if ((is_multicast_enabled == TRUE) ||
-      ((event == BTA_AV_AP_STOP_EVT) && (bta_av_multiple_streams_started() == TRUE))) {
+  if (is_multicast_enabled == TRUE) {
     /* Send START request to all Open Stream connections.*/
     for (xx=0; xx < BTA_AV_NUM_STRS; xx++)
       bta_av_ssm_execute(bta_av_cb.p_scb[xx], event, p_data);
