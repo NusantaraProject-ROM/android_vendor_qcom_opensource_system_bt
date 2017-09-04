@@ -3032,6 +3032,12 @@ void bta_dm_acl_change(tBTA_DM_MSG* p_data) {
   tBTA_DM_PEER_DEVICE* p_dev;
   memset(&conn, 0, sizeof(tBTA_DM_SEC));
 
+  if(!bta_dm_cb.is_bta_dm_active) {
+    APPL_TRACE_ERROR("%s Ignore event: %d, bta dm is not in initialized state.",
+            __func__, p_data->acl_change.event);
+    return;
+  }
+
   switch (p_data->acl_change.event) {
     case BTM_BL_UPDATE_EVT: /* busy level update */
       if (bta_dm_cb.p_sec_cback) {
