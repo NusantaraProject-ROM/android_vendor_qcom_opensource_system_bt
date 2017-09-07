@@ -33,6 +33,7 @@
 #include "btif_av.h"
 #include "btif_av_co.h"
 #include "btif_hf.h"
+#include "a2dp_sbc.h"
 #include "osi/include/osi.h"
 #include <base/logging.h>
 #include <utils/RefBase.h>
@@ -500,10 +501,9 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         LOG_INFO(LOG_TAG,"codec_type = %x",codec_type);
         if (A2DP_MEDIA_CT_SBC == codec_type)
         {
-          uint16_t rate = A2DP_SBC_DEFAULT_BITRATE;
-          if (!peer_param.is_peer_edr)
-            rate = A2DP_SBC_NON_EDR_MAX_RATE;
-          bitrate =  rate * 1000;
+          bitrate = A2DP_GetOffloadBitrateSbc(CodecConfig, peer_param.is_peer_edr);
+          LOG_INFO(LOG_TAG,"bitrate = %d", bitrate);
+          bitrate *= 1000;
         }
         else if (A2DP_MEDIA_CT_NON_A2DP == codec_type)
         {
