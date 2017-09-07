@@ -355,7 +355,6 @@ void rfc_port_closed(tPORT* p_port) {
   RFCOMM_TRACE_WARNING("rfc_port_closed");
 
   rfc_port_timer_stop(p_port);
-
   p_port->rfc.state = RFC_STATE_CLOSED;
 
   /* If multiplexer channel was up mark it as down */
