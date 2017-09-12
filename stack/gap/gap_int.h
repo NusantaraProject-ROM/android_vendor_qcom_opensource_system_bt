@@ -72,6 +72,7 @@ typedef struct {
   uint16_t rem_mtu_size;
 
   bool is_congested;
+  bool is_link_policy_set;
   fixed_queue_t* tx_queue; /* Queue of buffers waiting to be sent */
   fixed_queue_t* rx_queue; /* Queue of buffers waiting to be read */
 
