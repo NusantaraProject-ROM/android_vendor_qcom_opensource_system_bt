@@ -788,9 +788,8 @@ void avdt_ccb_ret_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
     /* command failed */
     p_ccb->ret_count = 0;
     avdt_ccb_cmd_fail(p_ccb, (tAVDT_CCB_EVT*)&err_code);
-
+    avdt_ccb_do_disconn(p_ccb, p_data);
     /* go to next queued command */
-    avdt_ccb_snd_cmd(p_ccb, p_data);
   } else {
     /* if command pending and we're not congested and not sending a fragment */
     if ((!p_ccb->cong) && (p_ccb->p_curr_msg == NULL) &&
