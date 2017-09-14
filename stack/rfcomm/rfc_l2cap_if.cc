@@ -104,9 +104,8 @@ void RFCOMM_ConnectInd(const RawAddress& bd_addr, uint16_t lcid,
       period_ms_t interval_ms = (((time_get_os_boottime_ms() % 20) * 500) + 2000);
       RFCOMM_TRACE_DEBUG ("RFCOMM_ConnectInd start collision timer = %d ms , initiator's LCID(0x%x), acceptor's LCID(0x%x)",
                               interval_ms, p_mcb->lcid, p_mcb->pending_lcid);
-      alarm_set_on_queue(p_mcb->mcb_timer, interval_ms,
-                  rfcomm_mcb_timer_timeout, p_mcb,
-                  btu_general_alarm_queue);
+      alarm_set_on_mloop(p_mcb->mcb_timer, interval_ms,
+                  rfcomm_mcb_timer_timeout, p_mcb);
       return;
     } else {
       /* we cannot accept connection request from peer at this state */

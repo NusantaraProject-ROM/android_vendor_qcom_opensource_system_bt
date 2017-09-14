@@ -3408,10 +3408,9 @@ static void rc_start_play_status_timer(btif_rc_device_cb_t* p_dev) {
     if (p_dev->rc_play_status_timer == NULL) {
       p_dev->rc_play_status_timer = alarm_new("p_dev->rc_play_status_timer");
     }
-    alarm_set_on_queue(p_dev->rc_play_status_timer,
-                       BTIF_TIMEOUT_RC_INTERIM_RSP_MS,
-                       btif_rc_play_status_timer_timeout,
-                       UINT_TO_PTR(p_dev->rc_handle), btu_general_alarm_queue);
+    alarm_set_on_mloop(
+        p_dev->rc_play_status_timer, BTIF_TIMEOUT_RC_INTERIM_RSP_MS,
+        btif_rc_play_status_timer_timeout, UINT_TO_PTR(p_dev->rc_handle));
   }
 }
 
@@ -3464,9 +3463,8 @@ static void register_for_event_notification(btif_rc_supported_event_t* p_event,
 
   alarm_free(p_transaction->txn_timer);
   p_transaction->txn_timer = alarm_new("btif_rc.status_command_txn_timer");
-  alarm_set_on_queue(p_transaction->txn_timer, BTIF_TIMEOUT_RC_INTERIM_RSP_MS,
-                     btif_rc_status_cmd_timer_timeout, p_context,
-                     btu_general_alarm_queue);
+  alarm_set_on_mloop(p_transaction->txn_timer, BTIF_TIMEOUT_RC_INTERIM_RSP_MS,
+                     btif_rc_status_cmd_timer_timeout, p_context);
 }
 
 static void start_status_command_timer(uint8_t pdu_id, rc_transaction_t* p_txn,
@@ -3478,9 +3476,8 @@ static void start_status_command_timer(uint8_t pdu_id, rc_transaction_t* p_txn,
 
   alarm_free(p_txn->txn_timer);
   p_txn->txn_timer = alarm_new("btif_rc.status_command_txn_timer");
-  alarm_set_on_queue(p_txn->txn_timer, BTIF_TIMEOUT_RC_STATUS_CMD_MS,
-                     btif_rc_status_cmd_timer_timeout, p_context,
-                     btu_general_alarm_queue);
+  alarm_set_on_mloop(p_txn->txn_timer, BTIF_TIMEOUT_RC_STATUS_CMD_MS,
+                     btif_rc_status_cmd_timer_timeout, p_context);
 }
 
 static void start_control_command_timer(uint8_t pdu_id, rc_transaction_t* p_txn,
@@ -3492,9 +3489,8 @@ static void start_control_command_timer(uint8_t pdu_id, rc_transaction_t* p_txn,
 
   alarm_free(p_txn->txn_timer);
   p_txn->txn_timer = alarm_new("btif_rc.control_command_txn_timer");
-  alarm_set_on_queue(p_txn->txn_timer, BTIF_TIMEOUT_RC_CONTROL_CMD_MS,
-                     btif_rc_control_cmd_timer_timeout, p_context,
-                     btu_general_alarm_queue);
+  alarm_set_on_mloop(p_txn->txn_timer, BTIF_TIMEOUT_RC_CONTROL_CMD_MS,
+                     btif_rc_control_cmd_timer_timeout, p_context);
 }
 
 bt_status_t build_and_send_vendor_cmd(tAVRC_COMMAND* avrc_cmd,

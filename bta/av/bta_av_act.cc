@@ -1516,10 +1516,10 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
             /* Possible collision : need to avoid outgoing processing while the
              * timer is running */
             p_cb->p_scb[xx]->coll_mask = BTA_AV_COLL_INC_TMR;
-            alarm_set_on_queue(p_cb->accept_signalling_timer,
+            alarm_set_on_mloop(p_cb->accept_signalling_timer,
                                BTA_AV_ACCEPT_SIGNALLING_TIMEOUT_MS,
                                bta_av_accept_signalling_timer_cback,
-                               UINT_TO_PTR(xx), btu_bta_alarm_queue);
+                               UINT_TO_PTR(xx));
           }
           break;
         }
@@ -1637,10 +1637,10 @@ static void bta_av_accept_signalling_timer_cback(void* data) {
           /* We are still doing SDP. Run the timer again. */
           p_scb->coll_mask |= BTA_AV_COLL_INC_TMR;
 
-          alarm_set_on_queue(p_cb->accept_signalling_timer,
+          alarm_set_on_mloop(p_cb->accept_signalling_timer,
                              BTA_AV_ACCEPT_SIGNALLING_TIMEOUT_MS,
                              bta_av_accept_signalling_timer_cback,
-                             UINT_TO_PTR(inx), btu_bta_alarm_queue);
+                             UINT_TO_PTR(inx));
         } else {
           /* SNK did not start signalling, resume signalling process. */
           bta_av_discover_req(p_scb, NULL);
@@ -1985,6 +1985,23 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
        * some implementation uses 1.3 on CT ans 1.4 on TG */
       peer_features |=
           bta_av_check_peer_features(UUID_SERVCLASS_AV_REM_CTRL_TARGET);
+    }
+
+    /* Change our features if the remote AVRCP version is 1.3 or less */
+    tSDP_DISC_REC* p_rec = nullptr;
+    p_rec = SDP_FindServiceInDb(p_cb->p_disc_db,
+                                UUID_SERVCLASS_AV_REMOTE_CONTROL, p_rec);
+    if (p_rec != NULL &&
+        SDP_FindAttributeInRec(p_rec, ATTR_ID_BT_PROFILE_DESC_LIST) != NULL) {
+      /* get profile version (if failure, version parameter is not updated) */
+      uint16_t peer_rc_version = 0xFFFF;  // Don't change the AVRCP version
+      SDP_FindProfileVersionInRec(p_rec, UUID_SERVCLASS_AV_REMOTE_CONTROL,
+                                  &peer_rc_version);
+      if (peer_rc_version <= AVRC_REV_1_3) {
+        APPL_TRACE_DEBUG("%s Using AVRCP 1.3 Capabilities with remote device",
+                         __func__);
+        p_bta_av_cfg = (tBTA_AV_CFG*)&bta_av_cfg_compatibility;
+      }
     }
   }
 

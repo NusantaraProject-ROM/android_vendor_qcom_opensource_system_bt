@@ -2120,8 +2120,8 @@ static void bta_jv_pm_conn_idle(tBTA_JV_PM_CB* p_cb) {
 
     // start intermediate idle timer for 1s
     if (!alarm_is_scheduled(p_cb->idle_timer)) {
-      alarm_set_on_queue(p_cb->idle_timer, BTA_JV_IDLE_TIMEOUT_MS,
-      bta_jv_idle_timeout_handler, p_cb, btu_general_alarm_queue);
+      alarm_set_on_mloop(p_cb->idle_timer, BTA_JV_IDLE_TIMEOUT_MS,
+      bta_jv_idle_timeout_handler, p_cb);
     }
   }
 }

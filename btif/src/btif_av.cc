@@ -473,11 +473,10 @@ static void btif_av_check_and_start_collission_timer(int index) {
     alarm_cancel(av_coll_detected_timer);
     BTIF_TRACE_DEBUG("btif_av_check_and_start_collission_timer:Deleting previously queued timer");
   }
-  alarm_set_on_queue(av_coll_detected_timer,
+  alarm_set_on_mloop(av_coll_detected_timer,
                      BTIF_TIMEOUT_AV_COLL_DETECTED_MS,
                      btif_av_collission_timer_timeout,
-                     NULL,
-                     btu_general_alarm_queue);
+                     NULL);
 }
 
 
@@ -626,10 +625,9 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
             BTA_AvOpen(btif_av_cb[index].peer_bda, btif_av_cb[index].bta_handle,
                true, BTA_SEC_AUTHENTICATE, UUID_SERVCLASS_AUDIO_SINK);
         else if (event == BTA_AV_RC_OPEN_EVT) {
-          alarm_set_on_queue(av_open_on_rc_timer,
+          alarm_set_on_mloop(av_open_on_rc_timer,
           BTIF_TIMEOUT_AV_OPEN_ON_RC_MS,
-          btif_initiate_av_open_timer_timeout, NULL,
-          btu_general_alarm_queue);
+          btif_initiate_av_open_timer_timeout, NULL);
           btif_rc_handler(event, (tBTA_AV *)p_data);
         }
       }
@@ -2727,10 +2725,9 @@ static void allow_connection(int is_valid, RawAddress *bd_addr)
     case BTA_AV_RC_OPEN_EVT:
       if (is_valid) {
         BTIF_TRACE_DEBUG("allowconn for RC connection");
-        alarm_set_on_queue(av_open_on_rc_timer,
+        alarm_set_on_mloop(av_open_on_rc_timer,
                            BTIF_TIMEOUT_AV_OPEN_ON_RC_MS,
-                           btif_initiate_av_open_timer_timeout, NULL,
-                           btu_general_alarm_queue);
+                           btif_initiate_av_open_timer_timeout, NULL);
           btif_rc_handler(idle_rc_event, (tBTA_AV*)&idle_rc_data);
       } else {
         uint8_t rc_handle =  idle_rc_data.rc_open.rc_handle;

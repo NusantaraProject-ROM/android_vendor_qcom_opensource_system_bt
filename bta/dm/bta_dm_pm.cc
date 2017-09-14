@@ -287,9 +287,8 @@ static void bta_dm_pm_start_timer(tBTA_PM_TIMER* p_timer, uint8_t timer_idx,
   p_timer->srvc_id[timer_idx] = srvc_id;
   state_lock.unlock();
 
-  alarm_set_on_queue(p_timer->timer[timer_idx], timeout_ms,
-                     bta_dm_pm_timer_cback, p_timer->timer[timer_idx],
-                     btu_bta_alarm_queue);
+  alarm_set_on_mloop(p_timer->timer[timer_idx], timeout_ms,
+                     bta_dm_pm_timer_cback, p_timer->timer[timer_idx]);
 }
 
 /*******************************************************************************
