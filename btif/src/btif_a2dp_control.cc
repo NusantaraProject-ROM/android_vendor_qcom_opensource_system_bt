@@ -42,6 +42,9 @@
 #define A2DP_DATA_READ_POLL_MS 10
 
 extern int btif_av_get_latest_device_idx_to_start();
+extern int btif_get_is_remote_started_idx();
+extern tBTA_AV_HNDL btif_av_get_av_hdl_from_idx(int idx);
+extern int btif_max_av_clients;
 
 static void btif_a2dp_data_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event);
 static void btif_a2dp_ctrl_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event);
@@ -135,6 +138,14 @@ static void btif_a2dp_recv_ctrl_data(void) {
        */
       if (btif_av_stream_started_ready()) {
         /* already started, setup audio data channel listener and ack back immediately */
+        int idx = btif_get_is_remote_started_idx();
+        APPL_TRACE_DEBUG("%s: remote started idx : %d",__func__, idx);
+        if (idx < btif_max_av_clients) {
+             uint8_t hdl = btif_av_get_av_hdl_from_idx(idx);
+             APPL_TRACE_DEBUG("%s: hdl = %d",__func__, hdl);
+             if (hdl >= 0)
+                btif_a2dp_source_setup_codec(hdl);
+        }
         UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb);
         btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
       } else if (btif_av_stream_ready()) {
