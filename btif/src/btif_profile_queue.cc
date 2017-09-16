@@ -53,6 +53,8 @@ typedef struct {
   btif_connect_cb_t connect_cb;
 } connect_node_t;
 
+extern int btif_max_av_clients;
+extern int btif_max_hf_clients;
 /*******************************************************************************
  *  Static variables
  ******************************************************************************/
@@ -66,6 +68,7 @@ static const size_t MAX_REASONABLE_REQUESTS = 10;
  ******************************************************************************/
 
 static void queue_int_add(connect_node_t* p_param) {
+  uint16_t counter = 0;
   if (!connect_queue) {
     connect_queue = list_new(osi_free);
     CHECK(connect_queue != NULL);
@@ -77,12 +80,24 @@ static void queue_int_add(connect_node_t* p_param) {
   for (const list_node_t* node = list_begin(connect_queue);
        node != list_end(connect_queue); node = list_next(node)) {
     if (((connect_node_t*)list_node(node))->uuid == p_param->uuid) {
+      if (p_param->uuid == UUID_SERVCLASS_AUDIO_SOURCE ||
+          p_param->uuid == UUID_SERVCLASS_AG_HANDSFREE) {
+          counter++;
+          LOG_INFO(LOG_TAG, "%s add  connect request for uuid: %04x",
+               __func__, counter);
+          continue;
+      }
       LOG_INFO(LOG_TAG, "%s dropping duplicate connect request for uuid: %04x",
                __func__, p_param->uuid);
       return;
     }
   }
-
+  if ((counter >= btif_max_av_clients && p_param->uuid == UUID_SERVCLASS_AUDIO_SOURCE) ||
+      (counter >= btif_max_hf_clients && p_param->uuid == UUID_SERVCLASS_AG_HANDSFREE)) {
+          LOG_INFO(LOG_TAG, "%s connect request exceeded max supported connection: %04x",
+               __func__, p_param->uuid);
+          return;
+  }
   connect_node_t* p_node = (connect_node_t*)osi_malloc(sizeof(connect_node_t));
   memcpy(p_node, p_param, sizeof(connect_node_t));
   list_append(connect_queue, p_node);
