@@ -233,9 +233,9 @@ void btif_a2dp_audio_interface_deinit() {
     if (!ret.isOk()) {
       LOG_ERROR(LOG_TAG,"hal server is dead");
     }
+    btAudio->unlinkToDeath(BTAudioHidlDeathRecipient);
   }
   deinit_pending = false;
-  btAudio->unlinkToDeath(BTAudioHidlDeathRecipient);
   btAudio = nullptr;
   server_died = true; //Exit thread
   LOG_INFO(LOG_TAG,"btif_a2dp_audio_interface_deinit:Exit");

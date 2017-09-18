@@ -1391,8 +1391,10 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
         APPL_TRACE_WARNING("Stop the AV Data channel");
 /* SPLITA2DP */
         if (btif_av_is_split_a2dp_enabled()) {
-          btif_a2dp_audio_if_init = false;
-          btif_a2dp_audio_interface_deinit();
+          if (btif_a2dp_audio_if_init) {
+            btif_a2dp_audio_if_init = false;
+            btif_a2dp_audio_interface_deinit();
+          }
         }
 /* SPLITA2DP */
         btif_a2dp_on_stopped(NULL);
