@@ -2687,7 +2687,10 @@ static uint8_t bta_dm_authentication_complete_cback(
     if (bta_dm_cb.p_sec_cback)
       bta_dm_cb.p_sec_cback(BTA_DM_AUTH_CMPL_EVT, &sec_event);
 
-    if (result != HCI_ERR_LMP_RESPONSE_TIMEOUT &&
+    if ((result == HCI_ERR_KEY_MISSING) && btm_is_sm4_dev(bd_addr)) {
+      APPL_TRACE_WARNING(
+              "bta_dm_authentication_complete_cback: sm4 device dont delete security record");
+    } else if (result != HCI_ERR_LMP_RESPONSE_TIMEOUT &&
         result != HCI_ERR_PAGE_TIMEOUT &&
         result != HCI_ERR_CONN_FAILED_ESTABLISHMENT) {
       bta_dm_remove_sec_dev_entry(bd_addr);
