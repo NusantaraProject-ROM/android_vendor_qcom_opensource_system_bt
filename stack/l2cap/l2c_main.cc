@@ -93,7 +93,13 @@ void l2c_rcv_acl_data(BT_HDR* p_msg) {
       STREAM_TO_UINT16(rcv_cid, p);
       STREAM_TO_UINT8(cmd_code, p);
 
-      if ((p_msg->layer_specific == 0) && (rcv_cid == L2CAP_SIGNALLING_CID) &&
+      if (handle == 0xedc) {    /* Handle 0x2edc used for SOC debug Logging */
+        p += 1;              /* move offset to extract soc log id type */
+        STREAM_TO_UINT16 (soc_log_stats_id, p);
+        if ( soc_log_stats_id == (LOG_ID_STATS_A2DP)) {
+           btm_process_soc_logging_evt(soc_log_stats_id);
+        }
+      } else if ((p_msg->layer_specific == 0) && (rcv_cid == L2CAP_SIGNALLING_CID) &&
           (cmd_code == L2CAP_CMD_INFO_REQ || cmd_code == L2CAP_CMD_CONN_REQ)) {
         L2CAP_TRACE_WARNING(
             "L2CAP - holding ACL for unknown handle:%d ls:%d"
@@ -116,12 +122,6 @@ void l2c_rcv_acl_data(BT_HDR* p_msg) {
           " opcode:%d cur count:%d",
           handle, p_msg->layer_specific, rcv_cid, cmd_code,
           list_length(l2cb.rcv_pending_q));
-      } else if (handle == 0xedc) {    /* Handle 0x2edc used for SOC debug Logging */
-        p += 1;              /* move offset to extract soc log id type */
-        STREAM_TO_UINT16 (soc_log_stats_id, p);
-        if ( soc_log_stats_id == (LOG_ID_STATS_A2DP)) {
-           btm_process_soc_logging_evt(soc_log_stats_id);
-        }
       }
       osi_free(p_msg);
       return;
