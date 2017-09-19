@@ -24,7 +24,6 @@
 #include "bt_target.h"
 
 #include <base/strings/string_number_conversions.h>
-#include <base/strings/stringprintf.h>
 #include <stdio.h>
 #include <string.h>
 #include "bt_common.h"
@@ -33,12 +32,13 @@
 #include "gatt_api.h"
 #include "gatt_int.h"
 #include "l2c_api.h"
+#include "stack/gatt/connection_manager.h"
 
 #define SYSTEM_APP_GATT_IF 3
 
-using base::StringPrintf;
 using bluetooth::Uuid;
 
+extern bool BTM_BackgroundConnectAddressKnown(const RawAddress& address);
 /**
  * Add an service handle range to the list in decending order of the start
  * handle. Return reference to the newly added element.
@@ -127,12 +127,13 @@ static bool is_gatt_attr_type(const Uuid& uuid) {
   return false;
 }
 
-/** Update the the last primary info for the service list info */
-static void gatt_update_last_pri_srv_info() {
-  gatt_cb.last_primary_s_handle = 0;
+/** Update the the last service info for the service list info */
+static void gatt_update_last_srv_info() {
+  gatt_cb.last_service_handle = 0;
 
-  for (tGATT_SRV_LIST_ELEM& el : *gatt_cb.srv_list_info)
-    if (el.is_primary) gatt_cb.last_primary_s_handle = el.s_hdl;
+  for (tGATT_SRV_LIST_ELEM& el : *gatt_cb.srv_list_info) {
+    gatt_cb.last_service_handle = el.s_hdl;
+  }
 }
 
 /*******************************************************************************
@@ -185,9 +186,8 @@ uint16_t GATTS_AddService(tGATT_IF gatt_if, btgatt_db_element_t* service,
 
   /* check for space */
   if (num_handles > (0xFFFF - s_hdl + 1)) {
-    LOG(ERROR) << StringPrintf(
-        "GATTS_ReserveHandles: no handles, s_hdl: %u  needed: %u", s_hdl,
-        num_handles);
+    LOG(ERROR) << __func__ << ": no handles, s_hdl=" << +s_hdl
+               << " needed=" << num_handles;
     return GATT_INTERNAL_ERROR;
   }
 
@@ -205,10 +205,11 @@ uint16_t GATTS_AddService(tGATT_IF gatt_if, btgatt_db_element_t* service,
 
   gatts_init_service_db(list.svc_db, svc_uuid, is_pri, s_hdl, num_handles);
 
-  VLOG(1) << StringPrintf(
-      "%s: handles needed:%u s_hdl=%u e_hdl=%u %s is_primary=%d", __func__,
-      num_handles, list.asgn_range.s_handle, list.asgn_range.e_handle,
-      list.asgn_range.svc_uuid.ToString().c_str(), list.asgn_range.is_primary);
+  VLOG(1) << __func__ << ": handles needed=" << num_handles
+          << ", s_hdl=" << loghex(list.asgn_range.s_handle)
+          << ", e_hdl=" << loghex(list.asgn_range.e_handle)
+          << ", uuid=" << list.asgn_range.svc_uuid
+          << ", is_primary=" << +list.asgn_range.is_primary;
 
   service->attribute_handle = s_hdl;
 
@@ -222,17 +223,16 @@ uint16_t GATTS_AddService(tGATT_IF gatt_if, btgatt_db_element_t* service,
            !(el->permissions & GATT_WRITE_SIGNED_PERM)) ||
           ((el->permissions & GATT_WRITE_SIGNED_PERM) &&
            !(el->properties & GATT_CHAR_PROP_BIT_AUTH))) {
-        VLOG(1) << StringPrintf(
-            "Invalid configuration property=0x%02x perm=0x%04x ",
-            el->properties, el->permissions);
+        VLOG(1) << "Invalid configuration property=" << loghex(el->properties)
+                << ", perm=" << loghex(el->permissions);
         return GATT_INTERNAL_ERROR;
       }
 
       if (is_gatt_attr_type(uuid)) {
-        LOG(ERROR) << StringPrintf(
-            "%s: attept to add characteristic with UUID equal to GATT "
-            "Attribute Type %s ",
-            __func__, uuid.ToString().c_str());
+        LOG(ERROR) << __func__
+                   << ": attept to add characteristic with UUID equal to GATT "
+                      "Attribute Type "
+                   << uuid;
         return GATT_INTERNAL_ERROR;
       }
 
@@ -240,10 +240,10 @@ uint16_t GATTS_AddService(tGATT_IF gatt_if, btgatt_db_element_t* service,
           list.svc_db, el->permissions, el->properties, uuid);
     } else if (el->type == BTGATT_DB_DESCRIPTOR) {
       if (is_gatt_attr_type(uuid)) {
-        LOG(ERROR) << StringPrintf(
-            "%s: attept to add descriptor with UUID equal to GATT "
-            "Attribute Type %s",
-            __func__, uuid.ToString().c_str());
+        LOG(ERROR) << __func__
+                   << ": attept to add descriptor with UUID equal to GATT "
+                      "Attribute Type "
+                   << uuid;
         return GATT_INTERNAL_ERROR;
       }
 
@@ -293,11 +293,11 @@ uint16_t GATTS_AddService(tGATT_IF gatt_if, btgatt_db_element_t* service,
     elem.sdp_handle = 0;
   }
 
-  gatt_update_last_pri_srv_info();
+  gatt_update_last_srv_info();
 
-  VLOG(1) << StringPrintf(
-      "%s: allocated el: s_hdl=%d e_hdl=%d type=0x%x sdp_hdl=0x%x", __func__,
-      elem.s_hdl, elem.e_hdl, elem.type, elem.sdp_handle);
+  VLOG(1) << __func__ << ": allocated el s_hdl=" << loghex(elem.s_hdl)
+          << ", e_hdl=" << loghex(elem.e_hdl) << ", type=" << loghex(elem.type)
+          << ", sdp_hdl=" << loghex(elem.sdp_handle);
 
   gatt_proc_srv_chg();
 
@@ -355,8 +355,8 @@ bool GATTS_DeleteService(tGATT_IF gatt_if, Uuid* p_svc_uuid,
     GATTS_StopService(it->asgn_range.s_handle);
   }
 
-  VLOG(1) << StringPrintf("released handles s_hdl=%u e_hdl=%u",
-                          it->asgn_range.s_handle, it->asgn_range.e_handle);
+  VLOG(1) << "released handles s_hdl=" << loghex(it->asgn_range.s_handle)
+          << ", e_hdl=" << loghex(it->asgn_range.e_handle);
 
   if ((it->asgn_range.s_handle >= gatt_cb.hdl_cfg.app_start_hdl) &&
       gatt_cb.cb_info.p_nv_save_callback)
@@ -378,12 +378,12 @@ bool GATTS_DeleteService(tGATT_IF gatt_if, Uuid* p_svc_uuid,
  *
  ******************************************************************************/
 void GATTS_StopService(uint16_t service_handle) {
-  LOG(INFO) << __func__ << ": 0x" << std::hex << +service_handle;
+  LOG(INFO) << __func__ << ": " << loghex(service_handle);
 
   auto it = gatt_sr_find_i_rcb_by_handle(service_handle);
   if (it == gatt_cb.srv_list_info->end()) {
-    LOG(ERROR) << StringPrintf("%s: service_handle: %u is not in use", __func__,
-                               service_handle);
+    LOG(ERROR) << __func__ << ": service_handle=" << loghex(service_handle)
+               << " is not in use";
   }
 
   if (it->sdp_handle) {
@@ -391,7 +391,7 @@ void GATTS_StopService(uint16_t service_handle) {
   }
 
   gatt_cb.srv_list_info->erase(it);
-  gatt_update_last_pri_srv_info();
+  gatt_update_last_srv_info();
 }
 /*******************************************************************************
  *
@@ -411,11 +411,6 @@ void GATTS_StopService(uint16_t service_handle) {
  ******************************************************************************/
 tGATT_STATUS GATTS_HandleValueIndication(uint16_t conn_id, uint16_t attr_handle,
                                          uint16_t val_len, uint8_t* p_val) {
-  tGATT_STATUS cmd_status = GATT_NO_RESOURCES;
-
-  tGATT_VALUE indication;
-  BT_HDR* p_msg;
-  tGATT_VALUE* p_buf;
   tGATT_IF gatt_if = GATT_GET_GATT_IF(conn_id);
   uint8_t tcb_idx = GATT_GET_TCB_IDX(conn_id);
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
@@ -423,12 +418,13 @@ tGATT_STATUS GATTS_HandleValueIndication(uint16_t conn_id, uint16_t attr_handle,
 
   VLOG(1) << __func__;
   if ((p_reg == NULL) || (p_tcb == NULL)) {
-    LOG(ERROR) << __func__ << ": Unknown  conn_id: " << +conn_id;
+    LOG(ERROR) << __func__ << ": Unknown  conn_id=" << loghex(conn_id);
     return (tGATT_STATUS)GATT_INVALID_CONN_ID;
   }
 
   if (!GATT_HANDLE_IS_VALID(attr_handle)) return GATT_ILLEGAL_PARAMETER;
 
+  tGATT_VALUE indication;
   indication.conn_id = conn_id;
   indication.handle = attr_handle;
   indication.len = val_len;
@@ -437,24 +433,20 @@ tGATT_STATUS GATTS_HandleValueIndication(uint16_t conn_id, uint16_t attr_handle,
 
   if (GATT_HANDLE_IS_VALID(p_tcb->indicate_handle)) {
     VLOG(1) << "Add a pending indication";
-    p_buf = gatt_add_pending_ind(p_tcb, &indication);
-    if (p_buf != NULL) {
-      cmd_status = GATT_SUCCESS;
-    } else {
-      cmd_status = GATT_NO_RESOURCES;
-    }
-  } else {
-    tGATT_SR_MSG gatt_sr_msg;
-    gatt_sr_msg.attr_value = indication;
-    p_msg = attp_build_sr_msg(*p_tcb, GATT_HANDLE_VALUE_IND, &gatt_sr_msg);
-    if (p_msg != NULL) {
-      cmd_status = attp_send_sr_msg(*p_tcb, p_msg);
+    gatt_add_pending_ind(p_tcb, &indication);
+    return GATT_SUCCESS;
+  }
 
-      if (cmd_status == GATT_SUCCESS || cmd_status == GATT_CONGESTED) {
-        p_tcb->indicate_handle = indication.handle;
-        gatt_start_conf_timer(p_tcb);
-      }
-    }
+  tGATT_SR_MSG gatt_sr_msg;
+  gatt_sr_msg.attr_value = indication;
+  BT_HDR* p_msg =
+      attp_build_sr_msg(*p_tcb, GATT_HANDLE_VALUE_IND, &gatt_sr_msg);
+  if (!p_msg) return GATT_NO_RESOURCES;
+
+  tGATT_STATUS cmd_status = attp_send_sr_msg(*p_tcb, p_msg);
+  if (cmd_status == GATT_SUCCESS || cmd_status == GATT_CONGESTED) {
+    p_tcb->indicate_handle = indication.handle;
+    gatt_start_conf_timer(p_tcb);
   }
   return cmd_status;
 }
@@ -533,19 +525,17 @@ tGATT_STATUS GATTS_SendRsp(uint16_t conn_id, uint32_t trans_id,
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
 
-  VLOG(1) << __func__
-          << StringPrintf(": conn_id: %u  trans_id: %u  Status: 0x%04x",
-                          conn_id, trans_id, status);
+  VLOG(1) << __func__ << ": conn_id=" << loghex(conn_id)
+          << ", trans_id=" << loghex(trans_id) << ", status=" << loghex(status);
 
   if ((p_reg == NULL) || (p_tcb == NULL)) {
-    LOG(ERROR) << StringPrintf("Unknown  conn_id: %u ", conn_id);
+    LOG(ERROR) << "Unknown  conn_id=" << loghex(conn_id);
     return (tGATT_STATUS)GATT_INVALID_CONN_ID;
   }
 
   if (p_tcb->sr_cmd.trans_id != trans_id) {
-    LOG(ERROR) << StringPrintf("conn_id: %u  waiting for op_code = %02x",
-                               conn_id, p_tcb->sr_cmd.op_code);
-
+    LOG(ERROR) << "conn_id=" << loghex(conn_id)
+               << " waiting for op_code=" << loghex(p_tcb->sr_cmd.op_code);
     return (GATT_WRONG_STATE);
   }
   /* Process App response */
@@ -583,7 +573,7 @@ tGATT_STATUS GATTC_ConfigureMTU(uint16_t conn_id, uint16_t mtu) {
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
 
-  VLOG(1) << __func__ << StringPrintf("conn_id=%d mtu=%d", conn_id, mtu);
+  VLOG(1) << __func__ << ": conn_id=" << loghex(conn_id) << ", mtu=" << +mtu;
 
   if ((p_tcb == NULL) || (p_reg == NULL) || (mtu < GATT_DEF_BLE_MTU_SIZE) ||
       (mtu > GATT_MAX_MTU_SIZE)) {
@@ -619,32 +609,36 @@ tGATT_STATUS GATTC_ConfigureMTU(uint16_t conn_id, uint16_t mtu) {
  *
  * Parameters       conn_id: connection identifier.
  *                  disc_type:discovery type.
- *                  p_param: parameters of discovery requirement.
+ *                  start_handle and end_handle: range of handles for discovery
+ *                  uuid: uuid to discovery. set to Uuid::kEmpty for requests
+ *                        that don't need it
  *
  * Returns          GATT_SUCCESS if command received/sent successfully.
  *
  ******************************************************************************/
 tGATT_STATUS GATTC_Discover(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
-                            tGATT_DISC_PARAM* p_param) {
+                            uint16_t start_handle, uint16_t end_handle,
+                            const Uuid& uuid) {
   tGATT_IF gatt_if = GATT_GET_GATT_IF(conn_id);
   uint8_t tcb_idx = GATT_GET_TCB_IDX(conn_id);
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
 
-  LOG(INFO) << __func__
-            << StringPrintf(" conn_id=%d disc_type=%d", conn_id, disc_type);
-
-  if ((p_tcb == NULL) || (p_reg == NULL) || (p_param == NULL) ||
-      (disc_type >= GATT_DISC_MAX)) {
-    LOG(ERROR) << StringPrintf("Illegal param: disc_type %d conn_id = %d",
-                               disc_type, conn_id);
+  if ((p_tcb == NULL) || (p_reg == NULL) || (disc_type >= GATT_DISC_MAX)) {
+    LOG(ERROR) << __func__ << " Illegal param: disc_type=" << +disc_type
+               << " conn_id=" << loghex(conn_id);
     return GATT_ILLEGAL_PARAMETER;
   }
 
-  if (!GATT_HANDLE_IS_VALID(p_param->s_handle) ||
-      !GATT_HANDLE_IS_VALID(p_param->e_handle) ||
+  LOG(INFO) << __func__ << " conn_id=" << loghex(conn_id)
+            << ", disc_type=" << +disc_type
+            << ", s_handle=" << loghex(start_handle)
+            << ", e_handle=" << loghex(end_handle);
+
+  if (!GATT_HANDLE_IS_VALID(start_handle) ||
+      !GATT_HANDLE_IS_VALID(end_handle) ||
       /* search by type does not have a valid UUID param */
-      (disc_type == GATT_DISC_SRVC_BY_UUID && p_param->service.IsEmpty())) {
+      (disc_type == GATT_DISC_SRVC_BY_UUID && uuid.IsEmpty())) {
     return GATT_ILLEGAL_PARAMETER;
   }
 
@@ -658,12 +652,18 @@ tGATT_STATUS GATTC_Discover(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
 
   p_clcb->operation = GATTC_OPTYPE_DISCOVERY;
   p_clcb->op_subtype = disc_type;
-  p_clcb->s_handle = p_param->s_handle;
-  p_clcb->e_handle = p_param->e_handle;
-  p_clcb->uuid = p_param->service;
+  p_clcb->s_handle = start_handle;
+  p_clcb->e_handle = end_handle;
+  p_clcb->uuid = uuid;
 
   gatt_act_discovery(p_clcb);
   return GATT_SUCCESS;
+}
+
+tGATT_STATUS GATTC_Discover(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
+                            uint16_t start_handle, uint16_t end_handle) {
+  return GATTC_Discover(conn_id, disc_type, start_handle, end_handle,
+                        Uuid::kEmpty);
 }
 
 /*******************************************************************************
@@ -687,17 +687,18 @@ tGATT_STATUS GATTC_Read(uint16_t conn_id, tGATT_READ_TYPE type,
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
 
-  VLOG(1) << __func__ << StringPrintf(" conn_id=%d type=%d", conn_id, type);
+  VLOG(1) << __func__ << ": conn_id=" << loghex(conn_id)
+          << ", type=" << loghex(type);
 
   if ((p_tcb == NULL) || (p_reg == NULL) || (p_read == NULL) ||
       ((type >= GATT_READ_MAX) || (type == 0))) {
-    LOG(ERROR) << StringPrintf(" Illegal param: conn_id %d, type 0%d,", conn_id,
-                               type);
+    LOG(ERROR) << ": illegal param: conn_id=" << loghex(conn_id)
+               << "type=" << loghex(type);
     return GATT_ILLEGAL_PARAMETER;
   }
 
   if (gatt_is_clcb_allocated(conn_id)) {
-    LOG(ERROR) << StringPrintf(" GATT_BUSY conn_id = %d", conn_id);
+    LOG(ERROR) << "GATT_BUSY conn_id=" << loghex(conn_id);
     return GATT_BUSY;
   }
 
@@ -768,14 +769,13 @@ tGATT_STATUS GATTC_Write(uint16_t conn_id, tGATT_WRITE_TYPE type,
   if ((p_tcb == NULL) || (p_reg == NULL) || (p_write == NULL) ||
       ((type != GATT_WRITE) && (type != GATT_WRITE_PREPARE) &&
        (type != GATT_WRITE_NO_RSP))) {
-    LOG(ERROR) << __func__
-               << StringPrintf(" Illegal param: conn_id %d, type 0%d,", conn_id,
-                               type);
+    LOG(ERROR) << __func__ << " Illegal param: conn_id=" << loghex(conn_id)
+               << ", type=" << loghex(type);
     return GATT_ILLEGAL_PARAMETER;
   }
 
   if (gatt_is_clcb_allocated(conn_id)) {
-    LOG(ERROR) << StringPrintf("GATT_BUSY conn_id = %d", conn_id);
+    LOG(ERROR) << "GATT_BUSY conn_id=" << loghex(conn_id);
     return GATT_BUSY;
   }
 
@@ -819,16 +819,16 @@ tGATT_STATUS GATTC_ExecuteWrite(uint16_t conn_id, bool is_execute) {
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
 
-  VLOG(1) << __func__
-          << StringPrintf(": conn_id=%d is_execute=%d", conn_id, is_execute);
+  VLOG(1) << __func__ << ": conn_id=" << loghex(conn_id)
+          << ", is_execute=" << +is_execute;
 
   if ((p_tcb == NULL) || (p_reg == NULL)) {
-    LOG(ERROR) << StringPrintf(" Illegal param: conn_id %d", conn_id);
+    LOG(ERROR) << " Illegal param: conn_id=" << loghex(conn_id);
     return GATT_ILLEGAL_PARAMETER;
   }
 
   if (gatt_is_clcb_allocated(conn_id)) {
-    LOG(ERROR) << StringPrintf(" GATT_BUSY conn_id = %d", conn_id);
+    LOG(ERROR) << " GATT_BUSY conn_id=" << loghex(conn_id);
     return GATT_BUSY;
   }
 
@@ -856,17 +856,17 @@ tGATT_STATUS GATTC_ExecuteWrite(uint16_t conn_id, bool is_execute) {
  *
  ******************************************************************************/
 tGATT_STATUS GATTC_SendHandleValueConfirm(uint16_t conn_id, uint16_t handle) {
-  VLOG(1) << __func__
-          << StringPrintf(" conn_id=%d handle=0x%x", conn_id, handle);
+  VLOG(1) << __func__ << " conn_id=" << loghex(conn_id)
+          << ", handle=" << loghex(handle);
 
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(GATT_GET_TCB_IDX(conn_id));
   if (!p_tcb) {
-    LOG(ERROR) << StringPrintf(" Unknown conn_id: %u", conn_id);
+    LOG(ERROR) << "Unknown conn_id=" << loghex(conn_id);
     return GATT_ILLEGAL_PARAMETER;
   }
 
   if (p_tcb->ind_count == 0) {
-    VLOG(1) << " conn_id: " << +conn_id
+    VLOG(1) << " conn_id: " << loghex(conn_id)
             << " ignored not waiting for indicaiton ack";
     return GATT_SUCCESS;
   }
@@ -905,10 +905,9 @@ tGATT_STATUS GATTC_SendHandleValueConfirm(uint16_t conn_id, uint16_t handle) {
  ******************************************************************************/
 void GATT_SetIdleTimeout(const RawAddress& bd_addr, uint16_t idle_tout,
                          tBT_TRANSPORT transport) {
-  tGATT_TCB* p_tcb;
   bool status = false;
 
-  p_tcb = gatt_find_tcb_by_addr(bd_addr, transport);
+  tGATT_TCB* p_tcb = gatt_find_tcb_by_addr(bd_addr, transport);
   if (p_tcb != NULL) {
     if (p_tcb->att_lcid == L2CAP_ATT_CID) {
       status = L2CA_SetFixedChannelTout(bd_addr, L2CAP_ATT_CID, idle_tout);
@@ -922,9 +921,8 @@ void GATT_SetIdleTimeout(const RawAddress& bd_addr, uint16_t idle_tout,
     }
   }
 
-  VLOG(1) << __func__
-          << StringPrintf(" idle_tout=%d status=%d(1-OK 0-not performed)",
-                          idle_tout, status);
+  VLOG(1) << __func__ << " idle_tout=" << idle_tout << ", status=" << +status
+          << " (1-OK 0-not performed)";
 }
 
 /*******************************************************************************
@@ -946,7 +944,7 @@ tGATT_IF GATT_Register(const Uuid& app_uuid128, tGATT_CBACK* p_cb_info) {
   uint8_t i_gatt_if = 0;
   tGATT_IF gatt_if = 0;
 
-  LOG(INFO) << __func__ << app_uuid128;
+  LOG(INFO) << __func__ << " " << app_uuid128;
 
   for (i_gatt_if = 0, p_reg = gatt_cb.cl_rcb; i_gatt_if < GATT_MAX_APPS;
        i_gatt_if++, p_reg++) {
@@ -994,7 +992,7 @@ void GATT_Deregister(tGATT_IF gatt_if) {
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
   /* Index 0 is GAP and is never deregistered */
   if ((gatt_if == 0) || (p_reg == NULL)) {
-    LOG(ERROR) << "invalid gatt_if: " << +gatt_if;
+    LOG(ERROR) << "invalid gatt_if=" << +gatt_if;
     return;
   }
 
@@ -1008,7 +1006,8 @@ void GATT_Deregister(tGATT_IF gatt_if) {
     other application
     deregisteration need to bed performed in an orderly fashion
     no check for now */
-  for (auto it = gatt_cb.srv_list_info->begin(); it != gatt_cb.srv_list_info->end(); ) {
+  for (auto it = gatt_cb.srv_list_info->begin();
+       it != gatt_cb.srv_list_info->end();) {
     if (it->gatt_if == gatt_if) {
       GATTS_StopService(it++->s_hdl);
     } else {
@@ -1024,6 +1023,7 @@ void GATT_Deregister(tGATT_IF gatt_if) {
   tGATT_TCB* p_tcb;
   int i, j;
   for (i = 0, p_tcb = gatt_cb.tcb; i < GATT_MAX_PHY_CHANNEL; i++, p_tcb++) {
+    if (!p_tcb->in_use) continue;
     if (p_tcb->in_use) {
       if (gatt_get_ch_state(p_tcb) != GATT_CH_CLOSE) {
         is_gatt_connected = gatt_is_app_holding_link(gatt_if, p_tcb);
@@ -1034,21 +1034,21 @@ void GATT_Deregister(tGATT_IF gatt_if) {
           gatt_disconnect(p_tcb);
         }
       }
+    }      
 
-      tGATT_CLCB* p_clcb;
-      for (j = 0, p_clcb = &gatt_cb.clcb[j]; j < GATT_CL_MAX_LCB;
-           j++, p_clcb++) {
-        if (p_clcb->in_use && (p_clcb->p_reg->gatt_if == gatt_if) &&
-            (p_clcb->p_tcb->tcb_idx == p_tcb->tcb_idx)) {
-          alarm_cancel(p_clcb->gatt_rsp_timer_ent);
-          gatt_clcb_dealloc(p_clcb);
-          break;
-        }
+
+    tGATT_CLCB* p_clcb;
+    for (j = 0, p_clcb = &gatt_cb.clcb[j]; j < GATT_CL_MAX_LCB; j++, p_clcb++) {
+      if (p_clcb->in_use && (p_clcb->p_reg->gatt_if == gatt_if) &&
+          (p_clcb->p_tcb->tcb_idx == p_tcb->tcb_idx)) {
+        alarm_cancel(p_clcb->gatt_rsp_timer_ent);
+        gatt_clcb_dealloc(p_clcb);
+        break;
       }
     }
   }
 
-  gatt_deregister_bgdev_list(gatt_if);
+  connection_manager::on_app_deregistered(gatt_if);
 
   memset(p_reg, 0, sizeof(tGATT_REG));
 }
@@ -1074,7 +1074,7 @@ void GATT_StartIf(tGATT_IF gatt_if) {
   uint16_t conn_id;
   tGATT_TRANSPORT transport;
 
-  VLOG(1) << __func__ << " gatt_if=" << gatt_if;
+  VLOG(1) << __func__ << " gatt_if=" << +gatt_if;
   p_reg = gatt_get_regcb(gatt_if);
   if (p_reg != NULL) {
     start_idx = 0;
@@ -1116,30 +1116,46 @@ bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, bool is_direct,
 bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, bool is_direct,
                   tBT_TRANSPORT transport, bool opportunistic,
                   uint8_t initiating_phys) {
-  tGATT_REG* p_reg;
-  bool status = false;
-
-  LOG(INFO) << __func__ << "gatt_if=" << +gatt_if << " " << bd_addr;
+  LOG(INFO) << __func__ << "gatt_if=" << +gatt_if << ", address=" << bd_addr;
 
   /* Make sure app is registered */
-  p_reg = gatt_get_regcb(gatt_if);
-  if (p_reg == NULL) {
-    LOG(ERROR) << "gatt_if = " << gatt_if << " is not registered";
-    return (false);
+  tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
+  if (!p_reg) {
+    LOG(ERROR) << "gatt_if = " << +gatt_if << " is not registered";
+    return false;
   }
 
-  if (is_direct)
-    status = gatt_act_connect(p_reg, bd_addr, transport, opportunistic,
-                              initiating_phys);
-  else {
-    if (transport == BT_TRANSPORT_LE)
-      status = gatt_update_auto_connect_dev(gatt_if, true, bd_addr);
-    else {
-      LOG(ERROR) << "Unsupported transport for background connection";
+  if (!is_direct && transport != BT_TRANSPORT_LE) {
+    LOG(ERROR) << "Unsupported transport for background connection";
+    return false;
+  }
+
+  if (opportunistic) {
+    LOG(INFO) << __func__ << " opportunistic connection";
+    return true;
+  }
+
+  bool ret;
+  if (is_direct) {
+    ret = gatt_act_connect(p_reg, bd_addr, transport, initiating_phys);
+  } else {
+    if (!BTM_BackgroundConnectAddressKnown(bd_addr)) {
+      //  RPA can rotate, causing address to "expire" in the background
+      //  connection list. RPA is allowed for direct connect, as such request
+      //  times out after 30 seconds
+      LOG(INFO) << "Can't add RPA to background connection.";
+      ret = true;
+    } else {
+      ret = connection_manager::background_connect_add(gatt_if, bd_addr);
     }
   }
 
-  return status;
+  tGATT_TCB* p_tcb = gatt_find_tcb_by_addr(bd_addr, transport);
+  // background connections don't necessarily create tcb
+  if (p_tcb && ret)
+    gatt_update_app_use_link_flag(p_reg->gatt_if, p_tcb, true, !is_direct);
+
+  return ret;
 }
 
 /*******************************************************************************
@@ -1159,19 +1175,26 @@ bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, bool is_direct,
  ******************************************************************************/
 bool GATT_CancelConnect(tGATT_IF gatt_if, const RawAddress& bd_addr,
                         bool is_direct) {
-  LOG(INFO) << __func__ << ": gatt_if=" << +gatt_if;
+  LOG(INFO) << __func__ << ": gatt_if:" << +gatt_if << ", address: " << bd_addr
+            << ", direct:" << is_direct;
 
-  if (gatt_if && !gatt_get_regcb(gatt_if)) {
-    LOG(ERROR) << "gatt_if =" << +gatt_if << " is not registered";
-    return false;
-  }
-
-  if (is_direct) {
-    if (gatt_if) {
-      return gatt_cancel_open(gatt_if, bd_addr);
+  tGATT_REG* p_reg;
+  if (gatt_if) {
+    p_reg = gatt_get_regcb(gatt_if);
+    if (!p_reg) {
+      LOG(ERROR) << "gatt_if=" << +gatt_if << " is not registered";
+      return false;
     }
 
-    VLOG(1) << " unconditional";
+    if (is_direct)
+      return gatt_cancel_open(gatt_if, bd_addr);
+    else
+      return gatt_auto_connect_dev_remove(p_reg->gatt_if, bd_addr);
+  }
+
+  VLOG(1) << " unconditional";
+
+  if (is_direct) {
     /* only LE connection can be cancelled */
     tGATT_TCB* p_tcb = gatt_find_tcb_by_addr(bd_addr, BT_TRANSPORT_LE);
     if (!p_tcb || p_tcb->app_hold_link.empty()) {
@@ -1190,11 +1213,9 @@ bool GATT_CancelConnect(tGATT_IF gatt_if, const RawAddress& bd_addr,
 
     return true;
   }
+
   // is not direct
-
-  if (gatt_if) return gatt_remove_bg_dev_for_app(gatt_if, bd_addr);
-
-  if (!gatt_clear_bg_dev_for_addr(bd_addr)) {
+  if (!connection_manager::background_connect_remove_unconditional(bd_addr)) {
     LOG(ERROR)
         << __func__
         << ": no app associated with the bg device for unconditional removal";
@@ -1217,20 +1238,15 @@ bool GATT_CancelConnect(tGATT_IF gatt_if, const RawAddress& bd_addr,
  *
  ******************************************************************************/
 tGATT_STATUS GATT_Disconnect(uint16_t conn_id) {
-  tGATT_STATUS ret = GATT_ILLEGAL_PARAMETER;
-  tGATT_TCB* p_tcb = NULL;
-  tGATT_IF gatt_if = GATT_GET_GATT_IF(conn_id);
+  LOG(INFO) << __func__ << " conn_id=" << loghex(conn_id);
+
   uint8_t tcb_idx = GATT_GET_TCB_IDX(conn_id);
+  tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
+  if (!p_tcb) return GATT_ILLEGAL_PARAMETER;
 
-  LOG(INFO) << __func__ << " conn_id=" << +conn_id;
-
-  p_tcb = gatt_get_tcb_by_idx(tcb_idx);
-
-  if (p_tcb) {
-    gatt_update_app_use_link_flag(gatt_if, p_tcb, false, true);
-    ret = GATT_SUCCESS;
-  }
-  return ret;
+  tGATT_IF gatt_if = GATT_GET_GATT_IF(conn_id);
+  gatt_update_app_use_link_flag(gatt_if, p_tcb, false, true);
+  return GATT_SUCCESS;
 }
 
 /*******************************************************************************
@@ -1253,17 +1269,15 @@ bool GATT_GetConnectionInfor(uint16_t conn_id, tGATT_IF* p_gatt_if,
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
   uint8_t tcb_idx = GATT_GET_TCB_IDX(conn_id);
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
-  bool status = false;
 
-  VLOG(1) << __func__ << " conn_id=" << +conn_id;
+  VLOG(1) << __func__ << " conn_id=" << loghex(conn_id);
 
-  if (p_tcb && p_reg) {
-    bd_addr = p_tcb->peer_bda;
-    *p_gatt_if = gatt_if;
-    *p_transport = p_tcb->transport;
-    status = true;
-  }
-  return status;
+  if (!p_tcb || !p_reg) return false;
+
+  bd_addr = p_tcb->peer_bda;
+  *p_gatt_if = gatt_if;
+  *p_transport = p_tcb->transport;
+  return true;
 }
 
 /*******************************************************************************

@@ -131,7 +131,7 @@ void btif_gattc_upstreams_evt(uint16_t event, char* p_param) {
       HAL_CBACK(bt_gatt_callbacks, client->notify_cb, p_data->notify.conn_id,
                 data);
 
-      if (p_data->notify.is_notify == false)
+      if (!p_data->notify.is_notify)
         BTA_GATTC_SendIndConfirm(p_data->notify.conn_id, p_data->notify.handle);
 
       break;
@@ -148,7 +148,7 @@ void btif_gattc_upstreams_evt(uint16_t event, char* p_param) {
                   p_data->open.conn_id, p_data->open.status, p_data->open.mtu);
       }
 
-      if (p_data->open.status == BTA_GATT_OK)
+      if (p_data->open.status == GATT_SUCCESS)
 #if (!defined(BTA_SKIP_BLE_START_ENCRYPTION) || BTA_SKIP_BLE_START_ENCRYPTION == FALSE)
         btif_gatt_check_encrypted_link(p_data->open.remote_bda,
                                        p_data->open.transport);
@@ -166,6 +166,9 @@ void btif_gattc_upstreams_evt(uint16_t event, char* p_param) {
     case BTA_GATTC_ACL_EVT:
       LOG_DEBUG(LOG_TAG, "BTA_GATTC_ACL_EVT: status = %d", p_data->status);
       /* Ignore for now */
+      break;
+
+    case BTA_GATTC_SEARCH_RES_EVT:
       break;
 
     case BTA_GATTC_CANCEL_OPEN_EVT:
@@ -209,7 +212,9 @@ void bta_gattc_cback(tBTA_GATTC_EVT event, tBTA_GATTC* p_data) {
   ASSERTC(status == BT_STATUS_SUCCESS, "Context transfer failed!", status);
 }
 
-void btm_read_rssi_cb(tBTM_RSSI_RESULT* p_result) {
+void btm_read_rssi_cb(void* p_void) {
+  tBTM_RSSI_RESULT* p_result = (tBTM_RSSI_RESULT*)p_void;
+
   if (!p_result) return;
 
   CLI_CBACK_IN_JNI(read_remote_rssi_cb, rssi_request_client_if,
@@ -256,7 +261,7 @@ void btif_gattc_open_impl(int client_if, RawAddress address, bool is_direct,
   // Ensure device is in inquiry database
   int addr_type = 0;
   int device_type = 0;
-  tBTA_GATT_TRANSPORT transport = (tBTA_GATT_TRANSPORT)BTA_GATT_TRANSPORT_LE;
+  tGATT_TRANSPORT transport = (tGATT_TRANSPORT)GATT_TRANSPORT_LE;
 
   if (btif_get_address_type(address, &addr_type) &&
       btif_get_device_type(address, &device_type) &&
@@ -279,7 +284,6 @@ void btif_gattc_open_impl(int client_if, RawAddress address, bool is_direct,
         return;
       }
     }
-    BTA_DmBleStartAutoConn();
   }
 
   // Determine transport
@@ -288,18 +292,18 @@ void btif_gattc_open_impl(int client_if, RawAddress address, bool is_direct,
   } else {
     switch (device_type) {
       case BT_DEVICE_TYPE_BREDR:
-        transport = BTA_GATT_TRANSPORT_BR_EDR;
+        transport = GATT_TRANSPORT_BR_EDR;
         break;
 
       case BT_DEVICE_TYPE_BLE:
-        transport = BTA_GATT_TRANSPORT_LE;
+        transport = GATT_TRANSPORT_LE;
         break;
 
       case BT_DEVICE_TYPE_DUMO:
         if (transport_p == GATT_TRANSPORT_LE)
-          transport = BTA_GATT_TRANSPORT_LE;
+          transport = GATT_TRANSPORT_LE;
         else
-          transport = BTA_GATT_TRANSPORT_BR_EDR;
+          transport = GATT_TRANSPORT_BR_EDR;
         break;
     }
   }
@@ -481,10 +485,10 @@ bt_status_t btif_gattc_execute_write(int conn_id, int execute) {
       Bind(&BTA_GATTC_ExecuteWrite, conn_id, (uint8_t)execute));
 }
 
-void btif_gattc_reg_for_notification_impl(tBTA_GATTC_IF client_if,
+void btif_gattc_reg_for_notification_impl(tGATT_IF client_if,
                                           const RawAddress& bda,
                                           uint16_t handle) {
-  tBTA_GATT_STATUS status =
+  tGATT_STATUS status =
       BTA_GATTC_RegisterForNotifications(client_if, bda, handle);
 
   // TODO(jpawlowski): conn_id is currently unused
@@ -502,10 +506,10 @@ bt_status_t btif_gattc_reg_for_notification(int client_if,
            bd_addr, handle));
 }
 
-void btif_gattc_dereg_for_notification_impl(tBTA_GATTC_IF client_if,
+void btif_gattc_dereg_for_notification_impl(tGATT_IF client_if,
                                             const RawAddress& bda,
                                             uint16_t handle) {
-  tBTA_GATT_STATUS status =
+  tGATT_STATUS status =
       BTA_GATTC_DeregisterForNotifications(client_if, bda, handle);
 
   // TODO(jpawlowski): conn_id is currently unused
@@ -528,8 +532,8 @@ bt_status_t btif_gattc_read_remote_rssi(int client_if,
   CHECK_BTGATT_INIT();
   rssi_request_client_if = client_if;
 
-  return do_in_jni_thread(Bind(base::IgnoreResult(&BTM_ReadRSSI), bd_addr,
-                               (tBTM_CMPL_CB*)btm_read_rssi_cb));
+  return do_in_jni_thread(
+      Bind(base::IgnoreResult(&BTM_ReadRSSI), bd_addr, btm_read_rssi_cb));
 }
 
 bt_status_t btif_gattc_configure_mtu(int conn_id, int mtu) {

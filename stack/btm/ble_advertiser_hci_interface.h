@@ -24,6 +24,8 @@
 #include <vector>
 #include "stack/include/bt_types.h"
 
+#include <base/callback.h>
+
 /* This class is an abstraction of HCI commands used for managing
  * advertisements. Please see VSC HCI SPEC at
  * https://static.googleusercontent.com/media/source.android.com/en//devices/Android-6.0-Bluetooth-HCI-Reqs.pdf

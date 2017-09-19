@@ -45,37 +45,12 @@ using bluetooth::Uuid;
 /*******************************************************************************
  * BTIF -> BTA conversion functions
  ******************************************************************************/
-void btif_to_bta_response(tBTA_GATTS_RSP* p_dest, btgatt_response_t* p_src) {
+void btif_to_bta_response(tGATTS_RSP* p_dest, btgatt_response_t* p_src) {
   p_dest->attr_value.auth_req = p_src->attr_value.auth_req;
   p_dest->attr_value.handle = p_src->attr_value.handle;
   p_dest->attr_value.len = p_src->attr_value.len;
   p_dest->attr_value.offset = p_src->attr_value.offset;
   memcpy(p_dest->attr_value.value, p_src->attr_value.value, GATT_MAX_ATTR_LEN);
-}
-
-void btif_to_bta_uuid_mask(tBTM_BLE_PF_COND_MASK* p_mask,
-                           const bluetooth::Uuid& uuid_mask,
-                           const bluetooth::Uuid& svc_uuid) {
-  // we use svc_uuid for uuid_mask length picking ?
-  int uuid_len = svc_uuid.GetShortestRepresentationSize();
-
-  switch (uuid_len) {
-    case Uuid::kNumBytes16:
-      p_mask->uuid16_mask = uuid_mask.As16Bit();
-      break;
-
-    case Uuid::kNumBytes32:
-      p_mask->uuid32_mask = uuid_mask.As32Bit();
-      break;
-
-    case Uuid::kNumBytes128:
-      memcpy(p_mask->uuid128_mask, uuid_mask.To128BitLE().data(),
-             Uuid::kNumBytes128);
-      break;
-
-    default:
-      break;
-  }
 }
 
 /*******************************************************************************
@@ -98,12 +73,11 @@ static void btif_gatt_set_encryption_cb(UNUSED_ATTR const RawAddress& bd_addr,
 
 #if (BLE_DELAY_REQUEST_ENC == FALSE)
 void btif_gatt_check_encrypted_link(RawAddress bd_addr,
-                                    tBTA_GATT_TRANSPORT transport_link) {
-  char buf[100];
-
-  if ((btif_storage_get_ble_bonding_key(&bd_addr, BTIF_DM_LE_KEY_PENC, buf,
-                                        sizeof(tBTM_LE_PENC_KEYS)) ==
-       BT_STATUS_SUCCESS) &&
+                                    tGATT_TRANSPORT transport_link) {
+  tBTM_LE_PENC_KEYS key;
+  if ((btif_storage_get_ble_bonding_key(
+           &bd_addr, BTIF_DM_LE_KEY_PENC, (uint8_t*)&key,
+           sizeof(tBTM_LE_PENC_KEYS)) == BT_STATUS_SUCCESS) &&
       !btif_gatt_is_link_encrypted(bd_addr)) {
     BTIF_TRACE_DEBUG("%s: transport = %d", __func__, transport_link);
     BTA_DmSetEncryption(bd_addr, transport_link, &btif_gatt_set_encryption_cb,
@@ -112,7 +86,7 @@ void btif_gatt_check_encrypted_link(RawAddress bd_addr,
 }
 #else
 void btif_gatt_check_encrypted_link(UNUSED_ATTR RawAddress bd_addr,
-                                    UNUSED_ATTR tBTA_GATT_TRANSPORT
+                                    UNUSED_ATTR tGATT_TRANSPORT
                                         transport_link) {}
 #endif
 

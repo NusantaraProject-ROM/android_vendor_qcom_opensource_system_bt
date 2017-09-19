@@ -101,9 +101,9 @@ static void btapp_gatts_copy_req_data(uint16_t event, char* p_dest,
     case BTA_GATTS_EXEC_WRITE_EVT:
     case BTA_GATTS_MTU_EVT:
       p_dest_data->req_data.p_data =
-          (tBTA_GATTS_REQ_DATA*)osi_malloc(sizeof(tBTA_GATTS_REQ_DATA));
+          (tGATTS_DATA*)osi_malloc(sizeof(tGATTS_DATA));
       memcpy(p_dest_data->req_data.p_data, p_src_data->req_data.p_data,
-             sizeof(tBTA_GATTS_REQ_DATA));
+             sizeof(tGATTS_DATA));
       break;
 
     default:
@@ -289,7 +289,7 @@ static void btif_gatts_open_impl(int server_if, const RawAddress& address,
   // Ensure device is in inquiry database
   int addr_type = 0;
   int device_type = 0;
-  tBTA_GATT_TRANSPORT transport = BTA_GATT_TRANSPORT_LE;
+  tGATT_TRANSPORT transport = GATT_TRANSPORT_LE;
 
   if (btif_get_address_type(address, &addr_type) &&
       btif_get_device_type(address, &device_type) &&
@@ -297,27 +297,24 @@ static void btif_gatts_open_impl(int server_if, const RawAddress& address,
     BTA_DmAddBleDevice(address, addr_type, device_type);
   }
 
-  // Mark background connections
-  if (!is_direct) BTA_DmBleStartAutoConn();
-
   // Determine transport
   if (transport_param != GATT_TRANSPORT_AUTO) {
     transport = transport_param;
   } else {
     switch (device_type) {
       case BT_DEVICE_TYPE_BREDR:
-        transport = BTA_GATT_TRANSPORT_BR_EDR;
+        transport = GATT_TRANSPORT_BR_EDR;
         break;
 
       case BT_DEVICE_TYPE_BLE:
-        transport = BTA_GATT_TRANSPORT_LE;
+        transport = GATT_TRANSPORT_LE;
         break;
 
       case BT_DEVICE_TYPE_DUMO:
         if (transport_param == GATT_TRANSPORT_LE)
-          transport = BTA_GATT_TRANSPORT_LE;
+          transport = GATT_TRANSPORT_LE;
         else
-          transport = BTA_GATT_TRANSPORT_BR_EDR;
+          transport = GATT_TRANSPORT_BR_EDR;
         break;
     }
   }
@@ -410,7 +407,7 @@ static bt_status_t btif_gatts_send_indication(int server_if,
 
 static void btif_gatts_send_response_impl(int conn_id, int trans_id, int status,
                                           btgatt_response_t response) {
-  tBTA_GATTS_RSP rsp_struct;
+  tGATTS_RSP rsp_struct;
   btif_to_bta_response(&rsp_struct, &response);
 
   BTA_GATTS_SendRsp(conn_id, trans_id, status, &rsp_struct);

@@ -517,9 +517,10 @@ void BTA_DmConfirm(const RawAddress& bd_addr, bool accept) {
  *
  ******************************************************************************/
 void BTA_DmAddDevice(const RawAddress& bd_addr, DEV_CLASS dev_class,
-                     LINK_KEY link_key, tBTA_SERVICE_MASK trusted_mask,
+                     const LinkKey& link_key, tBTA_SERVICE_MASK trusted_mask,
                      bool is_trusted, uint8_t key_type, tBTA_IO_CAP io_cap,
                      uint8_t pin_length) {
+
   tBTA_DM_API_ADD_DEVICE* p_msg =
       (tBTA_DM_API_ADD_DEVICE*)osi_calloc(sizeof(tBTA_DM_API_ADD_DEVICE));
 
@@ -528,12 +529,7 @@ void BTA_DmAddDevice(const RawAddress& bd_addr, DEV_CLASS dev_class,
   p_msg->tm = trusted_mask;
   p_msg->is_trusted = is_trusted;
   p_msg->io_cap = io_cap;
-
-  if (link_key) {
-    p_msg->link_key_known = true;
-    p_msg->key_type = key_type;
-    memcpy(p_msg->link_key, link_key, LINK_KEY_LEN);
-  }
+  p_msg->link_key = link_key;
 
   /* Load device class if specified */
   if (dev_class) {
@@ -876,17 +872,6 @@ void BTA_DmSetBleConnScanParams(uint32_t scan_interval, uint32_t scan_window) {
   p_msg->scan_int = scan_interval;
   p_msg->scan_window = scan_window;
 
-  bta_sys_sendmsg(p_msg);
-}
-
-/**
- * Set BLE connectable mode to auto connect
- */
-void BTA_DmBleStartAutoConn() {
-  tBTA_DM_API_SET_NAME* p_msg =
-      (tBTA_DM_API_SET_NAME*)osi_calloc(sizeof(tBTA_DM_API_SET_NAME));
-
-  p_msg->hdr.event = BTA_DM_API_BLE_SET_BG_CONN_TYPE;
   bta_sys_sendmsg(p_msg);
 }
 

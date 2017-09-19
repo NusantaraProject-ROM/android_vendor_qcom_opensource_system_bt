@@ -84,6 +84,9 @@ uint16_t gatt_profile_find_conn_id_by_bd_addr(const RawAddress& remote_bda) {
   uint16_t conn_id = GATT_INVALID_CONN_ID;
   GATT_GetConnIdIfConnected(gatt_cb.gatt_if, remote_bda, &conn_id,
                             BT_TRANSPORT_LE);
+  if (conn_id == GATT_INVALID_CONN_ID)
+    GATT_GetConnIdIfConnected(gatt_cb.gatt_if, remote_bda, &conn_id,
+                              BT_TRANSPORT_BR_EDR);
   return conn_id;
 }
 
@@ -210,17 +213,16 @@ static void gatt_request_cback(uint16_t conn_id, uint32_t trans_id,
     case GATTS_REQ_TYPE_WRITE_EXEC:
     case GATT_CMD_WRITE:
       ignore = true;
-      VLOG(1) << StringPrintf("Ignore GATT_REQ_EXEC_WRITE/WRITE_CMD");
+      VLOG(1) << "Ignore GATT_REQ_EXEC_WRITE/WRITE_CMD";
       break;
 
     case GATTS_REQ_TYPE_MTU:
-      VLOG(1) << StringPrintf("Get MTU exchange new mtu size: %d", p_data->mtu);
+      VLOG(1) << "Get MTU exchange new mtu size: " << +p_data->mtu;
       ignore = true;
       break;
 
     default:
-      VLOG(1) << StringPrintf("Unknown/unexpected LE GAP ATT request: 0x%02x",
-                              type);
+      VLOG(1) << "Unknown/unexpected LE GAP ATT request: " << loghex(type);
       break;
   }
 
@@ -240,9 +242,8 @@ static void gatt_connect_cback(UNUSED_ATTR tGATT_IF gatt_if,
                                const RawAddress& bda, uint16_t conn_id,
                                bool connected, tGATT_DISCONN_REASON reason,
                                tBT_TRANSPORT transport) {
-  VLOG(1) << __func__ << ": from " << bda
-          << StringPrintf(" connected:%d conn_id=%d reason = 0x%04x", connected,
-                          conn_id, reason);
+  VLOG(1) << __func__ << ": from " << bda << " connected: " << connected
+          << ", conn_id: " << loghex(conn_id) << "reason: " << loghex(reason);
 
   tGATT_PROFILE_CLCB* p_clcb =
       gatt_profile_find_clcb_by_bd_addr(bda, transport);
@@ -296,8 +297,7 @@ void gatt_profile_db_init(void) {
   service_handle = service[0].attribute_handle;
   gatt_cb.handle_of_h_r = service[1].attribute_handle;
 
-  LOG(ERROR) << StringPrintf("gatt_profile_db_init:  gatt_if=%d",
-                             gatt_cb.gatt_if);
+  VLOG(1) << __func__ << ": gatt_if=" << +gatt_cb.gatt_if;
 }
 
 /*******************************************************************************
@@ -350,14 +350,15 @@ static void gatt_disc_cmpl_cback(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
 
   if (p_clcb == NULL) return;
 
-  if (status == GATT_SUCCESS && p_clcb->ccc_result > 0) {
-    p_clcb->ccc_result = 0;
-    p_clcb->ccc_stage++;
-    gatt_cl_start_config_ccc(p_clcb);
-  } else {
-    LOG(ERROR) << StringPrintf(
-        "%s() - Unable to register for service changed indication", __func__);
+  if (status != GATT_SUCCESS || p_clcb->ccc_result == 0) {
+    LOG(WARNING) << __func__
+                 << ": Unable to register for service changed indication";
+    return;
   }
+
+  p_clcb->ccc_result = 0;
+  p_clcb->ccc_stage++;
+  gatt_cl_start_config_ccc(p_clcb);
 }
 
 /*******************************************************************************
@@ -384,41 +385,35 @@ static void gatt_cl_op_cmpl_cback(UNUSED_ATTR uint16_t conn_id,
  *
  ******************************************************************************/
 static void gatt_cl_start_config_ccc(tGATT_PROFILE_CLCB* p_clcb) {
-  tGATT_DISC_PARAM srvc_disc_param;
-  tGATT_VALUE ccc_value;
 
-  VLOG(1) << StringPrintf("%s() - stage: %d", __func__, p_clcb->ccc_stage);
-
-  memset(&srvc_disc_param, 0, sizeof(tGATT_DISC_PARAM));
-  memset(&ccc_value, 0, sizeof(tGATT_VALUE));
+  VLOG(1) << __func__ << ": stage: " << +p_clcb->ccc_stage;
 
   switch (p_clcb->ccc_stage) {
     case GATT_SVC_CHANGED_SERVICE: /* discover GATT service */
-      srvc_disc_param.s_handle = 1;
-      srvc_disc_param.e_handle = 0xffff;
-      srvc_disc_param.service = Uuid::From16Bit(UUID_SERVCLASS_GATT_SERVER);
-      GATTC_Discover(p_clcb->conn_id, GATT_DISC_SRVC_BY_UUID, &srvc_disc_param);
+      GATTC_Discover(p_clcb->conn_id, GATT_DISC_SRVC_BY_UUID, 0x0001, 0xffff,
+                     Uuid::From16Bit(UUID_SERVCLASS_GATT_SERVER));
       break;
 
     case GATT_SVC_CHANGED_CHARACTERISTIC: /* discover service change char */
-      srvc_disc_param.s_handle = 1;
-      srvc_disc_param.e_handle = p_clcb->e_handle;
-      srvc_disc_param.service = Uuid::From16Bit(GATT_UUID_GATT_SRV_CHGD);
-      GATTC_Discover(p_clcb->conn_id, GATT_DISC_CHAR, &srvc_disc_param);
+      GATTC_Discover(p_clcb->conn_id, GATT_DISC_CHAR, 0x0001, p_clcb->e_handle,
+                     Uuid::From16Bit(GATT_UUID_GATT_SRV_CHGD));
       break;
 
     case GATT_SVC_CHANGED_DESCRIPTOR: /* discover service change ccc */
-      srvc_disc_param.s_handle = p_clcb->s_handle;
-      srvc_disc_param.e_handle = p_clcb->e_handle;
-      GATTC_Discover(p_clcb->conn_id, GATT_DISC_CHAR_DSCPT, &srvc_disc_param);
+      GATTC_Discover(p_clcb->conn_id, GATT_DISC_CHAR_DSCPT, p_clcb->s_handle,
+                     p_clcb->e_handle);
       break;
 
     case GATT_SVC_CHANGED_CONFIGURE_CCCD: /* write ccc */
+    {
+      tGATT_VALUE ccc_value;
+      memset(&ccc_value, 0, sizeof(tGATT_VALUE));
       ccc_value.handle = p_clcb->s_handle;
       ccc_value.len = 2;
       ccc_value.value[0] = GATT_CLT_CONFIG_INDICATION;
       GATTC_Write(p_clcb->conn_id, GATT_WRITE, &ccc_value);
       break;
+    }
   }
 }
 

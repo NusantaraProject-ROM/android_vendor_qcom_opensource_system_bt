@@ -186,9 +186,8 @@ typedef struct {
 } tBTM_LE_BG_CONN_DEV;
 
 /* white list using state as a bit mask */
-#define BTM_BLE_WL_IDLE 0
-#define BTM_BLE_WL_INIT 1
-typedef uint8_t tBTM_BLE_WL_STATE;
+constexpr uint8_t BTM_BLE_WL_IDLE = 0;
+constexpr uint8_t BTM_BLE_WL_INIT = 1;
 
 /* resolving list using state as a bit mask */
 #define BTM_BLE_RL_IDLE 0
@@ -288,14 +287,12 @@ typedef struct {
   alarm_t* observer_timer;
 
   /* background connection procedure cb value */
-  tBTM_BLE_CONN_TYPE bg_conn_type;
-  uint32_t scan_int;
-  uint32_t scan_win;
+  uint16_t scan_int;
+  uint16_t scan_win;
 
   /* white list information */
-  tBTM_BLE_WL_STATE wl_state;
+  uint8_t wl_state;
 
-  fixed_queue_t* conn_pending_q;
   tBTM_BLE_CONN_ST conn_state;
 
   /* random address management control block */

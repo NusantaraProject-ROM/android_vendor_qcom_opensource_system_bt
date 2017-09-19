@@ -80,19 +80,23 @@ uint16_t disc_type_to_uuid[GATT_DISC_MAX] = {
  ******************************************************************************/
 void gatt_act_discovery(tGATT_CLCB* p_clcb) {
   uint8_t op_code = disc_type_to_att_opcode[p_clcb->op_subtype];
+
+  if (p_clcb->s_handle > p_clcb->e_handle || p_clcb->s_handle == 0) {
+    /* end of handle range */
+    gatt_end_operation(p_clcb, GATT_SUCCESS, NULL);
+    return;
+  }
+
   tGATT_CL_MSG cl_req;
-  tGATT_STATUS st;
+  memset(&cl_req, 0, sizeof(tGATT_CL_MSG));
 
-  if (p_clcb->s_handle <= p_clcb->e_handle && p_clcb->s_handle != 0) {
-    memset(&cl_req, 0, sizeof(tGATT_CL_MSG));
+  cl_req.browse.s_handle = p_clcb->s_handle;
+  cl_req.browse.e_handle = p_clcb->e_handle;
 
-    cl_req.browse.s_handle = p_clcb->s_handle;
-    cl_req.browse.e_handle = p_clcb->e_handle;
-
-    if (disc_type_to_uuid[p_clcb->op_subtype] != 0) {
-      cl_req.browse.uuid =
-          bluetooth::Uuid::From16Bit(disc_type_to_uuid[p_clcb->op_subtype]);
-    }
+  if (disc_type_to_uuid[p_clcb->op_subtype] != 0) {
+    cl_req.browse.uuid =
+        bluetooth::Uuid::From16Bit(disc_type_to_uuid[p_clcb->op_subtype]);
+  }
 
     if (p_clcb->op_subtype ==
         GATT_DISC_SRVC_BY_UUID) /* fill in the FindByTypeValue request info*/
@@ -117,13 +121,10 @@ void gatt_act_discovery(tGATT_CLCB* p_clcb) {
                size);
     }
 
-    st = attp_send_cl_msg(*p_clcb->p_tcb, p_clcb, op_code, &cl_req);
-
-    if (st != GATT_SUCCESS && st != GATT_CMD_STARTED) {
-      gatt_end_operation(p_clcb, GATT_ERROR, NULL);
-    }
-  } else /* end of handle range */
-    gatt_end_operation(p_clcb, GATT_SUCCESS, NULL);
+  tGATT_STATUS st = attp_send_cl_msg(*p_clcb->p_tcb, p_clcb, op_code, &cl_req);
+  if (st != GATT_SUCCESS && st != GATT_CMD_STARTED) {
+    gatt_end_operation(p_clcb, GATT_ERROR, NULL);
+  }
 }
 
 /*******************************************************************************
@@ -296,7 +297,7 @@ void gatt_send_queue_write_cancel(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
 bool gatt_check_write_long_terminate(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
                                      tGATT_VALUE* p_rsp_value) {
   tGATT_VALUE* p_attr = (tGATT_VALUE*)p_clcb->p_attr_buf;
-  bool exec = false;
+  bool terminate = false;
   tGATT_EXEC_FLAG flag = GATT_PREP_WRITE_EXEC;
 
   VLOG(1) << __func__;
@@ -309,19 +310,18 @@ bool gatt_check_write_long_terminate(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
       /* data does not match    */
       p_clcb->status = GATT_ERROR;
       flag = GATT_PREP_WRITE_CANCEL;
-      exec = true;
+      terminate = true;
     } else /* response checking is good */
     {
       p_clcb->status = GATT_SUCCESS;
       /* update write offset and check if end of attribute value */
-      if ((p_attr->offset += p_rsp_value->len) >= p_attr->len) exec = true;
+      if ((p_attr->offset += p_rsp_value->len) >= p_attr->len) terminate = true;
     }
   }
-  if (exec) {
+  if (terminate && p_clcb->op_subtype != GATT_WRITE_PREPARE) {
     gatt_send_queue_write_cancel(tcb, p_clcb, flag);
-    return true;
   }
-  return false;
+  return terminate;
 }
 
 /** Send prepare write */
@@ -585,15 +585,15 @@ void gatt_process_prep_write_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
 
   memcpy(value.value, p, value.len);
 
+  if (!gatt_check_write_long_terminate(tcb, p_clcb, &value)) {
+    gatt_send_prepare_write(tcb, p_clcb);
+    return;
+  }
+
   if (p_clcb->op_subtype == GATT_WRITE_PREPARE) {
-    p_clcb->status = GATT_SUCCESS;
     /* application should verify handle offset
        and value are matched or not */
-
     gatt_end_operation(p_clcb, p_clcb->status, &value);
-  } else if (p_clcb->op_subtype == GATT_WRITE) {
-    if (!gatt_check_write_long_terminate(tcb, p_clcb, &value))
-      gatt_send_prepare_write(tcb, p_clcb);
   }
 }
 /*******************************************************************************
@@ -611,8 +611,9 @@ void gatt_process_notification(tGATT_TCB& tcb, uint8_t op_code, uint16_t len,
   tGATT_REG* p_reg;
   uint16_t conn_id;
   tGATT_STATUS encrypt_status;
-  uint8_t *p = p_data, i,
-          event = (op_code == GATT_HANDLE_VALUE_NOTIF)
+  uint8_t* p = p_data;
+  uint8_t i;
+  uint8_t event = (op_code == GATT_HANDLE_VALUE_NOTIF)
                       ? GATTC_OPTYPE_NOTIFICATION
                       : GATTC_OPTYPE_INDICATION;
 

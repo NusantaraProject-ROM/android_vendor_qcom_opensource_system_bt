@@ -67,16 +67,18 @@ void bta_dm_ci_io_req(const RawAddress& bd_addr, tBTA_IO_CAP io_cap,
  * Returns          void
  *
  ******************************************************************************/
-void bta_dm_ci_rmt_oob(bool accept, const RawAddress& bd_addr, BT_OCTET16 c,
-                       BT_OCTET16 r) {
+void bta_dm_ci_rmt_oob(bool accept, const RawAddress& bd_addr, const Octet16& c,
+                       const Octet16& r) {
+  //TODO -if it impacts issues. please revert back
+
   tBTA_DM_CI_RMT_OOB* p_msg =
       (tBTA_DM_CI_RMT_OOB*)osi_malloc(sizeof(tBTA_DM_CI_RMT_OOB));
 
   p_msg->hdr.event = BTA_DM_CI_RMT_OOB_EVT;
   p_msg->bd_addr = bd_addr;
   p_msg->accept = accept;
-  memcpy(p_msg->c, c, BT_OCTET16_LEN);
-  memcpy(p_msg->r, r, BT_OCTET16_LEN);
+  p_msg->c = c;
+  p_msg->r = r;
 
   bta_sys_sendmsg(p_msg);
 }

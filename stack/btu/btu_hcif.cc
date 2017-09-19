@@ -55,6 +55,7 @@ using base::Location;
 extern void bte_main_disable(void);
 extern void btm_process_cancel_complete(uint8_t status, uint8_t mode);
 extern void btm_ble_test_command_complete(uint8_t* p);
+extern void smp_cancel_start_encryption_attempt();
 
 /******************************************************************************/
 /*            L O C A L    F U N C T I O N     P R O T O T Y P E S            */
@@ -488,7 +489,7 @@ static void btu_hcif_command_status_evt_with_cb(uint8_t status, BT_HDR* command,
 /* This function is called to send commands to the Host Controller. |cb| is
  * called when command status event is called with error code, or when the
  * command complete event is received. */
-void btu_hcif_send_cmd_with_cb(const base::Location& posted_from,
+void btu_hcif_send_cmd_with_cb(const Location& posted_from,
                                uint16_t opcode, uint8_t* params,
                                uint8_t params_len, hci_cmd_cb cb) {
   BT_HDR* p = (BT_HDR*)osi_malloc(HCI_CMD_BUF_SIZE);
@@ -602,6 +603,13 @@ static void btu_hcif_connection_comp_evt(uint8_t* p) {
 
   handle = HCID_GET_HANDLE(handle);
 
+  if (status != HCI_SUCCESS) {
+    HCI_TRACE_DEBUG(
+        "%s: Connection failed: status=%d, handle=%d, link_type=%d, "
+        "enc_mode=%d",
+        __func__, status, handle, link_type, enc_mode);
+  }
+
   if (link_type == HCI_LINK_TYPE_ACL) {
     btm_sec_connected(bda, handle, status, enc_mode);
 
@@ -665,6 +673,13 @@ static void btu_hcif_disconnection_comp_evt(uint8_t* p) {
   STREAM_TO_UINT8(reason, p);
 
   handle = HCID_GET_HANDLE(handle);
+
+  if ((reason != HCI_ERR_CONN_CAUSE_LOCAL_HOST) &&
+      (reason != HCI_ERR_PEER_USER)) {
+    /* Uncommon disconnection reasons */
+    HCI_TRACE_DEBUG("%s: Got Disconn Complete Event: reason=%d, handle=%d",
+                    __func__, reason, handle);
+  }
 
 #if (BTM_SCO_INCLUDED == TRUE)
   /* If L2CAP doesn't know about it, send it to SCO */
@@ -736,6 +751,11 @@ static void btu_hcif_encryption_change_evt(uint8_t* p) {
   STREAM_TO_UINT8(status, p);
   STREAM_TO_UINT16(handle, p);
   STREAM_TO_UINT8(encr_enable, p);
+
+  if (status == HCI_ERR_CONNECTION_TOUT) {
+    smp_cancel_start_encryption_attempt();
+    return;
+  }
 
   btm_acl_encrypt_change(handle, status, encr_enable);
   btm_sec_encrypt_change(handle, status, encr_enable);
@@ -968,18 +988,6 @@ static void btu_hcif_hdl_command_complete(uint16_t opcode, uint8_t* p,
       break;
 
     /* BLE Commands sComplete*/
-    case HCI_BLE_ADD_WHITE_LIST:
-      btm_ble_add_2_white_list_complete(*p);
-      break;
-
-    case HCI_BLE_CLEAR_WHITE_LIST:
-      btm_ble_clear_white_list_complete(p, evt_len);
-      break;
-
-    case HCI_BLE_REMOVE_WHITE_LIST:
-      btm_ble_remove_from_white_list_complete(p, evt_len);
-      break;
-
     case HCI_BLE_RAND:
     case HCI_BLE_ENCRYPT:
       btm_ble_rand_enc_complete(p, opcode, (tBTM_RAND_ENC_CB*)p_cplt_cback);
@@ -994,7 +1002,13 @@ static void btu_hcif_hdl_command_complete(uint16_t opcode, uint8_t* p,
       break;
 
     case HCI_BLE_CREATE_LL_CONN:
-      btm_ble_create_ll_conn_complete(*p);
+    case HCI_LE_EXTENDED_CREATE_CONNECTION:
+      // No command complete event for those commands according to spec
+      LOG(ERROR) << "No command complete expected, but received!";
+      break;
+
+    case HCI_BLE_CREATE_CONN_CANCEL:
+      btm_ble_create_conn_cancel_complete(p);
       break;
 
     case HCI_BLE_TRANSMITTER_TEST:
@@ -1121,7 +1135,7 @@ static void btu_hcif_hdl_command_status(uint16_t opcode, uint8_t status,
         }
       }
 #endif
-      FALLTHROUGH;
+      FALLTHROUGH_INTENDED; /* FALLTHROUGH */
 
     case HCI_HOLD_MODE:
     case HCI_SNIFF_MODE:
@@ -1191,6 +1205,15 @@ static void btu_hcif_hdl_command_status(uint16_t opcode, uint8_t status,
             btm_sec_auth_complete(BTM_INVALID_HCI_HANDLE, status);
             break;
 
+          case HCI_BLE_START_ENC:
+            // Race condition: disconnection happened right before we send
+            // "LE Encrypt", controller responds with no connection, we should
+            // cancel the encryption attempt, rather than unpair the device.
+            if (status == HCI_ERR_NO_CONNECTION) {
+              smp_cancel_start_encryption_attempt();
+            }
+            break;
+
           case HCI_SET_CONN_ENCRYPTION:
             /* Device refused to start encryption.  That should be treated as
              * encryption failure. */
@@ -1198,6 +1221,7 @@ static void btu_hcif_hdl_command_status(uint16_t opcode, uint8_t status,
             break;
 
           case HCI_BLE_CREATE_LL_CONN:
+          case HCI_LE_EXTENDED_CREATE_CONNECTION:
             btm_ble_create_ll_conn_complete(status);
             break;
 
@@ -1449,11 +1473,11 @@ static void btu_hcif_link_key_request_evt(uint8_t* p) {
  ******************************************************************************/
 static void btu_hcif_link_key_notification_evt(uint8_t* p) {
   RawAddress bda;
-  LINK_KEY key;
+  Octet16 key;
   uint8_t key_type;
 
   STREAM_TO_BDADDR(bda, p);
-  STREAM_TO_ARRAY16(key, p);
+  STREAM_TO_ARRAY16(key.data(), p);
   STREAM_TO_UINT8(key_type, p);
 
   btm_sec_link_key_notification(bda, key, key_type);

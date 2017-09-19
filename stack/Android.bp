@@ -1,3 +1,9 @@
+crypto_toolbox_srcs = [
+    "crypto_toolbox/aes.cc",
+    "crypto_toolbox/aes_cmac.cc",
+    "crypto_toolbox/crypto_toolbox.cc",
+]
+
 // Bluetooth stack static library for target
 // ========================================================
 cc_library_static {
@@ -43,7 +49,7 @@ cc_library_static {
         "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/stack/btm",
     ],
-    srcs: [
+    srcs: crypto_toolbox_srcs + [
         "a2dp/a2dp_aac.cc",
         "a2dp/a2dp_aac_encoder.cc",
         "a2dp/a2dp_api.cc",
@@ -111,6 +117,7 @@ cc_library_static {
         "gap/gap_ble.cc",
         "gap/gap_conn.cc",
         "gatt/att_protocol.cc",
+        "gatt/connection_manager.cc",
         "gatt/gatt_api.cc",
         "gatt/gatt_attr.cc",
         "gatt/gatt_auth.cc",
@@ -152,14 +159,12 @@ cc_library_static {
         "sdp/sdp_main.cc",
         "sdp/sdp_server.cc",
         "sdp/sdp_utils.cc",
-        "smp/aes.cc",
         "smp/p_256_curvepara.cc",
         "smp/p_256_ecc_pp.cc",
         "smp/p_256_multprecision.cc",
         "smp/smp_act.cc",
         "smp/smp_api.cc",
         "smp/smp_br_main.cc",
-        "smp/smp_cmac.cc",
         "smp/smp_keys.cc",
         "smp/smp_l2c.cc",
         "smp/smp_main.cc",
@@ -181,7 +186,7 @@ cc_library_static {
     required: [
         "libldacBT_enc",
         "libldacBT_abr",
-    ]
+    ],
 }
 
 // Bluetooth stack unit tests for target
@@ -229,12 +234,15 @@ cc_test {
         "vendor/qcom/opensource/commonsys/system/bt/hci/include",
         "vendor/qcom/opensource/commonsys/system/bt/utils/include",
     ],
-    srcs: [
+    srcs: crypto_toolbox_srcs + [
         "smp/smp_keys.cc",
-        "smp/aes.cc",
+        "smp/p_256_curvepara.cc",
+        "smp/p_256_ecc_pp.cc",
+        "smp/p_256_multprecision.cc",
         "smp/smp_api.cc",
         "smp/smp_main.cc",
         "smp/smp_utils.cc",
+        "test/crypto_toolbox_test.cc",
         "test/stack_smp_test.cc",
     ],
     shared_libs: [
@@ -247,7 +255,6 @@ cc_test {
         "libosi_qti",
     ],
 }
-
 
 // Bluetooth stack multi-advertising unit tests for target
 // ========================================================

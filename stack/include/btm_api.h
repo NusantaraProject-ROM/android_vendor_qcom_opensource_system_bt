@@ -1266,7 +1266,7 @@ extern uint8_t BTM_GetNumScoLinks(void);
  * Returns          true if registered OK, else false
  *
  ******************************************************************************/
-extern bool BTM_SecRegister(tBTM_APPL_INFO* p_cb_info);
+extern bool BTM_SecRegister(const tBTM_APPL_INFO* p_cb_info);
 
 /*******************************************************************************
  *
@@ -1455,7 +1455,7 @@ extern uint8_t BTM_SecClrService(uint8_t service_id);
  ******************************************************************************/
 extern bool BTM_SecAddDevice(const RawAddress& bd_addr, DEV_CLASS dev_class,
                              BD_NAME bd_name, uint8_t* features,
-                             uint32_t trusted_mask[], LINK_KEY link_key,
+                             uint32_t trusted_mask[], LinkKey* link_key,
                              uint8_t key_type, tBTM_IO_CAP io_cap,
                              uint8_t pin_length);
 
@@ -1494,7 +1494,7 @@ extern void BTM_SecClearSecurityFlags(const RawAddress& bd_addr);
  *
  ******************************************************************************/
 extern tBTM_STATUS BTM_SecGetDeviceLinkKey(const RawAddress& bd_addr,
-                                           LINK_KEY link_key);
+                                           LinkKey* link_key);
 
 /*******************************************************************************
  *
@@ -1710,7 +1710,7 @@ extern void BTM_ReadLocalOobData(void);
  *
  ******************************************************************************/
 extern void BTM_RemoteOobDataReply(tBTM_STATUS res, const RawAddress& bd_addr,
-                                   BT_OCTET16 c, BT_OCTET16 r);
+                                   const Octet16& c, const Octet16& r);
 
 /*******************************************************************************
  *
@@ -1731,7 +1731,8 @@ extern void BTM_RemoteOobDataReply(tBTM_STATUS res, const RawAddress& bd_addr,
  *
  ******************************************************************************/
 extern uint16_t BTM_BuildOobData(uint8_t* p_data, uint16_t max_len,
-                                 BT_OCTET16 c, BT_OCTET16 r, uint8_t name_len);
+                                 const Octet16& c, const Octet16& r,
+                                 uint8_t name_len);
 
 /*******************************************************************************
  *

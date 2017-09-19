@@ -1246,6 +1246,10 @@ extern bool L2CA_CancelBleConnectReq(const RawAddress& rem_bda);
 extern bool L2CA_UpdateBleConnParams(const RawAddress& rem_bdRa,
                                      uint16_t min_int, uint16_t max_int,
                                      uint16_t latency, uint16_t timeout);
+extern bool L2CA_UpdateBleConnParams(const RawAddress& rem_bda,
+                                     uint16_t min_int, uint16_t max_int,
+                                     uint16_t latency, uint16_t timeout,
+                                     uint16_t min_ce_len, uint16_t max_ce_len);
 
 /*******************************************************************************
  *
@@ -1321,4 +1325,7 @@ extern void L2CA_SetMediaStreamChannel(uint16_t local_media_cid, bool status);
 *******************************************************************************/
 extern bool L2CA_isMediaChannel(uint16_t handle, uint16_t channel_id, bool is_local_cid);
 
+extern void L2CA_AdjustConnectionIntervals(uint16_t* min_interval,
+                                           uint16_t* max_interval,
+                                           uint16_t floor_interval);
 #endif /* L2C_API_H */

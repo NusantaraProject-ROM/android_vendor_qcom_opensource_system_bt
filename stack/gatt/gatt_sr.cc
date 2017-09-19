@@ -22,12 +22,13 @@
  *
  ******************************************************************************/
 
-#include <log/log.h>
 #include "bt_target.h"
 #include "bt_utils.h"
 #include "osi/include/osi.h"
 
+#include <log/log.h>
 #include <string.h>
+
 #include "gatt_int.h"
 #include "l2c_api.h"
 #include "l2c_int.h"
@@ -467,7 +468,7 @@ static tGATT_STATUS gatt_build_primary_service_rsp(
     if (!p_uuid) continue;
 
     if (op_code == GATT_REQ_READ_BY_GRP_TYPE)
-      handle_len = 4 + p_uuid->GetShortestRepresentationSize();
+      handle_len = 4 + gatt_build_uuid_to_stream_len(*p_uuid);
 
     /* get the length byte in the repsonse */
     if (p_msg->offset == 0) {
@@ -490,8 +491,8 @@ static tGATT_STATUS gatt_build_primary_service_rsp(
 
     UINT16_TO_STREAM(p, el.s_hdl);
 
-    if (gatt_cb.last_primary_s_handle &&
-        gatt_cb.last_primary_s_handle == el.s_hdl) {
+    if (gatt_cb.last_service_handle &&
+        gatt_cb.last_service_handle == el.s_hdl) {
       VLOG(1) << "Use 0xFFFF for the last primary attribute";
       /* see GATT ERRATA 4065, 4063, ATT ERRATA 4062 */
       UINT16_TO_STREAM(p, 0xFFFF);
@@ -643,7 +644,7 @@ void gatts_process_primary_service_req(tGATT_TCB& tcb, uint8_t op_code,
   // TODO: we assume theh value is UUID, there is no such requirement in spec
   Uuid value = Uuid::kEmpty;
   if (op_code == GATT_REQ_FIND_TYPE_VALUE) {
-    if (gatt_parse_uuid_from_cmd(&value, len, &p_data) == false) {
+    if (!gatt_parse_uuid_from_cmd(&value, len, &p_data)) {
       gatt_send_error_rsp(tcb, GATT_INVALID_PDU, op_code, s_hdl, false);
     }
   }
@@ -749,7 +750,7 @@ static void gatts_process_mtu_req(tGATT_TCB& tcb, uint16_t len,
   else
     tcb.payload_size = mtu;
 
-  LOG(ERROR) << "MTU request PDU with MTU size " << +tcb.payload_size;
+  LOG(INFO) << "MTU request PDU with MTU size " << +tcb.payload_size;
 
   l2cble_set_fixed_channel_tx_data_length(tcb.peer_bda, L2CAP_ATT_CID,
                                           tcb.payload_size);
@@ -885,15 +886,14 @@ void gatts_process_write_req(tGATT_TCB& tcb, tGATT_SRV_LIST_ELEM& el,
       sr_data.write_req.is_prep = true;
       STREAM_TO_UINT16(sr_data.write_req.offset, p);
       len -= 2;
-      FALLTHROUGH;
+      FALLTHROUGH_INTENDED; /* FALLTHROUGH */
     case GATT_SIGN_CMD_WRITE:
       if (op_code == GATT_SIGN_CMD_WRITE) {
         VLOG(1) << "Write CMD with data sigining";
         len -= GATT_AUTH_SIGN_LEN;
       }
-      FALLTHROUGH;
+      FALLTHROUGH_INTENDED; /* FALLTHROUGH */
     case GATT_CMD_WRITE:
-      FALLTHROUGH;
     case GATT_REQ_WRITE:
       if (op_code == GATT_REQ_WRITE || op_code == GATT_REQ_PREPARE_WRITE)
         sr_data.write_req.need_rsp = true;

@@ -299,7 +299,8 @@ void l2c_link_sec_comp2(const RawAddress& p_bda,
   tL2C_CCB* p_next_ccb;
   uint8_t event;
 
-  L2CAP_TRACE_DEBUG("l2c_link_sec_comp: %d, 0x%x", status, p_ref_data);
+  L2CAP_TRACE_DEBUG("%s: status=%d, p_ref_data=%p, BD_ADDR=%s", __func__,
+                    status, p_ref_data, p_bda.ToString().c_str());
 
   if (status == BTM_SUCCESS_NO_SECURITY) status = BTM_SUCCESS;
 
@@ -414,7 +415,6 @@ bool l2c_link_hci_disc_comp(uint16_t handle, uint8_t reason) {
       /* for LE link, always drop and re-open to ensure to get LE remote feature
        */
       if (p_lcb->transport == BT_TRANSPORT_LE) {
-        l2cb.is_ble_connecting = false;
         btm_acl_removed(p_lcb->remote_bd_addr, p_lcb->transport);
         /* Release any held buffers */
         BT_HDR* p_buf;
@@ -557,9 +557,7 @@ void l2c_link_timeout(tL2C_LCB* p_lcb) {
 
       p_ccb = pn;
     }
-    if (p_lcb->link_state == LST_CONNECTING && l2cb.is_ble_connecting == true) {
-      L2CA_CancelBleConnectReq(l2cb.ble_connecting_bda);
-    }
+
     /* Release the LCB */
     l2cu_release_lcb(p_lcb);
   }

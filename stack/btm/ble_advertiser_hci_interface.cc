@@ -21,13 +21,19 @@
 #include <base/callback.h>
 #include <base/location.h>
 #include <base/logging.h>
-#include <queue>
-#include <utility>
 #include "btm_api.h"
 #include "btm_ble_api.h"
 #include "btm_int_types.h"
 #include "device/include/controller.h"
 #include "hcidefs.h"
+
+#include <queue>
+#include <utility>
+
+#include <base/bind.h>
+#include <base/callback.h>
+#include <base/location.h>
+#include <base/logging.h>
 
 #define BTM_BLE_MULTI_ADV_SET_RANDOM_ADDR_LEN 8
 #define BTM_BLE_MULTI_ADV_ENB_LEN 3
@@ -45,9 +51,9 @@ using status_cb = BleAdvertiserHciInterface::status_cb;
 
 using hci_cmd_cb = base::Callback<void(uint8_t* /* return_parameters */,
                                        uint16_t /* return_parameters_length*/)>;
-extern void btu_hcif_send_cmd_with_cb(
-    const base::Location& posted_from, uint16_t opcode,
-    uint8_t* params, uint8_t params_len, hci_cmd_cb cb);
+extern void btu_hcif_send_cmd_with_cb(const base::Location& posted_from,
+                                      uint16_t opcode, uint8_t* params,
+                                      uint8_t params_len, hci_cmd_cb cb);
 
 namespace {
 BleAdvertiserHciInterface* instance = nullptr;
@@ -96,9 +102,8 @@ void known_tx_pwr(BleAdvertiserHciInterface::parameters_cb cb, int8_t tx_power,
 }
 
 class BleAdvertiserVscHciInterfaceImpl : public BleAdvertiserHciInterface {
-  void SendAdvCmd(const base::Location& posted_from,
-                  uint8_t param_len, uint8_t* param_buf,
-                  status_cb command_complete) {
+  void SendAdvCmd(const base::Location& posted_from, uint8_t param_len,
+                  uint8_t* param_buf, status_cb command_complete) {
     btu_hcif_send_cmd_with_cb(posted_from, HCI_BLE_MULTI_ADV_OCF, param_buf,
                               param_len,
                               base::Bind(&btm_ble_multi_adv_vsc_cmpl_cback,
@@ -323,7 +328,9 @@ class BleAdvertiserLegacyHciInterfaceImpl : public BleAdvertiserHciInterface {
   }
 
   void SetAdvertisingEventObserver(
-      AdvertisingEventObserver* observer) override {}
+      AdvertisingEventObserver* observer) override {
+    this->advertising_event_observer = observer;
+  }
 
   void SetParameters(uint8_t handle, uint16_t properties, uint32_t adv_int_min,
                      uint32_t adv_int_max, uint8_t channel_map,
@@ -462,6 +469,19 @@ class BleAdvertiserLegacyHciInterfaceImpl : public BleAdvertiserHciInterface {
     // Legacy Advertising don't have remove method.
     command_complete.Run(0);
   }
+
+ public:
+  void OnAdvertisingSetTerminated(uint8_t status, uint16_t connection_handle) {
+    VLOG(1) << __func__;
+
+    AdvertisingEventObserver* observer = this->advertising_event_observer;
+    if (observer)
+      observer->OnAdvertisingSetTerminated(status, 0 /*advertising_handle*/,
+                                           connection_handle, 0);
+  }
+
+ private:
+  AdvertisingEventObserver* advertising_event_observer = nullptr;
 };
 
 class BleAdvertiserHciExtendedImpl : public BleAdvertiserHciInterface {
@@ -702,6 +722,15 @@ void btm_le_on_advertising_set_terminated(uint8_t* p, uint16_t length) {
   }
 }
 
+bool legacy_advertising_in_use = false;
+void btm_ble_advertiser_notify_terminated_legacy(uint8_t status,
+                                                 uint16_t connection_handle) {
+  if (BleAdvertiserHciInterface::Get() && legacy_advertising_in_use) {
+    ((BleAdvertiserLegacyHciInterfaceImpl*)BleAdvertiserHciInterface::Get())
+        ->OnAdvertisingSetTerminated(status, connection_handle);
+  }
+}
+
 void BleAdvertiserHciInterface::Initialize() {
   VLOG(1) << __func__;
   LOG_ASSERT(instance == nullptr) << "Was already initialized.";
@@ -717,6 +746,7 @@ void BleAdvertiserHciInterface::Initialize() {
   } else {
     LOG(INFO) << "Legacy advertising will be in use";
     instance = new BleAdvertiserLegacyHciInterfaceImpl();
+    legacy_advertising_in_use = true;
   }
 }
 

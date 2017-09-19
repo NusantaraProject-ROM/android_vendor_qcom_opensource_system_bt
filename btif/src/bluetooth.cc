@@ -72,6 +72,7 @@
 #include "osi/include/metrics.h"
 #include "osi/include/osi.h"
 #include "osi/include/wakelock.h"
+#include "stack/gatt/connection_manager.h"
 #include "stack_manager.h"
 
 
@@ -330,6 +331,7 @@ static void dump(int fd, const char** arguments) {
   wakelock_debug_dump(fd);
   osi_allocator_debug_dump(fd);
   alarm_debug_dump(fd);
+  connection_manager::dump(fd);
 #if (BTSNOOP_MEM == TRUE)
   btif_debug_btsnoop_dump(fd);
 #endif

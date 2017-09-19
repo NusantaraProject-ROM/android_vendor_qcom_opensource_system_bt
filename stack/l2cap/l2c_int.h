@@ -28,6 +28,7 @@
 
 #include "bt_common.h"
 #include "btm_api.h"
+#include "btm_ble_api.h"
 #include "l2c_api.h"
 #include "l2cdefs.h"
 #include "osi/include/alarm.h"
@@ -472,6 +473,8 @@ typedef struct t_l2c_linkcb {
   uint16_t max_interval;
   uint16_t latency;
   uint16_t timeout;
+  uint16_t min_ce_len;
+  uint16_t max_ce_len;
 
 #if (L2CAP_ROUND_ROBIN_CHANNEL_SERVICE == TRUE)
   /* each priority group is limited burst transmission */
@@ -530,8 +533,6 @@ typedef struct {
 #endif
 
   uint16_t num_ble_links_active; /* Number of LE links active */
-  bool is_ble_connecting;
-  RawAddress ble_connecting_bda;
   uint16_t controller_le_xmit_window; /* Total ACL window for all links */
   tL2C_BLE_FIXED_CHNLS_MASK l2c_ble_fixed_chnls_mask;  // LE fixed channels mask
   uint16_t num_lm_ble_bufs;         /* # of ACL buffers on controller */
@@ -839,7 +840,6 @@ extern void l2cble_conn_comp(uint16_t handle, uint8_t role,
                              const RawAddress& bda, tBLE_ADDR_TYPE type,
                              uint16_t conn_interval, uint16_t conn_latency,
                              uint16_t conn_timeout);
-extern bool l2cble_init_direct_conn(tL2C_LCB* p_lcb);
 extern void l2cble_notify_le_connection(const RawAddress& bda);
 extern void l2c_ble_link_adjust_allocation(void);
 extern void l2cble_process_conn_update_evt(uint16_t handle, uint8_t status,
@@ -851,10 +851,11 @@ extern void l2cble_credit_based_conn_res(tL2C_CCB* p_ccb, uint16_t result);
 extern void l2cble_send_peer_disc_req(tL2C_CCB* p_ccb);
 extern void l2cble_send_flow_control_credit(tL2C_CCB* p_ccb,
                                             uint16_t credit_value);
-extern bool l2ble_sec_access_req(const RawAddress& bd_addr, uint16_t psm,
-                                 bool is_originator,
-                                 tL2CAP_SEC_CBACK* p_callback,
-                                 void* p_ref_data);
+extern tL2CAP_LE_RESULT_CODE l2ble_sec_access_req(const RawAddress& bd_addr,
+                                                  uint16_t psm,
+                                                  bool is_originator,
+                                                  tL2CAP_SEC_CBACK* p_callback,
+                                                  void* p_ref_data);
 
 #if (BLE_LLT_INCLUDED == TRUE)
 extern void l2cble_process_rc_param_request_evt(uint16_t handle,

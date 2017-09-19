@@ -48,19 +48,11 @@ bool BTM_BleLocalPrivacyEnabled() { return true; }
 uint16_t BTM_ReadDiscoverability(uint16_t* p_window, uint16_t* p_interval) {
   return true;
 }
-bool SMP_Encrypt(uint8_t* key, uint8_t key_len, uint8_t* plain_text,
-                 uint8_t pt_len, tSMP_ENC* p_out) {
-  return true;
-}
-void BTM_GetDeviceIDRoot(BT_OCTET16 irk) {}
-void btm_ble_update_dmt_flag_bits(uint8_t* flag_value,
-                                  const uint16_t connect_mode,
-                                  const uint16_t disc_mode) {}
 void btm_acl_update_conn_addr(uint16_t conn_handle, const RawAddress& address) {
 }
-void btm_gen_resolvable_private_addr(base::Callback<void(uint8_t[8])> cb) {
-  uint8_t fake_rand[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-  cb.Run(fake_rand);
+void btm_gen_resolvable_private_addr(
+    base::Callback<void(const RawAddress& rpa)> cb) {
+  cb.Run(RawAddress::kEmpty);
 }
 
 const stack_config_t interface = {};

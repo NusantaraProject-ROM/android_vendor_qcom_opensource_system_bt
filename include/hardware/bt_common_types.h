@@ -104,5 +104,4 @@ struct ApcfCommand {
   std::vector<uint8_t> data_mask;
 };
 
-
-#endif  /* ANDROID_INCLUDE_BT_COMMON_TYPES_H */
+#endif /* ANDROID_INCLUDE_BT_COMMON_TYPES_H */
