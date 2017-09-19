@@ -391,7 +391,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         break;
       }
       if (deinit_pending) {
-        APPL_TRACE_WARNING("%s:deinit pending return disconnected");
+        APPL_TRACE_WARNING("%s:deinit pending return disconnected",__func__);
         status = A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS;
         break;
       }
@@ -420,7 +420,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         break;
       }
       if (deinit_pending) {
-        APPL_TRACE_WARNING("%s:deinit pending return disconnected");
+        APPL_TRACE_WARNING("%s:deinit pending return disconnected",__func__);
         status = A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS;
         break;
       }
@@ -467,7 +467,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
       {
         int idx = btif_av_get_latest_playing_device_idx();
         if (deinit_pending) {
-          APPL_TRACE_WARNING("%s:deinit pending return disconnected");
+          APPL_TRACE_WARNING("%s:deinit pending return disconnected",__func__);
           status = A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS;
           break;
         }
@@ -486,7 +486,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
     case A2DP_CTRL_CMD_SUSPEND:
       /* Local suspend */
       if (deinit_pending) {
-        APPL_TRACE_WARNING("%s:deinit pending return disconnected");
+        APPL_TRACE_WARNING("%s:deinit pending return disconnected",__func__);
         status = A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS;
         break;
       }
