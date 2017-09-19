@@ -251,16 +251,16 @@ class BleAdvertisingManagerImpl
                                   Bind(DoNothing));
           }
 
+          memcpy(p_inst->own_address, &bda, BD_ADDR_LEN);
           /* set it to controller */
           hci_interface->SetRandomAddress(
               p_inst->inst_id, p_inst->own_address,
               Bind(
-                  [](AdvertisingInstance* p_inst, bt_bdaddr_t bda,
+                  [](AdvertisingInstance* p_inst,
                      MultiAdvCb configuredCb, uint8_t status) {
-                    memcpy(p_inst->own_address, &bda, BD_ADDR_LEN);
                     configuredCb.Run(0x00);
                   },
-                  p_inst, bda, configuredCb));
+                  p_inst, configuredCb));
 
           if (restart) {
             p_inst->enable_status = true;
