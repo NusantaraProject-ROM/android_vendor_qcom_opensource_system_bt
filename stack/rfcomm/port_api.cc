@@ -511,6 +511,52 @@ int PORT_CheckConnection(uint16_t handle, BD_ADDR bd_addr, uint16_t* p_lcid) {
 
 /*******************************************************************************
  *
+ * Function         PORT_GetRemoteMtu
+ *
+ * Description      This function feteches remote mtu from port
+ *
+ * Parameters:      handle     - Handle returned in the RFCOMM_CreateConnection
+ *
+ * Returns:         uint16_t    - Maximum rfcomm frame size that can be
+ *                               transmitted to the peer
+ *
+ *******************************************************************************/
+uint16_t PORT_GetRemoteMtu (uint16_t handle)
+{
+    tPORT      *p_port;
+
+    RFCOMM_TRACE_API ("PORT_GetRemoteMtu() handle:%d", handle);
+
+    /* Check if handle is valid to avoid crashing */
+    if ((handle == 0) || (handle > MAX_RFC_PORTS))
+    {
+        return (0);
+    }
+
+    p_port = &rfc_cb.port.port[handle - 1];
+
+    if (!p_port->in_use || (p_port->state == PORT_STATE_CLOSED))
+    {
+        RFCOMM_TRACE_ERROR ("PORT_GetRemoteMtu() p_port->in_use = %d, p_port->state = %d",
+               p_port->in_use, p_port->state);
+        return (0);
+    }
+
+    if (!p_port->rfc.p_mcb
+     || !p_port->rfc.p_mcb->peer_ready
+     || (p_port->rfc.state != RFC_STATE_OPENED))
+    {
+        RFCOMM_TRACE_ERROR ("PORT_GetRemoteMtu() peer not ready or p_port->rfc.state = %d",
+                p_port->rfc.state );
+        return (0);
+    }
+
+    return (p_port->peer_mtu);
+}
+
+
+/*******************************************************************************
+ *
  * Function         PORT_IsOpening
  *
  * Description      This function returns true if there is any RFCOMM connection

@@ -459,13 +459,13 @@ static bool send_app_scn(rfc_slot_t* slot) {
 }
 
 static bool send_app_connect_signal(int fd, const bt_bdaddr_t* addr,
-                                    int channel, int status, int send_fd) {
+                                    int channel, int status, int send_fd, int tx_mtu) {
   sock_connect_signal_t cs;
   cs.size = sizeof(cs);
   cs.bd_addr = *addr;
   cs.channel = channel;
   cs.status = status;
-  cs.max_rx_packet_size = 0;  // not used for RFCOMM
+  cs.max_rx_packet_size = tx_mtu;
   cs.max_tx_packet_size = 0;  // not used for RFCOMM
   if (send_fd == INVALID_FD)
     return sock_send_all(fd, (const uint8_t*)&cs, sizeof(cs)) == sizeof(cs);
@@ -516,8 +516,9 @@ static uint32_t on_srv_rfc_connect(tBTA_JV_RFCOMM_SRV_OPEN* p_open,
                        srv_rs->id);
   btsock_thread_add_fd(pth, accept_rs->fd, BTSOCK_RFCOMM, SOCK_THREAD_FD_RD,
                        accept_rs->id);
+  LOG_DEBUG(LOG_TAG, "%s  mtu = %d ", __func__,p_open->mtu);
   send_app_connect_signal(srv_rs->fd, &accept_rs->addr, srv_rs->scn, 0,
-                          accept_rs->app_fd);
+                          accept_rs->app_fd, p_open->mtu);
   accept_rs->app_fd =
       INVALID_FD;  // Ownership of the application fd has been transferred.
   return srv_rs->id;
@@ -535,8 +536,8 @@ static void on_cli_rfc_connect(tBTA_JV_RFCOMM_OPEN* p_open, uint32_t id) {
 
   slot->rfc_port_handle = BTA_JvRfcommGetPortHdl(p_open->handle);
   memcpy(slot->addr.address, p_open->rem_bda, 6);
-
-  if (send_app_connect_signal(slot->fd, &slot->addr, slot->scn, 0, -1)) {
+  LOG_DEBUG(LOG_TAG, "%s  mtu = %d ", __func__,p_open->mtu);
+  if (send_app_connect_signal(slot->fd, &slot->addr, slot->scn, 0, -1, p_open->mtu)) {
     slot->f.connected = true;
   } else {
     LOG_ERROR(LOG_TAG, "%s unable to send connect completion signal to caller.",
