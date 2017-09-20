@@ -86,11 +86,15 @@ void btsnoop_net_write(const void* data, size_t length) {
     if (ret == -1 && errno == ECONNRESET) {
       safe_close_(&client_socket_);
     }
+    else if (ret == -1 && errno == EAGAIN) {
+      LOG_ERROR(LOG_TAG, "%s Dropping snoop pkts because of congestion", __func__);
+    }
   }
 }
 
 static void* listen_fn_(UNUSED_ATTR void* context) {
   int enable = 1;
+  struct timeval socket_timeout;
 
   prctl(PR_SET_NAME, (unsigned long)LISTEN_THREAD_NAME_, 0, 0, 0);
 
@@ -132,6 +136,15 @@ static void* listen_fn_(UNUSED_ATTR void* context) {
       }
       LOG_WARN(LOG_TAG, "%s error accepting socket: %s", __func__,
                strerror(errno));
+      continue;
+    }
+
+    socket_timeout.tv_sec = 0;
+    socket_timeout.tv_usec = 5000;
+    if(setsockopt(client_socket, SOL_SOCKET, SO_SNDTIMEO, &socket_timeout, sizeof(socket_timeout)) < 0) {
+      LOG_WARN(LOG_TAG, "%s fail to set socket option %s", __func__,
+               strerror(errno));
+      close(client_socket);
       continue;
     }
 
