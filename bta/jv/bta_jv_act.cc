@@ -1459,6 +1459,7 @@ static void bta_jv_port_mgmt_cl_cback(uint32_t code, uint16_t port_handle) {
     evt_data.rfc_open.handle = p_cb->handle;
     evt_data.rfc_open.status = BTA_JV_SUCCESS;
     bdcpy(evt_data.rfc_open.rem_bda, rem_bda);
+    evt_data.rfc_open.mtu = PORT_GetRemoteMtu(port_handle);
     p_pcb->state = BTA_JV_ST_CL_OPEN;
     p_cb->p_cback(BTA_JV_RFCOMM_OPEN_EVT, &evt_data, p_pcb->rfcomm_slot_id);
   } else {
@@ -1675,6 +1676,7 @@ static void bta_jv_port_mgmt_sr_cback(uint32_t code, uint16_t port_handle) {
     evt_data.rfc_srv_open.handle = p_pcb->handle;
     evt_data.rfc_srv_open.status = BTA_JV_SUCCESS;
     bdcpy(evt_data.rfc_srv_open.rem_bda, rem_bda);
+    evt_data.rfc_srv_open.mtu = PORT_GetRemoteMtu(port_handle);
     tBTA_JV_PCB* p_pcb_new_listen = bta_jv_add_rfc_port(p_cb, p_pcb);
     if (p_pcb_new_listen) {
       evt_data.rfc_srv_open.new_listen_handle = p_pcb_new_listen->handle;
