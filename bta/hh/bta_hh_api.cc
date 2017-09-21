@@ -363,9 +363,35 @@ void BTA_HhRemoveDev(uint8_t dev_handle) {
   bta_sys_sendmsg(p_buf);
 }
 
-/******************************************************************************/
-/*                          Utility Function */
-/******************************************************************************/
+#if (BTA_HH_LE_INCLUDED == TRUE)
+
+/*******************************************************************************
+**
+** Function         BTA_HhUpdateLeScanParam
+**
+** Description      Update the scan paramteters if connected to a LE hid device as
+**                  report host.
+**
+** Returns          void
+**
+*******************************************************************************/
+void BTA_HhUpdateLeScanParam(uint8_t dev_handle, uint16_t scan_int, uint16_t scan_win)
+{
+  tBTA_HH_SCPP_UPDATE *p_buf =
+      (tBTA_HH_SCPP_UPDATE *)osi_calloc(sizeof(tBTA_HH_SCPP_UPDATE));
+
+  p_buf->hdr.event = BTA_HH_API_SCPP_UPDATE_EVT;
+  p_buf->hdr.layer_specific = (uint16_t)dev_handle;
+  p_buf->scan_int = scan_int;
+  p_buf->scan_win = scan_win;
+
+  bta_sys_sendmsg(p_buf);
+}
+#endif
+
+/*******************************************************************************/
+/*                          Utility Function                                   */
+/*******************************************************************************/
 
 /*******************************************************************************
  *
