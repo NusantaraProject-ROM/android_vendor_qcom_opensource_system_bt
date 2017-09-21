@@ -2982,8 +2982,8 @@ static bt_status_t codec_config_src(
 static void cleanup(int service_uuid) {
   BTIF_TRACE_EVENT("%s", __func__);
 
-  btif_transfer_context(btif_av_handle_event, BTIF_AV_CLEANUP_REQ_EVT, NULL, 0,
-                        NULL);
+  btif_transfer_context(btif_av_handle_event, BTIF_AV_CLEANUP_REQ_EVT,
+                        (char*)&service_uuid, sizeof(int), NULL);
 
   btif_disable_service(service_uuid);
 
