@@ -160,6 +160,7 @@ typedef struct {
 #define SDP_STATE_CONN_SETUP 1
 #define SDP_STATE_CFG_SETUP 2
 #define SDP_STATE_CONNECTED 3
+#define SDP_STATE_CONN_PEND 4
   uint8_t con_state;
 
 #define SDP_FLAGS_IS_ORIG 0x01
@@ -288,6 +289,9 @@ extern bool SDP_AddAttributeToRecord (tSDP_RECORD *p_rec, uint16_t attr_id,
 extern bool SDP_AddProfileDescriptorListToRecord (tSDP_RECORD *p_rec, uint16_t profile_uuid,
                                                 uint16_t version);
 extern bool SDP_DeleteAttributeFromRecord (tSDP_RECORD *p_rec, uint16_t attr_id);
+extern uint16_t sdpu_get_active_ccb_cid(BD_ADDR remote_bd_addr);
+extern bool sdpu_process_pend_ccb(uint16_t cid, bool use_cur_chnl);
+extern void sdpu_clear_pend_ccb(uint16_t cid);
 
 
 /* Functions provided by sdp_db.cc
