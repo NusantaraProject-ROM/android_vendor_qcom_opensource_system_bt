@@ -248,6 +248,7 @@ bool A2dpCodecConfig::setCodecUserConfig(
   btav_a2dp_codec_config_t saved_codec_config = getCodecConfig();
   uint8_t saved_ota_codec_config[AVDT_CODEC_SIZE];
   memcpy(saved_ota_codec_config, ota_codec_config_, sizeof(ota_codec_config_));
+  uint8_t zero[AVDT_CODEC_SIZE] = {0};
 
   btav_a2dp_codec_config_t saved_codec_user_config = codec_user_config_;
   codec_user_config_ = codec_user_config;
@@ -275,9 +276,10 @@ bool A2dpCodecConfig::setCodecUserConfig(
 
   //
   // The output (the connection) should be restarted if OTA codec config
-  // has changed.
+  // has changed and OTA codec has been built.
   //
-  if (!A2DP_CodecEquals(saved_ota_codec_config, p_result_codec_config)) {
+  if (!A2DP_CodecEquals(saved_ota_codec_config, p_result_codec_config) &&
+      memcmp(zero, saved_ota_codec_config, sizeof(zero))) {
     *p_restart_output = true;
   }
 
