@@ -587,7 +587,9 @@ void bta_av_rc_opened(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
 
     bta_av_rc_disc(disc);
   }
-  (*p_cb->p_cback)(BTA_AV_RC_OPEN_EVT, (tBTA_AV*)&rc_open);
+  tBTA_AV bta_av_data;
+  bta_av_data.rc_open = rc_open;
+  (*p_cb->p_cback)(BTA_AV_RC_OPEN_EVT, &bta_av_data);
 
   /* if local initiated AVRCP connection and both peer and locals device support
    * browsing channel, open the browsing channel now
@@ -1586,7 +1588,6 @@ void bta_av_signalling_timer(UNUSED_ATTR tBTA_AV_DATA* p_data) {
   int xx;
   uint8_t mask;
   tBTA_AV_LCB* p_lcb = NULL;
-  tBTA_AV_PEND pend;
 
   APPL_TRACE_DEBUG("%s", __func__);
   for (xx = 0; xx < BTA_AV_NUM_LINKS; xx++) {
@@ -1599,6 +1600,7 @@ void bta_av_signalling_timer(UNUSED_ATTR tBTA_AV_DATA* p_data) {
         bta_sys_start_timer(p_cb->link_signalling_timer,
                             BTA_AV_SIGNALLING_TIMEOUT_MS,
                             BTA_AV_SIGNALLING_TIMER_EVT, 0);
+        tBTA_AV_PEND pend;
         pend.bd_addr = p_lcb->addr;
         pend.hndl = p_cb->p_scb[xx]->hndl;
         (*p_cb->p_cback)(BTA_AV_PENDING_EVT, (tBTA_AV*)&pend);
@@ -1925,9 +1927,8 @@ tBTA_AV_FEAT bta_avk_check_peer_features(uint16_t service_uuid) {
 void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
   tBTA_AV_CB* p_cb = &bta_av_cb;
   tBTA_AV_SCB* p_scb = NULL;
-  tBTA_AV_LCB* p_lcb;
   tBTA_AV_RC_OPEN rc_open;
-  tBTA_AV_RC_FEAT rc_feat;
+  tBTA_AV_LCB* p_lcb;
   uint8_t rc_handle;
   tBTA_AV_FEAT peer_features = 0; /* peer features mask */
 
@@ -2043,10 +2044,13 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
         rc_open.peer_addr = p_scb->peer_addr;
         rc_open.peer_features = 0;
         rc_open.status = BTA_AV_FAIL_SDP;
-        (*p_cb->p_cback)(BTA_AV_RC_OPEN_EVT, (tBTA_AV*)&rc_open);
+        tBTA_AV bta_av_data;
+        bta_av_data.rc_open = rc_open;
+        (*p_cb->p_cback)(BTA_AV_RC_OPEN_EVT, &bta_av_data);
       }
     }
   } else {
+    tBTA_AV_RC_FEAT rc_feat;
     p_cb->rcb[rc_handle].peer_features = peer_features;
     rc_feat.rc_handle = rc_handle;
     rc_feat.peer_features = peer_features;
@@ -2057,9 +2061,12 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
        * from Message
        */
       rc_feat.peer_addr = p_cb->lcb[p_cb->rcb[rc_handle].lidx].addr;
-    } else
+    } else {
       rc_feat.peer_addr = p_scb->peer_addr;
-    (*p_cb->p_cback)(BTA_AV_RC_FEAT_EVT, (tBTA_AV*)&rc_feat);
+    }
+    tBTA_AV bta_av_data;
+    bta_av_data.rc_feat = rc_feat;
+    (*p_cb->p_cback)(BTA_AV_RC_FEAT_EVT, &bta_av_data);
   }
 }
 
@@ -2159,7 +2166,9 @@ void bta_av_rc_closed(tBTA_AV_DATA* p_data) {
     rc_close.rc_handle = p_msg->handle;
     rc_close.peer_addr = p_msg->peer_addr;
   }
-  (*p_cb->p_cback)(BTA_AV_RC_CLOSE_EVT, (tBTA_AV*)&rc_close);
+  tBTA_AV bta_av_data;
+  bta_av_data.rc_close = rc_close;
+  (*p_cb->p_cback)(BTA_AV_RC_CLOSE_EVT, &bta_av_data);
 }
 
 /*******************************************************************************
@@ -2183,7 +2192,9 @@ void bta_av_rc_browse_opened(tBTA_AV_DATA* p_data) {
   rc_browse_open.rc_handle = p_msg->handle;
   rc_browse_open.peer_addr = p_msg->peer_addr;
 
-  (*p_cb->p_cback)(BTA_AV_RC_BROWSE_OPEN_EVT, (tBTA_AV*)&rc_browse_open);
+  tBTA_AV bta_av_data;
+  bta_av_data.rc_browse_open = rc_browse_open;
+  (*p_cb->p_cback)(BTA_AV_RC_BROWSE_OPEN_EVT, &bta_av_data);
 }
 
 /*******************************************************************************
@@ -2206,7 +2217,9 @@ void bta_av_rc_browse_closed(tBTA_AV_DATA* p_data) {
   rc_browse_close.rc_handle = p_msg->handle;
   rc_browse_close.peer_addr = p_msg->peer_addr;
 
-  (*p_cb->p_cback)(BTA_AV_RC_BROWSE_CLOSE_EVT, (tBTA_AV*)&rc_browse_close);
+  tBTA_AV bta_av_data;
+  bta_av_data.rc_browse_close = rc_browse_close;
+  (*p_cb->p_cback)(BTA_AV_RC_BROWSE_CLOSE_EVT, &bta_av_data);
 }
 
 /*******************************************************************************

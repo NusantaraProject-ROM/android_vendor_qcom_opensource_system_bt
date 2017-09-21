@@ -20,6 +20,7 @@
 #include <base/bind.h>
 #include <base/logging.h>
 #include <base/strings/string_number_conversions.h>
+#include <base/time/time.h>
 #include <string.h>
 #include <queue>
 #include <vector>
@@ -40,13 +41,19 @@
 
 static bool is_wipower_adv = false;
 uint8_t wipower_inst_id  = BTM_BLE_MULTI_ADV_DEFAULT_STD;
+
+extern int enable_power_apply(bool enable, bool on, bool time_flag);
+
 #endif
 
 using base::Bind;
+using base::TimeDelta;
+using base::TimeTicks;
 using RegisterCb =
     base::Callback<void(uint8_t /* inst_id */, uint8_t /* status */)>;
 using IdTxPowerStatusCb = base::Callback<void(
     uint8_t /* inst_id */, int8_t /* tx_power */, uint8_t /* status */)>;
+using SetEnableData = BleAdvertiserHciInterface::SetEnableData;
 extern void btm_gen_resolvable_private_addr(
     base::Callback<void(uint8_t[8])> cb);
 
@@ -64,7 +71,7 @@ struct AdvertisingInstance {
   uint8_t advertising_event_properties;
   alarm_t* adv_raddr_timer;
   int8_t tx_power;
-  uint16_t duration;
+  uint16_t duration;  // 1 unit is 10ms
   uint8_t maxExtAdvEvents;
   alarm_t* timeout_timer;
   uint8_t own_address_type;
@@ -72,6 +79,7 @@ struct AdvertisingInstance {
   MultiAdvCb timeout_cb;
   bool address_update_required;
   bool periodic_enabled;
+  uint32_t advertising_interval;  // 1 unit is 0.625 ms
 
   /* When true, advertising set is enabled, or last scheduled call to "LE Set
    * Extended Advertising Set Enable" is to enable this advertising set. Any
@@ -83,6 +91,7 @@ struct AdvertisingInstance {
    * command scheduled when in this state will execute when the set is disabled.
    */
   bool enable_status;
+  TimeTicks enable_time;
 
   bool IsEnabled() { return enable_status; }
 
@@ -260,6 +269,11 @@ class BleAdvertisingManagerImpl
             p_inst->enable_status = true;
             hci_interface->Enable(true, p_inst->inst_id, 0x00, 0x00,
                                   Bind(DoNothing));
+#ifdef WIPOWER_SUPPORTED
+            if ((is_wipower_adv && (p_inst->inst_id == wipower_inst_id))) {
+              enable_power_apply(false, false, false);
+            }
+#endif
           }
         },
         p_inst, std::move(configuredCb)));
@@ -401,7 +415,6 @@ class BleAdvertisingManagerImpl
     c->duration = duration;
     c->maxExtAdvEvents = maxExtAdvEvents;
     c->timeout_cb = std::move(timeout_cb);
-
 
     // this code is intentionally left formatted this way to highlight the
     // asynchronous flow
@@ -585,27 +598,27 @@ class BleAdvertisingManagerImpl
 
   void EnableFinish(AdvertisingInstance* p_inst, bool enable, MultiAdvCb cb,
                     uint8_t status) {
+    MultiAdvCb myCb;
     if (enable && p_inst->duration) {
-      p_inst->enable_status = enable;
       // TODO(jpawlowski): HCI implementation that can't do duration should
       // emulate it, not EnableWithTimerCb.
-      GetHciInterface()->Enable(
-          enable, p_inst->inst_id, p_inst->duration, p_inst->maxExtAdvEvents,
-          Bind(&BleAdvertisingManagerImpl::EnableWithTimerCb,
-               base::Unretained(this), p_inst->inst_id, std::move(cb),
-               p_inst->duration, p_inst->timeout_cb));
-
+      myCb = Bind(&BleAdvertisingManagerImpl::EnableWithTimerCb,
+                  base::Unretained(this), p_inst->inst_id, std::move(cb),
+                  p_inst->duration, p_inst->timeout_cb);
     } else {
+      myCb = std::move(cb);
+
       if (p_inst->timeout_timer) {
         alarm_cancel(p_inst->timeout_timer);
         alarm_free(p_inst->timeout_timer);
         p_inst->timeout_timer = nullptr;
       }
-
-      p_inst->enable_status = enable;
-      GetHciInterface()->Enable(enable, p_inst->inst_id, p_inst->duration,
-                                p_inst->maxExtAdvEvents, std::move(cb));
     }
+
+    if (enable) p_inst->enable_time = TimeTicks::Now();
+    p_inst->enable_status = enable;
+    GetHciInterface()->Enable(enable, p_inst->inst_id, p_inst->duration,
+                              p_inst->maxExtAdvEvents, std::move(myCb));
   }
 
   void SetParameters(uint8_t inst_id, tBTM_BLE_ADV_PARAMS* p_params,
@@ -623,12 +636,14 @@ class BleAdvertisingManagerImpl
       return;
     }
 
-    // TODO: disable only if was enabled, currently no use scenario needs that,
+    // TODO: disable only if was enabled, currently no use scenario needs
+    // that,
     // we always set parameters before enabling
     // GetHciInterface()->Enable(false, inst_id, Bind(DoNothing));
     p_inst->advertising_event_properties =
         p_params->advertising_event_properties;
     p_inst->tx_power = p_params->tx_power;
+    p_inst->advertising_interval = p_params->adv_int_min;
     const RawAddress& peer_address = RawAddress::kEmpty;
 
     GetHciInterface()->SetParameters(
@@ -823,6 +838,63 @@ class BleAdvertisingManagerImpl
     p_inst->address_update_required = false;
   }
 
+  void RecomputeTimeout(AdvertisingInstance* inst, TimeTicks now) {
+    TimeDelta duration = now - inst->enable_time;
+    bool cb_fired = false;
+    if (inst->duration) {
+      int durationDone = (duration.InMilliseconds() / 10);
+      if (durationDone + 1 >= inst->duration) {
+        inst->enable_status = false;
+        inst->timeout_cb.Run(0 /* TODO: STATUS HERE?*/);
+        cb_fired = true;
+      } else {
+        inst->duration = inst->duration - durationDone;
+      }
+    }
+
+    if (inst->maxExtAdvEvents && !cb_fired) {
+      int eventsDone =
+          (duration.InMilliseconds() / (inst->advertising_interval * 5 / 8));
+
+      if (eventsDone + 1 >= inst->maxExtAdvEvents) {
+        inst->enable_status = false;
+        inst->timeout_cb.Run(0 /* TODO: STATUS HERE?*/);
+      } else {
+        inst->maxExtAdvEvents = inst->maxExtAdvEvents - eventsDone;
+      }
+    }
+  }
+
+  void Suspend() {
+    std::vector<SetEnableData> sets;
+
+    for (AdvertisingInstance& inst : adv_inst) {
+      if (!inst.in_use || !inst.enable_status) continue;
+
+      if (inst.duration || inst.maxExtAdvEvents)
+        RecomputeTimeout(&inst, TimeTicks::Now());
+
+      sets.emplace_back(SetEnableData{.handle = inst.inst_id});
+    }
+
+    if (!sets.empty()) GetHciInterface()->Enable(false, sets, Bind(DoNothing));
+  }
+
+  void Resume() override {
+    std::vector<SetEnableData> sets;
+
+    for (const AdvertisingInstance& inst : adv_inst) {
+      if (inst.in_use && inst.enable_status) {
+        sets.emplace_back(SetEnableData{
+            .handle = inst.inst_id,
+            .duration = inst.duration,
+            .max_extended_advertising_events = inst.maxExtAdvEvents});
+      }
+    }
+
+    if (!sets.empty()) GetHciInterface()->Enable(true, sets, Bind(DoNothing));
+  }
+
   void OnAdvertisingSetTerminated(
       uint8_t status, uint8_t advertising_handle, uint16_t connection_handle,
       uint8_t num_completed_extended_adv_events) override {
@@ -854,16 +926,23 @@ class BleAdvertisingManagerImpl
     if (p_inst->in_use == true) {
       // TODO(jpawlowski): we don't really allow to do directed advertising
       // right now. This should probably be removed, check with Andre.
-      if ((p_inst->advertising_event_properties & 0x0C) ==
-          0 /* directed advertising bits not set */) {
+      if ((p_inst->advertising_event_properties & 0x0C) == 0) {
+        /* directed advertising bits not set */
+
 #ifdef WIPOWER_SUPPORTED
         if (!(is_wipower_adv && (advertising_handle == wipower_inst_id))) {
-            GetHciInterface()->Enable(true, advertising_handle, 0x00, 0x00,
+          RecomputeTimeout(p_inst, TimeTicks::Now());
+          if (p_inst->enable_status) {
+              GetHciInterface()->Enable(true, advertising_handle, 0x00, 0x00,
                                   Bind(DoNothing));
+          }
         }
 #else
-        GetHciInterface()->Enable(true, advertising_handle, 0x00, 0x00,
-                                    Bind(DoNothing));
+        RecomputeTimeout(p_inst, TimeTicks::Now());
+        if (p_inst->enable_status) {
+          GetHciInterface()->Enable(true, advertising_handle, p_inst->duration,
+                                    p_inst->maxExtAdvEvents, Bind(DoNothing));
+        }
 #endif
       } else {
         /* mark directed adv as disabled if adv has been stopped */
@@ -936,4 +1015,73 @@ void btm_ble_multi_adv_cleanup(void) {
 #endif
   BleAdvertisingManager::CleanUp();
   BleAdvertiserHciInterface::CleanUp();
+}
+
+// TODO(jpawlowski): Find a nicer way to test RecomputeTimeout without exposing
+// AdvertisingInstance
+bool timeout_triggered = false;
+void test_timeout_cb(uint8_t status) { timeout_triggered = true; }
+
+// verify that if duration passed, or is about to pass, recomputation will shut
+// down the advertiser completly
+void testRecomputeTimeout1() {
+  auto manager = (BleAdvertisingManagerImpl*)BleAdvertisingManager::Get();
+
+  TimeTicks start = TimeTicks::Now();
+  TimeTicks end = start + TimeDelta::FromMilliseconds(111);
+  AdvertisingInstance test1(0);
+  test1.enable_status = true;
+  test1.enable_time = start;
+  test1.duration = 12 /*120ms*/;
+  test1.timeout_cb = Bind(&test_timeout_cb);
+
+  manager->RecomputeTimeout(&test1, end);
+
+  CHECK(timeout_triggered == true);
+  timeout_triggered = false;
+  CHECK(test1.enable_status == false);
+}
+
+// verify that duration and maxExtAdvEvents are properly adjusted when
+// recomputing.
+void testRecomputeTimeout2() {
+  auto manager = (BleAdvertisingManagerImpl*)BleAdvertisingManager::Get();
+
+  TimeTicks start = TimeTicks::Now();
+  TimeTicks end = start + TimeDelta::FromMilliseconds(250);
+  AdvertisingInstance test1(0);
+  test1.enable_status = true;
+  test1.enable_time = start;
+  test1.duration = 50 /*500ms*/;
+  test1.maxExtAdvEvents = 50;
+  test1.advertising_interval = 16 /* 10 ms */;
+  test1.timeout_cb = Bind(&test_timeout_cb);
+
+  manager->RecomputeTimeout(&test1, end);
+
+  CHECK(timeout_triggered == false);
+  CHECK(test1.enable_status == true);
+  CHECK(test1.duration == 25);
+  CHECK(test1.maxExtAdvEvents == 25);
+}
+
+// verify that if maxExtAdvEvents were sent, or are close to end, recomputation
+// wil shut down the advertiser completly
+void testRecomputeTimeout3() {
+  auto manager = (BleAdvertisingManagerImpl*)BleAdvertisingManager::Get();
+
+  TimeTicks start = TimeTicks::Now();
+  TimeTicks end = start + TimeDelta::FromMilliseconds(495);
+  AdvertisingInstance test1(0);
+  test1.enable_status = true;
+  test1.enable_time = start;
+  test1.maxExtAdvEvents = 50;
+  test1.advertising_interval = 16 /* 10 ms */;
+  test1.timeout_cb = Bind(&test_timeout_cb);
+
+  manager->RecomputeTimeout(&test1, end);
+
+  CHECK(timeout_triggered == true);
+  timeout_triggered = false;
+  CHECK(test1.enable_status == false);
 }

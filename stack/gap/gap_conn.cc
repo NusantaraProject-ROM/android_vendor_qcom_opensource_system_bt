@@ -177,6 +177,9 @@ uint16_t GAP_ConnOpen(const char* p_serv_name, uint8_t service_id,
   p_ccb->transport = transport;
   p_ccb->service_id = service_id;
 
+  /* The service_id must be set before calling gap_release_ccb(). */
+  p_ccb->service_id = service_id;
+
   /* If caller specified a BD address, save it */
   if (p_rem_bda) {
     /* the bd addr is not RawAddress::kAny, then a bd address was specified */
