@@ -1381,7 +1381,27 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
        */
       if (btif_av_is_connected_on_other_idx(index)) {
         APPL_TRACE_WARNING("Conn is closing,close AV data channel");
-        if (!btif_av_is_playing()) {
+        if ((!btif_av_is_split_a2dp_enabled() ||
+             (btif_av_is_split_a2dp_enabled() && !reconfig_a2dp)) &&
+            ((btif_av_cb[index].flags & BTIF_AV_FLAG_REMOTE_SUSPEND) != 0) &&
+            ((btif_av_cb[index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING) == 0)) {
+          /* fake handoff state to switch streaming to other codec device */
+          btif_av_cb[index].dual_handoff = true;
+          if (btif_av_is_split_a2dp_enabled()) {
+            BTIF_TRACE_DEBUG("%s: Notify framework to reconfigure",__func__);
+            int idx = btif_av_get_other_connected_idx(index);
+            if (idx != INVALID_INDEX) {
+              if ((btif_av_cb[idx].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING) == 0) {
+                reconfig_a2dp = true;
+                HAL_CBACK(bt_av_src_callbacks, reconfig_a2dp_trigger_cb, 1,
+                                              &(btif_av_cb[idx].peer_bda));
+              }
+            }
+          } else {
+            BTIF_TRACE_DEBUG("%s: Start streaming on connected remote",__func__);
+            btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
+          }
+        } else if (!btif_av_is_playing()) {
           APPL_TRACE_WARNING("Suspend the AV Data channel");
           /* ensure tx frames are immediately suspended */
           btif_a2dp_source_set_tx_flush(true);
