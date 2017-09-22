@@ -42,6 +42,8 @@
 #define BTA_AG_SCO_DEBUG FALSE
 #endif
 
+bool sco_init_rmt_xfer = false;
+
 /* Codec negotiation timeout */
 #ifndef BTA_AG_CODEC_NEGOTIATION_TIMEOUT_MS
 #define BTA_AG_CODEC_NEGOTIATION_TIMEOUT_MS (5 * 1000) /* 3 seconds */
@@ -716,8 +718,15 @@ static void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
 
         case BTA_AG_SCO_XFER_E:
           /* save xfer scb */
-          p_sco->p_xfer_scb = p_scb;
-          p_sco->state = BTA_AG_SCO_CLOSE_XFER_ST;
+          if (!sco_init_rmt_xfer) {
+              p_sco->p_xfer_scb = p_scb;
+              p_sco->state = BTA_AG_SCO_CLOSE_XFER_ST;
+          } else {
+              //IGN SCO XFER if it is in the middle
+              //remote initiated transfer
+              APPL_TRACE_WARNING("%s:Ignoring SCO XFER @ state: %d",
+                                            __func__, p_sco->state);
+          }
           break;
 
         case BTA_AG_SCO_SHUTDOWN_E:
@@ -767,9 +776,16 @@ static void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           break;
 
         case BTA_AG_SCO_XFER_E:
-          /* save xfer scb */
-          p_sco->p_xfer_scb = p_scb;
-          p_sco->state = BTA_AG_SCO_CLOSE_XFER_ST;
+          if (!sco_init_rmt_xfer) {
+              /* save xfer scb */
+              p_sco->p_xfer_scb = p_scb;
+              p_sco->state = BTA_AG_SCO_CLOSE_XFER_ST;
+          } else {
+              //IGN SCO XFER if it is in the middle
+              //remote initiated transfer
+              APPL_TRACE_WARNING("%s:Ignoring SCO XFER @ state: %d",
+                                               __func__, p_sco->state);
+          }
           break;
 
         case BTA_AG_SCO_CLOSE_E:
@@ -792,6 +808,7 @@ static void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
 
         case BTA_AG_SCO_CONN_OPEN_E:
           p_sco->state = BTA_AG_SCO_OPEN_ST;
+          sco_init_rmt_xfer = false;
           break;
 
         case BTA_AG_SCO_CONN_CLOSE_E:
@@ -881,6 +898,7 @@ static void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           p_sco->p_curr_scb = p_sco->p_xfer_scb;
           p_sco->cur_idx = p_sco->p_xfer_scb->sco_idx;
           p_sco->p_xfer_scb = NULL;
+          sco_init_rmt_xfer = true;
           break;
 
         default:
