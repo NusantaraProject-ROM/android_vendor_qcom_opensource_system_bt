@@ -36,7 +36,7 @@
 #include "osi/include/allocator.h"
 #include "osi/include/list.h"
 #include "stack_manager.h"
-
+#include "osi/include/thread.h"
 /*******************************************************************************
  *  Local type definitions
  ******************************************************************************/
@@ -68,6 +68,7 @@ static list_t* connect_queue;
 
 static const size_t MAX_REASONABLE_REQUESTS = 10;
 
+extern thread_t *bt_jni_workqueue_thread;
 /*******************************************************************************
  *  Queue helper functions
  ******************************************************************************/
@@ -212,8 +213,15 @@ void btif_queue_cleanup(uint16_t uuid) {
  *
  ******************************************************************************/
 void btif_queue_advance() {
-  btif_transfer_context(queue_int_handle_evt, BTIF_QUEUE_ADVANCE_EVT, NULL, 0,
-                        NULL);
+    if (thread_is_self(bt_jni_workqueue_thread))
+    {
+        queue_int_handle_evt(BTIF_QUEUE_ADVANCE_EVT, NULL);
+    }
+    else
+    {
+        btif_transfer_context(queue_int_handle_evt, BTIF_QUEUE_ADVANCE_EVT,
+                        NULL, 0, NULL);
+    }
 }
 
 // This function dispatches the next pending connect request. It is called from
