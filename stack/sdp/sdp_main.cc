@@ -440,15 +440,8 @@ static void sdp_disconnect_ind(uint16_t l2cap_cid, bool ack_needed) {
     return;
   }
 
-  if (ack_needed) {
-    L2CA_DisconnectRsp (l2cap_cid);
-    sdpu_process_pend_ccb(p_ccb->connection_id, false);
-  } else {
-    SDP_TRACE_WARNING ("SDP - Rcvd L2CAP disc, ACL disc clear pend sdp ccb: 0x%x", l2cap_cid);
-    sdpu_clear_pend_ccb(p_ccb->connection_id);
-  }
+  if (ack_needed) L2CA_DisconnectRsp(l2cap_cid);
 
-  SDP_TRACE_EVENT("SDP - Rcvd L2CAP disc, CID: 0x%x", l2cap_cid);
   /* Tell the user if he has a callback */
   if (p_ccb->p_cb)
     (*p_ccb->p_cb)((uint16_t)((p_ccb->con_state == SDP_STATE_CONNECTED)
@@ -459,6 +452,14 @@ static void sdp_disconnect_ind(uint16_t l2cap_cid, bool ack_needed) {
         (uint16_t)((p_ccb->con_state == SDP_STATE_CONNECTED) ? SDP_SUCCESS
                                                              : SDP_CONN_FAILED),
         p_ccb->user_data);
+
+  if (ack_needed) {
+    SDP_TRACE_WARNING ("SDP - Rcvd L2CAP disc, process pend sdp ccb: 0x%x", l2cap_cid);
+    sdpu_process_pend_ccb(p_ccb->connection_id, false);
+  } else {
+    SDP_TRACE_WARNING ("SDP - Rcvd L2CAP disc, ACL disc clear pend sdp ccb: 0x%x", l2cap_cid);
+    sdpu_clear_pend_ccb(p_ccb->connection_id);
+  }
 
   sdpu_release_ccb(p_ccb);
 }
@@ -656,7 +657,6 @@ static void sdp_disconnect_cfm(uint16_t l2cap_cid,
 
   SDP_TRACE_EVENT("SDP - Rcvd L2CAP disc cfm, CID: 0x%x", l2cap_cid);
 
-  sdpu_process_pend_ccb(p_ccb->connection_id, false);
 
   /* Tell the user if he has a callback */
   if (p_ccb->p_cb)
@@ -664,6 +664,7 @@ static void sdp_disconnect_cfm(uint16_t l2cap_cid,
   else if (p_ccb->p_cb2)
     (*p_ccb->p_cb2)(p_ccb->disconnect_reason, p_ccb->user_data);
 
+  sdpu_process_pend_ccb(p_ccb->connection_id, false);
   sdpu_release_ccb(p_ccb);
 }
 
@@ -685,11 +686,11 @@ void sdp_conn_timer_timeout(void* data) {
                   p_ccb->connection_id);
 
   L2CA_DisconnectReq(p_ccb->connection_id);
-  sdpu_clear_pend_ccb(p_ccb->connection_id);
   /* Tell the user if he has a callback */
   if (p_ccb->p_cb)
     (*p_ccb->p_cb)(SDP_CONN_FAILED);
   else if (p_ccb->p_cb2)
     (*p_ccb->p_cb2)(SDP_CONN_FAILED, p_ccb->user_data);
+  sdpu_clear_pend_ccb(p_ccb->connection_id);
   sdpu_release_ccb(p_ccb);
 }
