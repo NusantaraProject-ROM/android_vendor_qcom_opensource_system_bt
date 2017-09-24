@@ -3368,6 +3368,88 @@ static bt_status_t get_total_num_of_items_rsp(bt_bdaddr_t* bd_addr,
 
 /***************************************************************************
  *
+ * Function         set_volume_sho_mcast
+ *
+ * Description      Send current volume setting to remote side.
+ *                  Support limited to SetAbsoluteVolume
+ *                  This can be enhanced to support Relative Volume (AVRCP 1.0).
+ *                  With RelateVolume, we will send VOLUME_UP/VOLUME_DOWN
+ *                  as opposed to absolute volume level
+ * volume: Should be in the range 0-127. bit7 is reseved and cannot be set
+ *
+ * Returns          bt_status_t
+ *
+ **************************************************************************/
+static bt_status_t set_volume_sho_mcast(uint8_t volume, bt_bdaddr_t *bd_addr) {
+  BTIF_TRACE_DEBUG("%s: volume: %d", __func__, volume);
+  tAVRC_STS status = BT_STATUS_UNSUPPORTED;
+  rc_transaction_t* p_transaction = NULL;
+
+  int idx = btif_rc_get_idx_by_bda(bd_addr);
+  if (idx == -1) {
+    BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+    return (bt_status_t)BT_STATUS_FAIL;
+  }
+
+  if (btif_rc_cb.rc_multi_cb[idx].rc_volume == volume) {
+    status = BT_STATUS_DONE;
+    BTIF_TRACE_ERROR("%s: volume value already set earlier: 0x%02x", __func__,
+                     volume);
+    return (bt_status_t)status;
+  }
+
+  if (btif_rc_cb.rc_multi_cb[idx].rc_state != BTRC_CONNECTION_STATE_CONNECTED) {
+    status = BT_STATUS_NOT_READY;
+    BTIF_TRACE_ERROR("%s: RC not connected: 0x%02x", __func__, volume);
+    return (bt_status_t)status;
+  }
+
+  if (((btif_rc_cb.rc_multi_cb[idx].rc_features & BTA_AV_FEAT_RCTG) == 0) ||
+      ((btif_rc_cb.rc_multi_cb[idx].rc_features & BTA_AV_FEAT_ADV_CTRL) == 0)) {
+    status = BT_STATUS_UNSUPPORTED;
+    BTIF_TRACE_ERROR("%s: Abs Vol not supported: 0x%02x", __func__, volume);
+    return (bt_status_t)status;
+  }
+
+  BTIF_TRACE_DEBUG("%s: Peer supports absolute volume. newVolume: %d",
+          __func__, volume);
+
+  status = BT_STATUS_FAIL;
+  tAVRC_COMMAND avrc_cmd = {0};
+  BT_HDR* p_msg = NULL;
+  avrc_cmd.volume.opcode = AVRC_OP_VENDOR;
+  avrc_cmd.volume.pdu = AVRC_PDU_SET_ABSOLUTE_VOLUME;
+  avrc_cmd.volume.status = AVRC_STS_NO_ERROR;
+  avrc_cmd.volume.volume = volume;
+
+  if (AVRC_BldCommand(&avrc_cmd, &p_msg) == AVRC_STS_NO_ERROR) {
+    bt_status_t tran_status = get_transaction(&p_transaction);
+
+    if (BT_STATUS_SUCCESS == tran_status && NULL != p_transaction) {
+      BTIF_TRACE_DEBUG("%s: msgreq being sent out with label: %d",
+                       __func__, p_transaction->lbl);
+      BTA_AvMetaCmd(btif_rc_cb.rc_multi_cb[idx].rc_handle,
+                    p_transaction->lbl, AVRC_CMD_CTRL, p_msg);
+      status = BT_STATUS_SUCCESS;
+    } else {
+      osi_free_and_reset((void**)&p_msg);
+      BTIF_TRACE_ERROR(
+          "%s: failed to obtain transaction details. status: 0x%02x",
+          __func__, tran_status);
+      status = BT_STATUS_FAIL;
+    }
+  } else {
+    BTIF_TRACE_ERROR(
+        "%s: failed to build absolute volume command. status: 0x%02x",
+        __func__, status);
+    status = BT_STATUS_FAIL;
+  }
+
+  return (bt_status_t)status;
+}
+
+/***************************************************************************
+ *
  * Function         set_volume
  *
  * Description      Send current volume setting to remote side.
@@ -3380,8 +3462,13 @@ static bt_status_t get_total_num_of_items_rsp(bt_bdaddr_t* bd_addr,
  * Returns          bt_status_t
  *
  **************************************************************************/
-static bt_status_t set_volume(uint8_t volume) {
-  BTIF_TRACE_DEBUG("%s: volume: %d", __func__, volume);
+static bt_status_t set_volume(uint8_t volume, bt_bdaddr_t *bd_addr) {
+  BTIF_TRACE_DEBUG("%s: volume is: %d", __func__, volume);
+
+  if (isShoMcastEnabled == true) {
+    return(set_volume_sho_mcast(volume, bd_addr));
+  }
+
   tAVRC_STS status = BT_STATUS_UNSUPPORTED;
   rc_transaction_t* p_transaction = NULL;
 
