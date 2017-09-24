@@ -935,6 +935,12 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       /* change state to open based on the status */
       if (p_bta_data->open.status == BTA_AV_SUCCESS) {
         /* inform the application of the event */
+        if (btif_av_is_split_a2dp_enabled() &&
+          btif_a2dp_audio_if_init != true) {
+          BTIF_TRACE_DEBUG("Got OPEN_EVT in IDLE state, init audio interface");
+          btif_a2dp_audio_interface_init();
+          btif_a2dp_audio_if_init = true;
+        }
         btif_report_connection_state(state, &(btif_av_cb[index].peer_bda));
         btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_OPENED);
         btif_report_connection_state_to_ba(state);
@@ -5070,6 +5076,7 @@ void btif_av_reset_codec_reconfig_flag() {
 void btif_av_reinit_audio_interface() {
   BTIF_TRACE_DEBUG(LOG_TAG,"btif_av_reint_audio_interface");
   btif_a2dp_audio_interface_init();
+  btif_a2dp_audio_if_init = true;
 }
 
 void btif_av_flow_spec_cmd(int index, int bitrate) {
