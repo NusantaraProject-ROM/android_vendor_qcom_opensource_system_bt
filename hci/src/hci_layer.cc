@@ -81,7 +81,11 @@ static const int BT_HCI_RT_PRIORITY = 1;
 
 // Abort if there is no response to an HCI command.
 static const uint32_t COMMAND_PENDING_TIMEOUT_MS = 2000;
-static const uint32_t COMMAND_TIMEOUT_RESTART_S = 5;
+#ifdef BLUEDROID_DEBUG
+static const uint32_t COMMAND_TIMEOUT_RESTART_S = 12;
+#else
+static const uint32_t COMMAND_TIMEOUT_RESTART_MS = 500;
+#endif
 
 // Our interface
 static bool interface_created;
@@ -502,8 +506,16 @@ static void command_timed_out(void* original_wait_entry) {
 
   osi_free(bt_hdr);
 
-  LOG_ERROR(LOG_TAG, "%s restarting the Bluetooth process.", __func__);
+#ifdef BLUEDROID_DEBUG
+  LOG_ERROR(LOG_TAG, "%s will restart the Bluetooth process after 0x%x seconds.",
+    __func__, COMMAND_TIMEOUT_RESTART_S);
   sleep(COMMAND_TIMEOUT_RESTART_S);
+#else
+  LOG_ERROR(LOG_TAG, "%s will restart the Bluetooth process after 0x%x millisecond.",
+    __func__, COMMAND_TIMEOUT_RESTART_MS);
+  usleep(COMMAND_TIMEOUT_RESTART_MS * 1000);
+#endif
+
   hci_close_firmware_log_file(hci_firmware_log_fd);
 
   // We shouldn't try to recover the stack from this command timeout.
