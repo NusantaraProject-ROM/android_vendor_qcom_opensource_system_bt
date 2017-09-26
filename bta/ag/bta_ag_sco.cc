@@ -37,6 +37,7 @@
 #include "device/include/esco_parameters.h"
 #include "osi/include/osi.h"
 #include "utl.h"
+#include "osi/include/properties.h"
 
 #ifndef BTA_AG_SCO_DEBUG
 #define BTA_AG_SCO_DEBUG FALSE
@@ -46,6 +47,8 @@
 #ifndef BTA_AG_CODEC_NEGOTIATION_TIMEOUT_MS
 #define BTA_AG_CODEC_NEGOTIATION_TIMEOUT_MS (5 * 1000) /* 3 seconds */
 #endif
+
+static char value[PROPERTY_VALUE_MAX];
 
 #if (BTA_AG_SCO_DEBUG == TRUE)
 static char* bta_ag_sco_evt_str(uint8_t event);
@@ -165,7 +168,9 @@ static void bta_ag_sco_disc_cback(uint16_t sco_idx) {
     if (bta_ag_cb.sco.p_curr_scb->inuse_codec == BTA_AG_CODEC_MSBC) {
       /* Bypass vendor specific and voice settings if enhanced eSCO supported */
       if (!(controller_get_interface()
-                ->supports_enhanced_setup_synchronous_connection())) {
+                ->supports_enhanced_setup_synchronous_connection() &&
+            (osi_property_get("qcom.bluetooth.soc", value, "qcombtsoc") &&
+             strcmp(value, "cherokee") == 0))){
 #if (BLUETOOTH_QTI_SW == FALSE) /* This change is not needed.*/
         BTM_WriteVoiceSettings(BTM_VOICE_SETTING_CVSD);
 #endif
@@ -484,7 +489,9 @@ static void bta_ag_create_pending_sco(tBTA_AG_SCB* p_scb, bool is_local) {
 
     /* Bypass voice settings if enhanced SCO setup command is supported */
     if (!(controller_get_interface()
-              ->supports_enhanced_setup_synchronous_connection())) {
+              ->supports_enhanced_setup_synchronous_connection() &&
+          (osi_property_get("qcom.bluetooth.soc", value, "qcombtsoc") &&
+           strcmp(value, "cherokee") == 0))) {
 #if (BLUETOOTH_QTI_SW == FALSE) /* These changes are not needed*/
       if (esco_codec == BTA_AG_CODEC_MSBC)
         BTM_WriteVoiceSettings(BTM_VOICE_SETTING_TRANS);
