@@ -2555,6 +2555,9 @@ bt_status_t btif_dm_cancel_bond(const RawAddress* bd_addr) {
 void btif_dm_hh_open_failed(RawAddress* bdaddr) {
   if (pairing_cb.state == BT_BOND_STATE_BONDING &&
       *bdaddr == pairing_cb.bd_addr) {
+    BTIF_TRACE_WARNING("%s: remove device security record ", __func__);
+    btif_storage_remove_bonded_device(bdaddr);
+    BTA_DmRemoveDevice(*bdaddr);
     bond_state_changed(BT_STATUS_FAIL, *bdaddr, BT_BOND_STATE_NONE);
   }
 }
