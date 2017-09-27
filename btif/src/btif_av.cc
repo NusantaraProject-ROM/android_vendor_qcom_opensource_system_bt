@@ -1023,8 +1023,8 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
       btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED,
          &(btif_av_cb[index].peer_bda));
       btif_queue_advance();
-      btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_IDLE);
       btif_av_check_and_start_collission_timer(index);
+      btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_IDLE);
       break;
 
     case BTIF_AV_DISCONNECT_REQ_EVT:
@@ -3722,9 +3722,9 @@ void btif_av_move_idle(bt_bdaddr_t bd_addr) {
     BTIF_TRACE_DEBUG("Moving BTIF State from Opening to Idle due to ACL disconnect");
     btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED, &(btif_av_cb[index].peer_bda));
     BTA_AvClose(btif_av_cb[index].bta_handle);
+    btif_av_check_and_start_collission_timer(index);
     btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_IDLE);
     btif_queue_advance();
-    btif_av_check_and_start_collission_timer(index);
   }
 }
 
