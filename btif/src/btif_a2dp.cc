@@ -168,8 +168,8 @@ void btif_a2dp_on_offload_started(tBTA_AV_STATUS status) {
       break;
   }
   if (btif_av_is_split_a2dp_enabled()) {
-    btif_a2dp_audio_on_started(status);
     btif_av_reset_reconfig_flag();
+    btif_a2dp_audio_on_started(status);
     if (ack != BTA_AV_SUCCESS &&
         btif_av_stream_started_ready()) {
       /* Offload request will return with failure from btif_av sm if
