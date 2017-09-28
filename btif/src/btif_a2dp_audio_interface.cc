@@ -474,17 +474,22 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
           break;
         } else if (btif_a2dp_src_vsc.tx_started == FALSE) {
           int idx = btif_get_is_remote_started_idx();
+          uint8_t hdl = 0;
           APPL_TRACE_DEBUG("%s: remote started idx = %d",__func__, idx);
           if (idx < btif_max_av_clients) {
-            uint8_t hdl = btif_av_get_av_hdl_from_idx(idx);
+            hdl = btif_av_get_av_hdl_from_idx(idx);
             APPL_TRACE_DEBUG("%s: hdl = %d",__func__, hdl);
             if (hdl >= 0) {
               btif_a2dp_source_setup_codec(hdl);
               enc_update_in_progress = TRUE;
             }
+          } else {
+            APPL_TRACE_ERROR("%s: Invalid index",__func__);
+            status = -1;//Invalid status to stop start retry
+            break;
           }
-          APPL_TRACE_DEBUG("Start VSC exchange on MM Start when state is remote started");
-          btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, NULL, 0);
+          APPL_TRACE_DEBUG("Start VSC exchange on MM Start when state is remote started on hdl = %d",hdl);
+          btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, (char *)&hdl, 1);
           status = A2DP_CTRL_ACK_PENDING;
           break;
         }
