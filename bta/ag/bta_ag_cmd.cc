@@ -589,8 +589,12 @@ void bta_ag_send_call_inds(tBTA_AG_SCB* p_scb, tBTA_AG_RES result) {
     call = p_scb->call_ind;
   }
 
-  /* Send indicator function tracks if the values have actually changed */
-  bta_ag_send_ind(p_scb, BTA_AG_IND_CALL, call, false);
+/* if res value equal to BTA_AG_OUT_CALL_CONN_RES, always send indicator,
+    otherwise, send indicator function tracks if the values have actually changed*/
+  if (result == BTA_AG_IN_CALL_CONN_RES || result == BTA_AG_OUT_CALL_CONN_RES)
+    bta_ag_send_ind(p_scb, BTA_AG_IND_CALL, call, true);
+  else
+    bta_ag_send_ind(p_scb, BTA_AG_IND_CALL, call, false);
   bta_ag_send_ind(p_scb, BTA_AG_IND_CALLSETUP, callsetup, false);
 }
 
