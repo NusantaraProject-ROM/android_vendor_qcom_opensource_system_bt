@@ -175,9 +175,7 @@ void gatt_free(void) {
   }
 
   gatt_cb.hdl_list_info->clear();
-  gatt_cb.hdl_list_info = nullptr;
   gatt_cb.srv_list_info->clear();
-  gatt_cb.srv_list_info = nullptr;
 }
 
 /*******************************************************************************
