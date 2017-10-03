@@ -38,7 +38,7 @@ typedef uint16_t(tBTA_HL_ALLOCATE_PSM)(void);
  ****************************************************************************/
 
 #ifndef BTA_HL_DISC_SIZE
-#define BTA_HL_DISC_SIZE 1600
+#define BTA_HL_DISC_SIZE BT_DEFAULT_BUFFER_SIZE
 #endif
 #define BTA_HL_NUM_SRCH_ATTR 10
 #define BTA_HL_MIN_SDP_MDEP_LEN 7
