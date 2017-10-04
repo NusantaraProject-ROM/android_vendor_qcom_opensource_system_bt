@@ -57,6 +57,7 @@ bool L2CA_CancelBleConnectReq(BD_ADDR rem_bda) {
   if(p_acl) {
     L2CAP_TRACE_WARNING("%s - disconnecting the LE link", __func__);
     btm_sec_disconnect(p_acl->hci_handle, HCI_ERR_CONN_CAUSE_LOCAL_HOST);
+    return (true);
   }
 
   /* There can be only one BLE connection request outstanding at a time */
