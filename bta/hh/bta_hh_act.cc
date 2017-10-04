@@ -525,8 +525,11 @@ void bta_hh_open_cmpl_act(tBTA_HH_DEV_CB* p_cb, tBTA_HH_DATA* p_data) {
   conn.status = p_cb->status;
   conn.le_hid = p_cb->is_le_device;
   conn.scps_supported = p_cb->scps_supported;
+
+#if (defined(BLE_HH_QUALIFICATION_ENABLED) && BLE_HH_QUALIFICATION_ENABLED == TRUE)
   if(p_cb->scps_supported)
       BTA_HhUpdateLeScanParam(dev_handle,BTM_BLE_SCAN_SLOW_INT_1,BTM_BLE_SCAN_SLOW_WIN_1);
+#endif
 
   if (!p_cb->is_le_device)
 #endif
