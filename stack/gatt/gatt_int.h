@@ -422,6 +422,7 @@ extern bool gatt_connect(BD_ADDR rem_bda, tGATT_TCB* p_tcb,
 extern void gatt_data_process(tGATT_TCB* p_tcb, BT_HDR* p_buf);
 extern void gatt_update_app_use_link_flag(tGATT_IF gatt_if, tGATT_TCB* p_tcb,
                                           bool is_add, bool check_acl_link);
+extern bool gatt_is_app_holding_link ( tGATT_IF gatt_if, tGATT_TCB *p_tcb);
 
 extern void gatt_profile_db_init(void);
 extern void gatt_set_ch_state(tGATT_TCB* p_tcb, tGATT_CH_STATE ch_state);
