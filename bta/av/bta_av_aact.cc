@@ -2936,7 +2936,7 @@ void bta_av_rcfg_cfm(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   }
 
   if ((err_code != 0) || disable_avdtp_reconfigure) {
-    APPL_TRACE_ERROR("%s: reconfig rejected, try close", __func__);
+    APPL_TRACE_ERROR("%s: reconfig rejected, try close with error code = %d", __func__, err_code);
     /* Disable reconfiguration feature only with explicit rejection(not with
      * timeout) */
     if ((err_code != AVDT_ERR_TIMEOUT) || disable_avdtp_reconfigure) {

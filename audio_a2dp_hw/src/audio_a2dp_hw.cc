@@ -814,7 +814,7 @@ static void a2dp_open_ctrl_path(struct a2dp_stream_common* common) {
       /* success, now check if stack is ready */
       if (check_a2dp_ready(common) == 0) break;
 
-      ERROR("error : a2dp not ready, wait 250 ms and retry");
+      ERROR("error :No active a2dp connection, wait 250 ms and retry");
       usleep(250000);
       skt_disconnect(common->ctrl_fd);
       common->ctrl_fd = AUDIO_SKT_DISCONNECTED;

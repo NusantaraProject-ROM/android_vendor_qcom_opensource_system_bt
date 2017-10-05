@@ -748,10 +748,11 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
     btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
   } else if (pending_cmd == A2DP_CTRL_CMD_SUSPEND ||
              pending_cmd == A2DP_CTRL_CMD_STOP) {
-    APPL_TRACE_DEBUG("%s, Ack for pending cmd", __func__);
+    APPL_TRACE_DEBUG("%s, Ack for pending Stop/Suspend", __func__);
     btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+  } else {
+    BTIF_TRACE_ERROR("Invalid cmd pending for ack");
   }
-
   /* audio engine stopped, reset tx suspended flag */
   btif_a2dp_source_cb.tx_flush = false;
 

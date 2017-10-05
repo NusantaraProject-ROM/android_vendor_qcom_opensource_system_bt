@@ -1303,20 +1303,16 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
               btif_dispatch_sm_event(BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL, 0);
             }
           } else {
-            if ((btif_av_cb[index].flags & BTIF_AV_FLAG_REMOTE_SUSPEND))      {
+            if ((btif_av_cb[index].flags & BTIF_AV_FLAG_REMOTE_SUSPEND)) {
                 BTIF_TRACE_DEBUG("%s: clear remote suspend flag on remote start",
                 __func__);
                 btif_av_cb[index].flags &= ~BTIF_AV_FLAG_REMOTE_SUSPEND;
+                if (btif_av_is_split_a2dp_enabled())
+                {
+                    btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, NULL, 0);
+                }
             } else {
               BTIF_TRACE_DEBUG("%s: honor remote start",__func__);
-              /* If HS2 is started while HS1 is playing, trigger Dual A2dp
-                 Handoff here.
-               */
-              if (btif_av_is_playing() && !btif_av_is_under_handoff()) {
-                BTIF_TRACE_DEBUG("Trigger Dual A2dp Handoff due to remote start on %d", index);
-                btif_av_trigger_dual_handoff(true, btif_av_cb[index].peer_bda.address);
-             }
-
               btif_av_cb[index].remote_started = true;
               btif_a2dp_honor_remote_start();
             }
@@ -1328,7 +1324,8 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
       /* Multicast-soft Handoff:
        * START failed, cleanup Handoff flag.
        */
-      if (p_av->start.status != BTA_AV_SUCCESS) {
+      if (p_av->start.status != BTA_AV_SUCCESS)
+      {
         int i;
 
         /* In case peer is A2DP SRC we do not want to ack commands on UIPC */
@@ -1500,7 +1497,7 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
 
     default: {
       BTIF_TRACE_WARNING("%s : unhandled event:%s", __func__,
-                         dump_av_sm_event_name((btif_av_sm_event_t)event));
+                          dump_av_sm_event_name((btif_av_sm_event_t)event));
       return false;
     }
   }
@@ -3038,17 +3035,22 @@ static void allow_connection(int is_valid, bt_bdaddr_t *bd_addr)
       break;
 
    case BTA_AV_PENDING_EVT:
-     if (is_valid) {
        index = btif_av_idx_by_bdaddr(bd_addr->address);
        if (index >= btif_max_av_clients) {
          BTIF_TRACE_DEBUG("Invalid index for device");
          break;
        }
+       if (is_valid) {
        BTIF_TRACE_DEBUG("The connection is allowed for the device at index = %d", index);
        BTA_AvOpen(btif_av_cb[index].peer_bda.address, btif_av_cb[index].bta_handle,
                      true, BTA_SEC_AUTHENTICATE, UUID_SERVCLASS_AUDIO_SOURCE);
-     } else
-       BTA_AvDisconnect(idle_rc_data.pend.bd_addr);
+     } else {
+       BTIF_TRACE_IMP("Reject incoming AV connection on Index %d", index);
+       btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED,
+           &(btif_av_cb[index].peer_bda));
+       BTA_AvClose(btif_av_cb[index].bta_handle);
+       btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_IDLE);
+     }
    break;
 
    default:

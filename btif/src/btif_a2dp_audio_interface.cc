@@ -639,7 +639,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         break;
       }
     case A2DP_CTRL_GET_CONNECTION_STATUS:
-      if (btif_av_is_connected())
+      if (btif_av_is_connected() && !(btif_a2dp_source_media_task_is_shutting_down()))
       {
           BTIF_TRACE_DEBUG("got valid connection");
           status = A2DP_CTRL_ACK_SUCCESS;
