@@ -3267,6 +3267,7 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
 {
   uint8_t param[40];// codec_type;//index = 0;
   const char *codec_name;
+  unsigned char status = 0;
   //uint16_t sample_rate;
   codec_name = A2DP_CodecName(p_scb->cfg.codec_info);
   APPL_TRACE_DEBUG("bta_av_vendor_offload_start");
@@ -3277,6 +3278,8 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
   enc_update_in_progress = FALSE;
   if (!btif_hf_is_call_vr_idle()) {
     APPL_TRACE_IMP("ignore VS start request as Call is not idle");
+    status = 2;//INCALL FAILURE
+    (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
     return;
   } else if (!btif_a2dp_src_vsc.tx_started
       && (!btif_a2dp_src_vsc.tx_start_initiated || tx_enc_update_initiated)) {
@@ -3291,6 +3294,8 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
     }
   } else {
     APPL_TRACE_IMP("ignore VS start request");
+    status = 0;//SUCCESS
+    (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
     return;
   }
 #if 1
