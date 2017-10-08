@@ -790,6 +790,7 @@ void handle_rc_connect(tBTA_AV_RC_OPEN* p_rc_open) {
     BTIF_TRACE_ERROR("%s: Connect failed with error code: %d", __func__,
                      p_rc_open->status);
     p_dev->rc_connected = false;
+    return;
   }
 
   // check if already some RC is connected
@@ -3304,6 +3305,12 @@ static bt_status_t get_item_attr_rsp(bt_bdaddr_t* bd_addr,
   avrc_rsp.get_attrs.status = status_code_map[rsp_status];
   if (rsp_status == BTRC_STS_NO_ERROR) {
     fill_avrc_attr_entry(item_attrs, num_attr, p_attrs);
+  }
+
+  for (int attr_cnt = 0; attr_cnt < num_attr; attr_cnt++) {
+    BTIF_TRACE_DEBUG("%s: attr_id: 0x%x, charset_id: 0x%x, str_len: %d, str: %s", __func__,
+      (unsigned int)item_attrs[attr_cnt].attr_id, item_attrs[attr_cnt].name.charset_id,
+      item_attrs[attr_cnt].name.str_len, item_attrs[attr_cnt].name.p_str);
   }
 
   avrc_rsp.get_attrs.num_attrs = num_attr;
