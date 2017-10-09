@@ -54,7 +54,7 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
                           tBTA_AV_HNDL hdl) {
   bool ack = false;
 
-  APPL_TRACE_EVENT("## ON A2DP STARTED ##");
+  APPL_TRACE_WARNING("## ON A2DP STARTED ##");
 
   if (p_av_start == NULL) {
     /* ack back a local start request */
@@ -71,6 +71,11 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
       return true;
     }
   }
+
+  APPL_TRACE_WARNING(
+      "%s: pending_start = %d status = %d suspending = %d initiator = %d",
+      __func__, pending_start, p_av_start->status, p_av_start->suspending,
+      p_av_start->initiator);
 
   if (p_av_start->status == BTA_AV_SUCCESS) {
     if (!p_av_start->suspending) {
@@ -106,7 +111,7 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
 }
 
 void btif_a2dp_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
-  APPL_TRACE_EVENT("## ON A2DP STOPPED ##");
+  APPL_TRACE_WARNING("## ON A2DP STOPPED ##");
 
   int idx = btif_av_get_latest_playing_device_idx();
   if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SRC) {

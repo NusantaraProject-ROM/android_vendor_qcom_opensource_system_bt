@@ -94,6 +94,7 @@ typedef enum {
 typedef struct {
   tBTA_AV_HNDL bta_handle;
   RawAddress peer_bda;
+  bool self_initiated_connection;
   btif_sm_handle_t sm_handle;
   uint8_t flags;
   tBTA_AV_EDR edr;
@@ -126,10 +127,12 @@ typedef struct {
 static btav_source_callbacks_t* bt_av_src_callbacks = NULL;
 static btav_sink_callbacks_t* bt_av_sink_callbacks = NULL;
 static btif_av_cb_t btif_av_cb[BTIF_AV_NUM_CB] = {
-    { 0, {{0}}, 0, 0, 0, 0, std::vector<btav_a2dp_codec_config_t>(), false,
-    false, false, BTIF_AV_STATE_IDLE, BTA_A2DP_SOURCE_SERVICE_ID, false, false, false},
-    { 0, {{0}}, 0, 0, 0, 0, std::vector<btav_a2dp_codec_config_t>(), false,
-    false, false, BTIF_AV_STATE_IDLE, BTA_A2DP_SOURCE_SERVICE_ID, false, false, false},
+    { 0, {{0}}, false, 0, 0, 0, 0, std::vector<btav_a2dp_codec_config_t>(), false,
+    false, false, BTIF_AV_STATE_IDLE, BTA_A2DP_SOURCE_SERVICE_ID,
+    false, false, false},
+    { 0, {{0}}, false, 0, 0, 0, 0, std::vector<btav_a2dp_codec_config_t>(), false,
+    false, false, BTIF_AV_STATE_IDLE, BTA_A2DP_SOURCE_SERVICE_ID,
+    false, false, false},
 };
 static alarm_t* av_open_on_rc_timer = NULL;
 static btif_sm_event_t idle_rc_event;
@@ -333,7 +336,7 @@ static void btif_initiate_av_open_timer_timeout(UNUSED_ATTR void* data) {
                            sizeof(connect_req));
     }
   } else {
-    BTIF_TRACE_ERROR("%s No connected RC peers", __func__);
+    BTIF_TRACE_ERROR("%s: No connected RC peers", __func__);
   }
 }
 
@@ -383,11 +386,12 @@ static void btif_report_audio_state(btav_audio_state_t state,
 }
 
 static void btif_update_source_codec(void* p_data) {
-  btav_a2dp_codec_config_t req;
+  BTIF_TRACE_DEBUG("%s", __func__);
+
   // copy to avoid alignment problems
+  btav_a2dp_codec_config_t req;
   memcpy(&req, p_data, sizeof(req));
 
-  BTIF_TRACE_DEBUG("BTIF_AV_SOURCE_CONFIG_REQ_EVT");
   btif_a2dp_source_encoder_user_config_update_req(req);
 }
 
@@ -403,8 +407,9 @@ static void btif_report_source_codec_state(UNUSED_ATTR void* p_data,
           &codec_config, &codecs_local_capabilities,
           &codecs_selectable_capabilities)) {
     BTIF_TRACE_WARNING(
-        "BTIF_AV_SOURCE_CONFIG_UPDATED_EVT failed: "
-        "cannot get codec config and capabilities");
+        "%s: error reporting audio source codec state: "
+        "cannot get codec config and capabilities",
+        __func__);
     return;
   }
   if (bt_av_src_callbacks != NULL) {
@@ -634,7 +639,7 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       break;
 
     case BTA_AV_RC_BROWSE_OPEN_EVT:
-      BTIF_TRACE_DEBUG("BTA_AV_RC_BROWSE_OPEN_EVT received");
+      BTIF_TRACE_DEBUG("%s: BTA_AV_RC_BROWSE_OPEN_EVT received", __func__);
       btif_rc_handler(event, (tBTA_AV*)p_data);
       break;
 
@@ -663,8 +668,10 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       // copy to avoid alignment problems
       memcpy(&req, p_data, sizeof(req));
 
-      BTIF_TRACE_WARNING("BTIF_AV_SINK_CONFIG_REQ_EVT %d %d", req.sample_rate,
-                         req.channel_count);
+      BTIF_TRACE_WARNING(
+          "%s: BTIF_AV_SINK_CONFIG_REQ_EVT sample_rate=%d "
+          "channel_count=%d",
+          __func__, req.sample_rate, req.channel_count);
       if (bt_av_sink_callbacks != NULL) {
         HAL_CBACK(bt_av_sink_callbacks, audio_config_cb, &(req.peer_bd),
                   req.sample_rate, req.channel_count);
@@ -735,19 +742,20 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       break;
 
     case BTA_AV_RC_CLOSE_EVT:
-      BTIF_TRACE_DEBUG("BTA_AV_RC_CLOSE_EVT: Stopping AV timer.");
+      BTIF_TRACE_DEBUG("%s: BTA_AV_RC_CLOSE_EVT: Stopping AV timer.", __func__);
       alarm_cancel(av_open_on_rc_timer);
       btif_rc_handler(event, (tBTA_AV*)p_data);
       break;
 
     case BTIF_AV_OFFLOAD_START_REQ_EVT:
       BTIF_TRACE_ERROR(
-          "BTIF_AV_OFFLOAD_START_REQ_EVT: Stream not Started IDLE");
+          "%s: BTIF_AV_OFFLOAD_START_REQ_EVT: Stream not Started IDLE",
+          __func__);
       btif_a2dp_on_offload_started(BTA_AV_FAIL);
       break;
 
     default:
-      BTIF_TRACE_WARNING("%s : unhandled event:%s", __func__,
+      BTIF_TRACE_WARNING("%s: unhandled event=%s", __func__,
                          dump_av_sm_event_name((btif_av_sm_event_t)event));
       return false;
   }
@@ -788,7 +796,7 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
       break;
 
     case BTA_AV_REJECT_EVT:
-      BTIF_TRACE_DEBUG(" Received  BTA_AV_REJECT_EVT ");
+      BTIF_TRACE_WARNING("%s: Received BTA_AV_REJECT_EVT", __func__);
       btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED,
                                    &(btif_av_cb[index].peer_bda));
       btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_IDLE);
@@ -826,7 +834,7 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
           btif_av_cb[index].edr_3mbps = true;
         }
       } else {
-        BTIF_TRACE_WARNING("BTA_AV_OPEN_EVT::FAILED status: %d",
+        BTIF_TRACE_WARNING("%s: BTA_AV_OPEN_EVT::FAILED status: %d", __func__,
                            p_bta_data->open.status);
 
         /* Multicast: Check if connected to AVRC only device
@@ -841,7 +849,8 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
            * Disconnect AVRCP connection, if
            * A2DP conneciton failed, for any reason
            */
-          BTIF_TRACE_WARNING(" Disconnecting AVRCP ");
+          BTIF_TRACE_WARNING("%s: Disconnecting AVRCP: peer_addr=%s", __func__,
+                             peer_addr.ToString().c_str());
           peer_handle = btif_rc_get_connected_peer_handle(peer_addr);
           if (peer_handle != BTRC_HANDLE_NONE) {
             BTA_AvCloseRc(peer_handle);
@@ -892,7 +901,7 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
           BTA_AvOpenRc(btif_av_cb[index].bta_handle);
         }
       }
-      btif_queue_advance();
+        btif_queue_advance();
     } break;
 
     case BTIF_AV_SOURCE_CONFIG_REQ_EVT:
@@ -933,16 +942,20 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
             "%s: Same device moved to Opening state,ignore Connect Req",
             __func__);
       } else {
-        BTIF_TRACE_DEBUG("%s: Moved from idle by Incoming Connection request",
-                         __func__);
-        btif_report_connection_state(
-            BTAV_CONNECTION_STATE_DISCONNECTED,
-            ((btif_av_connect_req_t*)p_data)->target_bda);
+          btif_av_connect_req_t* connect_req_p = (btif_av_connect_req_t*)p_data;
+          RawAddress& target_bda = *connect_req_p->target_bda;
+        BTIF_TRACE_WARNING(
+            "%s: device %s is already connecting, reject Connect request to %s",
+            __func__, btif_av_cb[index].peer_bda.ToString().c_str(),
+            target_bda.ToString().c_str());
+        btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED,
+                                     &target_bda);
       }
+      // Ignore all connection request if we are already opening
       btif_queue_advance();
     } break;
 
-    case BTA_AV_PENDING_EVT:
+    case BTA_AV_PENDING_EVT: {
       // Check for device, if same device which moved to opening then ignore
       // callback
       if (((tBTA_AV*)p_data)->pend.bd_addr == btif_av_cb[index].peer_bda) {
@@ -951,15 +964,20 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
             __func__);
         break;
       } else {
-        BTIF_TRACE_DEBUG("%s: Moved from idle by outgoing Connection request",
-                         __func__);
-        BTA_AvDisconnect(((tBTA_AV*)p_data)->pend.bd_addr);
-        break;
+          const RawAddress& bd_addr = ((tBTA_AV*)p_data)->pend.bd_addr;
+        BTIF_TRACE_WARNING(
+            "%s: device %s is already connecting, reject incoming request "
+            "from %s",
+            __func__, btif_av_cb[index].peer_bda.ToString().c_str(),
+            bd_addr.ToString().c_str());
+        BTA_AvDisconnect(bd_addr);
       }
+    } break;
 
     case BTIF_AV_OFFLOAD_START_REQ_EVT:
       BTIF_TRACE_ERROR(
-          "BTIF_AV_OFFLOAD_START_REQ_EVT: Stream not Started OPENING");
+          "%s: BTIF_AV_OFFLOAD_START_REQ_EVT: Stream not Started OPENING",
+          __func__);
       btif_a2dp_on_offload_started(BTA_AV_FAIL);
       break;
 
@@ -992,7 +1010,7 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
       CHECK_RC_EVENT(event, (tBTA_AV*)p_data);
 
     default:
-      BTIF_TRACE_WARNING("%s : unhandled event:%s", __func__,
+      BTIF_TRACE_WARNING("%s: unhandled event=%s", __func__,
                          dump_av_sm_event_name((btif_av_sm_event_t)event));
       return false;
   }
@@ -1109,12 +1127,13 @@ static bool btif_av_state_closing_handler(btif_sm_event_t event, void* p_data, i
 
     case BTIF_AV_OFFLOAD_START_REQ_EVT:
       BTIF_TRACE_ERROR(
-          "BTIF_AV_OFFLOAD_START_REQ_EVT: Stream not Started Closing");
+          "%s: BTIF_AV_OFFLOAD_START_REQ_EVT: Stream not Started Closing",
+          __func__);
       btif_a2dp_on_offload_started(BTA_AV_FAIL);
       break;
 
     default:
-      BTIF_TRACE_WARNING("%s : unhandled event:%s", __func__,
+      BTIF_TRACE_WARNING("%s: unhandled event=%s", __func__,
                          dump_av_sm_event_name((btif_av_sm_event_t)event));
       return false;
   }
@@ -1390,17 +1409,22 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
         BTIF_TRACE_DEBUG("%s: Ignore BTIF_AV_CONNECT_REQ_EVT for same device",
                          __func__);
       } else {
-        BTIF_TRACE_DEBUG("%s: Moved to opened by Other Incoming Conn req",
-                         __func__);
+          btif_av_connect_req_t* connect_req_p = (btif_av_connect_req_t*)p_data;
+          RawAddress& target_bda = *connect_req_p->target_bda;
+        BTIF_TRACE_WARNING(
+            "%s: Moved to opened by Other incoming Connect request: "
+            "target_bda=%s",
+            __func__, target_bda.ToString().c_str());
         btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED,
-                                     (RawAddress*)p_data);
+                                     &target_bda);
       }
       btif_queue_advance();
     } break;
 
     case BTIF_AV_OFFLOAD_START_REQ_EVT: {
       BTIF_TRACE_ERROR(
-          "BTIF_AV_OFFLOAD_START_REQ_EVT: Stream not Started Opened");
+          "%s: BTIF_AV_OFFLOAD_START_REQ_EVT: Stream not Started Opened",
+          __func__);
       btif_a2dp_on_offload_started(BTA_AV_FAIL);
     } break;
 
@@ -1745,7 +1769,7 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       CHECK_RC_EVENT(event, (tBTA_AV*)p_data);
 
     default:
-      BTIF_TRACE_WARNING("%s: unhandled event: %s", __func__,
+      BTIF_TRACE_WARNING("%s: unhandled event=%s", __func__,
                          dump_av_sm_event_name((btif_av_sm_event_t)event));
       return false;
   }
@@ -2408,7 +2432,7 @@ static bt_status_t init_src(
  ******************************************************************************/
 
 static bt_status_t init_sink(btav_sink_callbacks_t* callbacks) {
-  BTIF_TRACE_EVENT("%s()", __func__);
+  BTIF_TRACE_EVENT("%s", __func__);
 
   bt_status_t status = btif_av_init(BTA_A2DP_SINK_SERVICE_ID);
   if (status == BT_STATUS_SUCCESS) bt_av_sink_callbacks = callbacks;
@@ -2427,7 +2451,7 @@ static bt_status_t init_sink(btav_sink_callbacks_t* callbacks) {
  *
  ******************************************************************************/
 static void update_audio_focus_state(int state) {
-  BTIF_TRACE_DEBUG("%s: state %d", __func__, state);
+  BTIF_TRACE_DEBUG("%s: state=%d", __func__, state);
   btif_a2dp_sink_set_focus_state_req((btif_a2dp_sink_focus_state_t)state);
 }
 
@@ -2441,7 +2465,7 @@ static void update_audio_focus_state(int state) {
  *
  ******************************************************************************/
 static void update_audio_track_gain(float gain) {
-  BTIF_TRACE_DEBUG("%s: gain %f", __func__, gain);
+  BTIF_TRACE_DEBUG("%s: gain=%f", __func__, gain);
   btif_a2dp_sink_set_audio_track_gain(gain);
 }
 
@@ -2848,7 +2872,7 @@ bool btif_av_stream_ready(void) {
 
   /* also make sure main adapter is enabled */
   if (btif_is_enabled() == 0) {
-    BTIF_TRACE_EVENT("main adapter not enabled");
+    BTIF_TRACE_EVENT("%s: main adapter not enabled", __func__);
     return false;
   }
 

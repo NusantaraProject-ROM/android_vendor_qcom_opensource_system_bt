@@ -419,6 +419,8 @@ static bool bta_av_next_getcap(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
 
   /* if no streams available then stream open fails */
   if (!sent_cmd) {
+    APPL_TRACE_ERROR("%s: BTA_AV_STR_GETCAP_FAIL_EVT: peer_addr=%s", __func__,
+                     p_scb->peer_addr.ToString().c_str());
     bta_av_ssm_execute(p_scb, BTA_AV_STR_GETCAP_FAIL_EVT, p_data);
   }
 
@@ -964,6 +966,8 @@ void bta_av_do_disc_a2dp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     case BTA_AV_RS_FAIL:
       /* report a new failure event  */
       p_scb->open_status = BTA_AV_FAIL_ROLE;
+      APPL_TRACE_ERROR("%s: BTA_AV_SDP_DISC_FAIL_EVT: peer_addr=%s", __func__,
+                       p_scb->peer_addr.ToString().c_str());
       bta_av_ssm_execute(p_scb, BTA_AV_SDP_DISC_FAIL_EVT, NULL);
       break;
 
@@ -1230,7 +1234,8 @@ void bta_av_disconnect_req(tBTA_AV_SCB* p_scb,
                            UNUSED_ATTR tBTA_AV_DATA* p_data) {
   tBTA_AV_RCB* p_rcb;
 
-  APPL_TRACE_DEBUG("%s: conn_lcb: 0x%x", __func__, bta_av_cb.conn_lcb);
+  APPL_TRACE_WARNING("%s: conn_lcb: 0x%x peer_addr: %s", __func__,
+                     bta_av_cb.conn_lcb, p_scb->peer_addr.ToString().c_str());
 
   alarm_cancel(bta_av_cb.link_signalling_timer);
   alarm_cancel(p_scb->avrc_ct_timer);
@@ -1596,7 +1601,12 @@ void bta_av_connect_req(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
  *
  ******************************************************************************/
 void bta_av_sdp_failed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
-  if (!p_scb->open_status) p_scb->open_status = BTA_AV_FAIL_SDP;
+  APPL_TRACE_ERROR("%s: peer_addr=%s open_status=%d", __func__,
+                   p_scb->peer_addr.ToString().c_str(), p_scb->open_status);
+
+  if (p_scb->open_status == BTA_AV_SUCCESS) {
+    p_scb->open_status = BTA_AV_FAIL_SDP;
+  }
 
   p_scb->sdp_discovery_started = true;
   bta_av_str_closed(p_scb, p_data);
@@ -1651,6 +1661,8 @@ void bta_av_disc_results(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   }
   /* else we got discover response but with no streams; we're done */
   else {
+    APPL_TRACE_ERROR("%s: BTA_AV_STR_DISC_FAIL_EVT: peer_addr=%s", __func__,
+                     p_scb->peer_addr.ToString().c_str());
     bta_av_ssm_execute(p_scb, BTA_AV_STR_DISC_FAIL_EVT, p_data);
   }
 }
@@ -1695,6 +1707,8 @@ void bta_av_disc_res_as_acp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   }
   /* else we got discover response but with no streams; we're done */
   else {
+    APPL_TRACE_ERROR("%s: BTA_AV_STR_DISC_FAIL_EVT: peer_addr=%s", __func__,
+                     p_scb->peer_addr.ToString().c_str());
     bta_av_ssm_execute(p_scb, BTA_AV_STR_DISC_FAIL_EVT, p_data);
   }
 }
@@ -1794,7 +1808,8 @@ void bta_av_open_failed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   tBTA_AV_OPEN open;
   uint8_t cur_role;
 
-  APPL_TRACE_DEBUG("%s", __func__);
+  APPL_TRACE_ERROR("%s: peer_addr=%s", __func__,
+                   p_scb->peer_addr.ToString().c_str());
   p_scb->open_status = BTA_AV_FAIL_STREAM;
   bta_av_cco_close(p_scb, p_data);
 
@@ -1828,6 +1843,12 @@ void bta_av_open_failed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     } else if (p_scb->seps[p_scb->sep_idx].tsep == AVDT_TSEP_SNK) {
       open.sep = AVDT_TSEP_SRC;
     }
+
+    APPL_TRACE_ERROR(
+        "%s: there is already an active connection: peer_addr=%s chnl=%d "
+        "hndl=%d status=%d starting=%d edr=%d",
+        __func__, open.bd_addr.ToString().c_str(), open.chnl, open.hndl,
+        open.status, open.starting, open.edr);
 
     tBTA_AV bta_av_data;
     bta_av_data.open = open;
@@ -1975,6 +1996,9 @@ void bta_av_discover_req(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
  *
  ******************************************************************************/
 void bta_av_conn_failed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
+  APPL_TRACE_ERROR("%s: peer_addr=%s open_status=%d", __func__,
+                   p_scb->peer_addr.ToString().c_str(), p_scb->open_status);
+
   p_scb->open_status = BTA_AV_FAIL_STREAM;
   bta_av_str_closed(p_scb, p_data);
 }
@@ -2578,6 +2602,11 @@ void bta_av_str_closed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   tBTA_AV_EVT event;
   uint8_t policy = HCI_ENABLE_SNIFF_MODE;
 
+  APPL_TRACE_WARNING(
+      "%s: peer_addr=%s open_status=%d chnl=%d hndl=%d co_started=%d", __func__,
+      p_scb->peer_addr.ToString().c_str(), p_scb->open_status, p_scb->chnl,
+      p_scb->hndl, p_scb->co_started);
+
   if ((bta_av_cb.features & BTA_AV_FEAT_MASTER) == 0 ||
       bta_av_cb.audio_open_cnt == 1)
     policy |= HCI_ENABLE_MASTER_SLAVE_SWITCH;
@@ -2587,7 +2616,7 @@ void bta_av_str_closed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     L2CA_SetDesireRole(L2CAP_ROLE_ALLOW_SWITCH);
   }
 
-  if (p_scb->open_status) {
+  if (p_scb->open_status != BTA_AV_SUCCESS) {
     /* must be failure when opening the stream */
     data.open.bd_addr = p_scb->peer_addr;
     data.open.status = p_scb->open_status;
@@ -2784,8 +2813,10 @@ void bta_av_rcfg_str_ok(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
  *
  ******************************************************************************/
 void bta_av_rcfg_failed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
-  APPL_TRACE_DEBUG("%s: num_recfg: %d, conn_lcb:0x%x", __func__,
-                   p_scb->num_recfg, bta_av_cb.conn_lcb);
+  APPL_TRACE_ERROR("%s: num_recfg=%d conn_lcb=0x%x peer_addr=%s", __func__,
+                   p_scb->num_recfg, bta_av_cb.conn_lcb,
+                   p_scb->peer_addr.ToString().c_str());
+
   if (p_scb->num_recfg > BTA_AV_RECONFIG_RETRY) {
     bta_av_cco_close(p_scb, p_data);
     /* report failure */
@@ -2840,7 +2871,10 @@ void bta_av_rcfg_connect(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
  *
  ******************************************************************************/
 void bta_av_rcfg_discntd(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
-  APPL_TRACE_DEBUG("%s: num_recfg: %d", __func__, p_scb->num_recfg);
+  APPL_TRACE_ERROR("%s: num_recfg=%d conn_lcb=0x%x peer_addr=%s", __func__,
+                   p_scb->num_recfg, bta_av_cb.conn_lcb,
+                   p_scb->peer_addr.ToString().c_str());
+
   p_scb->num_recfg++;
   if (p_scb->num_recfg > BTA_AV_RECONFIG_RETRY) {
     /* report failure */
@@ -2882,6 +2916,8 @@ void bta_av_suspend_cont(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
       tBTA_AV bta_av_data;
       bta_av_data.reconfig = reconfig;
       (*bta_av_cb.p_cback)(BTA_AV_RECONFIG_EVT, &bta_av_data);
+      APPL_TRACE_ERROR("%s: BTA_AV_STR_DISC_FAIL_EVT: peer_addr=%s", __func__,
+                       p_scb->peer_addr.ToString().c_str());
       bta_av_ssm_execute(p_scb, BTA_AV_STR_DISC_FAIL_EVT, NULL);
     } else {
       APPL_TRACE_ERROR("%s: suspend rejected, try close", __func__);
