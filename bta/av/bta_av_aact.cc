@@ -1526,6 +1526,8 @@ void bta_av_str_opened(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     open.status = BTA_AV_SUCCESS;
     open.starting = bta_av_chk_start(p_scb);
     open.edr = 0;
+
+    L2CA_SetMediaStreamChannel(p_scb->l2c_cid, true);
     // update Master/Slave Role for start
     if (BTM_GetRole (p_scb->peer_addr, &cur_role) == BTM_SUCCESS)
       open.role = cur_role;
@@ -2721,6 +2723,8 @@ void bta_av_str_closed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     /* last connection - restore the allow switch flag */
     L2CA_SetDesireRole(L2CAP_ROLE_ALLOW_SWITCH);
   }
+
+  L2CA_SetMediaStreamChannel(p_scb->l2c_cid, false);
 
   if (p_scb->open_status != BTA_AV_SUCCESS) {
     /* must be failure when opening the stream */

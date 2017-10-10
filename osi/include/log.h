@@ -17,6 +17,10 @@
  ******************************************************************************/
 
 #pragma once
+#include "include/bt_logger_lib.h"
+
+extern bt_logger_interface_t *logger_interface;
+extern bool bt_logger_enabled;
 
 /*
  * TODO(armansito): Work-around until we figure out a way to generate logs in a
@@ -62,25 +66,25 @@
   } while (0)
 #endif  // !LOG_NDEBUG
 
-#define LOG_DEBUG(tag, fmt, args...)                 \
-  do {                                               \
-    (true) ? ALOG(LOG_DEBUG, tag, fmt, ##args)       \
-           : fprintf(stderr, "%s" fmt, tag, ##args); \
-  } while (0)
-#define LOG_INFO(tag, fmt, args...)                  \
-  do {                                               \
-    (true) ? ALOG(LOG_INFO, tag, fmt, ##args)        \
-           : fprintf(stderr, "%s" fmt, tag, ##args); \
-  } while (0)
-#define LOG_WARN(tag, fmt, args...)                  \
-  do {                                               \
-    (true) ? ALOG(LOG_WARN, tag, fmt, ##args)        \
-           : fprintf(stderr, "%s" fmt, tag, ##args); \
-  } while (0)
-#define LOG_ERROR(tag, fmt, args...)                 \
-  do {                                               \
-    (true) ? ALOG(LOG_ERROR, tag, fmt, ##args)       \
-           : fprintf(stderr, "%s" fmt, tag, ##args); \
-  } while (0)
+#define LOG_DEBUG(tag, fmt, args...)                     \
+  do {                                                   \
+    (true) ? ALOG(LOG_DEBUG, tag, fmt, ##args)           \
+           : fprintf(stderr, "%s" fmt, tag, ##args);     \
+  } while (0);
+#define LOG_INFO(tag, fmt, args...)                      \
+  do {                                                   \
+    (true) ? ALOG(LOG_INFO, tag, fmt, ##args)            \
+           : fprintf(stderr, "%s" fmt, tag, ##args);     \
+  } while (0);
+#define LOG_WARN(tag, fmt, args...)                      \
+  do {                                                   \
+    (true) ? ALOG(LOG_WARN, tag, fmt, ##args)            \
+           : fprintf(stderr, "%s" fmt, tag, ##args);     \
+  } while (0);
+#define LOG_ERROR(tag, fmt, args...)                     \
+  do {                                                   \
+    (true) ? ALOG(LOG_ERROR, tag, fmt, ##args)           \
+           : fprintf(stderr, "%s" fmt, tag, ##args);     \
+  } while (0);
 
 #endif /* defined(OS_GENERIC) */
