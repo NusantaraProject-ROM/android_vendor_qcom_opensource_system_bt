@@ -728,19 +728,6 @@ bool A2dpCodecs::setCodecOtaConfig(
   *p_restart_output = false;
   *p_config_updated = false;
 
-  // Check whether the current codec config is explicitly configured by
-  // user configuration. If yes, then the OTA codec configuration is ignored.
-  if (current_codec_config_ != nullptr) {
-    codec_user_config = current_codec_config_->getCodecUserConfig();
-    if (!A2dpCodecConfig::isCodecConfigEmpty(codec_user_config)) {
-      LOG_WARN(LOG_TAG,
-               "%s: ignoring peer OTA configuration for codec %s: "
-               "existing user configuration for current codec %s",
-               __func__, A2DP_CodecName(p_ota_codec_config),
-               current_codec_config_->name().c_str());
-      goto fail;
-    }
-  }
 
   // Check whether the codec config for the same codec is explicitly configured
   // by user configuration. If yes, then the OTA codec configuration is
@@ -761,15 +748,6 @@ bool A2dpCodecs::setCodecOtaConfig(
       goto fail;
     }
     a2dp_codec_config = iter->second;
-  }
-  if (a2dp_codec_config == nullptr) goto fail;
-  codec_user_config = a2dp_codec_config->getCodecUserConfig();
-  if (!A2dpCodecConfig::isCodecConfigEmpty(codec_user_config)) {
-    LOG_WARN(LOG_TAG,
-             "%s: ignoring peer OTA configuration for codec %s: "
-             "existing user configuration for same codec",
-             __func__, A2DP_CodecName(p_ota_codec_config));
-    goto fail;
   }
   current_codec_config_ = a2dp_codec_config;
 
