@@ -66,6 +66,9 @@ Status mapToStatus(uint8_t resp);
 uint8_t btif_a2dp_audio_process_request(uint8_t cmd);
 volatile bool server_died = false;
 static pthread_t audio_hal_monitor;
+typedef std::unique_lock<std::mutex> Lock;
+std::mutex mtx;
+std::condition_variable mCV;
 /*BTIF AV helper */
 extern bool btif_av_is_device_disconnecting();
 extern int btif_get_is_remote_started_idx();
@@ -121,8 +124,9 @@ struct HidlDeathRecipient : public hidl_death_recipient {
       uint64_t /*cookie*/,
       const wp<::android::hidl::base::V1_0::IBase>& /*who*/) {
     LOG_INFO(LOG_TAG,"serviceDied");
-    //on_hidl_server_died();
+    Lock lk(mtx);
     server_died = true;
+    mCV.notify_one();
   }
 };
 sp<HidlDeathRecipient> BTAudioHidlDeathRecipient = new HidlDeathRecipient();
@@ -204,7 +208,11 @@ Status mapToStatus(uint8_t resp)
 /* Thread to handle hal sever death receipt*/
 static void* server_thread(UNUSED_ATTR void* arg) {
   LOG_INFO(LOG_TAG,"%s",__func__);
-  while (server_died == false);
+  Lock lk(mtx);
+  if (server_died == false) {
+    LOG_INFO(LOG_TAG,"waitin on condition");
+    mCV.wait(lk);
+  }
   if (btAudio != nullptr) {
     LOG_INFO(LOG_TAG,"%s:audio hal died",__func__);
     server_died = false;
@@ -261,7 +269,9 @@ void btif_a2dp_audio_interface_deinit() {
   }
   deinit_pending = false;
   btAudio = nullptr;
+  Lock lk(mtx);
   server_died = true; //Exit thread
+  mCV.notify_one();
   LOG_INFO(LOG_TAG,"btif_a2dp_audio_interface_deinit:Exit");
 }
 
