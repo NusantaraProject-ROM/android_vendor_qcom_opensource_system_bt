@@ -964,7 +964,7 @@ void bta_dm_bond(tBTA_DM_MSG* p_data) {
   tBTM_STATUS status;
   tBTA_DM_SEC sec_event;
   char* p_name;
-  tBTA_DM_MSG *p_msg;
+  tBTA_DM_API_BOND* p_msg;
 
   if (p_data->bond.transport == BTA_TRANSPORT_UNKNOWN)
     status = BTM_SecBond(p_data->bond.bd_addr, 0, NULL, 0);
@@ -973,8 +973,8 @@ void bta_dm_bond(tBTA_DM_MSG* p_data) {
                                     p_data->bond.transport, 0, NULL, 0);
   if (BTM_BUSY == status) {
 
-    p_msg = (tBTA_DM_MSG *)osi_malloc(sizeof(tBTA_DM_MSG));
-    memcpy(p_msg, p_data, sizeof(tBTA_DM_MSG));
+    p_msg = (tBTA_DM_API_BOND*)osi_malloc(sizeof(tBTA_DM_API_BOND));
+    memcpy(p_msg, p_data, sizeof(tBTA_DM_API_BOND));
 
     alarm_set_on_queue(
             bta_dm_cb.bond_retrail_timer, BTA_DM_BOND_TIMER_RETRIAL_MS,
