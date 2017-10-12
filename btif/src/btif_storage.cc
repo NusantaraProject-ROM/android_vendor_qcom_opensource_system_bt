@@ -150,14 +150,6 @@
 #endif
 
 /*******************************************************************************
- *  Local type definitions
- ******************************************************************************/
-typedef struct {
-  uint32_t num_devices;
-  bt_bdaddr_t devices[BTM_SEC_MAX_DEVICE_RECORDS];
-} btif_bonded_devices_t;
-
-/*******************************************************************************
  *  External functions
  ******************************************************************************/
 
@@ -169,7 +161,7 @@ extern void btif_gatts_add_bonded_dev_from_nv(BD_ADDR bda);
 
 static bt_status_t btif_in_fetch_bonded_ble_device(
     const char* remote_bd_addr, int add,
-    btif_bonded_devices_t* p_bonded_devices);
+    list_t** p_bonded_devices);
 static bt_status_t btif_in_fetch_bonded_device(const char* bdstr, int *dev_type);
 
 static bool btif_has_ble_keys(const char* bdstr);
@@ -429,8 +421,7 @@ static bt_status_t btif_in_fetch_bonded_device(const char* bdstr, int *p_dev_typ
  *
  ******************************************************************************/
 static bt_status_t btif_in_fetch_bonded_devices(
-    btif_bonded_devices_t* p_bonded_devices, int add) {
-  memset(p_bonded_devices, 0, sizeof(btif_bonded_devices_t));
+    list_t** p_bonded_devices, int add) {
 
   bool bt_linkkey_file_found = false;
   int device_type;
@@ -465,8 +456,9 @@ static bt_status_t btif_in_fetch_bonded_devices(
           }
         }
         bt_linkkey_file_found = true;
-        memcpy(&p_bonded_devices->devices[p_bonded_devices->num_devices++],
-               &bd_addr, sizeof(bt_bdaddr_t));
+        bt_bdaddr_t *remote_addr =  (bt_bdaddr_t*)osi_malloc(sizeof(bt_bdaddr_t));
+        memcpy(remote_addr, &bd_addr, sizeof(bt_bdaddr_t));
+        list_append(*p_bonded_devices, remote_addr);
       } else {
         bt_linkkey_file_found = false;
       }
@@ -579,21 +571,27 @@ bt_status_t btif_storage_get_adapter_property(bt_property_t* property) {
     property->len = sizeof(bt_bdaddr_t);
     return BT_STATUS_SUCCESS;
   } else if (property->type == BT_PROPERTY_ADAPTER_BONDED_DEVICES) {
-    btif_bonded_devices_t bonded_devices;
+    list_t *bonded_devices = list_new(osi_free);
+    int len = 0;
 
     btif_in_fetch_bonded_devices(&bonded_devices, 0);
 
     BTIF_TRACE_DEBUG(
-        "%s: Number of bonded devices: %d "
+        "%s: Number of bonded devices: %zu "
         "Property:BT_PROPERTY_ADAPTER_BONDED_DEVICES",
-        __func__, bonded_devices.num_devices);
+        __func__, list_length(bonded_devices));
 
-    if (bonded_devices.num_devices > 0) {
-      property->len = bonded_devices.num_devices * sizeof(bt_bdaddr_t);
-      memcpy(property->val, bonded_devices.devices, property->len);
+    if (list_length(bonded_devices)) {
+      property->len = list_length(bonded_devices) * sizeof(bt_bdaddr_t);
+      for (list_node_t* node = list_begin(bonded_devices);
+        node != list_end(bonded_devices); node = list_next(node)) {
+        memcpy( &(property->val) + len, (bt_bdaddr_t *)list_node(node), sizeof(bt_bdaddr_t));
+        len = len + sizeof(bt_bdaddr_t);
+      }
     }
 
     /* if there are no bonded_devices, then length shall be 0 */
+    list_free(bonded_devices);
     return BT_STATUS_SUCCESS;
   } else if (property->type == BT_PROPERTY_UUIDS) {
     /* publish list of local supported services */
@@ -827,7 +825,7 @@ bt_status_t btif_storage_is_device_bonded(bt_bdaddr_t *remote_bd_addr) {
  *
  ******************************************************************************/
 bt_status_t btif_storage_load_bonded_devices(void) {
-  btif_bonded_devices_t bonded_devices;
+  list_t *bonded_devices = list_new(osi_free);
   uint32_t i = 0;
   bt_property_t adapter_props[6];
   uint32_t num_props = 0;
@@ -879,13 +877,15 @@ bt_status_t btif_storage_load_bonded_devices(void) {
 
     /* BONDED_DEVICES */
     bt_bdaddr_t* devices_list = (bt_bdaddr_t*)osi_malloc(
-        sizeof(bt_bdaddr_t) * bonded_devices.num_devices);
+        sizeof(bt_bdaddr_t) * list_length(bonded_devices));
     adapter_props[num_props].type = BT_PROPERTY_ADAPTER_BONDED_DEVICES;
     adapter_props[num_props].len =
-        bonded_devices.num_devices * sizeof(bt_bdaddr_t);
+        list_length(bonded_devices) * sizeof(bt_bdaddr_t);
     adapter_props[num_props].val = devices_list;
-    for (i = 0; i < bonded_devices.num_devices; i++) {
-      memcpy(devices_list + i, &bonded_devices.devices[i], sizeof(bt_bdaddr_t));
+    for (list_node_t* node = list_begin(bonded_devices);
+            node != list_end(bonded_devices); node = list_next(node)) {
+        memcpy(devices_list + i, (bt_bdaddr_t *)list_node(node), sizeof(bt_bdaddr_t));
+        i++;
     }
     num_props++;
 
@@ -900,11 +900,11 @@ bt_status_t btif_storage_load_bonded_devices(void) {
     osi_free(devices_list);
   }
 
-  BTIF_TRACE_EVENT("%s: %d bonded devices found", __func__,
-                   bonded_devices.num_devices);
-
+  BTIF_TRACE_EVENT("%s: %zu bonded devices found", __func__,
+                   list_length(bonded_devices));
   {
-    for (i = 0; i < bonded_devices.num_devices; i++) {
+     for (list_node_t* node = list_begin(bonded_devices);
+        node != list_end(bonded_devices); node = list_next(node)) {
       bt_bdaddr_t* p_remote_addr;
 
       /*
@@ -914,7 +914,8 @@ bt_status_t btif_storage_load_bonded_devices(void) {
       uint32_t devtype = 0;
 
       num_props = 0;
-      p_remote_addr = &bonded_devices.devices[i];
+      p_remote_addr = (bt_bdaddr_t *)list_node(node);
+
       memset(remote_properties, 0, sizeof(remote_properties));
       BTIF_STORAGE_GET_REMOTE_PROP(p_remote_addr, BT_PROPERTY_BDNAME, &name,
                                    sizeof(name), remote_properties[num_props]);
@@ -944,6 +945,7 @@ bt_status_t btif_storage_load_bonded_devices(void) {
                                  remote_properties);
     }
   }
+  list_free(bonded_devices);
   return BT_STATUS_SUCCESS;
 }
 
@@ -1158,7 +1160,7 @@ bt_status_t btif_storage_remove_ble_local_keys(void) {
 
 static bt_status_t btif_in_fetch_bonded_ble_device(
     const char* remote_bd_addr, int add,
-    btif_bonded_devices_t* p_bonded_devices) {
+    list_t** p_bonded_devices) {
   int device_type;
   int addr_type;
   bt_bdaddr_t bd_addr;
@@ -1202,8 +1204,9 @@ static bt_status_t btif_in_fetch_bonded_ble_device(
 
     // Fill in the bonded devices
     if (device_added) {
-      memcpy(&p_bonded_devices->devices[p_bonded_devices->num_devices++],
-             &bd_addr, sizeof(bt_bdaddr_t));
+      bt_bdaddr_t *remote_addr =  (bt_bdaddr_t*)osi_malloc(sizeof(bt_bdaddr_t));
+      memcpy(remote_addr, &bd_addr, sizeof(bt_bdaddr_t));
+      list_append(*p_bonded_devices, remote_addr);
       btif_gatts_add_bonded_dev_from_nv(bta_bd_addr);
     }
 
