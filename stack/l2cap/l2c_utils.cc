@@ -38,6 +38,7 @@
 #include "l2c_int.h"
 #include "l2cdefs.h"
 #include "osi/include/allocator.h"
+#include "osi/include/time.h"
 
 extern fixed_queue_t* btu_general_alarm_queue;
 
@@ -2283,7 +2284,12 @@ bool l2cu_create_conn_after_switch(tL2C_LCB* p_lcb) {
 
   btm_acl_update_busy_level(BTM_BLI_PAGE_EVT);
 
-  alarm_set_on_queue(p_lcb->l2c_lcb_timer, L2CAP_LINK_CONNECT_TIMEOUT_MS,
+  /* if ACL collision occurs and if remote retrail time matches
+  with DUT link time out ,it may lead to collision again.
+  hence wait random timeout (20 - 29 sec) */
+  period_ms_t interval_ms = L2CAP_LINK_CONNECT_TIMEOUT_MS +
+                            ((time_get_os_boottime_ms() % 10) *1000);
+  alarm_set_on_queue(p_lcb->l2c_lcb_timer, interval_ms,
                      l2c_lcb_timer_timeout, p_lcb, btu_general_alarm_queue);
 
   return (true);
