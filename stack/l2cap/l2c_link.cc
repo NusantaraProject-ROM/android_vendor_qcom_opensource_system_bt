@@ -255,7 +255,7 @@ bool l2c_link_hci_conn_comp(uint8_t status, uint16_t handle,
       l2cu_release_lcb(p_lcb);
     else /* there are any CCBs remaining */
     {
-      if (ci.status == HCI_ERR_CONNECTION_EXISTS) {
+      if ((ci.status == HCI_ERR_CONNECTION_EXISTS)||(ci.status == HCI_ERR_CONTROLLER_BUSY)) {
         /* we are in collision situation, wait for connecttion request from
          * controller */
         p_lcb->link_state = LST_CONNECTING;
