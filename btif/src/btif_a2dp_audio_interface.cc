@@ -575,10 +575,21 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
       status = A2DP_CTRL_ACK_SUCCESS;
       break;
 
-    case A2DP_CTRL_CMD_OFFLOAD_START:
-      btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, NULL, 0);
+    case A2DP_CTRL_CMD_OFFLOAD_START: {
+       uint8_t hdl = 0;
+       int idx = btif_av_get_latest_playing_device_idx();
+       if (idx < btif_max_av_clients) {
+         hdl = btif_av_get_av_hdl_from_idx(idx);
+         APPL_TRACE_DEBUG("%s: hdl = %d",__func__, hdl);
+       } else {
+         APPL_TRACE_ERROR("%s: Invalid index",__func__);
+         status = -1;
+         break;
+       }
+      btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, (char *)&hdl, 1);
       status = A2DP_CTRL_ACK_PENDING;
       break;
+    }
     case A2DP_CTRL_GET_CODEC_CONFIG:
       {
         uint8_t p_codec_info[AVDT_CODEC_SIZE];
