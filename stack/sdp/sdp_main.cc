@@ -270,6 +270,7 @@ static void sdp_connect_cfm(uint16_t l2cap_cid, uint16_t result) {
       else if (p_ccb->p_cb2)
         (*p_ccb->p_cb2)(err, p_ccb->user_data);
     }
+    sdpu_process_pend_ccb(p_ccb->connection_id, false);
     sdpu_release_ccb(p_ccb);
   }
 }
