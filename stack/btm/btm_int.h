@@ -153,6 +153,8 @@ extern void btm_sco_chk_pend_unpark(uint8_t hci_status, uint16_t hci_handle);
 extern void btm_qos_setup_timeout(void* data);
 extern void btm_qos_setup_complete(uint8_t status, uint16_t handle,
                                    FLOW_SPEC* p_flow);
+extern void btm_flow_spec_complete(uint8_t status, uint16_t handle,
+                            tBT_FLOW_SPEC* p_flow);
 
 /* Internal functions provided by btm_sco.cc
  *******************************************

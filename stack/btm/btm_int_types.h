@@ -153,6 +153,9 @@ typedef struct {
   tBTM_CMPL_CB* p_qos_setup_cmpl_cb; /* Callback function to be called when  */
                                      /* qos setup function completes         */
 
+  tBTM_CMPL_CB* p_flow_spec_cmpl_cb; /* Callback function to be called when  */
+                                     /* flow spec function completes         */
+
   tBTM_ROLE_SWITCH_CMPL switch_role_ref_data;
   tBTM_CMPL_CB* p_switch_role_cb; /* Callback function to be called when  */
                                   /* requested switch role is completed   */
