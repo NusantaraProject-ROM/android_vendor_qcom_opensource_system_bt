@@ -385,7 +385,7 @@ void on_hidl_server_died() {
   if (btAudio != nullptr) {
     btAudio->unlinkToDeath(BTAudioHidlDeathRecipient);
     btAudio = nullptr;
-    usleep(2000000); //sleep for 2sec for hal server to restart
+    usleep(1500000); //sleep for 1.5sec for hal server to restart
     btif_dispatch_sm_event(BTIF_AV_REINIT_AUDIO_IF,NULL,0);
   }
 }
