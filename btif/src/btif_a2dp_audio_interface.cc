@@ -91,73 +91,69 @@ typedef enum {
 
 class BluetoothAudioCallbacks : public IBluetoothAudioCallbacks {
  public:
-    Return<Status> a2dp_start_stream_req() {
+    Return<void> a2dp_start_stream_req() {
         uint8_t resp;
         LOG_INFO(LOG_TAG,"a2dp_start_stream_req");
         resp = btif_a2dp_audio_process_request(A2DP_CTRL_CMD_START);
         LOG_INFO(LOG_TAG,"resp  = %d",resp);
-        return mapToStatus(resp);
         //return ::android::hardware::bluetooth_audio::V1_0::Status {};
+        return Void();
     }
-    Return<Status> a2dp_suspend_stream_req() {
+    Return<void> a2dp_suspend_stream_req() {
         uint8_t resp;
         LOG_INFO(LOG_TAG,"a2dp_suspend_stream_req");
         resp = btif_a2dp_audio_process_request(A2DP_CTRL_CMD_SUSPEND);
         LOG_INFO(LOG_TAG,"resp  = %d",resp);
-        return mapToStatus(resp);
 //        return ::android::hardware::bluetooth_audio::V1_0::Status {};
+        return Void();
     }
-    Return<Status> a2dp_stop_stream_req() {
+    Return<void> a2dp_stop_stream_req() {
         uint8_t resp;
         LOG_INFO(LOG_TAG,"a2dp_stop_stream_req");
         resp = btif_a2dp_audio_process_request(A2DP_CTRL_CMD_STOP);
         LOG_INFO(LOG_TAG,"resp  = %d",resp);
-        return mapToStatus(resp);
 //        return ::android::hardware::bluetooth_audio::V1_0::Status {};
+        return Void();
     }
-    Return<Status> a2dp_check_ready() {
+    Return<void> a2dp_check_ready() {
         uint8_t resp;
         LOG_INFO(LOG_TAG,"a2dp_check_ready");
         resp = btif_a2dp_audio_process_request(A2DP_CTRL_CMD_CHECK_READY);
         LOG_INFO(LOG_TAG,"resp  = %d",resp);
-        return mapToStatus(resp);
+        return Void();
 //        return ::android::hardware::bluetooth_audio::V1_0::Status {};
     }
     using get_codec_config_cb = std::function<void(Status status, const hidl_vec<uint8_t>& cfg)>;
-    Return<void> a2dp_get_codec_config(get_codec_config_cb _hidl_cb) {
+    Return<void> a2dp_get_codec_config() {
         uint8_t resp;
         CodecCfg data;
         LOG_INFO(LOG_TAG,"a2dp_get_codec_config");
         resp = btif_a2dp_audio_process_request(A2DP_CTRL_GET_CODEC_CONFIG);
         LOG_INFO(LOG_TAG,"resp  = %d",resp);
         data.setToExternal(codec_info,len);
-        _hidl_cb(mapToStatus(resp), data);
         return Void();
     }
-    Return<uint8_t> a2dp_get_multicast_status() {
-        uint8_t ret = 0;
+    Return<void> a2dp_get_multicast_status() {
         //TODO implement
         LOG_INFO(LOG_TAG,"a2dp_get_multicast_status");
-        return ret;
+        return Void();
     }
-    Return<uint8_t> a2dp_get_num_connected_devices() {
-        uint8_t ret = 1;
+    Return<void> a2dp_get_num_connected_devices() {
         //TODO implement
         LOG_INFO(LOG_TAG,"a2dp_get_num_connected_devices");
-        return ret;
+        return Void();
     }
-    Return<Status> a2dp_get_connection_status() {
+    Return<void> a2dp_get_connection_status() {
         uint8_t resp;
         LOG_INFO(LOG_TAG,"a2dp_get_connection_status");
         resp = btif_a2dp_audio_process_request(A2DP_CTRL_GET_CONNECTION_STATUS);
         LOG_INFO(LOG_TAG,"resp  = %d",resp);
-        return mapToStatus(resp);
         //return ::android::hardware::bluetooth_audio::V1_0::Status {};
+        return Void();
     }
-    Return<uint16_t> a2dp_get_sink_latency() {
-      uint8_t ret = 0;
+    Return<void> a2dp_get_sink_latency() {
       LOG_INFO(LOG_TAG,"a2dp_get_sink_latency");
-      return ret;
+        return Void();
     }
 };
 
