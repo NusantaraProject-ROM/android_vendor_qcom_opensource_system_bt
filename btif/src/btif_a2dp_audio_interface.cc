@@ -478,7 +478,8 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
           APPL_TRACE_DEBUG("%s: remote started idx = %d",__func__, idx);
           if (idx < btif_max_av_clients) {
             hdl = btif_av_get_av_hdl_from_idx(idx);
-            APPL_TRACE_DEBUG("%s: hdl = %d",__func__, hdl);
+            APPL_TRACE_DEBUG("%s: hdl = %d, enc_update_in_progress = %d",__func__, hdl,
+                              enc_update_in_progress);
             if (hdl >= 0) {
               btif_a2dp_source_setup_codec(hdl);
               enc_update_in_progress = TRUE;
@@ -600,6 +601,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         LOG_INFO(LOG_TAG,"A2DP_CTRL_GET_CODEC_CONFIG");
         A2dpCodecConfig *CodecConfig = bta_av_get_a2dp_current_codec();
         bta_av_co_get_peer_params(&peer_param);
+        LOG_INFO(LOG_TAG,"enc_update_in_progress = %d", enc_update_in_progress);
         if ((btif_av_stream_started_ready() == FALSE) ||
             (enc_update_in_progress == TRUE))
         {

@@ -1644,6 +1644,8 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
         uint8_t hdl = btif_av_get_av_hdl_from_idx(index);
         if (hdl >= 0) {
           bt_status_t status = btif_a2dp_source_setup_codec(hdl);
+          BTIF_TRACE_DEBUG("%s: hdl = %u, status : %x, enc_update_in_progress = %d",
+                                __func__, hdl, status, enc_update_in_progress);
           if (status == BT_STATUS_SUCCESS) {
             enc_update_in_progress = TRUE;
             btif_a2dp_on_started(NULL, true, btif_av_cb[index].bta_handle);
@@ -1716,8 +1718,20 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       btif_av_cb[index].flags &= ~BTIF_AV_FLAG_REMOTE_SUSPEND;
 
       if (btif_av_cb[index].peer_sep == AVDT_TSEP_SNK)
-        /* immediately stop transmission of frames while suspend is pending */
-        btif_a2dp_source_set_tx_flush(true);
+      {
+          if (btif_av_is_connected_on_other_idx(index)) {
+            if (!btif_av_is_playing_on_other_idx(index)) {
+              APPL_TRACE_WARNING("Suspend the AV Data channel");
+              //Flush and close media channel
+              btif_a2dp_source_set_tx_flush(true);
+            } else
+                APPL_TRACE_WARNING("Not flushing as one link is already streaming");
+          } else {
+            /* immediately flush any pending tx frames while suspend is pending */
+            APPL_TRACE_WARNING("Stop the AV Data channel");
+            btif_a2dp_source_set_tx_flush(true);
+          }
+      }
 
       if (btif_av_cb[index].peer_sep == AVDT_TSEP_SRC) {
         btif_a2dp_sink_set_rx_flush(true);
@@ -1829,20 +1843,20 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
 
       BTIF_TRACE_DEBUG("%s: local suspend flag: %d", __func__,
               btif_av_cb[index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING);
-      if (btif_av_cb[index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING)
+
+      if ((!enable_multicast)&& btif_av_cb[index].is_suspend_for_remote_start
+            && (btif_av_is_playing_on_other_idx(index)))
       {
-        BTIF_TRACE_DEBUG("%s: report upper layers audio state stopped:", __func__);
-        btif_report_audio_state(BTAV_AUDIO_STATE_STOPPED, &(btif_av_cb[index].peer_bda));
+        BTIF_TRACE_IMP("%s Don't update audio state change to app for idx =%d", __func__, index);
+        btif_av_cb[index].is_device_playing = false;
+        btif_av_cb[index].current_playing = false;
+        btif_av_update_current_playing_device(index);
       }
       else
       {
-        if ((!enable_multicast)&& btif_av_cb[index].is_suspend_for_remote_start
-                && (btif_av_is_playing_on_other_idx(index)))
+        if (btif_av_cb[index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING)
         {
-          BTIF_TRACE_IMP("%s Don't update audio state change to app for idx =%d", __func__, index);
-          btif_av_cb[index].is_device_playing = false;
-          btif_av_cb[index].current_playing = false;
-          btif_av_update_current_playing_device(index);
+          btif_report_audio_state(BTAV_AUDIO_STATE_STOPPED, &(btif_av_cb[index].peer_bda));
         }
         else
         {
@@ -3569,7 +3583,7 @@ static void btif_av_update_current_playing_device(int index) {
  * Returns          int
  *
  ******************************************************************************/
-static int btif_av_get_current_playing_dev_idx(void)
+int btif_av_get_current_playing_dev_idx(void)
 {
   int i;
 

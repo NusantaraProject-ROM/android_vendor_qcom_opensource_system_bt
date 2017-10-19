@@ -605,7 +605,7 @@ tBTM_STATUS BTM_CreateSco(const RawAddress* remote_bda, bool is_orig,
         if (is_orig) {
 /* can not create SCO link if in park mode */
 #if (BTM_SCO_WAKE_PARKED_LINK == TRUE)
-          if ((btm_read_power_mode_state(p->esco.data.bd_addr, &state) ==
+          if ((btm_read_power_mode_state(*remote_bda, &state) ==
                BTM_SUCCESS)) {
             if (state == BTM_PM_ST_SNIFF || state == BTM_PM_ST_PARK ||
                 state == BTM_PM_ST_PENDING) {
