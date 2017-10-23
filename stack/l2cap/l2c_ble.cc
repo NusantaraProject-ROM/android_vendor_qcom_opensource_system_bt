@@ -53,6 +53,14 @@ static void l2cble_start_conn_update(tL2C_LCB* p_lcb);
  ******************************************************************************/
 bool L2CA_CancelBleConnectReq(const RawAddress& rem_bda) {
   tL2C_LCB* p_lcb;
+  tACL_CONN* p_acl = NULL;
+
+  p_acl = btm_bda_to_acl(rem_bda, BT_TRANSPORT_LE);
+  if(p_acl) {
+    L2CAP_TRACE_WARNING("%s - disconnecting the LE link", __func__);
+    btm_sec_disconnect(p_acl->hci_handle, HCI_ERR_CONN_CAUSE_LOCAL_HOST);
+    return (true);
+  }
 
   /* There can be only one BLE connection request outstanding at a time */
   if (btm_ble_get_conn_st() == BLE_CONN_IDLE) {
@@ -447,6 +455,10 @@ void l2cble_conn_comp(uint16_t handle, uint8_t role, const RawAddress& bda,
 static void l2cble_start_conn_update(tL2C_LCB* p_lcb) {
   uint16_t min_conn_int, max_conn_int, slave_latency, supervision_tout;
   tACL_CONN* p_acl_cb = btm_bda_to_acl(p_lcb->remote_bd_addr, BT_TRANSPORT_LE);
+  if (!p_acl_cb) {
+    LOG(ERROR) << "No known connection ACL for " << p_lcb->remote_bd_addr;
+    return;
+  }
 
   // TODO(armansito): The return value of this call wasn't being used but the
   // logic of this function might be depending on its side effects. We should

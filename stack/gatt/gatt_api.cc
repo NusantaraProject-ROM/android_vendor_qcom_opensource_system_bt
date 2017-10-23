@@ -1048,8 +1048,9 @@ tGATT_IF GATT_Register(tBT_UUID* p_app_uuid128, tGATT_CBACK* p_cb_info) {
  *
  ******************************************************************************/
 void GATT_Deregister(tGATT_IF gatt_if) {
+  bool is_gatt_connected = false;
   VLOG(1) << __func__ << " gatt_if=" << +gatt_if;
-
+  
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
   /* Index 0 is GAP and is never deregistered */
   if ((gatt_if == 0) || (p_reg == NULL)) {
@@ -1080,8 +1081,9 @@ void GATT_Deregister(tGATT_IF gatt_if) {
   for (i = 0, p_tcb = gatt_cb.tcb; i < GATT_MAX_PHY_CHANNEL; i++, p_tcb++) {
     if (p_tcb->in_use) {
       if (gatt_get_ch_state(p_tcb) != GATT_CH_CLOSE) {
+        is_gatt_connected = gatt_is_app_holding_link(gatt_if, p_tcb);
         gatt_update_app_use_link_flag(gatt_if, p_tcb, false, true);
-        if ((gatt_if > SYSTEM_APP_GATT_IF) && p_tcb->app_hold_link.empty())
+        if (is_gatt_connected && (gatt_if > SYSTEM_APP_GATT_IF) && p_tcb->app_hold_link.empty())
         {
           /* this will disconnect the link or cancel the pending connect request at lower layer*/
           gatt_disconnect(p_tcb);

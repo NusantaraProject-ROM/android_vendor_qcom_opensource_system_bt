@@ -28,6 +28,8 @@
 
 #include <base/logging.h>
 #include <inttypes.h>
+#include <utils/Log.h>
+#include <string.h>
 
 #include "a2dp_aac.h"
 #include "a2dp_sbc.h"
@@ -45,6 +47,7 @@
 // |codec_index| and |codec_priority| are the codec type and priority to use
 // for the initialization.
 bool mA2dp_offload_status = false;
+bool offload_capability = false;
 bool sbc_offload = false;
 bool aac_offload = false;
 bool aptx_offload = false;
@@ -245,6 +248,7 @@ bool A2dpCodecConfig::setCodecUserConfig(
   btav_a2dp_codec_config_t saved_codec_config = getCodecConfig();
   uint8_t saved_ota_codec_config[AVDT_CODEC_SIZE];
   memcpy(saved_ota_codec_config, ota_codec_config_, sizeof(ota_codec_config_));
+  uint8_t zero[AVDT_CODEC_SIZE] = {0};
 
   btav_a2dp_codec_config_t saved_codec_user_config = codec_user_config_;
   codec_user_config_ = codec_user_config;
@@ -272,9 +276,10 @@ bool A2dpCodecConfig::setCodecUserConfig(
 
   //
   // The output (the connection) should be restarted if OTA codec config
-  // has changed.
+  // has changed and OTA codec has been built.
   //
-  if (!A2DP_CodecEquals(saved_ota_codec_config, p_result_codec_config)) {
+  if (!A2DP_CodecEquals(saved_ota_codec_config, p_result_codec_config) &&
+      memcmp(zero, saved_ota_codec_config, sizeof(zero))) {
     *p_restart_output = true;
   }
 
@@ -402,19 +407,37 @@ std::string A2dpCodecConfig::codecChannelMode2Str(
 }
 
 void A2dpCodecConfig::debug_codec_dump(int fd) {
-  std::string result;
-  dprintf(fd, "\nA2DP %s State:\n", name().c_str());
-  dprintf(fd, "  Priority: %d\n", codecPriority());
-  dprintf(fd, "  Encoder interval (ms): %" PRIu64 "\n", encoderIntervalMs());
+  if(fd == -1) {
+     std::string result;
+     ALOGE("\nA2DP %s State:\n", name().c_str());
+     ALOGE("  Priority: %d\n", codecPriority());
+     ALOGE("  Encoder interval (ms): %" PRIu64 "\n", encoderIntervalMs());
 
-  result = codecConfig2Str(getCodecConfig());
-  dprintf(fd, "  Config: %s\n", result.c_str());
+     result = codecConfig2Str(getCodecConfig());
+     ALOGE("  Config: %s\n", result.c_str());
 
-  result = codecConfig2Str(getCodecSelectableCapability());
-  dprintf(fd, "  Selectable: %s\n", result.c_str());
+     result = codecConfig2Str(getCodecSelectableCapability());
+     ALOGE("  Selectable: %s\n", result.c_str());
 
-  result = codecConfig2Str(getCodecLocalCapability());
-  dprintf(fd, "  Local capability: %s\n", result.c_str());
+     result = codecConfig2Str(getCodecLocalCapability());
+     ALOGE("  Local capability: %s\n", result.c_str());
+
+  }
+  else{
+     std::string result;
+     dprintf(fd, "\nA2DP %s State:\n", name().c_str());
+     dprintf(fd, "  Priority: %d\n", codecPriority());
+     dprintf(fd, "  Encoder interval (ms): %" PRIu64 "\n", encoderIntervalMs());
+
+     result = codecConfig2Str(getCodecConfig());
+     dprintf(fd, "  Config: %s\n", result.c_str());
+
+     result = codecConfig2Str(getCodecSelectableCapability());
+     dprintf(fd, "  Selectable: %s\n", result.c_str());
+
+     result = codecConfig2Str(getCodecLocalCapability());
+     dprintf(fd, "  Local capability: %s\n", result.c_str());
+  }
 }
 
 //
@@ -705,19 +728,6 @@ bool A2dpCodecs::setCodecOtaConfig(
   *p_restart_output = false;
   *p_config_updated = false;
 
-  // Check whether the current codec config is explicitly configured by
-  // user configuration. If yes, then the OTA codec configuration is ignored.
-  if (current_codec_config_ != nullptr) {
-    codec_user_config = current_codec_config_->getCodecUserConfig();
-    if (!A2dpCodecConfig::isCodecConfigEmpty(codec_user_config)) {
-      LOG_WARN(LOG_TAG,
-               "%s: ignoring peer OTA configuration for codec %s: "
-               "existing user configuration for current codec %s",
-               __func__, A2DP_CodecName(p_ota_codec_config),
-               current_codec_config_->name().c_str());
-      goto fail;
-    }
-  }
 
   // Check whether the codec config for the same codec is explicitly configured
   // by user configuration. If yes, then the OTA codec configuration is
@@ -738,15 +748,6 @@ bool A2dpCodecs::setCodecOtaConfig(
       goto fail;
     }
     a2dp_codec_config = iter->second;
-  }
-  if (a2dp_codec_config == nullptr) goto fail;
-  codec_user_config = a2dp_codec_config->getCodecUserConfig();
-  if (!A2dpCodecConfig::isCodecConfigEmpty(codec_user_config)) {
-    LOG_WARN(LOG_TAG,
-             "%s: ignoring peer OTA configuration for codec %s: "
-             "existing user configuration for same codec",
-             __func__, A2DP_CodecName(p_ota_codec_config));
-    goto fail;
   }
   current_codec_config_ = a2dp_codec_config;
 
@@ -1283,6 +1284,9 @@ void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap) {
   LOG_INFO(LOG_TAG,"A2dp_SetOffloadStatus:status = %d",
                      offload_status);
   mA2dp_offload_status = offload_status;
+  offload_capability = true;
+  if (strcmp(offload_cap,"false") == 0) offload_capability = false;
+
   if (mA2dp_offload_status) {
     tok = strtok_r((char*)offload_cap, "-", &tmp_token);
     while (tok != NULL)
@@ -1311,7 +1315,7 @@ bool A2DP_GetOffloadStatus() {
 
 bool A2DP_IsCodecEnabledInOffload(btav_a2dp_codec_index_t codec_index) {
   bool codec_status = false;
-  if (mA2dp_offload_status) {
+  if (offload_capability) {
     switch (codec_index) {
     case BTAV_A2DP_CODEC_INDEX_SOURCE_SBC:
       codec_status = sbc_offload;
@@ -1333,6 +1337,12 @@ bool A2DP_IsCodecEnabledInOffload(btav_a2dp_codec_index_t codec_index) {
     case BTAV_A2DP_CODEC_INDEX_SINK_MAX:
       break;
     }
+  } else {
+    if (codec_index != BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC &&
+      codec_index != BTAV_A2DP_CODEC_INDEX_SINK_MAX &&
+      codec_index != BTAV_A2DP_CODEC_INDEX_SOURCE_MAX)
+      LOG_INFO(LOG_TAG,"SplitA2dp enabled, but offload capability not set");
+      return true;
   }
   return codec_status;
 }

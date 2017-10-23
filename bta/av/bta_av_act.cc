@@ -150,7 +150,7 @@ void bta_av_del_rc(tBTA_AV_RCB* p_rcb) {
       }
     }
 
-    APPL_TRACE_EVENT(
+    APPL_TRACE_IMP(
         "bta_av_del_rc  handle: %d status=0x%x, rc_acp_handle:%d, idx:%d",
         p_rcb->handle, p_rcb->status, bta_av_cb.rc_acp_handle,
         bta_av_cb.rc_acp_idx);
@@ -237,7 +237,7 @@ static void bta_av_rc_ctrl_cback(uint8_t handle, uint8_t event,
                                  const RawAddress* peer_addr) {
   uint16_t msg_event = 0;
 
-  APPL_TRACE_EVENT("%s handle: %d event=0x%x", __func__, handle, event);
+  APPL_TRACE_IMP("%s handle: %d event=0x%x", __func__, handle, event);
   if (event == AVRC_OPEN_IND_EVT) {
     /* save handle of opened connection
     bta_av_cb.rc_handle = handle;*/
@@ -275,7 +275,7 @@ static void bta_av_rc_msg_cback(uint8_t handle, uint8_t label, uint8_t opcode,
   uint8_t* p_data_src = NULL;
   uint16_t data_len = 0;
 
-  APPL_TRACE_DEBUG("%s handle: %u opcode=0x%x", __func__, handle, opcode);
+  APPL_TRACE_IMP("%s handle: %u opcode=0x%x", __func__, handle, opcode);
 
   /* Copy avrc packet into BTA message buffer (for sending to BTA state machine)
    */
@@ -381,12 +381,12 @@ uint8_t bta_av_rc_create(tBTA_AV_CB* p_cb, uint8_t role, uint8_t shdl,
     /* this LIDX is reserved for the AVRCP ACP connection */
     p_cb->rc_acp_handle = p_rcb->handle;
     p_cb->rc_acp_idx = (i + 1);
-    APPL_TRACE_DEBUG("rc_acp_handle:%d idx:%d", p_cb->rc_acp_handle,
+    APPL_TRACE_IMP("rc_acp_handle: %d idx: %d", p_cb->rc_acp_handle,
                      p_cb->rc_acp_idx);
   }
-  APPL_TRACE_DEBUG(
-      "create %d, role: %d, shdl:%d, rc_handle:%d, lidx:%d, status:0x%x", i,
-      role, shdl, p_rcb->handle, lidx, p_rcb->status);
+  APPL_TRACE_IMP(
+      "%s create %d, role: %d, shdl:%d, rc_handle:%d, lidx:%d, status:0x%x",
+      __func__, i, role, shdl, p_rcb->handle, lidx, p_rcb->status);
 
   return rc_handle;
 }
@@ -868,7 +868,7 @@ tBTA_AV_EVT bta_av_proc_meta_cmd(tAVRC_RESPONSE* p_rc_rsp,
     }
   }
 #else
-  APPL_TRACE_DEBUG("AVRCP 1.3 Metadata not supporteed. Reject command.");
+  APPL_TRACE_IMP("AVRCP 1.3 Metadata not supporteed. Reject command.");
   /* reject invalid message without reporting to app */
   evt = 0;
   p_rc_rsp->rsp.status = AVRC_STS_BAD_CMD;
@@ -1408,12 +1408,12 @@ void bta_av_disable(tBTA_AV_CB* p_cb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
       hdr.layer_specific = xx + 1;
       bta_av_api_deregister((tBTA_AV_DATA*)&hdr);
     }
+    alarm_free(p_cb->accept_signalling_timer[xx]);
+    p_cb->accept_signalling_timer[xx] = NULL;
   }
 
   alarm_free(p_cb->link_signalling_timer);
   p_cb->link_signalling_timer = NULL;
-  alarm_free(p_cb->accept_signalling_timer);
-  p_cb->accept_signalling_timer = NULL;
 }
 
 /*******************************************************************************
@@ -1446,7 +1446,7 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
   uint8_t mask;
   tBTA_AV_LCB* p_lcb = NULL;
 
-  APPL_TRACE_DEBUG("bta_av_sig_chg event: %d", event);
+  APPL_TRACE_IMP("%s:bta_av_sig_chg event: %d", __func__, event);
   if (event == AVDT_CONNECT_IND_EVT) {
     p_lcb = bta_av_find_lcb(p_data->str_msg.bd_addr, BTA_AV_LCB_FIND);
     if (!p_lcb) {
@@ -1518,7 +1518,10 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
             /* Possible collision : need to avoid outgoing processing while the
              * timer is running */
             p_cb->p_scb[xx]->coll_mask = BTA_AV_COLL_INC_TMR;
-            alarm_set_on_mloop(p_cb->accept_signalling_timer,
+            APPL_TRACE_DEBUG("%s: AV signalling timer started for index = %d", __func__, xx);
+            APPL_TRACE_DEBUG("%s: Remote Addr: %s", __func__,
+                            p_cb->p_scb[xx]->peer_addr.ToString().c_str());
+            alarm_set_on_mloop(p_cb->accept_signalling_timer[xx],
                                BTA_AV_ACCEPT_SIGNALLING_TIMEOUT_MS,
                                bta_av_accept_signalling_timer_cback,
                                UINT_TO_PTR(xx));
@@ -1629,8 +1632,9 @@ static void bta_av_accept_signalling_timer_cback(void* data) {
     p_scb = p_cb->p_scb[inx];
   }
   if (p_scb) {
-    APPL_TRACE_DEBUG("%s coll_mask = 0x%02X", __func__, p_scb->coll_mask);
-
+    APPL_TRACE_DEBUG("%s coll_mask = 0x%02X index = %d", __func__, p_scb->coll_mask, inx);
+    APPL_TRACE_DEBUG("%s: Remote Addr: %0s", __func__,
+                     p_scb->peer_addr.ToString().c_str());
     if (p_scb->coll_mask & BTA_AV_COLL_INC_TMR) {
       p_scb->coll_mask &= ~BTA_AV_COLL_INC_TMR;
 
@@ -1641,7 +1645,7 @@ static void bta_av_accept_signalling_timer_cback(void* data) {
           /* We are still doing SDP. Run the timer again. */
           p_scb->coll_mask |= BTA_AV_COLL_INC_TMR;
 
-          alarm_set_on_mloop(p_cb->accept_signalling_timer,
+          alarm_set_on_mloop(p_cb->accept_signalling_timer[inx],
                              BTA_AV_ACCEPT_SIGNALLING_TIMEOUT_MS,
                              bta_av_accept_signalling_timer_cback,
                              UINT_TO_PTR(inx));
@@ -1801,16 +1805,28 @@ tBTA_AV_FEAT bta_av_check_peer_features(uint16_t service_uuid) {
 
       if (peer_rc_version >= AVRC_REV_1_3)
         peer_features |= (BTA_AV_FEAT_VENDOR | BTA_AV_FEAT_METADATA);
+#if (defined(AVRC_QTI_V1_3_OPTIONAL_FEAT) && AVRC_QTI_V1_3_OPTIONAL_FEAT == TRUE)
+        peer_features |= (BTA_AV_FEAT_APP_SETTING);
+#endif
 
       if (peer_rc_version >= AVRC_REV_1_4) {
         /* get supported categories */
         p_attr = SDP_FindAttributeInRec(p_rec, ATTR_ID_SUPPORTED_FEATURES);
         if (p_attr != NULL) {
           categories = p_attr->attr_value.v.u16;
+          APPL_TRACE_DEBUG("peer categories: 0x%x", categories);
           if (categories & AVRC_SUPF_CT_CAT2)
             peer_features |= (BTA_AV_FEAT_ADV_CTRL);
           if (categories & AVRC_SUPF_CT_BROWSE)
             peer_features |= (BTA_AV_FEAT_BROWSE);
+          uint16_t dut_avrcp_version = bta_get_dut_avrcp_version();
+          if ((categories & AVRC_SUPF_CT_COVER_ART_GET_IMAGE) &&
+              (categories & AVRC_SUPF_CT_COVER_ART_GET_THUMBNAIL)
+              && (dut_avrcp_version == AVRC_REV_1_6))
+          {
+              peer_features |= (BTA_AV_FEAT_CA);
+              APPL_TRACE_DEBUG("peer supports cover art");
+          }
         }
       }
       if ((peer_rc_version >= AVRC_REV_1_4) &&
@@ -2171,6 +2187,9 @@ void bta_av_rc_closed(tBTA_AV_DATA* p_data) {
   tBTA_AV bta_av_data;
   bta_av_data.rc_close = rc_close;
   (*p_cb->p_cback)(BTA_AV_RC_CLOSE_EVT, &bta_av_data);
+  if (bta_av_cb.rc_acp_handle == BTA_AV_RC_HANDLE_NONE
+                  && bta_av_cb.features & BTA_AV_FEAT_RCTG)
+      bta_av_rc_create(&bta_av_cb, AVCT_ACP, 0, BTA_AV_NUM_LINKS + 1);
 }
 
 /*******************************************************************************

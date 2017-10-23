@@ -132,11 +132,6 @@ typedef enum {
   // as supported version.
   INTEROP_ADV_PBAP_VER_1_1,
 
-  // Honor remote avdtp start, certain carkits send avdt_start along with avrcp
-  // passthrough cmd. If DUT suspends remote start and initiate avdtp start, remote
-  // suspends DUT's start request. So honor remote start for certain devices.
-  INTEROP_REMOTE_AVDTP_START,
-
   // Devices requiring this workaround do not handle SSR max latency values as mentioned,
   // in their SDP HID Record properly and lead to connection timeout or lags. To prevent
   // such scenarios, device requiring this workaorund need to use specific ssr max latency
@@ -160,6 +155,10 @@ typedef enum {
   // role switch attempts. After rejecting several role switch attempts,
   // such car kits will go into bad state.
   INTEROP_DYNAMIC_ROLE_SWITCH,
+
+  //Few carkit hfp version is hfp1.5 but it support hfp indicator, violate spec
+  //remove hfp indicator for such device
+  INTEROP_DISABLE_HF_INDICATOR,
 
   // Disable role switch for headsets/car-kits.
   // Some car kits allow role switch but when the Phone initiates role switch,

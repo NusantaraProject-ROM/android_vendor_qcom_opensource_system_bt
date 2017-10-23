@@ -54,6 +54,12 @@ typedef struct {
   btif_connect_cb_t connect_cb;
 } connect_node_t;
 
+//FIX me. Linker Error
+//extern int btif_max_av_clients;
+//extern int btif_max_hf_clients;
+int btif_max_av_clients_1 = 1;
+int btif_max_hf_clients_1 = 1;
+
 /*******************************************************************************
  *  Static variables
  ******************************************************************************/
@@ -67,6 +73,7 @@ static const size_t MAX_REASONABLE_REQUESTS = 10;
  ******************************************************************************/
 
 static void queue_int_add(connect_node_t* p_param) {
+  uint16_t counter = 0;
   if (!connect_queue) {
     LOG_INFO(LOG_TAG, "%s: allocating profile queue", __func__);
     connect_queue = list_new(osi_free);
@@ -79,18 +86,24 @@ static void queue_int_add(connect_node_t* p_param) {
   for (const list_node_t* node = list_begin(connect_queue);
        node != list_end(connect_queue); node = list_next(node)) {
     if (((connect_node_t*)list_node(node))->uuid == p_param->uuid) {
-      LOG_ERROR(LOG_TAG,
-                "%s dropping duplicate connection request UUID=%04X, "
-                "bd_addr=%s, busy=%d",
-                __func__, p_param->uuid, p_param->bda.ToString().c_str(),
-                p_param->busy);
+      if (p_param->uuid == UUID_SERVCLASS_AUDIO_SOURCE ||
+          p_param->uuid == UUID_SERVCLASS_AG_HANDSFREE) {
+          counter++;
+          LOG_INFO(LOG_TAG, "%s add  connect request for uuid: %04x",
+               __func__, counter);
+          continue;
+      }
+      LOG_INFO(LOG_TAG, "%s dropping duplicate connect request for uuid: %04x",
+               __func__, p_param->uuid);
       return;
     }
   }
-
-  LOG_INFO(
-      LOG_TAG, "%s: adding connection request UUID=%04X, bd_addr=%s, busy=%d",
-      __func__, p_param->uuid, p_param->bda.ToString().c_str(), p_param->busy);
+  if ((counter >= btif_max_av_clients_1 && p_param->uuid == UUID_SERVCLASS_AUDIO_SOURCE) ||
+      (counter >= btif_max_hf_clients_1 && p_param->uuid == UUID_SERVCLASS_AG_HANDSFREE)) {
+          LOG_INFO(LOG_TAG, "%s connect request exceeded max supported connection: %04x",
+               __func__, p_param->uuid);
+          return;
+  }
   connect_node_t* p_node = (connect_node_t*)osi_malloc(sizeof(connect_node_t));
   memcpy(p_node, p_param, sizeof(connect_node_t));
   list_append(connect_queue, p_node);

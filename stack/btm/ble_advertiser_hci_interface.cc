@@ -17,6 +17,7 @@
  ******************************************************************************/
 
 #include "ble_advertiser_hci_interface.h"
+#include "ble_advertiser.h"
 #include <base/callback.h>
 #include <base/location.h>
 #include <base/logging.h>
@@ -56,6 +57,10 @@ void btm_ble_multi_adv_vsc_cmpl_cback(uint8_t expected_opcode,
                                       uint8_t* param, uint16_t param_len) {
   uint8_t status, subcode;
 
+  if((!BleAdvertisingManager::IsInitialized()) || (BleAdvertiserHciInterface::Get() == nullptr)) {
+    VLOG(1) << __func__ << "Stack already shutdown";
+    return;
+  }
   // All multi-adv commands respond with status and inst_id.
   LOG_ASSERT(param_len == 2) << "Received bad response length to multi-adv VSC";
 

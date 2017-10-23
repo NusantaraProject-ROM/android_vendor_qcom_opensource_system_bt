@@ -564,3 +564,21 @@ bool btm_set_bond_type_dev(const RawAddress& bd_addr,
   p_dev_rec->bond_type = bond_type;
   return true;
 }
+
+/*******************************************************************************
+ *
+ * Function         btm_is_sm4_dev
+ *
+ * Description      This function checks whether remote is ssp enabled devices or
+ *                  not.
+ *
+ * Returns          true if remote is sm4 device, otherwise false
+ *
+ ******************************************************************************/
+bool btm_is_sm4_dev(const RawAddress& bd_addr) {
+  tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(bd_addr);
+
+  if (p_dev_rec == NULL) return false;
+
+  return BTM_SEC_IS_SM4(p_dev_rec->sm4);
+}

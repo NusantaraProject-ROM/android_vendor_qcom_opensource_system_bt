@@ -99,7 +99,8 @@ typedef struct {
   uint8_t state;        /* state: see above enum */
   tBTA_JV_PM_ID app_id; /* JV app specific id indicating power table to use */
   RawAddress peer_bd_addr; /* Peer BD address */
-  alarm_t *idle_timer; /* intermediate idle timer for paricular scb */
+  alarm_t *idle_timer;  /* intermediate idle timer for paricular scb */
+  bool cong;            /* TRUE, if congested */
 } tBTA_JV_PM_CB;
 
 enum {

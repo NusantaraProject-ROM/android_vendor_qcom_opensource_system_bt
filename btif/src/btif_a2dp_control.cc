@@ -42,6 +42,9 @@
 #define A2DP_DATA_READ_POLL_MS 10
 
 extern int btif_av_get_latest_device_idx_to_start();
+extern int btif_get_is_remote_started_idx();
+extern tBTA_AV_HNDL btif_av_get_av_hdl_from_idx(int idx);
+extern int btif_max_av_clients;
 
 static void btif_a2dp_data_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event);
 static void btif_a2dp_ctrl_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event);
@@ -86,13 +89,13 @@ static void btif_a2dp_recv_ctrl_data(void) {
         btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
         return;
       }
-
-      /* check whether AV is ready to setup A2DP datapath */
-      if (btif_av_stream_ready() || btif_av_stream_started_ready()) {
+      /* check for valid AV connection */
+      if (btif_av_is_connected()) {
+        BTIF_TRACE_DEBUG("%s:Got valid connection",__func__);
         btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
       } else {
-        APPL_TRACE_WARNING("%s: A2DP command %s while AV stream is not ready",
-                           __func__, audio_a2dp_hw_dump_ctrl_event(cmd));
+        BTIF_TRACE_DEBUG("%s:A2dp command %s while valid AV connection",
+                         __func__, audio_a2dp_hw_dump_ctrl_event(cmd));
         btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
       }
       break;
@@ -136,6 +139,14 @@ static void btif_a2dp_recv_ctrl_data(void) {
        */
       if (btif_av_stream_started_ready()) {
         /* already started, setup audio data channel listener and ack back immediately */
+        int idx = btif_get_is_remote_started_idx();
+        APPL_TRACE_DEBUG("%s: remote started idx : %d",__func__, idx);
+        if (idx < btif_max_av_clients) {
+             uint8_t hdl = btif_av_get_av_hdl_from_idx(idx);
+             APPL_TRACE_DEBUG("%s: hdl = %d",__func__, hdl);
+             if (hdl >= 0)
+                btif_a2dp_source_setup_codec(hdl);
+        }
         UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb);
         btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
       } else if (btif_av_stream_ready()) {
@@ -281,9 +292,30 @@ static void btif_a2dp_recv_ctrl_data(void) {
       break;
     }
 
-    case A2DP_CTRL_CMD_OFFLOAD_START:
-      btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, NULL, 0);
+    case A2DP_CTRL_CMD_OFFLOAD_START: {
+      uint8_t hdl = 0;
+      int idx = btif_get_is_remote_started_idx();
+      if (idx < btif_max_av_clients) {
+        hdl = btif_av_get_av_hdl_from_idx(idx);
+        APPL_TRACE_DEBUG("%s: hdl = %d",__func__, hdl);
+      } else {
+        APPL_TRACE_ERROR("%s: Invalid index",__func__);
+        break;
+      }
+      btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, (char *)&hdl, 1);
       break;
+    }
+    case A2DP_CTRL_GET_SINK_LATENCY: {
+      tA2DP_LATENCY sink_latency;
+
+      sink_latency = btif_av_get_sink_latency();
+      btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+      /* Send sink latency */
+      UIPC_Send(UIPC_CH_ID_AV_CTRL, 0,
+                reinterpret_cast<const uint8_t*>(&sink_latency),
+                sizeof(tA2DP_LATENCY));
+      break;
+    }
 
     default:
       APPL_TRACE_ERROR("%s: UNSUPPORTED CMD (%d)", __func__, cmd);

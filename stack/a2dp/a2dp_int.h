@@ -34,6 +34,7 @@
  *  Constants
  ****************************************************************************/
 #define A2DP_VERSION 0x0102
+#define A2DP_VERSION_SYNC 0x0103
 
 /* Number of attributes in A2DP SDP record. */
 #define A2DP_NUM_ATTR 6
@@ -56,6 +57,7 @@ typedef struct {
   tA2DP_FIND_CB find; /* find service control block */
   uint8_t trace_level;
   uint16_t avdt_sdp_ver; /* AVDTP version */
+  uint16_t a2dp_sdp_ver; /* A2DP version */
 } tA2DP_CB;
 
 /******************************************************************************
@@ -67,6 +69,7 @@ extern tA2DP_CB a2dp_cb;
 extern void a2dp_set_avdt_sdp_ver(uint16_t avdt_sdp_ver);
 /* Used to check local version of AVDTP */
 extern uint16_t a2dp_get_avdt_sdp_ver();
-
+/* Used for change version of a2dp */
+extern void a2dp_set_a2dp_sdp_ver(uint16_t a2dp_sdp_ver);
 
 #endif /* A2DP_INT_H */
