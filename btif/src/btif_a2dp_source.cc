@@ -730,11 +730,7 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
   /* Stop the timer first */
   alarm_free(btif_a2dp_source_cb.media_alarm);
   btif_a2dp_source_cb.media_alarm = NULL;
-  if (btif_a2dp_source_cb.remote_start_alarm != NULL) {
-    alarm_free(btif_a2dp_source_cb.remote_start_alarm);
-    btif_a2dp_source_cb.remote_start_alarm = NULL;
-    btif_dispatch_sm_event(BTIF_AV_RESET_REMOTE_STARTED_FLAG_EVT, NULL, 0);
-  }
+
   UIPC_Close(UIPC_CH_ID_AV_AUDIO);
 
   /*
