@@ -171,7 +171,7 @@ class BluetoothAudioCallbacks : public IBluetoothAudioCallbacks {
     }
     Return<void> a2dp_get_sink_latency() {
         LOG_INFO(LOG_TAG,"a2dp_get_sink_latency");
-        btif_a2dp_audio_send_sink_latency(); 
+        btif_a2dp_audio_send_sink_latency();
         return Void();
     }
 };
@@ -299,6 +299,15 @@ void btif_a2dp_audio_send_start_req()
   resp = btif_a2dp_audio_process_request(A2DP_CTRL_CMD_START);
   if (btAudio != nullptr) {
     auto ret =  btAudio->a2dp_on_started(mapToStatus(resp));
+    if (resp != A2DP_CTRL_ACK_PENDING) {
+      /*
+       * Reset pending command. This is to avoid returning unsolicited
+       * response to audio HAL when START succeeds later after timeout e.g.
+       * once dual handoff is complete.
+       */
+      LOG_INFO(LOG_TAG,"%s, Resetting pending control command", __func__);
+      a2dp_cmd_pending = A2DP_CTRL_CMD_NONE;
+    }
     if (!ret.isOk()) LOG_ERROR(LOG_TAG,"server died");
   }
 }
@@ -308,6 +317,15 @@ void btif_a2dp_audio_send_suspend_req()
   resp = btif_a2dp_audio_process_request(A2DP_CTRL_CMD_SUSPEND);
   if (btAudio != nullptr) {
     auto ret =  btAudio->a2dp_on_suspended(mapToStatus(resp));
+    if (resp != A2DP_CTRL_ACK_PENDING) {
+      /*
+       * Reset pending command. This is to avoid returning unsolicited
+       * response to audio HAL when START succeeds later after timeout e.g.
+       * once dual handoff is complete.
+       */
+      LOG_INFO(LOG_TAG,"%s, Resetting pending control command", __func__);
+      a2dp_cmd_pending = A2DP_CTRL_CMD_NONE;
+    }
     if (!ret.isOk()) LOG_ERROR(LOG_TAG,"server died");
   }
 }
@@ -399,7 +417,6 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
       if (btif_a2dp_source_media_task_is_shutting_down()) {
         APPL_TRACE_WARNING("%s: A2DP command %s while media task shutting down",
                            __func__,audio_a2dp_hw_dump_ctrl_event((tA2DP_CTRL_CMD)cmd));
-        //btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
         status = A2DP_CTRL_ACK_FAILURE;
         break;
       }
@@ -552,12 +569,6 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
       if (reconfig_a2dp ||
           btif_a2dp_source_is_remote_start()) {
         LOG_INFO(LOG_TAG,"Suspend called due to reconfig");
-        /*if (btif_av_is_under_handoff() && !btif_av_is_device_disconnecting()) {
-          LOG_INFO(LOG_TAG,"Under hand off,hopefully stack send success ack");
-          status = A2DP_CTRL_ACK_PENDING;
-        } else {
-          status = A2DP_CTRL_ACK_SUCCESS;
-        }*/
         status = A2DP_CTRL_ACK_SUCCESS;
         break;
       }
