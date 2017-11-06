@@ -267,7 +267,7 @@ void btm_acl_created(const RawAddress& bda, DEV_CLASS dc, BD_NAME bdn,
 
       /* if BR/EDR do something more */
       if (transport == BT_TRANSPORT_BR_EDR) {
-        btsnd_hcic_rmt_ver_req(p->hci_handle);
+        btsnd_hcic_read_rmt_clk_offset(p->hci_handle);
       }
       p_dev_rec = btm_find_dev_by_handle(hci_handle);
 
@@ -1443,7 +1443,9 @@ uint16_t BTM_GetHCIConnHandle(const RawAddress& remote_bda,
  ******************************************************************************/
 void btm_process_clk_off_comp_evt(uint16_t hci_handle, uint16_t clock_offset) {
   uint8_t xx;
-  BTM_TRACE_DEBUG("btm_process_clk_off_comp_evt");
+  BTM_TRACE_DEBUG("btm_process_clk_off_comp_evt ,req remote version");
+
+  btsnd_hcic_rmt_ver_req(hci_handle);
   /* Look up the connection by handle and set the current mode */
   xx = btm_handle_to_acl_index(hci_handle);
   if (xx < MAX_L2CAP_LINKS) btm_cb.acl_db[xx].clock_offset = clock_offset;
