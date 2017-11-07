@@ -52,6 +52,8 @@ extern void hci_event_received(const tracked_objects::Location& from_here,
 extern void acl_event_received(BT_HDR* packet);
 extern void sco_data_received(BT_HDR* packet);
 
+static std::mutex bthci_mutex;
+
 android::sp<IBluetoothHci> btHci;
 
 class BluetoothHciCallbacks : public IBluetoothHciCallbacks {
@@ -118,25 +120,52 @@ void hci_initialize() {
 }
 
 void hci_close() {
-  btHci->close();
-  btHci = nullptr;
+  LOG_INFO(LOG_TAG, "%s", __func__);
+
+  std::lock_guard<std::mutex> lock(bthci_mutex);
+  if (btHci != nullptr) {
+    auto hidl_daemon_status = btHci->close();
+    if(!hidl_daemon_status.isOk())
+      LOG_ERROR(LOG_TAG, "%s: HIDL daemon is dead", __func__);
+
+    btHci = nullptr;
+  }
 }
 
 void hci_transmit(BT_HDR* packet) {
   HciPacket data;
+  std::lock_guard<std::mutex> lock(bthci_mutex);
+
+  if(btHci == nullptr) {
+    LOG_INFO(LOG_TAG, "%s: Link with Bluetooth HIDL service is closed", __func__);
+    return;
+  }
+
   data.setToExternal(packet->data + packet->offset, packet->len);
 
   uint16_t event = packet->event & MSG_EVT_MASK;
   switch (event & MSG_EVT_MASK) {
     case MSG_STACK_TO_HC_HCI_CMD:
-      btHci->sendHciCommand(data);
+    {
+      auto hidl_daemon_status = btHci->sendHciCommand(data);
+      if(!hidl_daemon_status.isOk())
+        LOG_ERROR(LOG_TAG, "%s: send Command failed, HIDL daemon is dead", __func__);
       break;
+    }
     case MSG_STACK_TO_HC_HCI_ACL:
-      btHci->sendAclData(data);
+    {
+      auto hidl_daemon_status = btHci->sendAclData(data);
+      if(!hidl_daemon_status.isOk())
+        LOG_ERROR(LOG_TAG, "%s: send acl packet failed, HIDL daemon is dead", __func__);
       break;
+    }
     case MSG_STACK_TO_HC_HCI_SCO:
-      btHci->sendScoData(data);
+    {
+      auto hidl_daemon_status = btHci->sendScoData(data);
+      if(!hidl_daemon_status.isOk())
+        LOG_ERROR(LOG_TAG, "%s: send sco data failed, HIDL daemon is dead", __func__);
       break;
+    }
     default:
       LOG_ERROR(LOG_TAG, "Unknown packet type (%d)", event);
       break;

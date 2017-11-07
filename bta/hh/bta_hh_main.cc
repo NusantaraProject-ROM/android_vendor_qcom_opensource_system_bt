@@ -57,6 +57,7 @@ enum {
   BTA_HH_GATT_OPEN,
   BTA_HH_START_SEC,
   BTA_HH_SEC_CMPL,
+  BTA_HH_LE_UPDATE_SCPP,
   BTA_HH_GATT_ENC_CMPL,
 #endif
   BTA_HH_NUM_ACTIONS
@@ -76,7 +77,8 @@ const tBTA_HH_ACTION bta_hh_action[] = {
 #if (BTA_HH_LE_INCLUDED == TRUE)
     ,
     bta_hh_gatt_close, bta_hh_le_open_fail, bta_hh_gatt_open,
-    bta_hh_start_security, bta_hh_security_cmpl, bta_hh_le_notify_enc_cmpl
+    bta_hh_start_security, bta_hh_security_cmpl,bta_hh_le_update_scpp,
+    bta_hh_le_notify_enc_cmpl,
 #endif
 };
 
@@ -109,6 +111,8 @@ const uint8_t bta_hh_st_idle[][BTA_HH_NUM_COLS] = {
     {BTA_HH_IGNORE, BTA_HH_IDLE_ST}
     /* BTA_HH_ENC_CMPL_EVT     */,
     {BTA_HH_IGNORE, BTA_HH_IDLE_ST}
+    /* SCPP_UPDATE_EVT    */,
+    {BTA_HH_IGNORE, BTA_HH_IDLE_ST}
     /* BTA_HH_GATT_ENC_CMPL_EVT */,
     {BTA_HH_IGNORE, BTA_HH_IDLE_ST}
 #endif
@@ -140,6 +144,8 @@ const uint8_t bta_hh_st_w4_conn[][BTA_HH_NUM_COLS] = {
     {BTA_HH_IGNORE, BTA_HH_W4_CONN_ST}
     /* BTA_HH_GATT_ENC_CMPL_EVT */,
     {BTA_HH_IGNORE, BTA_HH_W4_CONN_ST}
+    /* SCPP_UPDATE_EVT      */,
+    {BTA_HH_IGNORE, BTA_HH_W4_CONN_ST}
 #endif
 };
 
@@ -166,8 +172,10 @@ const uint8_t bta_hh_st_connected[][BTA_HH_NUM_COLS] = {
     {BTA_HH_IGNORE, BTA_HH_CONN_ST}
     /* BTA_HH_ENC_CMPL_EVT     */,
     {BTA_HH_IGNORE, BTA_HH_CONN_ST}
+    /* SCPP_UPDATE_EVT     */,
+    {BTA_HH_LE_UPDATE_SCPP, BTA_HH_CONN_ST}
     /* BTA_HH_GATT_ENC_CMPL_EVT */,
-    {BTA_HH_IGNORE, BTA_HH_CONN_ST}
+    {BTA_HH_IGNORE,BTA_HH_CONN_ST}
 #endif
 };
 #if (BTA_HH_LE_INCLUDED == TRUE)
@@ -189,6 +197,7 @@ const uint8_t bta_hh_st_w4_sec[][BTA_HH_NUM_COLS] = {
     /* BTA_HH_GATT_OPEN_EVT    */ {BTA_HH_IGNORE, BTA_HH_W4_SEC},
     /* BTA_HH_START_ENC_EVT    */ {BTA_HH_IGNORE, BTA_HH_W4_SEC},
     /* BTA_HH_ENC_CMPL_EVT     */ {BTA_HH_SEC_CMPL, BTA_HH_W4_CONN_ST},
+    /* SCPP_UPDATE_EVT    */      {BTA_HH_IGNORE,  BTA_HH_W4_SEC},
     /* BTA_HH_GATT_ENC_CMPL_EVT */ {BTA_HH_GATT_ENC_CMPL, BTA_HH_W4_SEC}};
 #endif
 

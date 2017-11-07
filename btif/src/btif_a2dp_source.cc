@@ -49,6 +49,7 @@
 #include "osi/include/thread.h"
 #include "osi/include/time.h"
 #include "uipc.h"
+#include "btif_a2dp_audio_interface.h"
 
 using system_bt_osi::BluetoothMetricsLogger;
 using system_bt_osi::A2dpSessionMetrics;
@@ -59,7 +60,7 @@ using system_bt_osi::A2dpSessionMetrics;
  * layers we might need to temporarily buffer up data.
  */
 #define MAX_OUTPUT_A2DP_FRAME_QUEUE_SZ (MAX_PCM_FRAME_NUM_PER_TICK * 2)
-
+#define BTIF_REMOTE_START_TOUT 3000
 enum {
   BTIF_A2DP_SOURCE_STATE_OFF,
   BTIF_A2DP_SOURCE_STATE_STARTING_UP,
@@ -74,7 +75,8 @@ enum {
   BTIF_MEDIA_AUDIO_TX_FLUSH,
   BTIF_MEDIA_SOURCE_ENCODER_INIT,
   BTIF_MEDIA_SOURCE_ENCODER_USER_CONFIG_UPDATE,
-  BTIF_MEDIA_AUDIO_FEEDING_UPDATE
+  BTIF_MEDIA_AUDIO_FEEDING_UPDATE,
+  BTIF_MEDIA_RESET_VS_STATE
 };
 
 #define MAX_MEDIA_WORKQUEUE_SEM_COUNT 1024
@@ -172,8 +174,12 @@ typedef struct {
 } tBTIF_A2DP_SOURCE_CB;
 
 static tBTIF_A2DP_SOURCE_CB btif_a2dp_source_cb;
-static int btif_a2dp_source_state = BTIF_A2DP_SOURCE_STATE_OFF;
+tBTIF_A2DP_SOURCE_VSC btif_a2dp_src_vsc;
 
+static int btif_a2dp_source_state = BTIF_A2DP_SOURCE_STATE_OFF;
+extern bool enc_update_in_progress;
+extern bool reconfig_a2dp;
+extern bool tx_enc_update_initiated;
 static void btif_a2dp_source_command_ready(fixed_queue_t* queue, void* context);
 static void btif_a2dp_source_startup_delayed(void* context);
 static void btif_a2dp_source_shutdown_delayed(void* context);
@@ -198,7 +204,7 @@ static void btm_read_rssi_cb(void* data);
 static void btm_read_failed_contact_counter_cb(void* data);
 static void btm_read_automatic_flush_timeout_cb(void* data);
 static void btm_read_tx_power_cb(void* data);
-
+static void btif_a2dp_source_remote_start_timeout(void* context);
 UNUSED_ATTR static const char* dump_media_event(uint16_t event) {
   switch (event) {
     CASE_RETURN_STR(BTIF_MEDIA_AUDIO_TX_START)
@@ -207,6 +213,7 @@ UNUSED_ATTR static const char* dump_media_event(uint16_t event) {
     CASE_RETURN_STR(BTIF_MEDIA_SOURCE_ENCODER_INIT)
     CASE_RETURN_STR(BTIF_MEDIA_SOURCE_ENCODER_USER_CONFIG_UPDATE)
     CASE_RETURN_STR(BTIF_MEDIA_AUDIO_FEEDING_UPDATE)
+    CASE_RETURN_STR(BTIF_MEDIA_RESET_VS_STATE)
     default:
       break;
   }
@@ -303,6 +310,7 @@ static void btif_a2dp_source_startup_delayed(UNUSED_ATTR void* context) {
   raise_priority_a2dp(TASK_HIGH_MEDIA);
   btif_a2dp_control_init();
   btif_a2dp_source_state = BTIF_A2DP_SOURCE_STATE_RUNNING;
+  enc_update_in_progress = FALSE;
   BluetoothMetricsLogger::GetInstance()->LogBluetoothSessionStart(
       system_bt_osi::CONNECTION_TECHNOLOGY_TYPE_BREDR, 0);
 }
@@ -321,8 +329,11 @@ void btif_a2dp_source_shutdown(void) {
   // Stop the timer
   alarm_free(btif_a2dp_source_cb.media_alarm);
   btif_a2dp_source_cb.media_alarm = NULL;
-  alarm_free(btif_a2dp_source_cb.remote_start_alarm);
-  btif_a2dp_source_cb.remote_start_alarm = NULL;
+  if (btif_a2dp_source_cb.remote_start_alarm != NULL) {
+    alarm_free(btif_a2dp_source_cb.remote_start_alarm);
+    btif_a2dp_source_cb.remote_start_alarm = NULL;
+    btif_dispatch_sm_event(BTIF_AV_RESET_REMOTE_STARTED_FLAG_EVT, NULL, 0);
+  }
 
   // Exit the thread
   fixed_queue_free(btif_a2dp_source_cb.cmd_msg_queue, NULL);
@@ -342,6 +353,7 @@ static void btif_a2dp_source_shutdown_delayed(UNUSED_ATTR void* context) {
   btif_a2dp_source_cb.tx_audio_queue = NULL;
 
   btif_a2dp_source_state = BTIF_A2DP_SOURCE_STATE_OFF;
+  enc_update_in_progress = FALSE;
   BluetoothMetricsLogger::GetInstance()->LogBluetoothSessionEnd(
       system_bt_osi::DISCONNECT_REASON_UNKNOWN, 0);
 }
@@ -363,9 +375,40 @@ bool btif_a2dp_source_is_remote_start(void) {
 }
 
 void btif_a2dp_source_cancel_remote_start(void) {
+  if (btif_a2dp_source_cb.remote_start_alarm != NULL) {
+    alarm_free(btif_a2dp_source_cb.remote_start_alarm);
+    btif_a2dp_source_cb.remote_start_alarm = NULL;
+  }
+  return;
+}
+
+static void btif_media_remote_start_alarm_cb(UNUSED_ATTR void *context) {
+  thread_post(btif_a2dp_source_cb.worker_thread,
+              btif_a2dp_source_remote_start_timeout, NULL);
+}
+
+static void btif_a2dp_source_remote_start_timeout(UNUSED_ATTR void* context) {
+  APPL_TRACE_DEBUG("%s: Suspend stream request to Av", __func__);
   alarm_free(btif_a2dp_source_cb.remote_start_alarm);
   btif_a2dp_source_cb.remote_start_alarm = NULL;
+  btif_dispatch_sm_event(BTIF_AV_REMOTE_SUSPEND_STREAM_REQ_EVT, NULL, 0);
   return;
+}
+
+void btif_a2dp_source_on_remote_start() {
+  // cancel any existing remote start timer
+  btif_a2dp_source_cancel_remote_start();
+
+  // initiate remote start timer
+  btif_a2dp_source_cb.remote_start_alarm = alarm_new("btif.remote_start_task");
+  if (!btif_a2dp_source_cb.remote_start_alarm) {
+    LOG_ERROR(LOG_TAG,"%s:unable to allocate media alarm",__func__);
+    btif_dispatch_sm_event(BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL, 0);
+    return;
+  }
+  alarm_set(btif_a2dp_source_cb.remote_start_alarm, BTIF_REMOTE_START_TOUT,
+            btif_media_remote_start_alarm_cb, NULL);
+  APPL_TRACE_DEBUG("%s: Remote start timer started", __func__);
 }
 
 static void btif_a2dp_source_command_ready(fixed_queue_t* queue,
@@ -393,6 +436,13 @@ static void btif_a2dp_source_command_ready(fixed_queue_t* queue,
       break;
     case BTIF_MEDIA_AUDIO_FEEDING_UPDATE:
       btif_a2dp_source_audio_feeding_update_event(p_msg);
+      break;
+    case BTIF_MEDIA_RESET_VS_STATE:
+      btif_a2dp_src_vsc.tx_started = FALSE;
+      btif_a2dp_src_vsc.tx_stop_initiated = FALSE;
+      btif_a2dp_src_vsc.vs_configs_exchanged = FALSE;
+      btif_a2dp_src_vsc.tx_start_initiated = FALSE;
+      tx_enc_update_initiated = FALSE;
       break;
     default:
       APPL_TRACE_ERROR("ERROR in %s unknown event %d", __func__, p_msg->event);
@@ -438,6 +488,7 @@ void btif_a2dp_source_start_audio_req(void) {
 
 void btif_a2dp_source_stop_audio_req(void) {
   BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+  tA2DP_CTRL_CMD pending_cmd = btif_a2dp_get_pending_command();
 
   p_buf->event = BTIF_MEDIA_AUDIO_TX_STOP;
 
@@ -453,6 +504,10 @@ void btif_a2dp_source_stop_audio_req(void) {
    */
   if (btif_a2dp_source_cb.cmd_msg_queue != NULL) {
     fixed_queue_enqueue(btif_a2dp_source_cb.cmd_msg_queue, p_buf);
+  } else if (pending_cmd == A2DP_CTRL_CMD_STOP ||
+      pending_cmd == A2DP_CTRL_CMD_SUSPEND) {
+    BTIF_TRACE_DEBUG("media msg queue null, ack pending stop/suspend");
+    btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
   }
   btif_a2dp_source_cb.stats.session_end_us = time_get_os_boottime_us();
   btif_a2dp_source_update_metrics();
@@ -481,6 +536,13 @@ static void btif_a2dp_source_encoder_init_req(
 
   memcpy(p_buf, p_msg, sizeof(tBTIF_A2DP_SOURCE_ENCODER_INIT));
   p_buf->hdr.event = BTIF_MEDIA_SOURCE_ENCODER_INIT;
+  fixed_queue_enqueue(btif_a2dp_source_cb.cmd_msg_queue, p_buf);
+}
+
+void btif_media_send_reset_vendor_state() {
+  APPL_TRACE_ERROR("%s:", __func__);
+  BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
+  p_buf->event = BTIF_MEDIA_RESET_VS_STATE;
   fixed_queue_enqueue(btif_a2dp_source_cb.cmd_msg_queue, p_buf);
 }
 
@@ -557,6 +619,8 @@ static void btif_a2dp_source_audio_feeding_update_event(BT_HDR* p_msg) {
 }
 
 void btif_a2dp_source_on_idle(void) {
+  if (btif_av_is_split_a2dp_enabled())
+    btif_media_send_reset_vendor_state();
   if (btif_a2dp_source_state == BTIF_A2DP_SOURCE_STATE_OFF) return;
 
   /* Make sure media task is stopped */
@@ -565,6 +629,7 @@ void btif_a2dp_source_on_idle(void) {
 
 void btif_a2dp_source_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
   APPL_TRACE_EVENT("## ON A2DP SOURCE STOPPED ##");
+  tA2DP_CTRL_CMD pending_cmd = btif_a2dp_get_pending_command();
 
   if (btif_a2dp_source_state == BTIF_A2DP_SOURCE_STATE_OFF) return;
 
@@ -575,7 +640,9 @@ void btif_a2dp_source_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
       if (p_av_suspend->initiator) {
         APPL_TRACE_WARNING("%s: A2DP stop request failed: status = %d",
                            __func__, p_av_suspend->status);
-        btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+        if ((pending_cmd == A2DP_CTRL_CMD_STOP) ||
+            (pending_cmd == A2DP_CTRL_CMD_SUSPEND))
+          btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
       }
       return;
     }
@@ -593,15 +660,20 @@ void btif_a2dp_source_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
 
 void btif_a2dp_source_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
   APPL_TRACE_EVENT("## ON A2DP SOURCE SUSPENDED ##");
+  tA2DP_CTRL_CMD pending_cmd = btif_a2dp_get_pending_command();
 
   if (btif_a2dp_source_state == BTIF_A2DP_SOURCE_STATE_OFF) return;
 
   /* check for status failures */
-  if (p_av_suspend->status != BTA_AV_SUCCESS) {
-    if (p_av_suspend->initiator) {
-      APPL_TRACE_WARNING("%s: A2DP suspend request failed: status = %d",
+  if (p_av_suspend != NULL) {
+    if (p_av_suspend->status != BTA_AV_SUCCESS) {
+      if (p_av_suspend->initiator) {
+        APPL_TRACE_WARNING("%s: A2DP suspend request failed: status = %d",
                          __func__, p_av_suspend->status);
-      btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+        if ((pending_cmd == A2DP_CTRL_CMD_STOP) ||
+            (pending_cmd == A2DP_CTRL_CMD_SUSPEND))
+          btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+      }
     }
   }
 
@@ -653,14 +725,16 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
       alarm_is_scheduled(btif_a2dp_source_cb.media_alarm) ? "" : "not ",
       btif_a2dp_source_is_streaming() ? "true" : "false");
 
-  const bool send_ack = btif_a2dp_source_is_streaming();
+  const bool send_ack = btif_a2dp_source_is_streaming()| btif_a2dp_source_is_remote_start();
 
   /* Stop the timer first */
   alarm_free(btif_a2dp_source_cb.media_alarm);
   btif_a2dp_source_cb.media_alarm = NULL;
-  alarm_free(btif_a2dp_source_cb.remote_start_alarm);
-  btif_a2dp_source_cb.remote_start_alarm = NULL;
-
+  if (btif_a2dp_source_cb.remote_start_alarm != NULL) {
+    alarm_free(btif_a2dp_source_cb.remote_start_alarm);
+    btif_a2dp_source_cb.remote_start_alarm = NULL;
+    btif_dispatch_sm_event(BTIF_AV_RESET_REMOTE_STARTED_FLAG_EVT, NULL, 0);
+  }
   UIPC_Close(UIPC_CH_ID_AV_AUDIO);
 
   /*
@@ -680,10 +754,11 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
     btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
   } else if (pending_cmd == A2DP_CTRL_CMD_SUSPEND ||
              pending_cmd == A2DP_CTRL_CMD_STOP) {
-    APPL_TRACE_DEBUG("%s, Ack for pending cmd", __func__);
+    APPL_TRACE_DEBUG("%s, Ack for pending Stop/Suspend", __func__);
     btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+  } else {
+    BTIF_TRACE_ERROR("Invalid cmd pending for ack");
   }
-
   /* audio engine stopped, reset tx suspended flag */
   btif_a2dp_source_cb.tx_flush = false;
 

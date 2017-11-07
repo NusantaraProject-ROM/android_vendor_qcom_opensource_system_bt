@@ -173,9 +173,7 @@ void gatt_free(void) {
   }
 
   gatt_cb.hdl_list_info->clear();
-  gatt_cb.hdl_list_info = nullptr;
   gatt_cb.srv_list_info->clear();
-  gatt_cb.srv_list_info = nullptr;
 }
 
 /*******************************************************************************
@@ -251,6 +249,30 @@ bool gatt_disconnect(tGATT_TCB* p_tcb) {
   }
 
   return ret;
+}
+
+/*******************************************************************************
+**
+** Function         gatt_is_app_holding_link
+**
+** Description      Checks whether the application holds the link
+**
+** Returns          true if the app holds the link, false otherwise.
+**
+*******************************************************************************/
+bool gatt_is_app_holding_link(tGATT_IF gatt_if, tGATT_TCB *p_tcb)
+{/*
+  if(p_tcb) {
+    for (int i = 0; i < GATT_MAX_APPS; i++) {
+      if (p_tcb->app_hold_link[i] == gatt_if) {
+        VLOG(1) << __func__ << "gatt_if " << gatt_if << "exists at idx " << +i ;);
+        return true;
+      }
+    }
+  }
+*/
+  VLOG(1) << __func__ << "gatt_if= " << +gatt_if << "not found;";
+  return false;
 }
 
 /*******************************************************************************
@@ -383,7 +405,7 @@ bool gatt_act_connect(tGATT_REG* p_reg, const RawAddress& bd_addr,
 
   if (ret) {
     if (!opportunistic)
-      gatt_update_app_use_link_flag(p_reg->gatt_if, p_tcb, true, false);
+      gatt_update_app_use_link_flag(p_reg->gatt_if, p_tcb, true, true);
     else
       VLOG(1) << __func__
               << ": connection is opportunistic, not updating app usage";

@@ -52,7 +52,11 @@ typedef enum {
   BTIF_AV_SINK_CONFIG_REQ_EVT,
   BTIF_AV_OFFLOAD_START_REQ_EVT,
   BTIF_AV_CLEANUP_REQ_EVT,
+  BTIF_AV_REMOTE_SUSPEND_STREAM_REQ_EVT,
+  BTIF_AV_RESET_REMOTE_STARTED_FLAG_EVT,
+  BTIF_AV_RESET_REMOTE_STARTED_FLAG_UPDATE_AUDIO_STATE_EVT,
   BTIF_AV_INIT_REQ_EVT,
+  BTIF_AV_REINIT_AUDIO_IF,
 } btif_av_sm_event_t;
 
 /*******************************************************************************
@@ -374,5 +378,26 @@ int btif_av_get_latest_device_idx_to_start();
 ** Returns         TRUE if handoff is triggered, FALSE otherwise
 ********************************************************************************/
 bool btif_av_is_under_handoff();
+
+/******************************************************************************
+**
+** Function        btif_av_get_sink_latency
+**
+** Description     get initial sink latency
+**
+** Returns         tBTA_AV_LATENCY
+********************************************************************************/
+tBTA_AV_LATENCY btif_av_get_sink_latency();
+
+/******************************************************************************
+**
+** Function         btif_av_peer_config_dump
+**
+** Description
+**
+** Returns
+********************************************************************************/
+void btif_av_peer_config_dump();
+
 
 #endif /* BTIF_AV_H */

@@ -140,7 +140,7 @@ static const uint8_t bta_av_st_init[][BTA_AV_NUM_COLS] = {
     /* API_VENDOR_CMD_EVT */ {BTA_AV_IGNORE, BTA_AV_INIT_ST},
     /* API_VENDOR_RSP_EVT */ {BTA_AV_IGNORE, BTA_AV_INIT_ST},
     /* API_META_RSP_EVT */ {BTA_AV_RC_FREE_RSP, BTA_AV_INIT_ST},
-    /* API_RC_CLOSE_EVT */ {BTA_AV_CLOSE_EVT, BTA_AV_INIT_ST},
+    /* API_RC_CLOSE_EVT */ {BTA_AV_RC_CLOSE, BTA_AV_INIT_ST},
     /* AVRC_OPEN_EVT */ {BTA_AV_RC_OPENED, BTA_AV_OPEN_ST},
     /* AVRC_MSG_EVT */ {BTA_AV_RC_FREE_BROWSE_MSG, BTA_AV_INIT_ST},
     /* AVRC_NONE_EVT */ {BTA_AV_IGNORE, BTA_AV_INIT_ST},
@@ -242,9 +242,11 @@ static void bta_av_api_enable(tBTA_AV_DATA* p_data) {
    * to alarm_free() the alarms below.
    */
   bta_av_cb.link_signalling_timer = alarm_new("bta_av.link_signalling_timer");
-  bta_av_cb.accept_signalling_timer =
+  for (int j = 0; j < BTA_AV_NUM_STRS; j++)
+  {
+    bta_av_cb.accept_signalling_timer[j] =
       alarm_new("bta_av.accept_signalling_timer");
-
+  }
   /* store parameters */
   bta_av_cb.p_cback = p_data->api_enable.p_cback;
   bta_av_cb.features = p_data->api_enable.features;
@@ -578,8 +580,11 @@ static void bta_av_api_register(tBTA_AV_DATA* p_data) {
         cs.p_report_cback = bta_av_a2dp_report_cback;
       }
 #endif
-      if (bta_av_cb.features & BTA_AV_FEAT_DELAY_RPT)
+      if (bta_av_cb.features & BTA_AV_FEAT_DELAY_RPT) {
         cs.cfg.psc_mask |= AVDT_PSC_DELAY_RPT;
+        a2dp_set_avdt_sdp_ver(AVDT_VERSION_SYNC);
+        a2dp_set_a2dp_sdp_ver(A2DP_VERSION_SYNC);
+      }
 
       if (profile_initialized == UUID_SERVCLASS_AUDIO_SOURCE) {
         cs.tsep = AVDT_TSEP_SRC;
@@ -803,8 +808,7 @@ static void bta_av_api_to_ssm(tBTA_AV_DATA* p_data) {
    * streams are not yet started. We need to take care of this
    * during suspend to ensure we suspend both streams.
    */
-  if ((is_multicast_enabled == TRUE) ||
-      ((event == BTA_AV_AP_STOP_EVT) && (bta_av_multiple_streams_started() == TRUE))) {
+  if (is_multicast_enabled == TRUE) {
     /* Send START request to all Open Stream connections.*/
     for (xx=0; xx < BTA_AV_NUM_STRS; xx++)
       bta_av_ssm_execute(bta_av_cb.p_scb[xx], event, p_data);
