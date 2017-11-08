@@ -545,7 +545,8 @@ void btif_media_send_reset_vendor_state() {
   APPL_TRACE_ERROR("%s:", __func__);
   BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
   p_buf->event = BTIF_MEDIA_RESET_VS_STATE;
-  fixed_queue_enqueue(btif_a2dp_source_cb.cmd_msg_queue, p_buf);
+  if (btif_a2dp_source_cb.cmd_msg_queue != NULL)
+    fixed_queue_enqueue(btif_a2dp_source_cb.cmd_msg_queue, p_buf);
 }
 
 static void btif_a2dp_source_encoder_init_event(BT_HDR* p_msg) {

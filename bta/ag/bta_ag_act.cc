@@ -183,7 +183,6 @@ void bta_ag_start_dereg(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
  ******************************************************************************/
 void bta_ag_start_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
   RawAddress pending_bd_addr;
-  tBTA_AG_RFC     *p_buf;
 
   /* store parameters */
   if (p_data) {
@@ -205,10 +204,8 @@ void bta_ag_start_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
              " an incoming conn from dev %s", __func__,
              p_scb, p_scb->peer_addr.ToString().c_str());
         // send ourselves close event for clean up
-        p_buf = (tBTA_AG_RFC *) osi_malloc(sizeof(tBTA_AG_RFC));
-        p_buf->hdr.event = BTA_AG_RFC_CLOSE_EVT;
-        p_buf->hdr.layer_specific = bta_ag_scb_to_idx(p_scb);
-        bta_sys_sendmsg(p_buf);
+        bta_ag_cback_open(p_scb, NULL, BTA_AG_FAIL_RFCOMM);
+        p_scb->peer_addr = RawAddress::kEmpty;
         return;
       }
     }

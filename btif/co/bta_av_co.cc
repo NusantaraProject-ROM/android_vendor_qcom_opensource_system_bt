@@ -1392,6 +1392,7 @@ bt_status_t bta_av_set_a2dp_current_codec(tBTA_AV_HNDL hndl) {
 void bta_av_co_init(
     const std::vector<btav_a2dp_codec_config_t>& codec_priorities) {
   APPL_TRACE_DEBUG("%s", __func__);
+  RawAddress bt_addr;
   char value[PROPERTY_VALUE_MAX] = {'\0'};
   /* Reset the control block */
   bta_av_co_cb.reset();
@@ -1423,5 +1424,6 @@ void bta_av_co_init(
 
   // NOTE: Unconditionally dispatch the event to make sure a callback with
   // the most recent codec info is generated.
-  btif_dispatch_sm_event(BTIF_AV_SOURCE_CONFIG_UPDATED_EVT, NULL, 0);
+  bt_addr = RawAddress::kAny;
+  btif_dispatch_sm_event(BTIF_AV_SOURCE_CONFIG_UPDATED_EVT, (void *)bt_addr.address, sizeof(RawAddress));
 }

@@ -417,7 +417,7 @@ static bt_status_t btif_hf_check_if_slc_connected() {
  * Returns          bt_status_t
  *
  ******************************************************************************/
-static bt_status_t btif_hf_check_if_sco_connected() {
+bt_status_t btif_hf_check_if_sco_connected() {
   if (bt_hf_callbacks == NULL) {
     BTIF_TRACE_WARNING("BTHF: %s(): BTHF not initialized. ", __func__);
     return BT_STATUS_NOT_READY;

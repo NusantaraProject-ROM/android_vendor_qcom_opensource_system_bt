@@ -170,6 +170,22 @@ typedef enum {
   // from DUT, thus increase this collision timeout.
   INTEROP_INCREASE_COLL_DETECT_TIMEOUT,
 
+  // Some remotes are very strict in receiving the call active
+  // indicator and SCO connection request order for MT call.
+  // If CIEV1,1 and SCO connection request are sent back to back
+  // to SOC, it may send SCO connection request first then CIEV1,1
+  // which may lead to remotes not rendering SCO audio.
+  INTEROP_DELAY_SCO_FOR_MT_CALL,
+
+  // Some remotes are taking too long to respond for codec negotiation.
+  // Disable codec negotiation for such remotes and directly initiate
+  // SCO Connection.
+  INTEROP_DISABLE_CODEC_NEGOTIATION,
+
+  // Some Carkits being AVRCP v1.3 upon receiving Play Application Setting Command Response
+  // and notification, doesn't send Passthrough commands back to DUT in Streaming State
+  INTEROP_DISABLE_PLAYER_APPLICATION_SETTING_CMDS,
+
   END_OF_INTEROP_LIST
 } interop_feature_t;
 
