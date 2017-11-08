@@ -706,6 +706,11 @@ void btif_rc_clear_priority(RawAddress address) {
  *
  ***************************************************************************/
 void btif_rc_get_playing_device(RawAddress address) {
+  std::unique_lock<std::mutex> lock(btif_rc_cb.lock);
+  if (btif_rc_cb.rc_multi_cb == NULL) {
+    BTIF_TRACE_ERROR("%s: RC multicb is NULL", __func__);
+    return;
+  }
   for (int i = 0; i < btif_max_rc_clients; i++) {
     if (btif_rc_cb.rc_multi_cb[i].rc_play_processed)
       address = btif_rc_cb.rc_multi_cb[i].rc_addr;
@@ -724,6 +729,11 @@ void btif_rc_get_playing_device(RawAddress address) {
  *
  ***************************************************************************/
 void btif_rc_clear_playing_state(bool state) {
+  std::unique_lock<std::mutex> lock(btif_rc_cb.lock);
+  if (btif_rc_cb.rc_multi_cb == NULL) {
+    BTIF_TRACE_ERROR("%s: RC multicb is NULL", __func__);
+    return;
+  }
   for (int i = 0; i < btif_max_rc_clients; i++) {
     if (btif_rc_cb.rc_multi_cb[i].rc_play_processed)
       btif_rc_cb.rc_multi_cb[i].rc_play_processed = state;
@@ -1243,6 +1253,7 @@ void btif_rc_handler(tBTA_AV_EVT event, tBTA_AV* p_data) {
   btif_rc_device_cb_t* p_dev = NULL;
   switch (event) {
     case BTIF_AV_CLEANUP_REQ_EVT: {
+      std::unique_lock<std::mutex> lock(btif_rc_cb.lock);
       if (bt_rc_callbacks) {
         bt_rc_callbacks = NULL;
       }
@@ -5442,7 +5453,7 @@ static void cleanup() {
  **************************************************************************/
 static void cleanup_ctrl() {
   BTIF_TRACE_EVENT("%s: ", __func__);
-
+  std::unique_lock<std::mutex> lock(btif_rc_cb.lock);
   if (bt_rc_ctrl_callbacks) {
     bt_rc_ctrl_callbacks = NULL;
   }
