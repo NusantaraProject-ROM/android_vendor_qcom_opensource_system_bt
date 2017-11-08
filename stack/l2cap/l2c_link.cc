@@ -438,10 +438,10 @@ bool l2c_link_hci_disc_comp(uint16_t handle, uint8_t reason) {
                   p_lcb->link_role, p_lcb->is_bonding, p_lcb->disc_reason,
                   p_lcb->transport);
             }
-            CHECK(p_lcb->p_fixed_ccbs[xx] != NULL);
-            l2cu_release_ccb(p_lcb->p_fixed_ccbs[xx]);
-
-            p_lcb->p_fixed_ccbs[xx] = NULL;
+            if (p_lcb->p_fixed_ccbs[xx] != NULL) {
+              l2cu_release_ccb(p_lcb->p_fixed_ccbs[xx]);
+              p_lcb->p_fixed_ccbs[xx] = NULL;
+            }
           }
         }
 #endif
