@@ -1787,7 +1787,7 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
         }
         btif_av_cb[index].remote_started = false;
       }
-      if (p_av->suspend.initiator != true) {
+      else if (p_av->suspend.initiator != true) {
         /* remote suspend, notify HAL and await audioflinger to
          * suspend/stop stream
          * set remote suspend flag to block media task from restarting
