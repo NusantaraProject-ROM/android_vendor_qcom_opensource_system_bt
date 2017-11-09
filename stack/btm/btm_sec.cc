@@ -3989,18 +3989,25 @@ void btm_sec_auth_complete(uint16_t handle, uint8_t status) {
       (p_dev_rec->bd_addr == btm_cb.pairing_bda))
     are_bonding = true;
 
-  if ((btm_cb.pairing_state != BTM_PAIR_STATE_IDLE) &&
-      (p_dev_rec->bd_addr == btm_cb.pairing_bda))
-    btm_sec_change_pairing_state(BTM_PAIR_STATE_IDLE);
-
   if (p_dev_rec->sec_state != BTM_SEC_STATE_AUTHENTICATING) {
-    if ((btm_cb.api.p_auth_complete_callback && status != HCI_SUCCESS) &&
+
+     p_dev_rec->sec_state = BTM_SEC_STATE_IDLE;
+     if ((btm_cb.pairing_state != BTM_PAIR_STATE_IDLE) &&
+         (p_dev_rec->bd_addr == btm_cb.pairing_bda))
+      btm_sec_change_pairing_state(BTM_PAIR_STATE_IDLE);
+
+     if ((btm_cb.api.p_auth_complete_callback && status != HCI_SUCCESS) &&
         (old_state != BTM_PAIR_STATE_IDLE)) {
       (*btm_cb.api.p_auth_complete_callback)(p_dev_rec->bd_addr,
                                              p_dev_rec->dev_class,
                                              p_dev_rec->sec_bd_name, status);
     }
     return;
+  } else {
+    p_dev_rec->sec_state = BTM_SEC_STATE_IDLE;
+    if ((btm_cb.pairing_state != BTM_PAIR_STATE_IDLE) &&
+        (p_dev_rec->bd_addr == btm_cb.pairing_bda))
+     btm_sec_change_pairing_state(BTM_PAIR_STATE_IDLE);
   }
 
   /* There can be a race condition, when we are starting authentication and
