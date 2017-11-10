@@ -389,6 +389,8 @@ bool btif_av_is_under_handoff();
 ********************************************************************************/
 tBTA_AV_LATENCY btif_av_get_sink_latency();
 
+bool btif_av_is_scrambling_enabled();
+
 /******************************************************************************
 **
 ** Function         btif_av_peer_config_dump

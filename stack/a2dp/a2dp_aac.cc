@@ -81,6 +81,21 @@ static const tA2DP_AAC_CIE a2dp_aac_offload_caps = {
     // bits_per_sample
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16};
 
+static const tA2DP_AAC_CIE a2dp_aac_offload_scram_caps = {
+    // objectType
+    A2DP_AAC_OBJECT_TYPE_MPEG2_LC,
+    // sampleRate
+    A2DP_AAC_SAMPLING_FREQ_44100,
+    // channelMode
+    A2DP_AAC_CHANNEL_MODE_STEREO,
+    // variableBitRateSupport
+    A2DP_AAC_VARIABLE_BIT_RATE_DISABLED,
+    // bitRate
+    A2DP_AAC_DEFAULT_OFFLOAD_BITRATE,
+    // bits_per_sample
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16};
+
+
 /* Default AAC codec configuration */
 static const tA2DP_AAC_CIE a2dp_aac_default_src_config = {
     A2DP_AAC_OBJECT_TYPE_MPEG2_LC,        // objectType
@@ -94,6 +109,15 @@ static const tA2DP_AAC_CIE a2dp_aac_default_src_config = {
 static const tA2DP_AAC_CIE a2dp_aac_default_offload_config = {
     A2DP_AAC_OBJECT_TYPE_MPEG2_LC,        // objectType
     A2DP_AAC_SAMPLING_FREQ_48000,         // sampleRate
+    A2DP_AAC_CHANNEL_MODE_STEREO,         // channelMode
+    A2DP_AAC_VARIABLE_BIT_RATE_DISABLED,  // variableBitRateSupport
+    A2DP_AAC_DEFAULT_OFFLOAD_BITRATE,             // bitRate
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16    // bits_per_sample
+};
+
+static const tA2DP_AAC_CIE a2dp_aac_default_offload_scram_config = {
+    A2DP_AAC_OBJECT_TYPE_MPEG2_LC,        // objectType
+    A2DP_AAC_SAMPLING_FREQ_44100,         // sampleRate
     A2DP_AAC_CHANNEL_MODE_STEREO,         // channelMode
     A2DP_AAC_VARIABLE_BIT_RATE_DISABLED,  // variableBitRateSupport
     A2DP_AAC_DEFAULT_OFFLOAD_BITRATE,             // bitRate
@@ -708,9 +732,14 @@ A2dpCodecConfigAac::A2dpCodecConfigAac(
     : A2dpCodecConfig(BTAV_A2DP_CODEC_INDEX_SOURCE_AAC, "AAC", codec_priority) {
 
   if (A2DP_GetOffloadStatus()) {
-    a2dp_aac_caps = a2dp_aac_offload_caps;
-    a2dp_aac_default_config = a2dp_aac_default_offload_config;
-  }else {
+    if(!A2DP_IsScramblingSupported()) {
+      a2dp_aac_caps = a2dp_aac_offload_caps;
+      a2dp_aac_default_config = a2dp_aac_default_offload_config;
+    } else {
+      a2dp_aac_caps = a2dp_aac_offload_scram_caps;
+      a2dp_aac_default_config = a2dp_aac_default_offload_scram_config;
+    }
+  } else {
     a2dp_aac_caps = a2dp_aac_src_caps;
     a2dp_aac_default_config = a2dp_aac_default_src_config;
   }

@@ -32,6 +32,7 @@
 #include "stack/include/btm_ble_api.h"
 #include "osi/include/log.h"
 #include "utils/include/bt_utils.h"
+#include <hardware/bt_av.h>
 
 #define BTSNOOP_ENABLE_PROPERTY "persist.bluetooth.btsnoopenable"
 
@@ -48,6 +49,8 @@ const uint8_t SCO_HOST_BUFFER_SIZE = 0xff;
 #define BLE_SUPPORTED_STATES_SIZE 8
 #define BLE_SUPPORTED_FEATURES_SIZE 8
 #define MAX_LOCAL_SUPPORTED_CODECS_SIZE 8
+#define MAX_SUPPORTED_SCRAMBLING_FREQ_SIZE 8
+#define MAX_SCRAMBLING_FREQS_SIZE 64
 #define UNUSED(x) (void)(x)
 
 static const hci_t* hci;
@@ -74,7 +77,9 @@ static uint16_t ble_suggested_default_data_length;
 static uint16_t ble_maxium_advertising_data_length;
 static uint8_t ble_number_of_supported_advertising_sets;
 static uint8_t local_supported_codecs[MAX_LOCAL_SUPPORTED_CODECS_SIZE];
+static uint8_t scrambling_supported_freqs[MAX_SUPPORTED_SCRAMBLING_FREQ_SIZE];
 static uint8_t number_of_local_supported_codecs = 0;
+static uint8_t number_of_scrambling_supported_freqs = 0;
 
 static bool readable;
 static bool ble_supported;
@@ -115,6 +120,7 @@ static bool is_soc_logging_enabled() {
 
 static future_t* start_up(void) {
   BT_HDR* response;
+  int soc_type = get_soc_type();
 
   // Send the initial reset command
   response = AWAIT_COMMAND(packet_factory->make_reset());
@@ -300,6 +306,53 @@ static future_t* start_up(void) {
         response, &number_of_local_supported_codecs, local_supported_codecs);
   }
 
+  // read scrambling support from controller incase of cherokee
+  if (soc_type == BT_SOC_CHEROKEE) {
+    response =
+          AWAIT_COMMAND(packet_factory->make_read_scrambling_supported_freqs());
+    if(response) {
+      char value[MAX_SCRAMBLING_FREQS_SIZE];
+      LOG_DEBUG(LOG_TAG, "%s sending scrambling support VSC", __func__);
+      packet_parser->parse_read_scrambling_supported_freqs_response(
+          response, &number_of_scrambling_supported_freqs,
+          scrambling_supported_freqs);
+
+      LOG_DEBUG(LOG_TAG, "%s number_of_scrambling_supported_freqs %d", __func__,
+                      number_of_scrambling_supported_freqs);
+
+      for ( uint8_t i = 0; i < number_of_scrambling_supported_freqs; i++) {
+        switch (scrambling_supported_freqs[i]) {
+          case BTAV_A2DP_CODEC_SAMPLE_RATE_44100:
+            strlcat(value, "441.", MAX_SCRAMBLING_FREQS_SIZE);
+            break;
+          case BTAV_A2DP_CODEC_SAMPLE_RATE_48000:
+            strlcat(value, "48.", MAX_SCRAMBLING_FREQS_SIZE);
+            break;
+          case BTAV_A2DP_CODEC_SAMPLE_RATE_88200:
+            strlcat(value, "882.", MAX_SCRAMBLING_FREQS_SIZE);
+            break;
+          case BTAV_A2DP_CODEC_SAMPLE_RATE_96000:
+            strlcat(value, "96.", MAX_SCRAMBLING_FREQS_SIZE);
+            break;
+          case BTAV_A2DP_CODEC_SAMPLE_RATE_176400:
+            strlcat(value, "1764.", MAX_SCRAMBLING_FREQS_SIZE);
+            break;
+          case BTAV_A2DP_CODEC_SAMPLE_RATE_192000:
+            strlcat(value, "192.", MAX_SCRAMBLING_FREQS_SIZE);
+            break;
+        }
+      }
+      if(number_of_scrambling_supported_freqs) {
+        if(osi_property_set("persist.vendor.bt.soc.scram_freqs", value))
+          LOG_WARN(LOG_TAG, "%s persist.vendor.bt.soc.scram_freqs set to %s",
+              __func__, value);
+      } else {
+        // reset the property
+        osi_property_set("persist.vendor.bt.soc.scram_freqs", "");
+      }
+    }
+  }
+
   readable = true;
   return future_new_immediate(FUTURE_SUCCESS);
 }
@@ -350,6 +403,15 @@ static uint8_t* get_local_supported_codecs(uint8_t* number_of_codecs) {
   if (number_of_local_supported_codecs) {
     *number_of_codecs = number_of_local_supported_codecs;
     return local_supported_codecs;
+  }
+  return NULL;
+}
+
+static uint8_t* get_scrambling_supported_freqs(uint8_t* number_of_freqs) {
+  CHECK(readable);
+  if (number_of_scrambling_supported_freqs) {
+    *number_of_freqs = number_of_scrambling_supported_freqs;
+    return scrambling_supported_freqs;
   }
   return NULL;
 }
@@ -606,7 +668,8 @@ static const controller_t interface = {
     set_ble_resolving_list_max_size,
     get_local_supported_codecs,
     supports_ble_offload_features,
-    get_le_all_initiating_phys};
+    get_le_all_initiating_phys,
+    get_scrambling_supported_freqs};
 
 const controller_t* controller_get_interface() {
   static bool loaded = false;

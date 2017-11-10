@@ -401,6 +401,12 @@ typedef struct {
   tBTA_AV_STATUS status;
 } tBTA_AV_API_STATUS_RSP;
 
+/* data type for BTA_AV_API_OFFLOAD_RSP_EVT */
+typedef struct {
+  BT_HDR hdr;
+  bool do_scrambling;
+} tBTA_AV_API_OFFLOAD_START;
+
 /* type for SEP control block */
 typedef struct {
   uint8_t av_handle;                   /* AVDTP handle */
@@ -442,6 +448,7 @@ typedef union {
   tBTA_AV_ROLE_RES role_res;
   tBTA_AV_SDP_RES sdp_res;
   tBTA_AV_API_META_RSP api_meta_rsp;
+  tBTA_AV_API_OFFLOAD_START api_offload_start;
   tBTA_AV_API_STATUS_RSP api_status_rsp;
   tBTA_AV_ENABLE_MULTICAST multicast_state;
   tBTA_AV_MAX_CLIENT max_av_clients;
@@ -543,6 +550,7 @@ typedef struct {
   bool offload_start_pending;
   bool skip_sdp; /* Decides if sdp to be done prior to profile connection */
   bool offload_supported;
+  bool do_scrambling;
 } tBTA_AV_SCB;
 
 #define BTA_AV_RC_ROLE_MASK 0x10
@@ -624,7 +632,7 @@ typedef struct {
   uint16_t l2c_rcid;
   uint16_t mtu;
   uint8_t codec_info[20];
-//  tBTA_AV_SCB* p_scb;
+  tBTA_AV_SCB* p_scb;
 }tBT_VENDOR_A2DP_OFFLOAD;
 
 extern tBT_VENDOR_A2DP_OFFLOAD offload_start;
@@ -642,6 +650,8 @@ extern tBT_VENDOR_A2DP_OFFLOAD offload_start;
 #define VS_QHCI_A2DP_WRITE_SCMS_T_CP          0x08
 #define VS_QHCI_A2DP_SELECTED_CODEC           0x09
 #define VS_QHCI_A2DP_OFFLOAD_START            0x0A
+#define VS_QHCI_GET_SCRAMBLING_FREQS          0x11
+#define VS_QHCI_SCRAMBLE_A2DP_MEDIA           0x12
 #define A2DP_TRANSPORT_TYPE_SLIMBUS     0
 /* SPLITA2DP */
 /*****************************************************************************

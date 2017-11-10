@@ -48,6 +48,7 @@
 #include "osi/include/properties.h"
 #include "btif/include/btif_a2dp_source.h"
 #include "device/include/interop.h"
+#include "device/include/controller.h"
 
 
 /*****************************************************************************
@@ -1992,7 +1993,12 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
           btif_av_cb[index].flags != BTIF_AV_FLAG_REMOTE_SUSPEND &&
           btif_av_cb[index].remote_started == false)
       {
-          BTA_AvOffloadStart(btif_av_cb[index].bta_handle);
+          bool is_scrambling_enabled = btif_av_is_scrambling_enabled();
+
+          BTIF_TRACE_WARNING("%s:is_scrambling_enabled %d",__func__,
+                                    is_scrambling_enabled);
+
+          BTA_AvOffloadStart(btif_av_cb[index].bta_handle, is_scrambling_enabled);
       }
       else if (btif_av_cb[index].remote_started)
       {
@@ -3718,6 +3724,59 @@ tBTA_AV_LATENCY btif_av_get_sink_latency() {
 
   BTIF_TRACE_DEBUG("%s, return sink latency: %d", __func__, sink_latency);
   return sink_latency;
+}
+
+
+/******************************************************************************
+**
+** Function        btif_av_is_scrambling_enabled
+**
+** Description     get scrambling is enabled from bluetooth.
+**
+** Returns         bool
+**
+********************************************************************************/
+bool btif_av_is_scrambling_enabled() {
+  uint8_t no_of_freqs = 0;
+  uint8_t *freqs = NULL;
+  char value[PROPERTY_VALUE_MAX] = {'\0'};
+  btav_a2dp_codec_config_t codec_config;
+  std::vector<btav_a2dp_codec_config_t> codecs_local_capabilities;
+  std::vector<btav_a2dp_codec_config_t> codecs_selectable_capabilities;
+  A2dpCodecs* a2dp_codecs = bta_av_get_a2dp_codecs();
+  if (a2dp_codecs == nullptr) return false;
+
+  osi_property_get("persist.vendor.bt.splita2dp.44_1_war", value, "false");
+
+  if(strcmp(value, "true")) {
+    BTIF_TRACE_WARNING(
+        "persist.vendor.bt.splita2dp.44_1_war is not set");
+    return false;
+  }
+
+  if (!a2dp_codecs->getCodecConfigAndCapabilities(
+          &codec_config, &codecs_local_capabilities,
+          &codecs_selectable_capabilities)) {
+    BTIF_TRACE_WARNING(
+        "btif_av_is_scrambling_enabled failed: "
+        "cannot get codec config and capabilities");
+    return false;
+  }
+  freqs = controller_get_interface()->get_scrambling_supported_freqs(&no_of_freqs);
+  if(no_of_freqs == 0) {
+    BTIF_TRACE_WARNING(
+        "BT controller doesn't support scrambling");
+    return false;
+  }
+
+  if (freqs != NULL) {
+    for ( uint8_t i = 0; i < no_of_freqs; i++) {
+      if (freqs[i] ==  ( uint8_t ) codec_config.sample_rate ) {
+         return true;
+      }
+    }
+  }
+  return false;
 }
 
 uint8_t btif_av_get_peer_sep(int index) {

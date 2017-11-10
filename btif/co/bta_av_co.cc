@@ -44,6 +44,8 @@
 #include "osi/include/osi.h"
 #include "osi/include/properties.h"
 #include "device/include/interop.h"
+#include "device/include/controller.h"
+
 /*****************************************************************************
  **  Constants
  *****************************************************************************/
@@ -1391,6 +1393,23 @@ bt_status_t bta_av_set_a2dp_current_codec(tBTA_AV_HNDL hndl) {
   return status;
 }
 
+bool bta_av_co_is_scrambling_enabled() {
+  uint8_t no_of_freqs = 0;
+  uint8_t *freqs = NULL;
+  char value[PROPERTY_VALUE_MAX] = {'\0'};
+  osi_property_get("persist.vendor.bt.splita2dp.44_1_war", value, "false");
+
+  if(strcmp(value, "true")) {
+    return false;
+  }
+  freqs = controller_get_interface()->get_scrambling_supported_freqs(&no_of_freqs);
+
+  if(no_of_freqs == 0) {
+    return false;
+  }
+  return true;
+}
+
 void bta_av_co_init(
     const std::vector<btav_a2dp_codec_config_t>& codec_priorities) {
   APPL_TRACE_DEBUG("%s", __func__);
@@ -1411,8 +1430,9 @@ void bta_av_co_init(
   bta_av_co_cb.codecs = new A2dpCodecs(codec_priorities);
 /* SPLITA2DP */
   bool a2dp_offload = btif_av_is_split_a2dp_enabled();
+  bool isScramblingSupported = bta_av_co_is_scrambling_enabled();
   osi_property_get("persist.vendor.bt.a2dp_offload_cap", value, "false");
-  A2DP_SetOffloadStatus(a2dp_offload, value);
+  A2DP_SetOffloadStatus(a2dp_offload, value, isScramblingSupported);
 /* SPLITA2DP */
   bool isMcastSupported = btif_av_is_multicast_supported();
   bool isShoSupported = (btif_max_av_clients > 1) ? true : false;

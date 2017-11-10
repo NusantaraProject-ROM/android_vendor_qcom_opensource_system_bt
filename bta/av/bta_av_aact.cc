@@ -92,6 +92,10 @@ extern void btif_media_send_reset_vendor_state();
 static void bta_av_st_rc_timer(tBTA_AV_SCB* p_scb,
                                UNUSED_ATTR tBTA_AV_DATA* p_data);
 
+static void bta_av_vendor_offload_select_codec(tBTA_AV_SCB* p_scb);
+
+static uint8_t bta_av_vendor_offload_convert_sample_rate(uint16_t sample_rate);
+
 /* state machine states */
 enum {
   BTA_AV_INIT_SST,
@@ -3325,6 +3329,11 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
     sub_opcode =  param->p_param_buf[1];
     switch(sub_opcode)
     {
+      case VS_QHCI_SCRAMBLE_A2DP_MEDIA:
+        {
+          bta_av_vendor_offload_select_codec(offload_start.p_scb);
+          break;
+        }
       case VS_QHCI_A2DP_SELECTED_CODEC:
         {
           uint8_t param[10],index=0;
@@ -3416,13 +3425,63 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
       (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
   }
 }
+
+static uint8_t bta_av_vendor_offload_convert_sample_rate(uint16_t sample_rate) {
+  uint8_t rate;
+  switch (sample_rate) {
+    case 44100:
+      rate = 0x1 << 0;
+      break;
+    case 48000:
+      rate = 0x1 << 1;
+      break;
+    default:
+      APPL_TRACE_ERROR("Invalid sample rate, going with default 44.1");
+      rate = 0x1 << 0;
+      break;
+  }
+  return rate;
+}
+
+static void bta_av_vendor_offload_select_codec(tBTA_AV_SCB* p_scb)
+{
+  const char *codec_name = A2DP_CodecName(p_scb->cfg.codec_info);
+  uint8_t codec_type = 0, index = 0;
+  uint8_t param[40];
+  uint16_t sample_rate = 0;
+  if (strcmp(codec_name,"SBC") == 0) codec_type = 0;
+  else if (strcmp(codec_name,"AAC") == 0) codec_type = 2;
+  else if (strcmp(codec_name,"aptX") == 0) codec_type = 8;
+  else if (strcmp(codec_name,"aptX-HD") == 0) codec_type = 9;
+  else if ((strcmp(codec_name,"LDAC")) == 0) codec_type = 4;
+  param[index++] = VS_QHCI_A2DP_SELECTED_CODEC;
+  param[index++] = codec_type;
+  param[index++] = 0;//max latency
+  param[index++] = 0;//delay reporting
+#if (BTA_AV_CO_CP_SCMS_T == TRUE)
+  param[index++] = offload_start.cp_active;
+#else
+  param[index++] = 0;
+#endif
+  param[index++] = offload_start.cp_flag;
+  sample_rate  = A2DP_GetTrackSampleRate(p_scb->cfg.codec_info);
+  param[index++] = (uint8_t)(sample_rate & 0x00FF);
+  param[index++] = (uint8_t)(((sample_rate & 0xFF00) >> 8) & 0x00FF);
+  if (codec_type == A2DP_MEDIA_CT_SBC)
+  {
+    param[index++] = A2DP_GetNumberOfSubbandsSbc(p_scb->cfg.codec_info);
+    param[index++] = A2DP_GetNumberOfBlocksSbc(p_scb->cfg.codec_info);
+  }
+  APPL_TRACE_DEBUG("bta_av_vendor_offload_start: VS_QHCI_A2DP_SELECTED_CODEC");
+  BTM_VendorSpecificCommand(HCI_VSQC_CONTROLLER_A2DP_OPCODE,index,
+                               param, offload_vendor_callback);
+}
+
 void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
 {
   uint8_t param[40];// codec_type;//index = 0;
-  const char *codec_name;
   unsigned char status = 0;
   //uint16_t sample_rate;
-  codec_name = A2DP_CodecName(p_scb->cfg.codec_info);
   APPL_TRACE_DEBUG("%s: enc_update_in_progress = %d", __func__, enc_update_in_progress);
   APPL_TRACE_IMP("bta_av_vendor_offload_start: vsc flags:-"
     "vs_configs_exchanged:%u tx_started:%u tx_start_initiated:%u"
@@ -3451,36 +3510,23 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
     (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
     return;
   }
-#if 1
-  uint8_t codec_type = 0, index = 0;
-  uint16_t sample_rate = 0;
-  if (strcmp(codec_name,"SBC") == 0) codec_type = 0;
-  else if (strcmp(codec_name,"AAC") == 0) codec_type = 2;
-  else if (strcmp(codec_name,"aptX") == 0) codec_type = 8;
-  else if (strcmp(codec_name,"aptX-HD") == 0) codec_type = 9;
-  else if ((strcmp(codec_name,"LDAC")) == 0) codec_type = 4;
-  param[index++] = VS_QHCI_A2DP_SELECTED_CODEC;
-  param[index++] = codec_type;
-  param[index++] = 0;//max latency
-  param[index++] = 0;//delay reporting
-#if (BTA_AV_CO_CP_SCMS_T == TRUE)
-  param[index++] = offload_start.cp_active;
-#else
-  param[index++] = 0;
-#endif
-  param[index++] = offload_start.cp_flag;
-  sample_rate  = A2DP_GetTrackSampleRate(p_scb->cfg.codec_info);
-  param[index++] = (uint8_t)(sample_rate & 0x00FF);
-  param[index++] = (uint8_t)(((sample_rate & 0xFF00) >> 8) & 0x00FF);
-  if (codec_type == A2DP_MEDIA_CT_SBC)
-  {
-    param[index++] = A2DP_GetNumberOfSubbandsSbc(p_scb->cfg.codec_info);
-    param[index++] = A2DP_GetNumberOfBlocksSbc(p_scb->cfg.codec_info);
+
+  if(p_scb->do_scrambling) {
+    uint8_t *p_param = param;
+    *p_param++ = VS_QHCI_SCRAMBLE_A2DP_MEDIA;
+    UINT8_TO_STREAM(p_param,
+        bta_av_vendor_offload_convert_sample_rate(offload_start.sample_rate));
+
+    UINT16_TO_STREAM(p_param,offload_start.acl_hdl);
+
+    BTM_VendorSpecificCommand(HCI_VSQC_CONTROLLER_A2DP_OPCODE,4, param,
+        offload_vendor_callback);
+    offload_start.p_scb = p_scb;
+    return;
+  } else {
+    bta_av_vendor_offload_select_codec(p_scb);
   }
-  APPL_TRACE_DEBUG("bta_av_vendor_offload_start: VS_QHCI_A2DP_SELECTED_CODEC");
-  BTM_VendorSpecificCommand(HCI_VSQC_CONTROLLER_A2DP_OPCODE,index,
-                               param, offload_vendor_callback);
-#endif
+
 #if 0 // Use only 1 VSC, TODO:Enable based on FW version
   uint8_t *p_param = param;
   *p_param++ = VS_QHCI_A2DP_OFFLOAD_START;
@@ -3535,6 +3581,7 @@ void bta_av_vendor_offload_stop()
  ******************************************************************************/
 void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   tBTA_AV_STATUS status = BTA_AV_FAIL_RESOURCES;
+  bool do_scrambling = p_data->api_offload_start.do_scrambling;
 
   APPL_TRACE_DEBUG("%s: stream %s, audio channels open %d", __func__,
                    p_scb->started ? "STARTED" : "STOPPED",
@@ -3552,6 +3599,8 @@ void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     uint8_t codec_type = 0;
     uint16_t mtu = bta_av_chk_mtu(p_scb,p_scb->stream_mtu);
     p_scb->offload_supported = true;
+    p_scb->do_scrambling = do_scrambling;
+
     if (mtu == 0 || mtu > p_scb->stream_mtu) mtu = p_scb->stream_mtu;
 
     if (btif_av_is_peer_edr() && (btif_av_peer_supports_3mbps() == FALSE)) {

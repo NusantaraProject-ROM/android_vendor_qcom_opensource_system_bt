@@ -428,6 +428,7 @@ void btif_a2dp_audio_send_sink_latency()
     if (!ret.isOk()) LOG_ERROR(LOG_TAG,"server died");
   }
 }
+
 void on_hidl_server_died() {
   LOG_INFO(LOG_TAG,"on_hidl_server_died");
   if (btAudio != nullptr) {
