@@ -1223,6 +1223,8 @@ uint16_t bta_av_chk_mtu(tBTA_AV_SCB* p_scb, UNUSED_ATTR uint16_t mtu) {
     {
         APPL_TRACE_DEBUG("bta_av_chk_mtu Non-multicast, conn_audio:0x%x, ret:%d",
                                                 bta_av_cb.conn_audio, mtu);
+        if (mtu > BTA_AV_MAX_A2DP_MTU)
+            mtu = BTA_AV_MAX_A2DP_MTU;
         return mtu;
     }
 

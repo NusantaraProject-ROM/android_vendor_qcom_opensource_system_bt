@@ -3579,6 +3579,9 @@ void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
       mtu = MAX_2MBPS_AVDTP_MTU;
     }
 
+    if (mtu > BTA_AV_MAX_A2DP_MTU)
+        mtu = BTA_AV_MAX_A2DP_MTU;
+
     offload_start.codec_type = codec_type;
     offload_start.transport_type = A2DP_TRANSPORT_TYPE_SLIMBUS;
     offload_start.stream_type = codec_type;

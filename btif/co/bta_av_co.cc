@@ -1072,9 +1072,11 @@ void bta_av_co_get_peer_params(tA2DP_ENCODER_INIT_PEER_PARAMS* p_peer_params) {
   index = btif_av_get_current_playing_dev_idx();
   if ((index < btif_max_av_clients) && (!btif_av_is_multicast_supported())) {
     p_peer = &bta_av_co_cb.peers[index];
-    APPL_TRACE_DEBUG("%s updating peer MTU to %d for index %d",
-                                    __func__, p_peer->mtu, index);
     min_mtu = p_peer->mtu;
+    if (min_mtu > BTA_AV_MAX_A2DP_MTU)
+        min_mtu = BTA_AV_MAX_A2DP_MTU;
+    APPL_TRACE_DEBUG("%s updating peer MTU to %d for index %d",
+                                    __func__, min_mtu, index);
   }
 
   p_peer_params->peer_mtu = min_mtu;
