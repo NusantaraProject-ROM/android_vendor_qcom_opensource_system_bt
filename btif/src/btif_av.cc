@@ -3450,6 +3450,12 @@ bt_status_t btif_av_execute_service(bool b_enable) {
             btif_a2dp_audio_interface_deinit();
             btif_a2dp_audio_if_init = false;
           }else{
+             tA2DP_CTRL_CMD pending_cmd = btif_a2dp_get_pending_command();
+             BTIF_TRACE_DEBUG("%s: a2dp-ctrl-cmd : %s", __func__,
+                                     audio_a2dp_hw_dump_ctrl_event(pending_cmd));
+             if (pending_cmd) {
+                 btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+             }
              btif_sm_change_state(btif_av_cb[i].sm_handle, BTIF_AV_STATE_IDLE);
              btif_queue_advance();
 
