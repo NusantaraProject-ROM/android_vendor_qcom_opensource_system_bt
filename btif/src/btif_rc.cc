@@ -2297,10 +2297,7 @@ static bt_status_t get_play_status_rsp(RawAddress* bd_addr,
   {
       BTIF_TRACE_ERROR("%s: clear remote suspend flag: %d",__FUNCTION__, av_index);
       btif_av_clear_remote_suspend_flag();
-      if (btif_av_is_split_a2dp_enabled())
-      {
-          btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-      }
+      btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
   }
 
   avrc_rsp.get_play_status.pdu = AVRC_PDU_GET_PLAY_STATUS;
@@ -2308,11 +2305,7 @@ static bt_status_t get_play_status_rsp(RawAddress* bd_addr,
   avrc_rsp.get_play_status.status =
       ((play_status != BTRC_PLAYSTATE_ERROR) ? AVRC_STS_NO_ERROR
                                              : AVRC_STS_BAD_PARAM);
-  if ((avrc_rsp.get_play_status.play_status == BTRC_PLAYSTATE_PLAYING) &&
-       (btif_av_check_flag_remote_suspend(av_index))) {
-      BTIF_TRACE_ERROR("%s: clear remote suspend flag: %d",__FUNCTION__, av_index);
-      btif_av_clear_remote_suspend_flag();
-  }
+
   /* Send the response */
   SEND_METAMSG_RSP(p_dev, rsp_index, &avrc_rsp);
 
@@ -2687,10 +2680,7 @@ static bt_status_t register_notification_rsp_sho_mcast(
           (btif_av_check_flag_remote_suspend(av_index))) {
           BTIF_TRACE_ERROR("%s: clear remote suspend flag: %d",__FUNCTION__,av_index );
           btif_av_clear_remote_suspend_flag();
-          if (btif_av_is_split_a2dp_enabled())
-          {
-              btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-          }
+          btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
       }
       break;
     case BTRC_EVT_TRACK_CHANGE:
@@ -2794,10 +2784,7 @@ static bt_status_t register_notification_rsp(
         {
             BTIF_TRACE_ERROR("%s: clear remote suspend flag: %d",__FUNCTION__,av_index );
             btif_av_clear_remote_suspend_flag();
-            if (btif_av_is_split_a2dp_enabled())
-            {
-                btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-            }
+            btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
         }
         break;
       case BTRC_EVT_TRACK_CHANGE:

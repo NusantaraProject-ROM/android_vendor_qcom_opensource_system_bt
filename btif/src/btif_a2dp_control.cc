@@ -194,7 +194,6 @@ static void btif_a2dp_recv_ctrl_data(void) {
        * audioflinger close the channel. This can happen if we are
        * remotely suspended, clear REMOTE SUSPEND flag.
        */
-      btif_av_clear_remote_suspend_flag();
       btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
       break;
 

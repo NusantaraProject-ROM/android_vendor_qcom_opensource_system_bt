@@ -1245,9 +1245,7 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
     if (btif_av_check_flag_remote_suspend(index)) {
       BTIF_TRACE_EVENT("%s: Resetting remote suspend flag on RC PLAY", __func__);
       btif_av_clear_remote_suspend_flag();
-      if (btif_av_is_split_a2dp_enabled()) {
-        btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-      }
+      btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
     }
   }
 
