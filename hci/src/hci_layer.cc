@@ -435,9 +435,14 @@ static void event_packet_ready(void* pkt) {
 static void transmit_fragment(BT_HDR* packet, bool send_transmit_finished) {
   btsnoop->capture(packet, false);
 
+  /* Parse packet event before transmitting it.
+   * This is to avoid use after free for "packet"
+   * in those rare scenarios when Rx thread schedules
+   * process the event and frees the packet*/
+  uint16_t event = packet->event & MSG_EVT_MASK;
+
   hci_transmit(packet);
 
-  uint16_t event = packet->event & MSG_EVT_MASK;
   if (event != MSG_STACK_TO_HC_HCI_CMD && send_transmit_finished)
     buffer_allocator->free(packet);
 }
