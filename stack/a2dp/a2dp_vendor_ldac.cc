@@ -60,13 +60,23 @@ static const tA2DP_LDAC_CIE a2dp_ldac_caps = {
      BTAV_A2DP_CODEC_BITS_PER_SAMPLE_32)};
 
 /* Default LDAC codec configuration */
-static const tA2DP_LDAC_CIE a2dp_ldac_default_config = {
+static const tA2DP_LDAC_CIE a2dp_ldac_src_default_config = {
     A2DP_LDAC_VENDOR_ID,                // vendorId
     A2DP_LDAC_CODEC_ID,                 // codecId
     A2DP_LDAC_SAMPLING_FREQ_96000,      // sampleRate
     A2DP_LDAC_CHANNEL_MODE_STEREO,      // channelMode
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_32  // bits_per_sample
 };
+
+/* Default LDAC codec configuration */
+static const tA2DP_LDAC_CIE a2dp_ldac_offload_default_config = {
+    A2DP_LDAC_VENDOR_ID,                // vendorId
+    A2DP_LDAC_CODEC_ID,                 // codecId
+    A2DP_LDAC_SAMPLING_FREQ_48000,      // sampleRate
+    A2DP_LDAC_CHANNEL_MODE_STEREO,      // channelMode
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 // bits_per_sample
+};
+tA2DP_LDAC_CIE a2dp_ldac_default_config;
 
 static const tA2DP_ENCODER_INTERFACE a2dp_encoder_interface_ldac = {
     a2dp_vendor_ldac_encoder_init,
@@ -521,6 +531,11 @@ A2dpCodecConfigLdac::A2dpCodecConfigLdac(
     : A2dpCodecConfig(BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC, "LDAC",
                       codec_priority) {
   // Compute the local capability
+  if (A2DP_GetOffloadStatus()) {
+    a2dp_ldac_default_config = a2dp_ldac_offload_default_config;
+  } else {
+    a2dp_ldac_default_config = a2dp_ldac_src_default_config;
+  }
   if (a2dp_ldac_caps.sampleRate & A2DP_LDAC_SAMPLING_FREQ_44100) {
     codec_local_capability_.sample_rate |= BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
   }

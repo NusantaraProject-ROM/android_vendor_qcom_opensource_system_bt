@@ -3455,6 +3455,7 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
   else if (strcmp(codec_name,"AAC") == 0) codec_type = 2;
   else if (strcmp(codec_name,"aptX") == 0) codec_type = 8;
   else if (strcmp(codec_name,"aptX-HD") == 0) codec_type = 9;
+  else if ((strcmp(codec_name,"LDAC")) == 0) codec_type = 4;
   param[index++] = VS_QHCI_A2DP_SELECTED_CODEC;
   param[index++] = codec_type;
   param[index++] = 0;//max latency
@@ -3565,8 +3566,9 @@ void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     else if ((strcmp(codec_name,"AAC")) == 0) codec_type = 2;
     else if ((strcmp(codec_name,"aptX")) == 0) codec_type = 8;
     else if ((strcmp(codec_name,"aptX-HD")) == 0) codec_type = 9;
+    else if ((strcmp(codec_name,"LDAC")) == 0) codec_type = 4;
 
-    if ((codec_type == 8) || (codec_type == 9)) {
+    if ((codec_type == 8) || (codec_type == 9) || (codec_type == 4)) {
       if (mtu > MAX_2MBPS_AVDTP_MTU) {
         APPL_TRACE_IMP("Restricting AVDTP MTU size to 663 for APTx codecs");
         mtu = MAX_2MBPS_AVDTP_MTU;

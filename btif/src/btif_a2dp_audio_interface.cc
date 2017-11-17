@@ -42,6 +42,8 @@
 #include <com/qualcomm/qti/bluetooth_audio/1.0/IBluetoothAudioCallbacks.h>
 #include <com/qualcomm/qti/bluetooth_audio/1.0/types.h>
 #include <hwbinder/ProcessState.h>
+#include <a2dp_vendor_ldac_constants.h>
+#include <a2dp_vendor.h>
 
 using com::qualcomm::qti::bluetooth_audio::V1_0::IBluetoothAudio;
 using com::qualcomm::qti::bluetooth_audio::V1_0::IBluetoothAudioCallbacks;
@@ -668,9 +670,12 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         {
           int bits_per_sample = 16; // TODO
           int samplerate = A2DP_GetTrackSampleRate(p_codec_info);
-
-          /* BR = (Sampl_Rate * PCM_DEPTH * CHNL)/Compression_Ratio */
-          bitrate = (samplerate * bits_per_sample * 2)/4;
+          if ((A2DP_VendorCodecGetVendorId(p_codec_info)) == A2DP_LDAC_VENDOR_ID) {
+            bitrate = DEFAULT_LDAC_BITRATE; /* Default bitrate for LDAC is 330KBps */
+          } else {
+            /* BR = (Sampl_Rate * PCM_DEPTH * CHNL)/Compression_Ratio */
+            bitrate = (samplerate * bits_per_sample * 2)/4;
+          }
         }
         else if (A2DP_MEDIA_CT_AAC == codec_type)
         {
