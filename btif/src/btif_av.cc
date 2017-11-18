@@ -544,6 +544,7 @@ static void btif_av_check_and_start_collission_timer(int index) {
  ******************************************************************************/
 
 static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int index) {
+  int i;
   char a2dp_role[255] = "false";
   RawAddress *bt_addr = nullptr;
   BTIF_TRACE_IMP("%s event:%s flags %x on index %x", __func__,
@@ -769,19 +770,36 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
          * and update multicast state
          */
         btif_av_update_multicast_state(index);
+
+        btif_av_cb[index].current_playing = TRUE;
+        if (enable_multicast == FALSE)
+        {
+          for (i = 0; i < btif_max_av_clients; i++)
+          {
+            if (i != index)
+            {
+              btif_av_cb[i].current_playing = FALSE;
+            }
+          }
+          if (btif_av_is_playing())
+          {
+              BTIF_TRACE_DEBUG("Trigger Dual A2dp Handoff on %d", index);
+              btif_av_trigger_dual_handoff(TRUE, btif_av_cb[index].peer_bda.address);
+          }
+        }
+
+        if (btif_av_cb[index].peer_sep == AVDT_TSEP_SNK) {
+          /* if queued PLAY command,  send it now */
+          btif_rc_check_handle_pending_play(p_bta_data->open.bd_addr,
+                   (p_bta_data->open.status == BTA_AV_SUCCESS));
+        } else if (btif_av_cb[index].peer_sep == AVDT_TSEP_SRC) {
+          /* if queued PLAY command,  send it now */
+          btif_rc_check_handle_pending_play(p_bta_data->open.bd_addr, false);
+          /* Bring up AVRCP connection too */
+          BTA_AvOpenRc(btif_av_cb[index].bta_handle);
+        }
       }
 
-      if (btif_av_cb[index].peer_sep == AVDT_TSEP_SNK) {
-        /* if queued PLAY command,  send it now */
-        btif_rc_check_handle_pending_play(p_bta_data->open.bd_addr,
-                                             (p_bta_data->open.status == BTA_AV_SUCCESS));
-      } else if ((btif_av_cb[index].peer_sep == AVDT_TSEP_SRC) &&
-                    (p_bta_data->open.status == BTA_AV_SUCCESS)) {
-        /* if queued PLAY command,  send it now */
-        btif_rc_check_handle_pending_play(p_bta_data->open.bd_addr, false);
-        /* Bring up AVRCP connection too */
-        BTA_AvOpenRc(btif_av_cb[index].bta_handle);
-      }
       btif_queue_advance();
     } break;
 
