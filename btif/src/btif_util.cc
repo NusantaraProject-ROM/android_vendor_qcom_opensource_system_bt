@@ -51,6 +51,7 @@
 #include "btif_common.h"
 #include "btif_dm.h"
 #include "btu.h"
+#include "btif_av.h"
 
 /*******************************************************************************
  *  Constants & Macros
@@ -240,6 +241,8 @@ const char* dump_dm_event(uint16_t event) {
     CASE_RETURN_STR(BTA_DM_SP_RMT_OOB_EVT)
     CASE_RETURN_STR(BTA_DM_SP_KEYPRESS_EVT)
     CASE_RETURN_STR(BTA_DM_ROLE_CHG_EVT)
+    CASE_RETURN_STR(BTA_DM_PKT_TYPE_CHG_EVT)
+    CASE_RETURN_STR(BTA_DM_SOC_LOGGING_EVT)
     CASE_RETURN_STR(BTA_DM_BLE_KEY_EVT)
     CASE_RETURN_STR(BTA_DM_BLE_SEC_REQ_EVT)
     CASE_RETURN_STR(BTA_DM_BLE_PASSKEY_NOTIF_EVT)
@@ -251,6 +254,7 @@ const char* dump_dm_event(uint16_t event) {
     CASE_RETURN_STR(BTA_DM_DEV_UNPAIRED_EVT)
     CASE_RETURN_STR(BTA_DM_HW_ERROR_EVT)
     CASE_RETURN_STR(BTA_DM_ENER_INFO_READ)
+    CASE_RETURN_STR(BTA_DM_REM_NAME_EVT)
 
     default:
       return "UNKNOWN DM EVENT";
@@ -474,6 +478,7 @@ const char* dump_rc_event(uint8_t event) {
     CASE_RETURN_STR(BTA_AV_VENDOR_RSP_EVT)
     CASE_RETURN_STR(BTA_AV_META_MSG_EVT)
     CASE_RETURN_STR(BTA_AV_RC_FEAT_EVT)
+    CASE_RETURN_STR(BTIF_AV_CLEANUP_REQ_EVT)
     default:
       return "UNKNOWN_EVENT";
   }

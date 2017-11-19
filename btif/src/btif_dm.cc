@@ -54,6 +54,7 @@
 #include "btif_api.h"
 #include "btif_config.h"
 #include "btif_dm.h"
+#include "btif_av.h"
 #include "btif_hd.h"
 #include "btif_hh.h"
 #include "btif_sdp.h"
@@ -261,6 +262,7 @@ extern void btif_av_move_idle(RawAddress bd_addr);
 extern bt_status_t btif_hd_execute_service(bool b_enable);
 extern void btif_av_trigger_suspend();
 extern bool btif_av_get_ongoing_multicast();
+extern void btif_av_peer_config_dump();
 
 /******************************************************************************
  *  Functions
@@ -1178,23 +1180,25 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
     }
   }
 
-  // We could have received a new link key without going through the pairing
-  // flow.  If so, we don't want to perform SDP or any other operations on the
-  // authenticated device. Also, make sure that the link key is not derived from
-  // secure LTK, because we will need to perform SDP in case of link key
-  // derivation to allow bond state change notification for the BR/EDR transport
-  // so that the subsequent BR/EDR connections to the remote can use the derived
-  // link key.
-  if (p_auth_cmpl->bd_addr != pairing_cb.bd_addr &&
-      (!pairing_cb.ble.is_penc_key_rcvd)) {
-    LOG(INFO) << __func__
-              << " skipping SDP since we did not initiate pairing to "
-              << p_auth_cmpl->bd_addr;
-    return;
-  }
-
   // Skip SDP for certain  HID Devices
   if (p_auth_cmpl->success) {
+
+    // We could have received a new link key without going through the pairing
+    // flow.  If so, we don't want to perform SDP or any other operations on the
+    // authenticated device. Also, make sure that the link key is not derived from
+    // secure LTK, because we will need to perform SDP in case of link key
+    // derivation to allow bond state change notification for the BR/EDR transport
+    // so that the subsequent BR/EDR connections to the remote can use the derived
+    // link key.
+    
+    if ((p_auth_cmpl->bd_addr != pairing_cb.bd_addr) &&
+        (!pairing_cb.ble.is_penc_key_rcvd)) {
+      LOG_INFO(LOG_TAG,
+               "%s skipping SDP since we did not initiate pairing to %s.",
+               __func__, p_auth_cmpl->bd_addr.ToString().c_str());
+      return;
+    }
+
     btif_storage_set_remote_addr_type(&bd_addr, p_auth_cmpl->addr_type);
     btif_update_remote_properties(p_auth_cmpl->bd_addr, p_auth_cmpl->bd_name,
                                   NULL, p_auth_cmpl->dev_type);
@@ -1275,7 +1279,11 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
       /* Dont fail the bonding for key missing error as stack retry security */
       case HCI_ERR_KEY_MISSING:
         btif_storage_remove_bonded_device(&bd_addr);
-        return;
+        if (p_auth_cmpl->is_sm4_dev) {
+          return;
+        } else {
+          BTIF_TRACE_WARNING("%s() legacy remote ,move bond state to none", __FUNCTION__);
+        }
 
       /* map the auth failure codes, so we can retry pairing if necessary */
       case HCI_ERR_AUTH_FAILURE:
@@ -2081,6 +2089,42 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
       osi_free(data);
       break;
     }
+
+    case BTA_DM_PKT_TYPE_CHG_EVT: {
+      // update streaming bit rate from av
+      break;
+    }
+
+    case BTA_DM_SOC_LOGGING_EVT: {
+      if (p_data->soc_logging.soc_log_id == (LOG_ID_STATS_A2DP)) {
+        BTIF_TRACE_WARNING( " event(%d),dump a2dp configuration", event);
+        btif_av_peer_config_dump();
+      }
+        break;
+    }
+
+    case BTA_DM_REM_NAME_EVT:
+      BTIF_TRACE_DEBUG("BTA_DM_REM_NAME_EVT");
+
+      /* remote name */
+      if (strlen((char *)p_data->rem_name_evt.bd_name) > 0) {
+        bt_property_t properties[1];
+        bt_status_t status;
+
+        BTIF_TRACE_DEBUG("name of device = %s", p_data->rem_name_evt.bd_name);
+        properties[0].type = BT_PROPERTY_BDNAME;
+        properties[0].val = p_data->rem_name_evt.bd_name;
+        properties[0].len = strlen((char *)p_data->rem_name_evt.bd_name);
+        bd_addr = p_data->rem_name_evt.bd_addr;
+
+        status = btif_storage_set_remote_device_property(&bd_addr, &properties[0]);
+        ASSERTC(status == BT_STATUS_SUCCESS, "failed to save remote device property",
+            status);
+        HAL_CBACK(bt_hal_cbacks, remote_device_properties_cb,
+                         status, &bd_addr, 1, properties);
+     }
+
+    break;
 
     case BTA_DM_AUTHORIZE_EVT:
     case BTA_DM_SIG_STRENGTH_EVT:
@@ -3041,7 +3085,10 @@ static void btif_dm_ble_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
     } else {
       btif_dm_save_ble_bonding_keys();
       BTA_GATTC_Refresh(bd_addr);
-      btif_dm_get_remote_services_by_transport(&bd_addr, BTA_GATT_TRANSPORT_LE);
+      if(!p_auth_cmpl->smp_over_br)
+         btif_dm_get_remote_services_by_transport(&bd_addr, BTA_GATT_TRANSPORT_LE);
+      else
+         btif_dm_get_remote_services(bd_addr);
     }
   } else {
     /*Map the HCI fail reason  to  bt status  */

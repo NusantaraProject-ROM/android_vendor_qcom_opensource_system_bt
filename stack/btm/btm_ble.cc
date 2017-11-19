@@ -618,7 +618,8 @@ void BTM_ReadDevInfo(const RawAddress& remote_bda, tBT_DEVICE_TYPE* p_dev_type,
   {
     /* new inquiry result, overwrite device type in security device record */
     if (p_inq_info) {
-      p_dev_rec->device_type = p_inq_info->results.device_type;
+      BTM_TRACE_DEBUG("p_dev_rec->device_type -%d",p_dev_rec->device_type);
+      p_dev_rec->device_type |= p_inq_info->results.device_type;
       p_dev_rec->ble.ble_addr_type = p_inq_info->results.ble_addr_type;
     }
     if (p_dev_rec->bd_addr == remote_bda &&
@@ -669,14 +670,31 @@ bool BTM_ReadConnectedTransportAddress(RawAddress* remote_bda,
     } else
       *remote_bda = RawAddress::kEmpty;
     return false;
-  }
-
-  if (transport == BT_TRANSPORT_LE) {
+  } else if (transport == BT_TRANSPORT_LE) {
     *remote_bda = p_dev_rec->ble.pseudo_addr;
     if (btm_bda_to_acl(p_dev_rec->ble.pseudo_addr, transport) != NULL)
       return true;
     else
       return false;
+  } else {
+    //INVALID transport , finding other device that doesnt match the address
+    if(*remote_bda != p_dev_rec->bd_addr)
+    {
+      *remote_bda = p_dev_rec->bd_addr;
+      if (btm_bda_to_acl(p_dev_rec->bd_addr, BT_TRANSPORT_BR_EDR) != NULL)
+        return true;
+      else
+        return false;
+    } else if (*remote_bda != p_dev_rec->ble.pseudo_addr) {
+      *remote_bda = p_dev_rec->ble.pseudo_addr;
+      if (btm_bda_to_acl(p_dev_rec->ble.pseudo_addr, BT_TRANSPORT_LE) != NULL)
+        return true;
+      else
+        return false;
+    } else {
+      memset(remote_bda, 0, BD_ADDR_LEN);
+      return false;
+    }
   }
 
   return false;

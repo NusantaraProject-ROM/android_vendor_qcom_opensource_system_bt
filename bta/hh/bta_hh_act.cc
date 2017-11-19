@@ -148,17 +148,15 @@ void bta_hh_api_disable(void) {
  *
  ******************************************************************************/
 void bta_hh_disc_cmpl(void) {
+  tBTA_HH_STATUS status = BTA_HH_OK;
 #if (BTA_HH_LE_INCLUDED == TRUE)
   HID_HostDeregister();
   bta_hh_le_deregister();
 #else
-  tBTA_HH_STATUS status = BTA_HH_OK;
-
   /* Deregister with lower layer */
   if (HID_HostDeregister() != HID_SUCCESS) status = BTA_HH_ERR;
-
-  bta_hh_cleanup_disable(status);
 #endif
+  bta_hh_cleanup_disable(status);
 }
 
 /*******************************************************************************
@@ -521,6 +519,11 @@ void bta_hh_open_cmpl_act(tBTA_HH_DEV_CB* p_cb, tBTA_HH_DATA* p_data) {
   conn.status = p_cb->status;
   conn.le_hid = p_cb->is_le_device;
   conn.scps_supported = p_cb->scps_supported;
+
+#if (defined(BLE_HH_QUALIFICATION_ENABLED) && BLE_HH_QUALIFICATION_ENABLED == TRUE)
+  if(p_cb->scps_supported)
+      BTA_HhUpdateLeScanParam(dev_handle,BTM_BLE_SCAN_SLOW_INT_1,BTM_BLE_SCAN_SLOW_WIN_1);
+#endif
 
   if (!p_cb->is_le_device)
 #endif

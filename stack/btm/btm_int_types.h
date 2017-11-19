@@ -601,6 +601,7 @@ typedef struct {
 #define BTM_SEC_RS_PENDING 1     /* Role Switch in progress */
 #define BTM_SEC_DISC_PENDING 2   /* Disconnect is pending */
   uint8_t rs_disc_pending;
+  bool  process_existing_rnr; /* process the existing RNR */
 #endif
 #define BTM_SEC_NO_LAST_SERVICE_ID 0
   uint8_t last_author_service_id; /* ID of last serviced authorized: Reset after
@@ -872,9 +873,10 @@ typedef struct {
 
   uint8_t acl_disc_reason;
   uint8_t trace_level;
-  uint8_t busy_level; /* the current busy level */
-  bool is_paging;     /* true, if paging is in progess */
-  bool is_inquiry;    /* true, if inquiry is in progess */
+  uint8_t busy_level;     /* the current busy level */
+  bool is_paging;         /* true, if paging is in progess */
+  bool is_inquiry;        /* true, if inquiry is in progess */
+  bool is_wifi_connected; /* true, if wifi connected */
   fixed_queue_t* page_queue;
   bool paging;
   bool discing;

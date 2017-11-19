@@ -56,8 +56,12 @@
 static void bta_dm_inq_results_cb(tBTM_INQ_RESULTS* p_inq, uint8_t* p_eir,
                                   uint16_t eir_len);
 static void bta_dm_inq_cmpl_cb(void* p_result);
+
 static void bta_dm_service_search_remname_cback(const RawAddress& bd_addr,
                                                 DEV_CLASS dc, BD_NAME bd_name);
+
+static void bta_dm_rem_name_cback(const RawAddress& bd_addr,
+                                        DEV_CLASS dc, BD_NAME bd_name);
 static void bta_dm_remname_cback(tBTM_REMOTE_DEV_NAME* p_remote_name);
 static void bta_dm_find_services(const RawAddress& bd_addr);
 static void bta_dm_discover_next_device(void);
@@ -95,6 +99,7 @@ static void bta_dm_eir_search_services(tBTM_INQ_RESULTS* p_result,
 
 static void bta_dm_search_timer_cback(void* data);
 static void bta_dm_disable_conn_down_timer_cback(void* data);
+static void bta_dm_bond_retrail_cback(void* data);
 static void bta_dm_rm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
                             uint8_t app_id, const RawAddress* peer_addr);
 static void bta_dm_adjust_roles(bool delay_role_switch);
@@ -135,6 +140,11 @@ static void bta_dm_ctrl_features_rd_cmpl_cback(tBTM_STATUS result);
 /* Disable timer retrial interval (in milliseconds) */
 #ifndef BTA_DM_DISABLE_TIMER_RETRIAL_MS
 #define BTA_DM_DISABLE_TIMER_RETRIAL_MS 1500
+#endif
+
+/* bond retrial interval (in milliseconds) */
+#ifndef BTA_DM_BOND_TIMER_RETRIAL_MS
+#define BTA_DM_BOND_TIMER_RETRIAL_MS 100
 #endif
 
 /* Disable connection down timer (in milliseconds) */
@@ -278,6 +288,9 @@ void bta_dm_enable(tBTA_DM_MSG* p_data) {
   /* first, register our callback to SYS HW manager */
   bta_sys_hw_register(BTA_SYS_HW_BLUETOOTH, bta_dm_sys_hw_cback);
 
+  /* Register callback with btm layer for remote name */
+  BTM_SecAddRmtNameNotifyCallback(&bta_dm_rem_name_cback);
+
   /* make sure security callback is saved - if no callback, do not erase the
   previous one,
   it could be an error recovery mechanism */
@@ -308,6 +321,7 @@ void bta_dm_enable(tBTA_DM_MSG* p_data) {
 void bta_dm_init_cb(void) {
   memset(&bta_dm_cb, 0, sizeof(bta_dm_cb));
   bta_dm_cb.disable_timer = alarm_new("bta_dm.disable_timer");
+  bta_dm_cb.bond_retrail_timer = alarm_new("bta_dm.bond_retrail_timer");
   bta_dm_cb.switch_delay_timer = alarm_new("bta_dm.switch_delay_timer");
   for (size_t i = 0; i < BTA_DM_NUM_PM_TIMER; i++) {
     for (size_t j = 0; j < BTA_DM_PM_MODE_TIMER_MAX; j++) {
@@ -332,6 +346,7 @@ void bta_dm_deinit_cb(void) {
    * shutdown.
    */
   alarm_free(bta_dm_cb.disable_timer);
+  alarm_free(bta_dm_cb.bond_retrail_timer);
   alarm_free(bta_dm_cb.switch_delay_timer);
   for (size_t i = 0; i < BTA_DM_NUM_PM_TIMER; i++) {
     for (size_t j = 0; j < BTA_DM_PM_MODE_TIMER_MAX; j++) {
@@ -484,6 +499,8 @@ static void bta_dm_sys_hw_cback(tBTA_SYS_HW_EVT status) {
  *
  ******************************************************************************/
 void bta_dm_disable(UNUSED_ATTR tBTA_DM_MSG* p_data) {
+  int soc_type = get_soc_type();
+
   /* Set l2cap idle timeout to 0 (so BTE immediately disconnects ACL link after
    * last channel is closed) */
   L2CA_SetIdleTimeoutByBdAddr(RawAddress::kAny, 0, BT_TRANSPORT_BR_EDR);
@@ -491,6 +508,9 @@ void bta_dm_disable(UNUSED_ATTR tBTA_DM_MSG* p_data) {
 
   /* disable all active subsystems */
   bta_sys_disable(BTA_SYS_HW_BLUETOOTH);
+
+  /* De-register callback with btm layer for remote name */
+  BTM_SecDeleteRmtNameNotifyCallback(&bta_dm_rem_name_cback);
 
   BTM_SetDiscoverability(BTM_NON_DISCOVERABLE, 0, 0);
   BTM_SetConnectability(BTM_NON_CONNECTABLE, 0, 0);
@@ -500,6 +520,14 @@ void bta_dm_disable(UNUSED_ATTR tBTA_DM_MSG* p_data) {
   bta_dm_cb.disabling = true;
 
   BTM_BleClearBgConnDev();
+  /* Disable SOC Logging */
+  if (soc_type == BT_SOC_SMD) {
+    uint8_t param[5] = {0x10,0x02,0x00,0x00,0x01};
+    BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE,5,param,NULL);
+  } else if (soc_type == BT_SOC_CHEROKEE) {
+    uint8_t param_cherokee[2] = {0x14, 0x00};
+    BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE, 2, param_cherokee, NULL);
+  }
 
   if (BTM_GetNumAclLinks() == 0) {
 #if (BTA_DISABLE_DELAY > 0)
@@ -577,6 +605,25 @@ static void bta_dm_disable_timer_cback(void* data) {
 void bta_dm_set_dev_name(tBTA_DM_MSG* p_data) {
   BTM_SetLocalDeviceName((char*)p_data->set_name.name);
   bta_dm_set_eir((char*)p_data->set_name.name);
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_dm_set_wifi_state
+ *
+ * Description      Sets wifi state
+ *
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void bta_dm_set_wifi_state(tBTA_DM_MSG *p_data) {
+  if (BTM_GetWifiState() == p_data->wifi_state.status)
+    return;
+
+  BTM_SetWifiState((bool)p_data->wifi_state.status);
+  if (p_data->wifi_state.status == true)
+    bta_dm_adjust_roles(FALSE);
 }
 
 /*******************************************************************************
@@ -750,9 +797,7 @@ void bta_dm_remove_device(tBTA_DM_MSG* p_data) {
   if ((other_transport &&
        (BTM_ReadConnectedTransportAddress(&other_address, other_transport))) ||
       (!other_transport &&
-       (BTM_ReadConnectedTransportAddress(&other_address,
-                                          BT_TRANSPORT_BR_EDR) ||
-        BTM_ReadConnectedTransportAddress(&other_address, BT_TRANSPORT_LE)))) {
+        BTM_ReadConnectedTransportAddress(&other_address, BT_TRANSPORT_INVALID))) {
     continue_delete_other_dev = false;
     /* Take the link down first, and mark the device for removal when
      * disconnected */
@@ -912,13 +957,23 @@ void bta_dm_bond(tBTA_DM_MSG* p_data) {
   tBTM_STATUS status;
   tBTA_DM_SEC sec_event;
   char* p_name;
+  tBTA_DM_API_BOND* p_msg;
 
   if (p_data->bond.transport == BTA_TRANSPORT_UNKNOWN)
     status = BTM_SecBond(p_data->bond.bd_addr, 0, NULL, 0);
   else
     status = BTM_SecBondByTransport(p_data->bond.bd_addr,
                                     p_data->bond.transport, 0, NULL, 0);
+  if (BTM_BUSY == status) {
 
+    p_msg = (tBTA_DM_API_BOND*)osi_malloc(sizeof(tBTA_DM_API_BOND));
+    memcpy(p_msg, p_data, sizeof(tBTA_DM_API_BOND));
+
+    alarm_set_on_mloop(
+            bta_dm_cb.bond_retrail_timer, BTA_DM_BOND_TIMER_RETRIAL_MS,
+            bta_dm_bond_retrail_cback, p_msg);
+    return;
+  }
   if (bta_dm_cb.p_sec_cback && (status != BTM_CMD_STARTED)) {
     memset(&sec_event, 0, sizeof(tBTA_DM_SEC));
     sec_event.auth_cmpl.bd_addr = p_data->bond.bd_addr;
@@ -2301,6 +2356,32 @@ static void bta_dm_inq_cmpl_cb(void* p_result) {
 }
 
 /*******************************************************************************
+**
+** Function         bta_dm_rem_name_cback
+**
+** Description      Remote name call back from BTM when remote name is retrieved successfully
+**
+** Returns          void
+**
+*******************************************************************************/
+static void bta_dm_rem_name_cback (const RawAddress& bd_addr, DEV_CLASS dc, BD_NAME bd_name)
+{
+  tBTA_DM_SEC sec_event;
+
+  APPL_TRACE_DEBUG("bta_dm_rem_name_cback name=<%s>", bd_name);
+
+  if (strlen((char*)bd_name) > (BD_NAME_LEN-1)){
+    sec_event.rem_name_evt.bd_name[(BD_NAME_LEN-1)] = 0;
+  }
+  sec_event.rem_name_evt.bd_addr = bd_addr;
+  strlcpy((char*)sec_event.rem_name_evt.bd_name, (char*)bd_name, BD_NAME_LEN);
+  if(bta_dm_cb.p_sec_cback){
+    bta_dm_cb.p_sec_cback(BTA_DM_REM_NAME_EVT, &sec_event);
+  }
+}
+
+
+/*******************************************************************************
  *
  * Function         bta_dm_service_search_remname_cback
  *
@@ -2608,6 +2689,7 @@ static uint8_t bta_dm_authentication_complete_cback(
 
     memcpy(sec_event.auth_cmpl.bd_name, bd_name, (BD_NAME_LEN - 1));
     sec_event.auth_cmpl.bd_name[BD_NAME_LEN - 1] = 0;
+    sec_event.auth_cmpl.is_sm4_dev = btm_is_sm4_dev(bd_addr);
 
     // Report the BR link key based on the BR/EDR address and type
     BTM_ReadDevInfo(bd_addr, &sec_event.auth_cmpl.dev_type,
@@ -2617,7 +2699,10 @@ static uint8_t bta_dm_authentication_complete_cback(
     if (bta_dm_cb.p_sec_cback)
       bta_dm_cb.p_sec_cback(BTA_DM_AUTH_CMPL_EVT, &sec_event);
 
-    if (result == HCI_ERR_AUTH_FAILURE || result == HCI_ERR_KEY_MISSING ||
+    if ((result == HCI_ERR_KEY_MISSING) && btm_is_sm4_dev(bd_addr)) {
+      APPL_TRACE_WARNING(
+              "bta_dm_authentication_complete_cback: sm4 device dont delete security record");
+    } else if (result == HCI_ERR_AUTH_FAILURE || result == HCI_ERR_KEY_MISSING ||
         result == HCI_ERR_HOST_REJECT_SECURITY ||
         result == HCI_ERR_ENCRY_MODE_NOT_ACCEPTABLE) {
       APPL_TRACE_WARNING("%s deleting %s - result: 0x%02x", __func__,
@@ -2853,6 +2938,13 @@ static void bta_dm_bl_change_cback(tBTM_BL_EVENT_DATA* p_data) {
       p_msg->hci_status = p_data->role_chg.hci_status;
       p_msg->bd_addr = *p_data->role_chg.p_bda;
       break;
+    case BTM_BL_PKT_TYPE_CHG_EVT:
+      p_msg->pkt_type = p_data->pkt_type_chg.pkt_type;
+      p_msg->bd_addr = p_data->pkt_type_chg.remote_bd_addr;
+      break;
+    case BTM_BL_SOC_LOGGING_EVT:
+      p_msg->soc_log_id = p_data->soc_logging.soc_log_id;
+      break;
     case BTM_BL_COLLISION_EVT:
       p_msg->bd_addr = *p_data->conn.p_bda;
       break;
@@ -2954,6 +3046,12 @@ void bta_dm_acl_change(tBTA_DM_MSG* p_data) {
   tBTA_DM_PEER_DEVICE* p_dev;
   memset(&conn, 0, sizeof(tBTA_DM_SEC));
 
+  if(!bta_dm_cb.is_bta_dm_active) {
+    APPL_TRACE_ERROR("%s Ignore event: %d, bta dm is not in initialized state.",
+            __func__, p_data->acl_change.event);
+    return;
+  }
+
   switch (p_data->acl_change.event) {
     case BTM_BL_UPDATE_EVT: /* busy level update */
       if (bta_dm_cb.p_sec_cback) {
@@ -3006,6 +3104,17 @@ void bta_dm_acl_change(tBTA_DM_MSG* p_data) {
         if (bta_dm_cb.p_sec_cback)
           bta_dm_cb.p_sec_cback(BTA_DM_ROLE_CHG_EVT, (tBTA_DM_SEC*)&conn);
       }
+      return;
+    case BTM_BL_PKT_TYPE_CHG_EVT:   /* packet type change event */
+      conn.pkt_type_chg.remote_bd_addr = p_bda;
+      conn.pkt_type_chg.pkt_type = (UINT16) p_data->acl_change.pkt_type;
+      if (bta_dm_cb.p_sec_cback )
+        bta_dm_cb.p_sec_cback(BTA_DM_PKT_TYPE_CHG_EVT, (tBTA_DM_SEC *)&conn);
+      return;
+    case BTM_BL_SOC_LOGGING_EVT:   /* packet type change event */
+      conn.soc_logging.soc_log_id = (UINT16) p_data->acl_change.soc_log_id;
+      if( bta_dm_cb.p_sec_cback )
+          bta_dm_cb.p_sec_cback(BTA_DM_SOC_LOGGING_EVT, (tBTA_DM_SEC *)&conn);
       return;
   }
 
@@ -3364,10 +3473,19 @@ static void bta_dm_adjust_roles(bool delay_role_switch) {
                                BTA_DM_SWITCH_DELAY_TIMER_MS,
                                bta_dm_delay_role_switch_cback, NULL);
           }
+        } else if (br_count == 1) {
+          if (delay_role_switch == FALSE && BTM_GetWifiState()) {
+              BTM_SwitchRole (bta_dm_cb.device_list.peer_device[i].peer_bdaddr,
+                              HCI_ROLE_MASTER, NULL);
+          }  else if(delay_role_switch == TRUE) {
+            alarm_set_on_mloop(bta_dm_cb.switch_delay_timer,
+                           BTA_DM_SWITCH_DELAY_TIMER_MS,
+                           bta_dm_delay_role_switch_cback,
+                           NULL);
+          }
         }
       }
     }
-
     if (!set_master_role) {
       L2CA_SetDesireRole(L2CAP_DESIRED_LINK_ROLE);
     }
@@ -4125,6 +4243,7 @@ static uint8_t bta_dm_ble_smp_cback(tBTM_LE_EVT event, const RawAddress& bda,
         bta_dm_remove_sec_dev_entry(bda);
       } else {
         sec_event.auth_cmpl.success = true;
+        sec_event.auth_cmpl.smp_over_br = p_data->complt.smp_over_br;
       }
 
       if (bta_dm_cb.p_sec_cback) {
@@ -4772,3 +4891,39 @@ static void bta_dm_ctrl_features_rd_cmpl_cback(tBTM_STATUS result) {
   }
 }
 #endif /* BLE_VND_INCLUDED */
+
+static void bta_dm_bond_retrail_cback(void* data) {
+
+ APPL_TRACE_EVENT("%s: retry bond", __func__);
+
+ tBTM_STATUS status;
+ tBTA_DM_SEC sec_event;
+ char* p_name;
+ tBTA_DM_MSG* p_data = (tBTA_DM_MSG*) data;
+
+ if (p_data->bond.transport == BTA_TRANSPORT_UNKNOWN)
+    status = BTM_SecBond(p_data->bond.bd_addr, 0, NULL, 0);
+ else
+    status = BTM_SecBondByTransport(p_data->bond.bd_addr,
+                             p_data->bond.transport, 0, NULL, 0);
+
+  if (bta_dm_cb.p_sec_cback && (status != BTM_CMD_STARTED)) {
+    memset(&sec_event, 0, sizeof(tBTA_DM_SEC));
+    sec_event.auth_cmpl.bd_addr = p_data->bond.bd_addr;
+    p_name = BTM_SecReadDevName(p_data->bond.bd_addr);
+    if (p_name != NULL) {
+      memcpy(sec_event.auth_cmpl.bd_name, p_name, (BD_NAME_LEN - 1));
+      sec_event.auth_cmpl.bd_name[BD_NAME_LEN - 1] = 0;
+    }
+
+    sec_event.auth_cmpl.fail_reason = HCI_ERR_ILLEGAL_COMMAND;
+    if (status == BTM_SUCCESS) {
+      sec_event.auth_cmpl.success = true;
+    } else {
+     /* delete this device entry from Sec Dev DB */
+      bta_dm_remove_sec_dev_entry(p_data->bond.bd_addr);
+    }
+    bta_dm_cb.p_sec_cback(BTA_DM_AUTH_CMPL_EVT, &sec_event);
+  }
+  osi_free(data);
+}

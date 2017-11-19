@@ -254,16 +254,16 @@ class BleAdvertisingManagerImpl
                                   Bind(DoNothing));
           }
 
+          p_inst->own_address = bda;
           /* set it to controller */
           hci_interface->SetRandomAddress(
               p_inst->inst_id, p_inst->own_address,
               Bind(
-                  [](AdvertisingInstance* p_inst, RawAddress bda,
+                   [](AdvertisingInstance* p_inst,
                      MultiAdvCb configuredCb, uint8_t status) {
-                    p_inst->own_address = bda;
                     configuredCb.Run(0x00);
                   },
-                  p_inst, bda, configuredCb));
+                  p_inst, configuredCb));
 
           if (restart) {
             p_inst->enable_status = true;
@@ -816,6 +816,12 @@ class BleAdvertisingManagerImpl
     AdvertisingInstance* p_inst = &adv_inst[inst_id];
 
     VLOG(1) << __func__ << " inst_id: " << +inst_id;
+
+    if (!BleAdvertisingManager::IsInitialized()) {
+      LOG(ERROR) << "Stack already shutdown";
+      return;
+    }
+
     if (inst_id >= inst_count) {
       LOG(ERROR) << "bad instance id " << +inst_id;
       return;
@@ -871,6 +877,11 @@ class BleAdvertisingManagerImpl
     for (AdvertisingInstance& inst : adv_inst) {
       if (!inst.in_use || !inst.enable_status) continue;
 
+#ifdef WIPOWER_SUPPORTED
+      if (is_wipower_adv && (inst.inst_id == wipower_inst_id))
+        return;
+#endif
+
       if (inst.duration || inst.maxExtAdvEvents)
         RecomputeTimeout(&inst, TimeTicks::Now());
 
@@ -884,6 +895,10 @@ class BleAdvertisingManagerImpl
     std::vector<SetEnableData> sets;
 
     for (const AdvertisingInstance& inst : adv_inst) {
+#ifdef WIPOWER_SUPPORTED
+      if (is_wipower_adv && (inst.inst_id == wipower_inst_id))
+        return;
+#endif
       if (inst.in_use && inst.enable_status) {
         sets.emplace_back(SetEnableData{
             .handle = inst.inst_id,

@@ -299,6 +299,20 @@ extern int PORT_SetEventMask(uint16_t port_handle, uint32_t mask);
 
 /*******************************************************************************
  *
+ * Function         PORT_GetRemoteMtu
+ *
+ * Description      This function feteches remote mtu from port
+ *
+ * Parameters:      handle     - Handle returned in the RFCOMM_CreateConnection
+ *
+ * Returns:         uint16_t   - Maximum rfcomm frame size that can be
+ *                               transmitted to the peer
+ *
+ *******************************************************************************/
+extern uint16_t PORT_GetRemoteMtu (uint16_t handle);
+
+/*******************************************************************************
+ *
  * Function         PORT_CheckConnection
  *
  * Description      This function returns PORT_SUCCESS if connection referenced

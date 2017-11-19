@@ -52,6 +52,7 @@
 #include "osi/include/list.h"
 #include "osi/include/osi.h"
 #include "osi/include/properties.h"
+#include "stack/sdp/sdpint.h"
 #define RC_INVALID_TRACK_ID (0xFFFFFFFFFFFFFFFFULL)
 
 /*****************************************************************************
@@ -111,6 +112,49 @@
     }                                                                      \
   } while (0)
 
+
+#define SEND_METAMSG_RSP(p_dev, idx, avrc_rsp)                                             \
+{                                                                                          \
+    if (idx >= 0 && p_dev->rc_pdu_info[idx].is_rsp_pending == false) {                     \
+      BTIF_TRACE_WARNING("%s Not sending response as no PDU was registered", __FUNCTION__);\
+      return BT_STATUS_UNHANDLED;                                                          \
+    }                                                                                      \
+    int front_index = p_dev->rc_pdu_info[idx].front;                                       \
+    int curr_label = p_dev->rc_pdu_info[idx].label[front_index];                           \
+    int curr_ctype = p_dev->rc_pdu_info[idx].ctype[front_index];                           \
+    TXN_LABEL_DEQUEUE(p_dev->rc_pdu_info[idx].label, p_dev->rc_pdu_info[idx].front,        \
+            p_dev->rc_pdu_info[idx].rear, p_dev->rc_pdu_info[idx].size);                   \
+    send_metamsg_rsp(p_dev, idx, curr_label, curr_ctype, avrc_rsp);                        \
+    BTIF_TRACE_DEBUG("%s txn label %d ctype %d dequeued from txn queue, queue sz %d \n",   \
+            __FUNCTION__, curr_label, curr_ctype, p_dev->rc_pdu_info[idx].size);           \
+    p_dev->rc_pdu_info[idx].ctype[front_index] = 0;                                        \
+    p_dev->rc_pdu_info[idx].label[front_index] = 0;                                        \
+    if (p_dev->rc_pdu_info[idx].size == 0)                                                 \
+      p_dev->rc_pdu_info[idx].is_rsp_pending = false;                                      \
+}
+
+#define TXN_LABEL_ENQUEUE(hdl, label, command, front, rear, size, item,      \
+                          cmd, opcode, ctype)                                \
+{                                                                            \
+    if (size == MAX_TRANSACTIONS_PER_SESSION)                                \
+    {                                                                        \
+        send_reject_response(hdl, item, cmd, AVRC_STS_INTERNAL_ERR, opcode); \
+        return;                                                              \
+    }                                                                        \
+    rear = (rear + 1) % MAX_TRANSACTIONS_PER_SESSION;                        \
+    label[rear] = item;                                                      \
+    command[rear] = ctype;                                                   \
+    size = size + 1;                                                         \
+}
+
+#define TXN_LABEL_DEQUEUE(label, front, rear, size)        \
+{                                                          \
+    if (size == 0)                                         \
+        return BT_STATUS_UNHANDLED;                        \
+    front = (front + 1) % MAX_TRANSACTIONS_PER_SESSION;    \
+    size = size - 1;                                       \
+}
+
 /*****************************************************************************
  *  Local type definitions
  *****************************************************************************/
@@ -120,8 +164,11 @@ typedef struct {
 } btif_rc_reg_notifications_t;
 
 typedef struct {
-  uint8_t label;
-  uint8_t ctype;
+  int front;
+  int rear;
+  int size;
+  uint8_t label[MAX_TRANSACTIONS_PER_SESSION];
+  uint8_t ctype[MAX_TRANSACTIONS_PER_SESSION];
   bool is_rsp_pending;
 } btif_rc_cmd_ctxt_t;
 
@@ -269,6 +316,7 @@ static void send_metamsg_rsp(btif_rc_device_cb_t* p_dev, int index,
 static void register_volumechange(uint8_t label, btif_rc_device_cb_t* p_dev);
 static void lbl_init();
 static void init_all_transactions();
+static void btif_rc_init_txn_label_queue(btif_rc_device_cb_t *p_dev);
 static bt_status_t get_transaction(rc_transaction_t** ptransaction);
 static void release_transaction(uint8_t label);
 static rc_transaction_t* get_transaction_by_lbl(uint8_t label);
@@ -373,17 +421,28 @@ extern fixed_queue_t* btu_general_alarm_queue;
  *  Functions
  *****************************************************************************/
 static btif_rc_device_cb_t* alloc_device() {
+
+  if (btif_rc_cb.rc_multi_cb == NULL) {
+    BTIF_TRACE_ERROR("%s: RC multicb is NULL", __func__);
+    return NULL;
+  }
   for (int idx = 0; idx < btif_max_rc_clients; idx++) {
     if (btif_rc_cb.rc_multi_cb[idx].rc_state ==
         BTRC_CONNECTION_STATE_DISCONNECTED) {
       return (&btif_rc_cb.rc_multi_cb[idx]);
     }
   }
+
   return NULL;
 }
 
 static btif_rc_device_cb_t* get_connected_device(int index) {
   BTIF_TRACE_DEBUG("%s: index: %d", __func__, index);
+
+  if (btif_rc_cb.rc_multi_cb == NULL) {
+    BTIF_TRACE_ERROR("%s: RC multicb is NULL", __func__);
+    return NULL;
+  }
   if (index > btif_max_rc_clients) {
     BTIF_TRACE_ERROR("%s: can't support more than %d connections", __func__,
                      btif_max_rc_clients);
@@ -399,6 +458,11 @@ static btif_rc_device_cb_t* get_connected_device(int index) {
 
 static int get_num_connected_devices() {
   int connected_devices = 0;
+
+  if (btif_rc_cb.rc_multi_cb == NULL) {
+    BTIF_TRACE_ERROR("%s: RC multicb is NULL", __func__);
+    return connected_devices;
+  }
   for (int idx = 0; idx < btif_max_rc_clients; idx++) {
     if (btif_rc_cb.rc_multi_cb[idx].rc_state ==
         BTRC_CONNECTION_STATE_CONNECTED) {
@@ -413,6 +477,10 @@ static int get_num_connected_devices() {
 btif_rc_device_cb_t* btif_rc_get_device_by_bda(const RawAddress* bd_addr) {
   VLOG(1) << __func__ << ": bd_addr: " << *bd_addr;
 
+  if (btif_rc_cb.rc_multi_cb == NULL) {
+    BTIF_TRACE_ERROR("%s: RC multicb is NULL", __func__);
+    return NULL;
+  }
   for (int idx = 0; idx < btif_max_rc_clients; idx++) {
     if ((btif_rc_cb.rc_multi_cb[idx].rc_state !=
          BTRC_CONNECTION_STATE_DISCONNECTED) &&
@@ -427,6 +495,10 @@ btif_rc_device_cb_t* btif_rc_get_device_by_bda(const RawAddress* bd_addr) {
 int btif_rc_get_idx_by_bda(RawAddress* bd_addr) {
   BTIF_TRACE_DEBUG("%s: bd_addr: %s", __func__, bd_addr->ToString().c_str());
 
+  if (btif_rc_cb.rc_multi_cb == NULL) {
+    BTIF_TRACE_ERROR("%s: RC multicb is NULL", __func__);
+    return -1;
+  }
   for (int idx = 0; idx < btif_max_rc_clients; idx++) {
     if ((btif_rc_cb.rc_multi_cb[idx].rc_state !=
          BTRC_CONNECTION_STATE_DISCONNECTED) &&
@@ -440,6 +512,11 @@ int btif_rc_get_idx_by_bda(RawAddress* bd_addr) {
 
 btif_rc_device_cb_t* btif_rc_get_device_by_handle(uint8_t handle) {
   BTIF_TRACE_DEBUG("%s: handle: 0x%x", __func__, handle);
+
+  if (btif_rc_cb.rc_multi_cb == NULL) {
+    BTIF_TRACE_ERROR("%s: RC multicb is NULL", __func__);
+    return NULL;
+  }
   for (int idx = 0; idx < btif_max_rc_clients; idx++) {
     if ((btif_rc_cb.rc_multi_cb[idx].rc_state !=
          BTRC_CONNECTION_STATE_DISCONNECTED) &&
@@ -453,11 +530,17 @@ btif_rc_device_cb_t* btif_rc_get_device_by_handle(uint8_t handle) {
   return NULL;
 }
 
-void fill_pdu_queue(int index, uint8_t ctype, uint8_t label, bool pending,
-                    btif_rc_device_cb_t* p_dev) {
-  p_dev->rc_pdu_info[index].ctype = ctype;
-  p_dev->rc_pdu_info[index].label = label;
-  p_dev->rc_pdu_info[index].is_rsp_pending = pending;
+void fill_pdu_queue(int idx, uint8_t ctype, uint8_t label, bool pending,
+        btif_rc_device_cb_t* p_dev, uint8_t cmd)
+{
+    uint8_t opcode = opcode_from_pdu(cmd);
+    TXN_LABEL_ENQUEUE(p_dev->rc_handle, p_dev->rc_pdu_info[idx].label,
+            p_dev->rc_pdu_info[idx].ctype ,p_dev->rc_pdu_info[idx].front,
+            p_dev->rc_pdu_info[idx].rear, p_dev->rc_pdu_info[idx].size,
+            label, cmd, opcode, ctype)
+    BTIF_TRACE_DEBUG("%s txn label %d enqueued to txn queue of pdu %s, queue size %d \n",
+            __FUNCTION__, label, dump_rc_pdu(cmd), p_dev->rc_pdu_info[idx].size);
+    p_dev->rc_pdu_info[idx].is_rsp_pending = pending;
 }
 
 void fill_avrc_attr_entry(tAVRC_ATTR_ENTRY* attr_vals, int num_attrs,
@@ -654,7 +737,7 @@ void btif_rc_clear_playing_state(bool state) {
  *
  ***************************************************************************/
 void handle_rc_browse_connect(tBTA_AV_RC_BROWSE_OPEN* p_rc_br_open) {
-  BTIF_TRACE_DEBUG("%s: rc_handle %d status %d", __func__,
+  BTIF_TRACE_IMP("%s: rc_handle %d status %d", __func__,
                    p_rc_br_open->rc_handle, p_rc_br_open->status);
   btif_rc_device_cb_t* p_dev =
       btif_rc_get_device_by_handle(p_rc_br_open->rc_handle);
@@ -695,6 +778,7 @@ void handle_rc_connect(tBTA_AV_RC_OPEN* p_rc_open) {
     BTIF_TRACE_ERROR("%s: Connect failed with error code: %d", __func__,
                      p_rc_open->status);
     p_dev->rc_connected = false;
+    return;
   }
 
   // check if already some RC is connected
@@ -720,6 +804,7 @@ void handle_rc_connect(tBTA_AV_RC_OPEN* p_rc_open) {
   p_dev->rc_connected = true;
   p_dev->rc_handle = p_rc_open->rc_handle;
   p_dev->rc_state = BTRC_CONNECTION_STATE_CONNECTED;
+  btif_rc_init_txn_label_queue(p_dev);
   /* on locally initiated connection we will get remote features as part of
    * connect */
   p_dev->rc_playing_uid = RC_INVALID_TRACK_ID;
@@ -749,7 +834,8 @@ void handle_rc_connect(tBTA_AV_RC_OPEN* p_rc_open) {
  ***************************************************************************/
 void handle_rc_disconnect(tBTA_AV_RC_CLOSE* p_rc_close) {
   btif_rc_device_cb_t* p_dev = NULL;
-  BTIF_TRACE_DEBUG("%s: rc_handle: %d", __func__, p_rc_close->rc_handle);
+  tBTA_AV_FEAT rc_features = 0;
+  BTIF_TRACE_IMP("%s: rc_handle: %d", __func__, p_rc_close->rc_handle);
 
   p_dev = btif_rc_get_device_by_handle(p_rc_close->rc_handle);
   if (p_dev == NULL) {
@@ -783,13 +869,14 @@ void handle_rc_disconnect(tBTA_AV_RC_CLOSE* p_rc_close) {
     p_dev->rc_state = BTRC_CONNECTION_STATE_DISCONNECTED;
 
     memset(p_dev->rc_notif, 0, sizeof(p_dev->rc_notif));
-
+    rc_features = p_dev->rc_features;
     p_dev->rc_features = 0;
     p_dev->rc_vol_label = MAX_LABEL;
     p_dev->rc_volume = MAX_VOLUME;
     p_dev->rc_pending_play = false;
     p_dev->rc_play_processed = false;
     p_dev->rc_addr = RawAddress::kEmpty;
+    btif_rc_init_txn_label_queue(p_dev);
   }
   if (get_num_connected_devices() == 0) {
     BTIF_TRACE_DEBUG("%s: Closing all handles", __func__);
@@ -802,7 +889,7 @@ void handle_rc_disconnect(tBTA_AV_RC_CLOSE* p_rc_close) {
     HAL_CBACK(bt_rc_ctrl_callbacks, connection_state_cb, false, false,
               &rc_addr);
   }
-  if (p_dev->rc_features & BTA_AV_FEAT_RCCT) {
+  if (rc_features & BTA_AV_FEAT_RCCT) {
     HAL_CBACK(bt_rc_callbacks, connection_state_cb, false, false, &rc_addr);
   }
 }
@@ -1145,9 +1232,19 @@ void handle_rc_metamsg_cmd(tBTA_AV_META_MSG* pmeta_msg) {
  **
  ***************************************************************************/
 void btif_rc_handler(tBTA_AV_EVT event, tBTA_AV* p_data) {
-  BTIF_TRACE_DEBUG("%s: event: %s", __func__, dump_rc_event(event));
+  BTIF_TRACE_IMP("%s: event: %s", __func__, dump_rc_event(event));
   btif_rc_device_cb_t* p_dev = NULL;
   switch (event) {
+    case BTIF_AV_CLEANUP_REQ_EVT: {
+      if (bt_rc_callbacks) {
+        bt_rc_callbacks = NULL;
+      }
+
+      if (btif_rc_cb.rc_multi_cb != NULL) {
+        osi_free(btif_rc_cb.rc_multi_cb);
+        btif_rc_cb.rc_multi_cb = NULL;
+      }
+    } break;
     case BTA_AV_RC_OPEN_EVT: {
       BTIF_TRACE_DEBUG("%s: Peer_features: %x", __func__,
                        p_data->rc_open.peer_features);
@@ -1403,6 +1500,24 @@ static tBTA_AV_CODE get_rsp_type_code(tAVRC_STS status, tBTA_AV_CODE code) {
 }
 
 /***************************************************************************
+ *  Function       btif_rc_init_txn_label_queue
+ *
+ *  - Argument:    index of rc control block
+ *
+ *  - Description: initializes the txn label queues for the rc index
+ *
+ ***************************************************************************/
+static void btif_rc_init_txn_label_queue(btif_rc_device_cb_t *p_dev)
+{
+    for (int j = 0; j < MAX_CMD_QUEUE_LEN; j++)
+    {
+        p_dev->rc_pdu_info[j].front = 0;
+        p_dev->rc_pdu_info[j].size = 0;
+        p_dev->rc_pdu_info[j].rear = MAX_TRANSACTIONS_PER_SESSION - 1;
+    }
+}
+
+/***************************************************************************
  *  Function       send_metamsg_rsp
  *
  *  - Argument:
@@ -1495,12 +1610,6 @@ static void send_metamsg_rsp(btif_rc_device_cb_t* p_dev, int index,
       BTIF_TRACE_ERROR("%s: failed to build metamsg response. status: 0x%02x",
                        __func__, status);
     }
-  }
-
-  if (index >= 0) {
-    p_dev->rc_pdu_info[index].ctype = 0;
-    p_dev->rc_pdu_info[index].label = 0;
-    p_dev->rc_pdu_info[index].is_rsp_pending = false;
   }
 }
 
@@ -1604,26 +1713,143 @@ static uint8_t fill_attribute_id_array(
 static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
                                   uint8_t ctype, uint8_t label,
                                   btif_rc_device_cb_t* p_dev) {
-  BTIF_TRACE_EVENT("%s: pdu: %s handle: 0x%x ctype: %x label: %x event ID: %x",
+  BTIF_TRACE_IMP("%s: pdu: %s handle: 0x%x ctype: %x label: %x event ID: %x",
                    __func__, dump_rc_pdu(pavrc_cmd->pdu), p_dev->rc_handle,
                    ctype, label, pavrc_cmd->reg_notif.event_id);
   RawAddress rc_addr = p_dev->rc_addr;
 
+  if (!(p_dev->rc_features & BTA_AV_FEAT_APP_SETTING) && ((event == AVRC_PDU_LIST_PLAYER_APP_ATTR)
+      || (event == AVRC_PDU_LIST_PLAYER_APP_VALUES) || (event == AVRC_PDU_GET_CUR_PLAYER_APP_VALUE)
+      || (event == AVRC_PDU_SET_PLAYER_APP_VALUE) || (event == AVRC_PDU_GET_PLAYER_APP_ATTR_TEXT)
+      || (event == AVRC_PDU_GET_PLAYER_APP_VALUE_TEXT)))
+  {
+      BTIF_TRACE_EVENT("Player application settings feature is not enabled");
+      send_reject_response(p_dev->rc_handle, label, pavrc_cmd->pdu,
+                           AVRC_STS_BAD_CMD, pavrc_cmd->cmd.opcode);
+      return;
+  }
+
   switch (event) {
     case AVRC_PDU_GET_PLAY_STATUS: {
-      fill_pdu_queue(IDX_GET_PLAY_STATUS_RSP, ctype, label, true, p_dev);
+      fill_pdu_queue(IDX_GET_PLAY_STATUS_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
       HAL_CBACK(bt_rc_callbacks, get_play_status_cb, &rc_addr);
     } break;
     case AVRC_PDU_LIST_PLAYER_APP_ATTR:
+    {
+        BTIF_TRACE_DEBUG("AVRC_PDU_LIST_PLAYER_APP_ATTR ");
+        fill_pdu_queue(IDX_LIST_APP_ATTR_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
+        HAL_CBACK(bt_rc_callbacks, list_player_app_attr_cb, &rc_addr);
+    }
+    break;
     case AVRC_PDU_LIST_PLAYER_APP_VALUES:
+    {
+        BTIF_TRACE_DEBUG("AVRC_PDU_LIST_PLAYER_APP_VALUES =%d" ,pavrc_cmd->list_app_values.attr_id);
+        if (pavrc_cmd->list_app_values.attr_id == 0)
+        {
+            send_reject_response (p_dev->rc_handle, label, pavrc_cmd->pdu,
+                                AVRC_STS_BAD_PARAM, pavrc_cmd->cmd.opcode);
+            break;
+        }
+        fill_pdu_queue(IDX_LIST_APP_VALUE_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
+        HAL_CBACK(bt_rc_callbacks, list_player_app_values_cb,
+                (btrc_player_attr_t) pavrc_cmd->list_app_values.attr_id,
+                &rc_addr);
+    }
+    break;
     case AVRC_PDU_GET_CUR_PLAYER_APP_VALUE:
+    {
+        btrc_player_attr_t player_attr[BTRC_MAX_ELEM_ATTR_SIZE];
+        uint8_t player_attr_num;
+        BTIF_TRACE_DEBUG("PLAYER_APP_VALUE PDU 0x13 = %d",pavrc_cmd->get_cur_app_val.num_attr);
+        if ((pavrc_cmd->get_cur_app_val.num_attr == 0) ||
+              (pavrc_cmd->get_cur_app_val.num_attr > BTRC_MAX_ELEM_ATTR_SIZE))
+        {
+            send_reject_response (p_dev->rc_handle, label, pavrc_cmd->pdu,
+                                AVRC_STS_BAD_PARAM, pavrc_cmd->cmd.opcode);
+            break;
+        }
+        memset( player_attr, 0, sizeof(player_attr));
+        for (player_attr_num = 0 ; player_attr_num < pavrc_cmd->get_cur_app_val.num_attr;
+                                                                        ++player_attr_num)
+        {
+            player_attr[player_attr_num] =
+                    (btrc_player_attr_t )pavrc_cmd->get_cur_app_val.attrs[player_attr_num];
+        }
+        fill_pdu_queue(IDX_GET_CURR_APP_VAL_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
+        HAL_CBACK(bt_rc_callbacks, get_player_app_value_cb ,
+                pavrc_cmd->get_cur_app_val.num_attr, player_attr, &rc_addr);
+    }
+    break;
     case AVRC_PDU_SET_PLAYER_APP_VALUE:
+    {
+        btrc_player_settings_t attr;
+        uint8_t count;
+        if ((pavrc_cmd->set_app_val.num_val== 0) ||
+                          (pavrc_cmd->set_app_val.num_val > BTRC_MAX_ELEM_ATTR_SIZE))
+        {
+            send_reject_response (p_dev->rc_handle, label,
+                                   pavrc_cmd->pdu, AVRC_STS_BAD_PARAM, pavrc_cmd->cmd.opcode);
+            break;
+        }
+        else
+        {
+            for(count = 0; count < pavrc_cmd->set_app_val.num_val ; ++count)
+            {
+                attr.attr_ids[count] = pavrc_cmd->set_app_val.p_vals[count].attr_id ;
+                attr.attr_values[count]= pavrc_cmd->set_app_val.p_vals[count].attr_val;
+            }
+            attr.num_attr  =  pavrc_cmd->set_app_val.num_val ;
+            fill_pdu_queue(IDX_SET_APP_VAL_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
+            HAL_CBACK(bt_rc_callbacks, set_player_app_value_cb, &attr, &rc_addr);
+        }
+    }
+    break;
     case AVRC_PDU_GET_PLAYER_APP_ATTR_TEXT:
-    case AVRC_PDU_GET_PLAYER_APP_VALUE_TEXT: {
-      /* TODO: Add support for Application Settings */
-      send_reject_response(p_dev->rc_handle, label, pavrc_cmd->pdu,
-                           AVRC_STS_BAD_CMD, pavrc_cmd->cmd.opcode);
-    } break;
+    {
+        btrc_player_attr_t player_attr_txt [BTRC_MAX_ELEM_ATTR_SIZE];
+        uint8_t count_txt = 0 ;
+        if ((pavrc_cmd->get_app_attr_txt.num_attr == 0) ||
+               (pavrc_cmd->get_app_attr_txt.num_attr > BTRC_MAX_ELEM_ATTR_SIZE))
+        {
+            send_reject_response (p_dev->rc_handle, label, pavrc_cmd->pdu,
+                                   AVRC_STS_BAD_PARAM, pavrc_cmd->cmd.opcode);
+        }
+        else
+        {
+            for (count_txt = 0;count_txt < pavrc_cmd->get_app_attr_txt.num_attr ; ++count_txt)
+            {
+                player_attr_txt[count_txt] =
+                        (btrc_player_attr_t) pavrc_cmd->get_app_attr_txt.attrs[count_txt];
+            }
+            fill_pdu_queue(IDX_GET_APP_ATTR_TXT_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
+            HAL_CBACK(bt_rc_callbacks, get_player_app_attrs_text_cb,
+                        pavrc_cmd->get_app_attr_txt.num_attr, player_attr_txt, &rc_addr);
+        }
+    }
+    break;
+    case AVRC_PDU_GET_PLAYER_APP_VALUE_TEXT:
+    {
+        if (pavrc_cmd->get_app_val_txt.attr_id == 0 ||
+                 pavrc_cmd->get_app_val_txt.attr_id > AVRC_PLAYER_VAL_GROUP_REPEAT)
+        {
+            send_reject_response (p_dev->rc_handle, label, pavrc_cmd->pdu,
+                                   AVRC_STS_BAD_PARAM, pavrc_cmd->cmd.opcode);
+            break;
+        }
+        if (pavrc_cmd->get_app_val_txt.num_val == 0)
+        {
+            send_reject_response (p_dev->rc_handle, label, pavrc_cmd->pdu,
+                                   AVRC_STS_BAD_PARAM, pavrc_cmd->cmd.opcode);
+        }
+        else
+        {
+            fill_pdu_queue(IDX_GET_APP_VAL_TXT_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
+            HAL_CBACK(bt_rc_callbacks, get_player_app_values_text_cb,
+                      pavrc_cmd->get_app_val_txt.attr_id, pavrc_cmd->get_app_val_txt.num_val,
+                      pavrc_cmd->get_app_val_txt.vals, &rc_addr);
+        }
+    }
+    break;
     case AVRC_PDU_GET_ELEMENT_ATTR: {
       btrc_media_attr_t element_attrs[BTRC_MAX_ELEM_ATTR_SIZE];
       uint8_t num_attr = fill_attribute_id_array(
@@ -1638,7 +1864,16 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
                              AVRC_STS_BAD_PARAM, pavrc_cmd->cmd.opcode);
         return;
       }
-      fill_pdu_queue(IDX_GET_ELEMENT_ATTR_RSP, ctype, label, true, p_dev);
+      int ver = AVRC_REV_INVALID;
+      ver = sdp_get_stored_avrc_tg_version (rc_addr.address);
+      if ((!(p_dev->rc_features & BTA_AV_FEAT_CA)) ||
+              (ver < AVRC_REV_1_6) || (ver == AVRC_REV_INVALID))
+      {
+          BTIF_TRACE_DEBUG("remove cover art element if remote doesn't support avrcp1.6");
+          if (num_attr == AVRC_MAX_NUM_MEDIA_ATTR_ID)
+              num_attr--;
+      }
+      fill_pdu_queue(IDX_GET_ELEMENT_ATTR_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
       HAL_CBACK(bt_rc_callbacks, get_element_attr_cb, num_attr, element_attrs,
                 &rc_addr);
     } break;
@@ -1700,14 +1935,14 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
                sizeof(uint32_t) * num_attr);
       }
 
-      fill_pdu_queue(IDX_GET_FOLDER_ITEMS_RSP, ctype, label, true, p_dev);
+      fill_pdu_queue(IDX_GET_FOLDER_ITEMS_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
       HAL_CBACK(bt_rc_callbacks, get_folder_items_cb,
                 pavrc_cmd->get_items.scope, pavrc_cmd->get_items.start_item,
                 pavrc_cmd->get_items.end_item, num_attr, attr_ids, &rc_addr);
     } break;
 
     case AVRC_PDU_SET_ADDRESSED_PLAYER: {
-      fill_pdu_queue(IDX_SET_ADDR_PLAYER_RSP, ctype, label, true, p_dev);
+      fill_pdu_queue(IDX_SET_ADDR_PLAYER_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
       if (!btif_hf_is_call_vr_idle()) {
           BTIF_TRACE_EVENT(" %s() call active and setbrowsed player called, reject ", __func__);
           set_addressed_player_rsp(&rc_addr, (btrc_status_t)ERR_PLAYER_NOT_ADDRESED);
@@ -1718,7 +1953,7 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
     } break;
 
     case AVRC_PDU_SET_BROWSED_PLAYER: {
-      fill_pdu_queue(IDX_SET_BROWSED_PLAYER_RSP, ctype, label, true, p_dev);
+      fill_pdu_queue(IDX_SET_BROWSED_PLAYER_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
       HAL_CBACK(bt_rc_callbacks, set_browsed_player_cb,
                 pavrc_cmd->br_player.player_id, &rc_addr);
     } break;
@@ -1754,13 +1989,13 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
     } break;
 
     case AVRC_PDU_CHANGE_PATH: {
-      fill_pdu_queue(IDX_CHG_PATH_RSP, ctype, label, true, p_dev);
+      fill_pdu_queue(IDX_CHG_PATH_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
       HAL_CBACK(bt_rc_callbacks, change_path_cb, pavrc_cmd->chg_path.direction,
                 pavrc_cmd->chg_path.folder_uid, &rc_addr);
     } break;
 
     case AVRC_PDU_SEARCH: {
-      fill_pdu_queue(IDX_SEARCH_RSP, ctype, label, true, p_dev);
+      fill_pdu_queue(IDX_SEARCH_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
       HAL_CBACK(bt_rc_callbacks, search_cb, pavrc_cmd->search.string.charset_id,
                 pavrc_cmd->search.string.str_len,
                 pavrc_cmd->search.string.p_str, &rc_addr);
@@ -1780,7 +2015,16 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
                              AVRC_STS_BAD_PARAM, pavrc_cmd->cmd.opcode);
         return;
       }
-      fill_pdu_queue(IDX_GET_ITEM_ATTR_RSP, ctype, label, true, p_dev);
+      int ver = AVRC_REV_INVALID;
+      ver = sdp_get_stored_avrc_tg_version (rc_addr.address);
+      if ((!(p_dev->rc_features & BTA_AV_FEAT_CA)) ||
+              (ver < AVRC_REV_1_6) || (ver == AVRC_REV_INVALID))
+      {
+          BTIF_TRACE_DEBUG("remove cover art element if remote doesn't support avrcp1.6");
+          if (num_attr == AVRC_MAX_NUM_MEDIA_ATTR_ID)
+              num_attr--;
+      }
+      fill_pdu_queue(IDX_GET_ITEM_ATTR_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
       BTIF_TRACE_DEBUG("%s: GET_ITEM_ATTRIBUTES: num_attr: %d", __func__,
                        num_attr);
       HAL_CBACK(bt_rc_callbacks, get_item_attr_cb, pavrc_cmd->get_attrs.scope,
@@ -1789,13 +2033,13 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
     } break;
 
     case AVRC_PDU_GET_TOTAL_NUM_OF_ITEMS: {
-      fill_pdu_queue(IDX_GET_TOTAL_NUM_OF_ITEMS_RSP, ctype, label, true, p_dev);
+      fill_pdu_queue(IDX_GET_TOTAL_NUM_OF_ITEMS_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
       HAL_CBACK(bt_rc_callbacks, get_total_num_of_items_cb,
                 pavrc_cmd->get_num_of_items.scope, &rc_addr);
     } break;
 
     case AVRC_PDU_ADD_TO_NOW_PLAYING: {
-      fill_pdu_queue(IDX_ADD_TO_NOW_PLAYING_RSP, ctype, label, true, p_dev);
+      fill_pdu_queue(IDX_ADD_TO_NOW_PLAYING_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
       HAL_CBACK(bt_rc_callbacks, add_to_now_playing_cb,
                 pavrc_cmd->add_to_play.scope, pavrc_cmd->add_to_play.uid,
                 pavrc_cmd->add_to_play.uid_counter, &rc_addr);
@@ -1804,7 +2048,7 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
     case AVRC_PDU_PLAY_ITEM: {
       BTIF_TRACE_EVENT("%s() AVRC_PDU_PLAY_ITEM", __func__);
       if (p_dev->rc_connected == TRUE) {
-        fill_pdu_queue(IDX_PLAY_ITEM_RSP, ctype, label, true, p_dev);
+        fill_pdu_queue(IDX_PLAY_ITEM_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
         HAL_CBACK(bt_rc_callbacks, play_item_cb, pavrc_cmd->play_item.scope,
                   pavrc_cmd->play_item.uid_counter, pavrc_cmd->play_item.uid,
                   &rc_addr);
@@ -1885,7 +2129,7 @@ static void btif_rc_upstreams_rsp_evt(uint16_t event,
                                       tAVRC_RESPONSE* pavrc_resp, uint8_t ctype,
                                       uint8_t label,
                                       btif_rc_device_cb_t* p_dev) {
-  BTIF_TRACE_EVENT("%s: pdu: %s: handle: 0x%x ctype: %x label: %x", __func__,
+  BTIF_TRACE_IMP("%s: pdu: %s: handle: 0x%x ctype: %x label: %x", __func__,
                    dump_rc_pdu(pavrc_resp->pdu), p_dev->rc_handle, ctype,
                    label);
   RawAddress rc_addr = p_dev->rc_addr;
@@ -1928,7 +2172,7 @@ static void btif_rc_upstreams_rsp_evt(uint16_t event,
  *
  ******************************************************************************/
 static bt_status_t init(btrc_callbacks_t* callbacks, int max_connections) {
-  BTIF_TRACE_EVENT("%s: ", __func__);
+  BTIF_TRACE_EVENT("%s:  max_connections = %d", __func__, max_connections);
 
   bt_status_t result = BT_STATUS_SUCCESS;
 
@@ -1944,10 +2188,13 @@ static bt_status_t init(btrc_callbacks_t* callbacks, int max_connections) {
      btif_max_rc_clients = BTIF_RC_NUM_CONN;
   }
 
-  if (btif_rc_cb.rc_multi_cb != NULL)
-    delete[] btif_rc_cb.rc_multi_cb;
+  if (btif_rc_cb.rc_multi_cb != NULL) {
+    osi_free(btif_rc_cb.rc_multi_cb);
+    btif_rc_cb.rc_multi_cb = NULL;
+  }
 
-  btif_rc_cb.rc_multi_cb = new  btif_rc_device_cb_t[btif_max_rc_clients];
+  btif_rc_cb.rc_multi_cb = (btif_rc_device_cb_t *)
+                 osi_malloc(btif_max_rc_clients * sizeof(btif_rc_device_cb_t));
   for (int idx = 0; idx < btif_max_rc_clients; idx++) {
     memset(&btif_rc_cb.rc_multi_cb[idx], 0,
            sizeof(btif_rc_cb.rc_multi_cb[idx]));
@@ -1977,10 +2224,13 @@ static bt_status_t init_ctrl(btrc_ctrl_callbacks_t* callbacks) {
   if (bt_rc_ctrl_callbacks) return BT_STATUS_DONE;
 
   bt_rc_ctrl_callbacks = callbacks;
-  if (btif_rc_cb.rc_multi_cb != NULL)
-    delete[] btif_rc_cb.rc_multi_cb;
+  if (btif_rc_cb.rc_multi_cb != NULL) {
+    osi_free(btif_rc_cb.rc_multi_cb);
+    btif_rc_cb.rc_multi_cb = NULL;
+  }
 
-  btif_rc_cb.rc_multi_cb = new  btif_rc_device_cb_t[btif_max_rc_clients];
+  btif_rc_cb.rc_multi_cb = (btif_rc_device_cb_t *)
+                 osi_malloc(btif_max_rc_clients * sizeof(btif_rc_device_cb_t));
   for (int idx = 0; idx < btif_max_rc_clients; idx++) {
     memset(&btif_rc_cb.rc_multi_cb[idx], 0,
            sizeof(btif_rc_cb.rc_multi_cb[idx]));
@@ -2026,8 +2276,12 @@ static bt_status_t get_play_status_rsp(RawAddress* bd_addr,
                                        uint32_t song_len, uint32_t song_pos) {
   tAVRC_RESPONSE avrc_rsp;
   int av_index;
-
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  int rsp_index = IDX_GET_PLAY_STATUS_RSP;
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev is NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
 
   BTIF_TRACE_DEBUG("%s: song len %d song pos %d", __func__, song_len, song_pos);
   CHECK_RC_CONNECTED(p_dev);
@@ -2060,13 +2314,249 @@ static bt_status_t get_play_status_rsp(RawAddress* bd_addr,
       btif_av_clear_remote_suspend_flag();
   }
   /* Send the response */
-  send_metamsg_rsp(p_dev, IDX_GET_PLAY_STATUS_RSP,
-                   p_dev->rc_pdu_info[IDX_GET_PLAY_STATUS_RSP].label,
-                   p_dev->rc_pdu_info[IDX_GET_PLAY_STATUS_RSP].ctype,
-                   &avrc_rsp);
+  SEND_METAMSG_RSP(p_dev, rsp_index, &avrc_rsp);
 
   return BT_STATUS_SUCCESS;
 }
+
+/**************************************************************************
+**
+** Function         list_player_app_attr_rsp
+**
+** Description      ListPlayerApplicationSettingAttributes (PDU ID: 0x11)
+**                  This method is callled in response to PDU 0x11
+**
+** Returns          bt_status_t
+**
+****************************************************************************/
+static bt_status_t  list_player_app_attr_rsp(RawAddress* bd_addr, int num_attr, btrc_player_attr_t *p_attrs)
+{
+    tAVRC_RESPONSE avrc_rsp;
+    int i;
+    btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+    int rsp_index = IDX_LIST_APP_ATTR_RSP;
+    CHECK_RC_CONNECTED(p_dev);
+
+    memset(&(avrc_rsp.list_app_attr), 0, sizeof(tAVRC_LIST_APP_ATTR_RSP));
+    if (num_attr == 0)
+    {
+        avrc_rsp.list_app_attr.status = AVRC_STS_BAD_PARAM;
+    }
+    else
+    {
+        avrc_rsp.list_app_attr.num_attr = num_attr;
+        for (i = 0 ; i < num_attr ; ++i)
+        {
+            avrc_rsp.list_app_attr.attrs[i] = p_attrs[i];
+        }
+        avrc_rsp.list_app_attr.status = AVRC_STS_NO_ERROR;
+    }
+    avrc_rsp.list_app_attr.pdu  = AVRC_PDU_LIST_PLAYER_APP_ATTR ;
+    avrc_rsp.list_app_attr.opcode = opcode_from_pdu(AVRC_PDU_LIST_PLAYER_APP_ATTR);
+    /* Send the response */
+    SEND_METAMSG_RSP(p_dev, rsp_index, &avrc_rsp);
+    return BT_STATUS_SUCCESS;
+}
+
+/**********************************************************************
+**
+** Function list_player_app_value_rsp
+**
+** Description      ListPlayerApplicationSettingValues (PDU ID: 0x12)
+                    This method is called in response to PDU 0x12
+************************************************************************/
+static bt_status_t  list_player_app_value_rsp(RawAddress* bd_addr, int num_val, uint8_t *value)
+{
+    tAVRC_RESPONSE avrc_rsp;
+    int i;
+    btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+    int rsp_index = IDX_LIST_APP_VALUE_RSP;
+    CHECK_RC_CONNECTED(p_dev);
+
+    memset(&(avrc_rsp.list_app_values), 0, sizeof(tAVRC_LIST_APP_VALUES_RSP));
+    if ((num_val == 0) || (num_val > AVRC_MAX_APP_ATTR_SIZE))
+    {
+        avrc_rsp.list_app_values.status = AVRC_STS_BAD_PARAM;
+    }
+    else
+    {
+        avrc_rsp.list_app_values.num_val = num_val;
+        for (i = 0; i < num_val; ++i)
+        {
+            avrc_rsp.list_app_values.vals[i] = value[i];
+        }
+        avrc_rsp.list_app_values.status = AVRC_STS_NO_ERROR;
+    }
+    avrc_rsp.list_app_values.pdu   = AVRC_PDU_LIST_PLAYER_APP_VALUES;
+    avrc_rsp.list_app_attr.opcode  = opcode_from_pdu(AVRC_PDU_LIST_PLAYER_APP_VALUES);
+    /* Send the response */
+    SEND_METAMSG_RSP(p_dev, rsp_index, &avrc_rsp);
+    return BT_STATUS_SUCCESS;
+}
+
+/**********************************************************************
+**
+** Function  get_player_app_value_rsp
+**
+** Description  This methos is called in response to PDU ID 0x13
+**
+***********************************************************************/
+static bt_status_t get_player_app_value_rsp(RawAddress* bd_addr, btrc_player_settings_t *p_vals)
+{
+    tAVRC_RESPONSE avrc_rsp;
+    uint32_t i;
+    btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+    int rsp_index = IDX_GET_CURR_APP_VAL_RSP;
+    CHECK_RC_CONNECTED(p_dev);
+    tAVRC_APP_SETTING app_sett[AVRC_MAX_APP_ATTR_SIZE];
+
+    memset(&(avrc_rsp.get_cur_app_val) ,0 , sizeof(tAVRC_GET_CUR_APP_VALUE_RSP));
+    avrc_rsp.get_cur_app_val.p_vals   = app_sett ;
+    //Check for Error Condition
+    if ((p_vals == NULL) || (p_vals->num_attr== 0) || (p_vals->num_attr > AVRC_MAX_APP_ATTR_SIZE))
+    {
+        avrc_rsp.get_cur_app_val.status = AVRC_STS_BAD_PARAM;
+    }
+    else if (p_vals->num_attr <= BTRC_MAX_APP_SETTINGS)
+    {
+        memset(app_sett, 0, sizeof(tAVRC_APP_SETTING)*p_vals->num_attr );
+        //update num_val
+        avrc_rsp.get_cur_app_val.num_val  = p_vals->num_attr ;
+        avrc_rsp.get_cur_app_val.p_vals   = app_sett ;
+        for (i = 0; i < p_vals->num_attr; ++i)
+        {
+            app_sett[i].attr_id  = p_vals->attr_ids[i] ;
+            app_sett[i].attr_val = p_vals->attr_values[i];
+            BTIF_TRACE_DEBUG("%s attr_id:0x%x, charset_id:0x%x, num_element:%d",
+                           __FUNCTION__, (unsigned int)app_sett[i].attr_id,
+                              app_sett[i].attr_val ,p_vals->num_attr );
+        }
+        //Update PDU , status aind
+        avrc_rsp.get_cur_app_val.status = AVRC_STS_NO_ERROR;
+    }
+    avrc_rsp.get_cur_app_val.pdu = AVRC_PDU_GET_CUR_PLAYER_APP_VALUE;
+    avrc_rsp.get_cur_app_val.opcode = opcode_from_pdu(AVRC_PDU_GET_CUR_PLAYER_APP_VALUE);
+    SEND_METAMSG_RSP(p_dev, rsp_index, &avrc_rsp);
+    return BT_STATUS_SUCCESS;
+}
+
+/********************************************************************
+**
+** Function     set_player_app_value_rsp
+**
+** Description  This method is called in response to
+**              application value
+**
+** Return       bt_staus_t
+**
+*******************************************************************/
+static bt_status_t set_player_app_value_rsp (RawAddress* bd_addr, btrc_status_t rsp_status)
+{
+    tAVRC_RESPONSE avrc_rsp;
+    btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+    int rsp_index = IDX_SET_APP_VAL_RSP;
+    CHECK_RC_CONNECTED(p_dev);
+
+    avrc_rsp.set_app_val.opcode = opcode_from_pdu(AVRC_PDU_SET_PLAYER_APP_VALUE);
+    avrc_rsp.set_app_val.pdu    =  AVRC_PDU_SET_PLAYER_APP_VALUE ;
+    avrc_rsp.set_app_val.status =  rsp_status ;
+    SEND_METAMSG_RSP(p_dev, rsp_index, &avrc_rsp);
+    return BT_STATUS_SUCCESS;
+}
+
+/********************************************************************
+**
+** Function      get_player_app_attr_text_rsp
+**
+** Description   This method is called in response to get player
+**               applicaton attribute text response
+**
+**
+*******************************************************************/
+static bt_status_t get_player_app_attr_text_rsp(RawAddress* bd_addr, int num_attr,
+                                                btrc_player_setting_text_t *p_attrs)
+{
+    tAVRC_RESPONSE avrc_rsp;
+    tAVRC_APP_SETTING_TEXT attr_txt[AVRC_MAX_APP_ATTR_SIZE];
+    int i;
+    btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+    int rsp_index = IDX_GET_APP_ATTR_TXT_RSP;
+    CHECK_RC_CONNECTED(p_dev);
+
+    if (num_attr == 0)
+    {
+        avrc_rsp.get_app_attr_txt.status = AVRC_STS_BAD_PARAM;
+    }
+    else
+    {
+        for (i =0; i< num_attr; ++i)
+        {
+            attr_txt[i].charset_id = AVRC_CHARSET_ID_UTF8;
+            attr_txt[i].attr_id = p_attrs[i].id ;
+            attr_txt[i].str_len = (uint8_t)strnlen((char *)p_attrs[i].text, BTRC_MAX_ATTR_STR_LEN);
+            attr_txt[i].p_str       = p_attrs[i].text ;
+            BTIF_TRACE_DEBUG("%s attr_id:0x%x, charset_id:0x%x, str_len:%d, str:%s",
+                                  __FUNCTION__, (unsigned int)attr_txt[i].attr_id,
+                                  attr_txt[i].charset_id , attr_txt[i].str_len, attr_txt[i].p_str);
+        }
+        avrc_rsp.get_app_attr_txt.status = AVRC_STS_NO_ERROR;
+    }
+
+    avrc_rsp.get_app_attr_txt.p_attrs = attr_txt ;
+    avrc_rsp.get_app_attr_txt.num_attr = (uint8_t)num_attr;
+    avrc_rsp.get_app_attr_txt.pdu = AVRC_PDU_GET_PLAYER_APP_ATTR_TEXT;
+    avrc_rsp.get_app_attr_txt.opcode = opcode_from_pdu(AVRC_PDU_GET_PLAYER_APP_ATTR_TEXT);
+    /* Send the response */
+    SEND_METAMSG_RSP(p_dev, rsp_index, &avrc_rsp);
+    return BT_STATUS_SUCCESS;
+}
+
+/********************************************************************
+**
+** Function      get_player_app_value_text_rsp
+**
+** Description   This method is called in response to Player application
+**               value text
+**
+** Return        bt_status_t
+**
+*******************************************************************/
+static bt_status_t get_player_app_value_text_rsp(RawAddress* bd_addr, int num_attr, btrc_player_setting_text_t *p_attrs)
+{
+    tAVRC_RESPONSE avrc_rsp;
+    tAVRC_APP_SETTING_TEXT attr_txt[AVRC_MAX_APP_ATTR_SIZE];
+    int i;
+    btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+    int rsp_index = IDX_GET_APP_VAL_TXT_RSP;
+    CHECK_RC_CONNECTED(p_dev);
+
+    if (num_attr == 0)
+    {
+        avrc_rsp.get_app_val_txt.status = AVRC_STS_BAD_PARAM;
+    }
+    else
+    {
+        for (i =0; i< num_attr; ++i)
+        {
+            attr_txt[i].charset_id = AVRC_CHARSET_ID_UTF8;
+            attr_txt[i].attr_id  = p_attrs[i].id ;
+            attr_txt[i].str_len  = (uint8_t)strnlen((char *)p_attrs[i].text ,BTRC_MAX_ATTR_STR_LEN );
+            attr_txt[i].p_str    = p_attrs[i].text ;
+            BTIF_TRACE_DEBUG("%s attr_id:0x%x, charset_id:0x%x, str_len:%d, str:%s",
+                                  __FUNCTION__, (unsigned int)attr_txt[i].attr_id,
+                                 attr_txt[i].charset_id , attr_txt[i].str_len,attr_txt[i].p_str);
+        }
+        avrc_rsp.get_app_val_txt.status = AVRC_STS_NO_ERROR;
+    }
+    avrc_rsp.get_app_val_txt.p_attrs = attr_txt;
+    avrc_rsp.get_app_val_txt.num_attr = (uint8_t)num_attr;
+    avrc_rsp.get_app_val_txt.pdu = AVRC_PDU_GET_PLAYER_APP_VALUE_TEXT;
+    avrc_rsp.get_app_val_txt.opcode = opcode_from_pdu(AVRC_PDU_GET_PLAYER_APP_VALUE_TEXT);
+    /* Send the response */
+    SEND_METAMSG_RSP(p_dev, rsp_index, &avrc_rsp);
+    return BT_STATUS_SUCCESS;
+}
+
 
 /***************************************************************************
  *
@@ -2084,6 +2574,11 @@ static bt_status_t get_element_attr_rsp(RawAddress* bd_addr, uint8_t num_attr,
   uint32_t i;
   tAVRC_ATTR_ENTRY element_attrs[BTRC_MAX_ELEM_ATTR_SIZE];
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  int rsp_index = IDX_GET_ELEMENT_ATTR_RSP;
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev is NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
 
   BTIF_TRACE_DEBUG("%s", __func__);
   CHECK_RC_CONNECTED(p_dev);
@@ -2112,38 +2607,9 @@ static bt_status_t get_element_attr_rsp(RawAddress* bd_addr, uint8_t num_attr,
   avrc_rsp.get_attrs.opcode = opcode_from_pdu(AVRC_PDU_GET_ELEMENT_ATTR);
 
   /* Send the response */
-  send_metamsg_rsp(p_dev, IDX_GET_ELEMENT_ATTR_RSP,
-                   p_dev->rc_pdu_info[IDX_GET_ELEMENT_ATTR_RSP].label,
-                   p_dev->rc_pdu_info[IDX_GET_ELEMENT_ATTR_RSP].ctype,
-                   &avrc_rsp);
+  SEND_METAMSG_RSP(p_dev, rsp_index, &avrc_rsp);
 
   return BT_STATUS_SUCCESS;
-}
-
-/***************************************************************************
- *
- * Function         reject_pending_notification
- *
- * Description      Utility function to reject a pending notification. When
- *                  AddressedPlayer change is received, all pending
- *                  notifications should be completed.
- *
- * Returns          void
- *
- **************************************************************************/
-static void reject_pending_notification(btrc_event_id_t event_id, int idx) {
-  tAVRC_RESPONSE avrc_rsp;
-  memset(&(avrc_rsp.reg_notif), 0, sizeof(tAVRC_REG_NOTIF_RSP));
-
-  avrc_rsp.reg_notif.event_id = event_id;
-  avrc_rsp.reg_notif.pdu = AVRC_PDU_REGISTER_NOTIFICATION;
-  avrc_rsp.reg_notif.opcode = opcode_from_pdu(AVRC_PDU_REGISTER_NOTIFICATION);
-  avrc_rsp.reg_notif.status = AVRC_STS_ADDR_PLAYER_CHG;
-  BTIF_TRACE_WARNING("%s: Handling event ID: 0x%x", __func__, event_id);
-
-  send_metamsg_rsp(&btif_rc_cb.rc_multi_cb[idx], -1,
-                   btif_rc_cb.rc_multi_cb[idx].rc_notif[event_id - 1].label,
-                   AVRC_RSP_REJ, &avrc_rsp);
 }
 
 /***************************************************************************
@@ -2221,6 +2687,10 @@ static bt_status_t register_notification_rsp_sho_mcast(
           (btif_av_check_flag_remote_suspend(av_index))) {
           BTIF_TRACE_ERROR("%s: clear remote suspend flag: %d",__FUNCTION__,av_index );
           btif_av_clear_remote_suspend_flag();
+          if (btif_av_is_split_a2dp_enabled())
+          {
+              btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
+          }
       }
       break;
     case BTRC_EVT_TRACK_CHANGE:
@@ -2252,25 +2722,11 @@ static bt_status_t register_notification_rsp_sho_mcast(
 
   /* Send the response. */
   send_metamsg_rsp(
-    p_dev, idx, p_dev->rc_notif[event_id - 1].label,
+    p_dev, -1, p_dev->rc_notif[event_id - 1].label,
     ((type == BTRC_NOTIFICATION_TYPE_INTERIM) ? AVRC_CMD_NOTIF
                                               : AVRC_RSP_CHANGED),
     &avrc_rsp);
 
-  /* if notification type is address player changed, then complete all player
-   * specific
-   * notifications with AV/C C-Type REJECTED with error code Addressed Player
-   * Changed. */
-  if (event_id == BTRC_EVT_ADDR_PLAYER_CHANGE &&
-    type == BTRC_NOTIFICATION_TYPE_CHANGED) {
-    /* array includes notifications to be completed on addressed player change
-     */
-    btrc_event_id_t evt_id[] = {
-        BTRC_EVT_PLAY_STATUS_CHANGED, BTRC_EVT_TRACK_CHANGE,
-        BTRC_EVT_PLAY_POS_CHANGED, BTRC_EVT_NOW_PLAYING_CONTENT_CHANGED};
-    for (uint8_t id = 0; id < sizeof(evt_id) / sizeof((evt_id)[0]); id++)
-      reject_pending_notification(evt_id[id], idx);
-  }
   return BT_STATUS_SUCCESS;
 }
 
@@ -2296,7 +2752,7 @@ static bt_status_t register_notification_rsp(
                                                bd_addr));
   }
 
-  BTIF_TRACE_EVENT("%s: event_id: %s", __func__,
+  BTIF_TRACE_IMP("%s: event_id: %s", __func__,
                    dump_rc_notification_event_id(event_id));
   std::unique_lock<std::mutex> lock(btif_rc_cb.lock);
 
@@ -2347,6 +2803,13 @@ static bt_status_t register_notification_rsp(
       case BTRC_EVT_TRACK_CHANGE:
         memcpy(&(avrc_rsp.reg_notif.param.track), &(p_param->track),
                sizeof(btrc_uid_t));
+        break;
+      case BTRC_EVT_APP_SETTINGS_CHANGED:
+        avrc_rsp.reg_notif.param.player_setting.num_attr = p_param->player_setting.num_attr;
+        memcpy(&avrc_rsp.reg_notif.param.player_setting.attr_id,
+                                   p_param->player_setting.attr_ids, 2);
+        memcpy(&avrc_rsp.reg_notif.param.player_setting.attr_value,
+                                   p_param->player_setting.attr_values, 2);
         break;
       case BTRC_EVT_PLAY_POS_CHANGED:
         avrc_rsp.reg_notif.param.play_pos = p_param->song_pos;
@@ -2410,6 +2873,13 @@ static bt_status_t get_folder_items_list_rsp(RawAddress* bd_addr,
   tAVRC_STS status = AVRC_STS_NO_ERROR;
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
   btrc_folder_items_t* cur_item = NULL;
+  int rsp_index = IDX_GET_FOLDER_ITEMS_RSP;
+  int front_index = p_dev->rc_pdu_info[rsp_index].front;
+
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev is NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
 
   BTIF_TRACE_DEBUG("%s: uid_counter %d num_items %d", __func__, uid_counter,
                    num_items);
@@ -2527,24 +2997,25 @@ static bt_status_t get_folder_items_list_rsp(RawAddress* bd_addr,
 
   /* if packet built successfully, send the built items to BTA layer */
   if (status == AVRC_STS_NO_ERROR) {
-    code = p_dev->rc_pdu_info[IDX_GET_FOLDER_ITEMS_RSP].ctype;
+    code = p_dev->rc_pdu_info[rsp_index].ctype[front_index];
     ctype = get_rsp_type_code(avrc_rsp.get_items.status, code);
-    BTA_AvMetaRsp(p_dev->rc_handle,
-                  p_dev->rc_pdu_info[IDX_GET_FOLDER_ITEMS_RSP].label, ctype,
-                  p_msg);
+    BTA_AvMetaRsp(p_dev->rc_handle, p_dev->rc_pdu_info[rsp_index].label[front_index],
+                  ctype, p_msg);
   } else /* Error occured, send reject response */
   {
     BTIF_TRACE_ERROR("%s: Error status: 0x%02X. Sending reject rsp", __func__,
                      avrc_rsp.rsp.status);
-    send_reject_response(
-        p_dev->rc_handle, p_dev->rc_pdu_info[IDX_GET_FOLDER_ITEMS_RSP].label,
+    send_reject_response(p_dev->rc_handle, p_dev->rc_pdu_info[rsp_index].label[front_index],
         avrc_rsp.pdu, avrc_rsp.get_items.status, avrc_rsp.get_items.opcode);
   }
 
-  /* Reset values for current pdu. */
-  p_dev->rc_pdu_info[IDX_GET_FOLDER_ITEMS_RSP].ctype = 0;
-  p_dev->rc_pdu_info[IDX_GET_FOLDER_ITEMS_RSP].label = 0;
-  p_dev->rc_pdu_info[IDX_GET_FOLDER_ITEMS_RSP].is_rsp_pending = false;
+  TXN_LABEL_DEQUEUE(p_dev->rc_pdu_info[rsp_index].label, p_dev->rc_pdu_info[rsp_index].front,
+    p_dev->rc_pdu_info[rsp_index].rear, p_dev->rc_pdu_info[rsp_index].size);
+
+  p_dev->rc_pdu_info[rsp_index].ctype[front_index] = 0;
+  p_dev->rc_pdu_info[rsp_index].label[front_index] = 0;
+  if (p_dev->rc_pdu_info[rsp_index].size == 0)
+    p_dev->rc_pdu_info[rsp_index].is_rsp_pending = false;
 
   return status == AVRC_STS_NO_ERROR ? BT_STATUS_SUCCESS : BT_STATUS_FAIL;
 }
@@ -2565,6 +3036,11 @@ static bt_status_t set_addressed_player_rsp(RawAddress* bd_addr,
                                             btrc_status_t rsp_status) {
   tAVRC_RESPONSE avrc_rsp;
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  int rsp_index = IDX_SET_ADDR_PLAYER_RSP;
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev is NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
 
   BTIF_TRACE_DEBUG("%s", __func__);
   CHECK_RC_CONNECTED(p_dev);
@@ -2574,10 +3050,7 @@ static bt_status_t set_addressed_player_rsp(RawAddress* bd_addr,
   avrc_rsp.addr_player.status = status_code_map[rsp_status];
 
   /* Send the response. */
-  send_metamsg_rsp(p_dev, IDX_SET_ADDR_PLAYER_RSP,
-                   p_dev->rc_pdu_info[IDX_SET_ADDR_PLAYER_RSP].label,
-                   p_dev->rc_pdu_info[IDX_SET_ADDR_PLAYER_RSP].ctype,
-                   &avrc_rsp);
+  SEND_METAMSG_RSP(p_dev, rsp_index, &avrc_rsp);
 
   return BT_STATUS_SUCCESS;
 }
@@ -2613,6 +3086,12 @@ static bt_status_t set_browsed_player_rsp(RawAddress* bd_addr,
   unsigned int item_cnt;
   tAVRC_STS status = AVRC_STS_NO_ERROR;
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  int rsp_index = IDX_SET_BROWSED_PLAYER_RSP;
+  int front_index = p_dev->rc_pdu_info[rsp_index].front;
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev is NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
 
   CHECK_RC_CONNECTED(p_dev);
 
@@ -2683,24 +3162,25 @@ static bt_status_t set_browsed_player_rsp(RawAddress* bd_addr,
 
   /* if packet built successfully, send the built items to BTA layer */
   if (status == AVRC_STS_NO_ERROR) {
-    code = p_dev->rc_pdu_info[IDX_SET_BROWSED_PLAYER_RSP].ctype;
+    code = p_dev->rc_pdu_info[rsp_index].ctype[front_index];
     ctype = get_rsp_type_code(avrc_rsp.br_player.status, code);
-    BTA_AvMetaRsp(p_dev->rc_handle,
-                  p_dev->rc_pdu_info[IDX_SET_BROWSED_PLAYER_RSP].label, ctype,
-                  p_msg);
+    BTA_AvMetaRsp(p_dev->rc_handle, p_dev->rc_pdu_info[rsp_index].label[front_index],
+                  ctype, p_msg);
   } else /* Error occured, send reject response */
   {
     BTIF_TRACE_ERROR("%s: Error status: 0x%02X. Sending reject rsp", __func__,
                      avrc_rsp.br_player.status);
-    send_reject_response(
-        p_dev->rc_handle, p_dev->rc_pdu_info[IDX_SET_BROWSED_PLAYER_RSP].label,
+    send_reject_response(p_dev->rc_handle, p_dev->rc_pdu_info[rsp_index].label[front_index],
         avrc_rsp.pdu, avrc_rsp.br_player.status, avrc_rsp.get_items.opcode);
   }
 
-  /* Reset values for set_browsed_player pdu.*/
-  p_dev->rc_pdu_info[IDX_SET_BROWSED_PLAYER_RSP].ctype = 0;
-  p_dev->rc_pdu_info[IDX_SET_BROWSED_PLAYER_RSP].label = 0;
-  p_dev->rc_pdu_info[IDX_SET_BROWSED_PLAYER_RSP].is_rsp_pending = false;
+  TXN_LABEL_DEQUEUE(p_dev->rc_pdu_info[rsp_index].label, p_dev->rc_pdu_info[rsp_index].front,
+    p_dev->rc_pdu_info[rsp_index].rear, p_dev->rc_pdu_info[rsp_index].size);
+
+  p_dev->rc_pdu_info[rsp_index].ctype[front_index] = 0;
+  p_dev->rc_pdu_info[rsp_index].label[front_index] = 0;
+  if (p_dev->rc_pdu_info[rsp_index].size == 0)
+    p_dev->rc_pdu_info[rsp_index].is_rsp_pending = false;
 
   return status == AVRC_STS_NO_ERROR ? BT_STATUS_SUCCESS : BT_STATUS_FAIL;
 }
@@ -2722,6 +3202,11 @@ static bt_status_t change_path_rsp(RawAddress* bd_addr,
                                    uint32_t num_items) {
   tAVRC_RESPONSE avrc_rsp;
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  int rsp_index = IDX_CHG_PATH_RSP;
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev is NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
 
   BTIF_TRACE_DEBUG("%s", __func__);
   CHECK_RC_CONNECTED(p_dev);
@@ -2732,9 +3217,7 @@ static bt_status_t change_path_rsp(RawAddress* bd_addr,
   avrc_rsp.chg_path.status = status_code_map[rsp_status];
 
   /* Send the response. */
-  send_metamsg_rsp(p_dev, IDX_CHG_PATH_RSP,
-                   p_dev->rc_pdu_info[IDX_CHG_PATH_RSP].label,
-                   p_dev->rc_pdu_info[IDX_CHG_PATH_RSP].ctype, &avrc_rsp);
+  SEND_METAMSG_RSP(p_dev, rsp_index, &avrc_rsp);
 
   return BT_STATUS_SUCCESS;
 }
@@ -2754,6 +3237,11 @@ static bt_status_t search_rsp(RawAddress* bd_addr, btrc_status_t rsp_status,
                               uint32_t uid_counter, uint32_t num_items) {
   tAVRC_RESPONSE avrc_rsp;
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  int rsp_index = IDX_SEARCH_RSP;
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev is NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
 
   BTIF_TRACE_DEBUG("%s", __func__);
   CHECK_RC_CONNECTED(p_dev);
@@ -2765,9 +3253,7 @@ static bt_status_t search_rsp(RawAddress* bd_addr, btrc_status_t rsp_status,
   avrc_rsp.search.status = status_code_map[rsp_status];
 
   /* Send the response. */
-  send_metamsg_rsp(p_dev, IDX_SEARCH_RSP,
-                   p_dev->rc_pdu_info[IDX_SEARCH_RSP].label,
-                   p_dev->rc_pdu_info[IDX_SEARCH_RSP].ctype, &avrc_rsp);
+  SEND_METAMSG_RSP(p_dev, rsp_index, &avrc_rsp);
 
   return BT_STATUS_SUCCESS;
 }
@@ -2786,11 +3272,16 @@ static bt_status_t search_rsp(RawAddress* bd_addr, btrc_status_t rsp_status,
 static bt_status_t get_item_attr_rsp(RawAddress* bd_addr,
                                      btrc_status_t rsp_status, uint8_t num_attr,
                                      btrc_element_attr_val_t* p_attrs) {
+  BTIF_TRACE_DEBUG("%s", __func__);
   tAVRC_RESPONSE avrc_rsp;
   tAVRC_ATTR_ENTRY item_attrs[BTRC_MAX_ELEM_ATTR_SIZE];
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  int rsp_index = IDX_GET_ITEM_ATTR_RSP;
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev is NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
 
-  BTIF_TRACE_DEBUG("%s", __func__);
   CHECK_RC_CONNECTED(p_dev);
 
   memset(item_attrs, 0, sizeof(tAVRC_ATTR_ENTRY) * num_attr);
@@ -2800,15 +3291,19 @@ static bt_status_t get_item_attr_rsp(RawAddress* bd_addr,
     fill_avrc_attr_entry(item_attrs, num_attr, p_attrs);
   }
 
+  for (int attr_cnt = 0; attr_cnt < num_attr; attr_cnt++) {
+    BTIF_TRACE_DEBUG("%s: attr_id: 0x%x, charset_id: 0x%x, str_len: %d, str: %s", __func__,
+      (unsigned int)item_attrs[attr_cnt].attr_id, item_attrs[attr_cnt].name.charset_id,
+      item_attrs[attr_cnt].name.str_len, item_attrs[attr_cnt].name.p_str);
+  }
+
   avrc_rsp.get_attrs.num_attrs = num_attr;
   avrc_rsp.get_attrs.p_attrs = item_attrs;
   avrc_rsp.get_attrs.pdu = AVRC_PDU_GET_ITEM_ATTRIBUTES;
   avrc_rsp.get_attrs.opcode = opcode_from_pdu(AVRC_PDU_GET_ITEM_ATTRIBUTES);
 
   /* Send the response. */
-  send_metamsg_rsp(p_dev, IDX_GET_ITEM_ATTR_RSP,
-                   p_dev->rc_pdu_info[IDX_GET_ITEM_ATTR_RSP].label,
-                   p_dev->rc_pdu_info[IDX_GET_ITEM_ATTR_RSP].ctype, &avrc_rsp);
+  SEND_METAMSG_RSP(p_dev, rsp_index, &avrc_rsp);
 
   return BT_STATUS_SUCCESS;
 }
@@ -2827,10 +3322,15 @@ static bt_status_t get_item_attr_rsp(RawAddress* bd_addr,
  **************************************************************************/
 static bt_status_t add_to_now_playing_rsp(RawAddress* bd_addr,
                                           btrc_status_t rsp_status) {
+  BTIF_TRACE_DEBUG("%s", __func__);
   tAVRC_RESPONSE avrc_rsp;
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  int rsp_index = IDX_ADD_TO_NOW_PLAYING_RSP;
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev is NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
 
-  BTIF_TRACE_DEBUG("%s", __func__);
   CHECK_RC_CONNECTED(p_dev);
 
   avrc_rsp.add_to_play.pdu = AVRC_PDU_ADD_TO_NOW_PLAYING;
@@ -2838,10 +3338,7 @@ static bt_status_t add_to_now_playing_rsp(RawAddress* bd_addr,
   avrc_rsp.add_to_play.status = status_code_map[rsp_status];
 
   /* Send the response. */
-  send_metamsg_rsp(p_dev, IDX_ADD_TO_NOW_PLAYING_RSP,
-                   p_dev->rc_pdu_info[IDX_ADD_TO_NOW_PLAYING_RSP].label,
-                   p_dev->rc_pdu_info[IDX_ADD_TO_NOW_PLAYING_RSP].ctype,
-                   &avrc_rsp);
+  SEND_METAMSG_RSP(p_dev, rsp_index, &avrc_rsp);
 
   return BT_STATUS_SUCCESS;
 }
@@ -2861,6 +3358,11 @@ static bt_status_t play_item_rsp(RawAddress* bd_addr,
                                  btrc_status_t rsp_status) {
   tAVRC_RESPONSE avrc_rsp;
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  int rsp_index = IDX_PLAY_ITEM_RSP;
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev is NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
 
   BTIF_TRACE_DEBUG("%s", __func__);
   CHECK_RC_CONNECTED(p_dev);
@@ -2870,9 +3372,7 @@ static bt_status_t play_item_rsp(RawAddress* bd_addr,
   avrc_rsp.play_item.status = status_code_map[rsp_status];
 
   /* Send the response. */
-  send_metamsg_rsp(p_dev, IDX_PLAY_ITEM_RSP,
-                   p_dev->rc_pdu_info[IDX_PLAY_ITEM_RSP].label,
-                   p_dev->rc_pdu_info[IDX_PLAY_ITEM_RSP].ctype, &avrc_rsp);
+  SEND_METAMSG_RSP(p_dev, rsp_index, &avrc_rsp);
 
   return BT_STATUS_SUCCESS;
 }
@@ -2895,6 +3395,11 @@ static bt_status_t get_total_num_of_items_rsp(RawAddress* bd_addr,
                                               uint32_t num_items) {
   tAVRC_RESPONSE avrc_rsp;
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  int rsp_index = IDX_GET_TOTAL_NUM_OF_ITEMS_RSP;
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev is NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
 
   BTIF_TRACE_DEBUG("%s", __func__);
   CHECK_RC_CONNECTED(p_dev);
@@ -2907,12 +3412,91 @@ static bt_status_t get_total_num_of_items_rsp(RawAddress* bd_addr,
   avrc_rsp.get_num_of_items.status = status_code_map[rsp_status];
 
   /* Send the response. */
-  send_metamsg_rsp(p_dev, IDX_GET_TOTAL_NUM_OF_ITEMS_RSP,
-                   p_dev->rc_pdu_info[IDX_GET_TOTAL_NUM_OF_ITEMS_RSP].label,
-                   p_dev->rc_pdu_info[IDX_GET_TOTAL_NUM_OF_ITEMS_RSP].ctype,
-                   &avrc_rsp);
+  SEND_METAMSG_RSP(p_dev, rsp_index, &avrc_rsp);
 
   return BT_STATUS_SUCCESS;
+}
+
+/***************************************************************************
+ *
+ * Function         set_volume_sho_mcast
+ *
+ * Description      Send current volume setting to remote side.
+ *                  Support limited to SetAbsoluteVolume
+ *                  This can be enhanced to support Relative Volume (AVRCP 1.0).
+ *                  With RelateVolume, we will send VOLUME_UP/VOLUME_DOWN
+ *                  as opposed to absolute volume level
+ * volume: Should be in the range 0-127. bit7 is reseved and cannot be set
+ *
+ * Returns          bt_status_t
+ *
+ **************************************************************************/
+static bt_status_t set_volume_sho_mcast(uint8_t volume, RawAddress* bd_addr) {
+  BTIF_TRACE_DEBUG("%s: volume: %d", __func__, volume);
+  tAVRC_STS status = BT_STATUS_UNSUPPORTED;
+  rc_transaction_t* p_transaction = NULL;
+
+  int idx = btif_rc_get_idx_by_bda(bd_addr);
+  if (idx == -1) {
+    BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+    return (bt_status_t)BT_STATUS_FAIL;
+  }
+
+  if (btif_rc_cb.rc_multi_cb[idx].rc_volume == volume) {
+    status = BT_STATUS_DONE;
+    BTIF_TRACE_ERROR("%s: volume value already set earlier: 0x%02x", __func__,
+                     volume);
+    return (bt_status_t)status;
+  }
+
+  if (btif_rc_cb.rc_multi_cb[idx].rc_state != BTRC_CONNECTION_STATE_CONNECTED) {
+    status = BT_STATUS_NOT_READY;
+    BTIF_TRACE_ERROR("%s: RC not connected: 0x%02x", __func__, volume);
+    return (bt_status_t)status;
+  }
+
+  if (((btif_rc_cb.rc_multi_cb[idx].rc_features & BTA_AV_FEAT_RCTG) == 0) ||
+      ((btif_rc_cb.rc_multi_cb[idx].rc_features & BTA_AV_FEAT_ADV_CTRL) == 0)) {
+    status = BT_STATUS_UNSUPPORTED;
+    BTIF_TRACE_ERROR("%s: Abs Vol not supported: 0x%02x", __func__, volume);
+    return (bt_status_t)status;
+  }
+
+  BTIF_TRACE_DEBUG("%s: Peer supports absolute volume. newVolume: %d",
+          __func__, volume);
+
+  status = BT_STATUS_FAIL;
+  tAVRC_COMMAND avrc_cmd = {0};
+  BT_HDR* p_msg = NULL;
+  avrc_cmd.volume.opcode = AVRC_OP_VENDOR;
+  avrc_cmd.volume.pdu = AVRC_PDU_SET_ABSOLUTE_VOLUME;
+  avrc_cmd.volume.status = AVRC_STS_NO_ERROR;
+  avrc_cmd.volume.volume = volume;
+
+  if (AVRC_BldCommand(&avrc_cmd, &p_msg) == AVRC_STS_NO_ERROR) {
+    bt_status_t tran_status = get_transaction(&p_transaction);
+
+    if (BT_STATUS_SUCCESS == tran_status && NULL != p_transaction) {
+      BTIF_TRACE_DEBUG("%s: msgreq being sent out with label: %d",
+                       __func__, p_transaction->lbl);
+      BTA_AvMetaCmd(btif_rc_cb.rc_multi_cb[idx].rc_handle,
+                    p_transaction->lbl, AVRC_CMD_CTRL, p_msg);
+      status = BT_STATUS_SUCCESS;
+    } else {
+      osi_free_and_reset((void**)&p_msg);
+      BTIF_TRACE_ERROR(
+          "%s: failed to obtain transaction details. status: 0x%02x",
+          __func__, tran_status);
+      status = BT_STATUS_FAIL;
+    }
+  } else {
+    BTIF_TRACE_ERROR(
+        "%s: failed to build absolute volume command. status: 0x%02x",
+        __func__, status);
+    status = BT_STATUS_FAIL;
+  }
+
+  return (bt_status_t)status;
 }
 
 /***************************************************************************
@@ -2929,8 +3513,13 @@ static bt_status_t get_total_num_of_items_rsp(RawAddress* bd_addr,
  * Returns          bt_status_t
  *
  **************************************************************************/
-static bt_status_t set_volume(uint8_t volume) {
-  BTIF_TRACE_DEBUG("%s: volume: %d", __func__, volume);
+static bt_status_t set_volume(uint8_t volume, RawAddress*bd_addr) {
+  BTIF_TRACE_DEBUG("%s: volume is: %d", __func__, volume);
+
+  if (isShoMcastEnabled == true) {
+    return(set_volume_sho_mcast(volume, bd_addr));
+  }
+
   tAVRC_STS status = BT_STATUS_UNSUPPORTED;
   rc_transaction_t* p_transaction = NULL;
 
@@ -3170,6 +3759,10 @@ bool iterate_supported_event_list_for_timeout(void* data, void* cb_data) {
   rc_context_t* cntxt = (rc_context_t*)cb_data;
   uint8_t label = cntxt->label & 0xFF;
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(&cntxt->rc_addr);
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev is NULL", __func__);
+    return false;
+  }
   btif_rc_supported_event_t* p_event = (btif_rc_supported_event_t*)data;
 
   if (p_event->label == label) {
@@ -3537,6 +4130,10 @@ static void handle_get_capability_response(tBTA_AV_META_MSG* pmeta_msg,
   int xx = 0;
   btif_rc_device_cb_t* p_dev =
       btif_rc_get_device_by_handle(pmeta_msg->rc_handle);
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev is NULL", __func__);
+    return;
+  }
 
   /* Todo: Do we need to retry on command timeout */
   if (p_rsp->status != AVRC_STS_NO_ERROR) {
@@ -4195,6 +4792,11 @@ static void handle_get_elem_attr_response(tBTA_AV_META_MSG* pmeta_msg,
   btif_rc_device_cb_t* p_dev =
       btif_rc_get_device_by_handle(pmeta_msg->rc_handle);
 
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
+    return;
+  }
+
   if (p_rsp->status == AVRC_STS_NO_ERROR) {
     size_t buf_size = p_rsp->num_attrs * sizeof(btrc_element_attr_val_t);
     btrc_element_attr_val_t* p_attr =
@@ -4311,6 +4913,10 @@ static void handle_get_folder_items_response(tBTA_AV_META_MSG* pmeta_msg,
   btif_rc_device_cb_t* p_dev =
       btif_rc_get_device_by_handle(pmeta_msg->rc_handle);
   RawAddress rc_addr = p_dev->rc_addr;
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
+    return;
+  }
 
   if (p_rsp->status == AVRC_STS_NO_ERROR) {
     /* Convert the internal folder listing into a response that can
@@ -4548,6 +5154,10 @@ static void handle_change_path_response(tBTA_AV_META_MSG* pmeta_msg,
   btif_rc_device_cb_t* p_dev =
       btif_rc_get_device_by_handle(pmeta_msg->rc_handle);
   RawAddress rc_addr = p_dev->rc_addr;
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
+    return;
+  }
 
   if (p_rsp->status == AVRC_STS_NO_ERROR) {
     HAL_CBACK(bt_rc_ctrl_callbacks, change_folder_path_cb, &rc_addr,
@@ -4572,6 +5182,11 @@ static void handle_set_browsed_player_response(tBTA_AV_META_MSG* pmeta_msg,
   btif_rc_device_cb_t* p_dev =
       btif_rc_get_device_by_handle(pmeta_msg->rc_handle);
   RawAddress rc_addr = p_dev->rc_addr;
+
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
+    return;
+  }
 
   if (p_rsp->status == AVRC_STS_NO_ERROR) {
     HAL_CBACK(bt_rc_ctrl_callbacks, set_browsed_player_cb, &rc_addr,
@@ -4764,6 +5379,11 @@ static void handle_avk_rc_metamsg_cmd(tBTA_AV_META_MSG* pmeta_msg) {
   }
 }
 
+static void btif_rc_handler_wrapper(uint16_t event, char* p_param)
+{
+  btif_rc_handler((tBTA_AV_EVT)event, (tBTA_AV *)p_param);
+}
+
 /***************************************************************************
  *
  * Function         cleanup
@@ -4775,20 +5395,11 @@ static void handle_avk_rc_metamsg_cmd(tBTA_AV_META_MSG* pmeta_msg) {
  **************************************************************************/
 static void cleanup() {
   BTIF_TRACE_EVENT("%s: ", __func__);
-  if (bt_rc_callbacks) {
-    bt_rc_callbacks = NULL;
-  }
-
-  if (btif_rc_cb.rc_multi_cb != NULL) {
-    for (int idx = 0; idx < btif_max_rc_clients; idx++) {
-      alarm_free(btif_rc_cb.rc_multi_cb[idx].rc_play_status_timer);
-      memset(&btif_rc_cb.rc_multi_cb[idx], 0,
-             sizeof(btif_rc_cb.rc_multi_cb[idx]));
-    }
-    delete[]  btif_rc_cb.rc_multi_cb;
-  }
+  btif_transfer_context(btif_rc_handler_wrapper, BTIF_AV_CLEANUP_REQ_EVT,
+          NULL, 0, NULL);
 
   BTIF_TRACE_EVENT("%s: completed", __func__);
+
 }
 
 /***************************************************************************
@@ -4810,13 +5421,11 @@ static void cleanup_ctrl() {
   if (btif_rc_cb.rc_multi_cb != NULL) {
     for (int idx = 0; idx < btif_max_rc_clients; idx++) {
       alarm_free(btif_rc_cb.rc_multi_cb[idx].rc_play_status_timer);
-      memset(&btif_rc_cb.rc_multi_cb[idx], 0,
-             sizeof(btif_rc_cb.rc_multi_cb[idx]));
     }
-    delete[]  btif_rc_cb.rc_multi_cb;
+    osi_free(btif_rc_cb.rc_multi_cb);
+    btif_rc_cb.rc_multi_cb = NULL;
   }
 
-  memset(&btif_rc_cb.rc_multi_cb, 0, sizeof(btif_rc_cb.rc_multi_cb));
   BTIF_TRACE_EVENT("%s: completed", __func__);
 }
 
@@ -4929,6 +5538,10 @@ static bt_status_t get_player_app_setting_cmd(uint8_t num_attrib,
 static bt_status_t get_playback_state_cmd(RawAddress* bd_addr) {
   BTIF_TRACE_DEBUG("%s", __func__);
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
   return get_play_status_cmd(p_dev);
 }
 
@@ -5012,6 +5625,10 @@ static bt_status_t change_folder_path_cmd(RawAddress* bd_addr,
                                           uint8_t direction, uint8_t* uid) {
   BTIF_TRACE_DEBUG("%s: direction %d", __func__, direction);
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
   CHECK_RC_CONNECTED(p_dev);
   CHECK_BR_CONNECTED(p_dev);
 
@@ -5063,6 +5680,10 @@ static bt_status_t change_folder_path_cmd(RawAddress* bd_addr,
 static bt_status_t set_browsed_player_cmd(RawAddress* bd_addr, uint16_t id) {
   BTIF_TRACE_DEBUG("%s: id %d", __func__, id);
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
   CHECK_RC_CONNECTED(p_dev);
   CHECK_BR_CONNECTED(p_dev);
 
@@ -5111,6 +5732,10 @@ static bt_status_t set_addressed_player_cmd(RawAddress* bd_addr, uint16_t id) {
   BTIF_TRACE_DEBUG("%s: id %d", __func__, id);
 
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
   CHECK_RC_CONNECTED(p_dev);
   CHECK_BR_CONNECTED(p_dev);
 
@@ -5164,6 +5789,10 @@ static bt_status_t get_folder_items_cmd(RawAddress* bd_addr, uint8_t scope,
                                         uint8_t start_item, uint8_t end_item) {
   /* Check that both avrcp and browse channel are connected. */
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
   BTIF_TRACE_DEBUG("%s", __func__);
   CHECK_RC_CONNECTED(p_dev);
   CHECK_BR_CONNECTED(p_dev);
@@ -5217,6 +5846,10 @@ static bt_status_t change_player_app_setting(RawAddress* bd_addr,
                                              uint8_t* attrib_vals) {
   BTIF_TRACE_DEBUG("%s: num_attrib: %d", __func__, num_attrib);
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
   CHECK_RC_CONNECTED(p_dev);
 
   tAVRC_COMMAND avrc_cmd = {0};
@@ -5249,6 +5882,10 @@ static bt_status_t play_item_cmd(RawAddress* bd_addr, uint8_t scope,
                                  uint8_t* uid, uint16_t uid_counter) {
   BTIF_TRACE_DEBUG("%s: scope %d uid_counter %d", __func__, scope, uid_counter);
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
   CHECK_RC_CONNECTED(p_dev);
   CHECK_BR_CONNECTED(p_dev);
 
@@ -5421,6 +6058,10 @@ static bt_status_t set_volume_rsp(RawAddress* bd_addr, uint8_t abs_vol,
   tAVRC_RESPONSE avrc_rsp;
   BT_HDR* p_msg = NULL;
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
 
   CHECK_RC_CONNECTED(p_dev);
 
@@ -5466,6 +6107,10 @@ static bt_status_t volume_change_notification_rsp(
   BTIF_TRACE_DEBUG("%s: rsp_type: %d abs_vol: %d", __func__, rsp_type, abs_vol);
 
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
 
   CHECK_RC_CONNECTED(p_dev);
 
@@ -5512,6 +6157,10 @@ static bt_status_t send_groupnavigation_cmd(RawAddress* bd_addr,
   BTIF_TRACE_DEBUG("%s: key-code: %d, key-state: %d", __func__, key_code,
                    key_state);
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
 
   CHECK_RC_CONNECTED(p_dev);
 
@@ -5555,6 +6204,10 @@ static bt_status_t send_passthrough_cmd(RawAddress* bd_addr, uint8_t key_code,
   btif_rc_device_cb_t* p_dev = NULL;
   BTIF_TRACE_ERROR("%s: calling btif_rc_get_device_by_bda", __func__);
   p_dev = btif_rc_get_device_by_bda(bd_addr);
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
+    return BT_STATUS_FAIL;
+  }
 
   CHECK_RC_CONNECTED(p_dev);
 
@@ -5647,13 +6300,13 @@ static const btrc_interface_t bt_rc_interface = {
     sizeof(bt_rc_interface),
     init,
     get_play_status_rsp,
-    NULL, /* list_player_app_attr_rsp */
-    NULL, /* list_player_app_value_rsp */
-    NULL, /* get_player_app_value_rsp */
-    NULL, /* get_player_app_attr_text_rsp */
-    NULL, /* get_player_app_value_text_rsp */
+    list_player_app_attr_rsp,     /* list_player_app_attr_rsp */
+    list_player_app_value_rsp,    /* list_player_app_value_rsp */
+    get_player_app_value_rsp,     /* get_player_app_value_rsp PDU 0x13*/
+    get_player_app_attr_text_rsp, /* get_player_app_attr_text_rsp */
+    get_player_app_value_text_rsp,/* get_player_app_value_text_rsp */
     get_element_attr_rsp,
-    NULL, /* set_player_app_value_rsp */
+    set_player_app_value_rsp,     /* set_player_app_value_rsp */
     register_notification_rsp,
     set_volume,
     set_addressed_player_rsp,

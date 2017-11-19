@@ -77,6 +77,34 @@ void btm_acl_init(void) {
 
 /*******************************************************************************
  *
+ * Function         btm_get_bredr_acl_count
+ *
+ * Description      This function returns the number bredr acl links.
+ *
+ * Parameters       void
+ *
+ * Returns          Returns number of bredr acl links
+ *
+ ******************************************************************************/
+uint8_t btm_get_bredr_acl_count(void) {
+  tACL_CONN *p = &btm_cb.acl_db[0];
+  uint16_t xx;
+  uint8_t count = 0;
+
+  for (xx = 0; xx < MAX_L2CAP_LINKS; xx++, p++)
+  {
+    if ((p->in_use)
+#if BLE_INCLUDED == TRUE
+      && (p->transport == BT_TRANSPORT_BR_EDR)
+#endif
+         )
+      count++;
+  }
+  return(count);
+}
+
+/*******************************************************************************
+ *
  * Function        btm_bda_to_acl
  *
  * Description     This function returns the FIRST acl_db entry for the passed
@@ -565,12 +593,11 @@ tBTM_STATUS BTM_SwitchRole(const RawAddress& remote_bd_addr, uint8_t new_role,
   if (p == NULL) return (BTM_UNKNOWN_ADDR);
 
     /* Finished if already in desired role */
-    if ((p->link_role == new_role) || (interop_database_match_addr(
-                    INTEROP_DISABLE_ROLE_SWITCH, &remote_bd_addr)))
-        return(BTM_SUCCESS);
-
-  if (interop_match_addr(INTEROP_DISABLE_ROLE_SWITCH, &remote_bd_addr))
-    return BTM_DEV_BLACKLISTED;
+    if ((p->link_role == new_role) ||
+        (interop_database_match_addr(
+                INTEROP_DISABLE_ROLE_SWITCH, &remote_bd_addr)) ||
+                (!btm_cb.is_wifi_connected && (btm_get_bredr_acl_count() <= 1)))
+      return(BTM_SUCCESS);
 
 #if (BTM_SCO_INCLUDED == TRUE)
   /* Check if there is any SCO Active on this BD Address */
@@ -971,6 +998,15 @@ void btm_process_remote_ext_features(tACL_CONN* p_acl_cb,
     memcpy(p_dev_rec->feature_pages[page_idx],
            p_acl_cb->peer_lmp_feature_pages[page_idx],
            HCI_FEATURE_BYTES_PER_PAGE);
+  }
+
+  if (p_dev_rec->sec_flags & BTM_SEC_NAME_KNOWN) {
+    /* Name is know, unset it so that name is retrieved again
+     * from security procedure. This will ensure, that if remote device
+     * has updated its name since last connection, we will have
+     * update name of remote device. */
+    p_dev_rec->sec_flags &= ~BTM_SEC_NAME_KNOWN;
+    p_dev_rec->sec_bd_name[0] = '\0';
   }
 
   if (!(p_dev_rec->sec_flags & BTM_SEC_NAME_KNOWN) || p_dev_rec->is_originator) {
@@ -1414,18 +1450,73 @@ void btm_process_clk_off_comp_evt(uint16_t hci_handle, uint16_t clock_offset) {
 }
 
 /*******************************************************************************
-*
-* Function         btm_blacklist_role_change_device
-*
-* Description      This function is used to blacklist the device if the role
-*                  switch fails for maximum number of times. It also removes
-*                  the device from the black list if the role switch succeeds.
-*
-* Input Parms      bd_addr - remote BD addr
-*                  hci_status - role switch status
-*
-* Returns          void
-*
+**
+** Function         btm_process_pkt_type_change_evt
+**
+** Description      This function is called when packet type change event received.
+**
+** Input Parms      hci_handle - connection handle associated with the change
+**                  packet type
+**
+** Returns          void
+**
+*******************************************************************************/
+void btm_process_pkt_type_change_evt(uint16_t hci_handle, uint16_t pkt_type) {
+  uint8_t acl_idx;
+  tBTM_BL_PKT_TYPE_CHG_DATA evt;
+
+  BTM_TRACE_DEBUG ("btm_process_pkt_type_change_evt");
+  if ((acl_idx = btm_handle_to_acl_index(hci_handle)) >= MAX_L2CAP_LINKS)
+  {
+    BTM_TRACE_ERROR("btm_process_pkt_type_change_evt handle=%d invalid", hci_handle);
+    return;
+  }
+  if (btm_cb.p_bl_changed_cb)
+  {
+    evt.event = BTM_BL_PKT_TYPE_CHG_EVT;
+    evt.remote_bd_addr = btm_cb.acl_db[acl_idx].remote_addr;
+    evt.pkt_type = pkt_type;
+    (*btm_cb.p_bl_changed_cb)((tBTM_BL_EVENT_DATA *)&evt);
+  }
+}
+
+/*******************************************************************************
+**
+** Function         btm_process_soc_logging_evt
+**
+** Description      This function is called when soc logging request received
+**                  from controller.
+**
+** Input Parms      SOC logging ID
+**
+** Returns          void
+**
+*******************************************************************************/
+void btm_process_soc_logging_evt (uint16_t soc_log_id)
+{
+    tBTM_BL_SOC_LOGGING_DATA   evt;
+    BTM_TRACE_DEBUG ("btm_process_soc_logging_evt");
+    if (btm_cb.p_bl_changed_cb)
+    {
+        evt.event = BTM_BL_SOC_LOGGING_EVT;
+        evt.soc_log_id = soc_log_id;
+        (*btm_cb.p_bl_changed_cb)((tBTM_BL_EVENT_DATA *)&evt);
+    }
+}
+
+/*******************************************************************************
+**
+** Function         btm_blacklist_role_change_device
+**
+** Description      This function is used to blacklist the device if the role
+**                  switch fails for maximum number of times. It also removes
+**                  the device from black list if the role switch succedes.
+
+** Input Parms      bd_addr - remote BD addr
+**                  hci_status - role switch status
+**
+** Returns          void
+**
 *******************************************************************************/
 void btm_blacklist_role_change_device(const RawAddress& bd_addr,
                                       uint8_t hci_status) {

@@ -53,6 +53,14 @@ static void l2cble_start_conn_update(tL2C_LCB* p_lcb);
  ******************************************************************************/
 bool L2CA_CancelBleConnectReq(const RawAddress& rem_bda) {
   tL2C_LCB* p_lcb;
+  tACL_CONN* p_acl = NULL;
+
+  p_acl = btm_bda_to_acl(rem_bda, BT_TRANSPORT_LE);
+  if(p_acl) {
+    L2CAP_TRACE_WARNING("%s - disconnecting the LE link", __func__);
+    btm_sec_disconnect(p_acl->hci_handle, HCI_ERR_CONN_CAUSE_LOCAL_HOST);
+    return (true);
+  }
 
   /* There can be only one BLE connection request outstanding at a time */
   if (btm_ble_get_conn_st() == BLE_CONN_IDLE) {

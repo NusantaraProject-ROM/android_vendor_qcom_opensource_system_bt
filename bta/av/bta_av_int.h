@@ -34,6 +34,7 @@
 #include "bta_av_co.h"
 #include "bta_sys.h"
 #include "osi/include/list.h"
+#include "stack/a2dp/a2dp_int.h"
 #include "stack/include/a2dp_api.h"
 
 /*****************************************************************************
@@ -582,7 +583,7 @@ typedef struct {
   tBTA_AV_LCB lcb[BTA_AV_NUM_LINKS + 1]; /* link control block */
   alarm_t* link_signalling_timer;
   alarm_t*
-      accept_signalling_timer;  /* timer to monitor signalling when accepting */
+      accept_signalling_timer[BTA_AV_NUM_STRS];  /* timer to monitor signalling when accepting */
   uint32_t sdp_a2dp_handle;     /* SDP record handle for audio src */
   uint32_t sdp_a2dp_snk_handle; /* SDP record handle for audio snk */
   uint32_t sdp_vdp_handle;      /* SDP record handle for video src */
@@ -776,7 +777,7 @@ extern void bta_av_set_use_rc(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
 extern void bta_av_cco_close(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
 extern void bta_av_switch_role(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
 extern void bta_av_role_res(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_delay_co(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+extern void bta_av_delay_rpt(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
 extern void bta_av_open_at_inc(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
 extern void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
 extern void bta_av_offload_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
