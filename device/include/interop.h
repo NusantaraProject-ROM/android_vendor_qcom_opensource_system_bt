@@ -165,6 +165,11 @@ typedef enum {
   // the Remote device will go into bad state that will lead to LMP time out.
   INTEROP_DISABLE_ROLE_SWITCH,
   
+  // When connection fails due to collision, DUT will reconnect A2dp
+  // every 2s till it succeeds. But some remotes will refuse reconnection
+  // from DUT, thus increase this collision timeout.
+  INTEROP_INCREASE_COLL_DETECT_TIMEOUT,
+
   END_OF_INTEROP_LIST
 } interop_feature_t;
 
