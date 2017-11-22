@@ -333,6 +333,7 @@ void run_message_loop(UNUSED_ATTR void* context) {
                                          base::Bind(&btif_jni_associate));
 
   jni_run_loop = new base::RunLoop();
+  future_ready(stack_manager_get_hack_future(), FUTURE_SUCCESS);
   jni_run_loop->Run();
 
   delete message_loop_;
