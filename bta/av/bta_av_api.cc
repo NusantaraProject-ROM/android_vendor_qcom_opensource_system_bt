@@ -86,6 +86,11 @@ void BTA_AvEnable(tBTA_SEC sec_mask, tBTA_AV_FEAT features,
  *
  ******************************************************************************/
 void BTA_AvDisable(void) {
+  if (!bta_sys_is_register(BTA_ID_AV)) {
+    APPL_TRACE_ERROR("BTA AV is already disabled, ignoring ...");
+    return;
+  }
+
   BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
 
   bta_sys_deregister(BTA_ID_AV);
