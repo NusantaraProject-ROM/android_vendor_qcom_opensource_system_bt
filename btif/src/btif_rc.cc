@@ -891,7 +891,7 @@ void handle_rc_disconnect(tBTA_AV_RC_CLOSE* p_rc_close) {
     HAL_CBACK(bt_rc_ctrl_callbacks, connection_state_cb, false, false,
               &rc_addr);
   }
-  if (rc_features & BTA_AV_FEAT_RCCT) {
+  if (bt_rc_callbacks) {
     HAL_CBACK(bt_rc_callbacks, connection_state_cb, false, false, &rc_addr);
   }
 }
