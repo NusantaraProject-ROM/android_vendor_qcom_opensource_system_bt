@@ -1335,9 +1335,14 @@ void bta_av_conn_chg(tBTA_AV_DATA* p_data) {
     }
 
     if (p_cb->conn_audio == 0 && p_cb->conn_video == 0) {
-      /* if both channels are not connected,
-       * close all RC channels */
-      bta_av_close_all_rc(p_cb);
+      APPL_TRACE_DEBUG("bta_av_conn_chg: signalling timer on index %d is %d",
+              BTA_AV_NUM_STRS-index-1,
+              alarm_is_scheduled(bta_av_cb.accept_signalling_timer[BTA_AV_NUM_STRS-index-1]));
+      if (!alarm_is_scheduled(bta_av_cb.accept_signalling_timer[BTA_AV_NUM_STRS-index-1])) {
+        /* if both channels are not connected, and signalling timer not running
+         * on other index, close all RC channels */
+        bta_av_close_all_rc(p_cb);
+      }
     }
 
     /* if the AVRCP is no longer listening, create the listening channel */
