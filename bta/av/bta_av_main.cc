@@ -1173,7 +1173,8 @@ bool bta_av_link_role_ok(tBTA_AV_SCB* p_scb, uint8_t bits) {
              bta_av_cb.features);
     if (BTM_ROLE_MASTER != role &&
         (A2DP_BitsSet(bta_av_cb.conn_audio) > bits ||
-         (bta_av_cb.features & BTA_AV_FEAT_MASTER))) {
+         (bta_av_cb.features & BTA_AV_FEAT_MASTER) ||
+          BTM_GetWifiState())) {
       if (bta_av_cb.features & BTA_AV_FEAT_MASTER)
         bta_sys_clear_policy(BTA_ID_AV, HCI_ENABLE_MASTER_SLAVE_SWITCH,
                              p_scb->peer_addr);
