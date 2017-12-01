@@ -77,7 +77,7 @@
 #define BTE_DID_CONF_FILE "/etc/bluetooth/bt_did.conf"
 #endif  // defined(OS_GENERIC)
 #endif  // BTE_DID_CONF_FILE
-
+#define MAX_JNI_WORKQUEUE_COUNT    (1024)
 /*******************************************************************************
  *  Local type definitions
  ******************************************************************************/
@@ -123,7 +123,7 @@ static tBTA_SERVICE_MASK btif_enabled_services = 0;
  */
 static uint8_t btif_dut_mode = 0;
 
-static thread_t* bt_jni_workqueue_thread;
+thread_t* bt_jni_workqueue_thread;
 static const char* BT_JNI_WORKQUEUE_NAME = "bt_jni_workqueue";
 static uid_set_t* uid_set = NULL;
 base::MessageLoop* message_loop_ = NULL;
@@ -358,7 +358,7 @@ bt_status_t btif_init_bluetooth() {
 
   bte_main_boot_entry();
 
-  bt_jni_workqueue_thread = thread_new(BT_JNI_WORKQUEUE_NAME);
+  bt_jni_workqueue_thread = thread_new_sized(BT_JNI_WORKQUEUE_NAME, MAX_JNI_WORKQUEUE_COUNT);
   if (bt_jni_workqueue_thread == NULL) {
     LOG_ERROR(LOG_TAG, "%s Unable to create thread %s", __func__,
               BT_JNI_WORKQUEUE_NAME);
