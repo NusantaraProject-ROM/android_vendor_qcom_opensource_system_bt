@@ -2106,13 +2106,6 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
        * connected device. Stack will ensure to START the steaming
        * on both the devices. */
       index = btif_av_get_latest_device_idx_to_start();
-      for (int i = 0; i < btif_max_av_clients; i++) {
-        if (btif_av_cb[i].remote_started == true) {
-          BTIF_TRACE_DEBUG("BTIF_AV_START_STREAM_REQ_EVT:remote started,send start on started index");
-          index = i;
-          break;
-        }
-      }
       break;
     case BTIF_AV_STOP_STREAM_REQ_EVT:
     case BTIF_AV_SUSPEND_STREAM_REQ_EVT:
