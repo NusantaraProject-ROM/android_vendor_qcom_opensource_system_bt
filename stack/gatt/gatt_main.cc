@@ -32,6 +32,7 @@
 #include "device/include/interop.h"
 #include "gatt_int.h"
 #include "l2c_api.h"
+#include "l2c_int.h"
 #include "osi/include/osi.h"
 
 using base::StringPrintf;
@@ -229,7 +230,13 @@ bool gatt_disconnect(tGATT_TCB* p_tcb) {
     ch_state = gatt_get_ch_state(p_tcb);
     if (ch_state != GATT_CH_CLOSING) {
       if (p_tcb->att_lcid == L2CAP_ATT_CID) {
-        if (ch_state == GATT_CH_OPEN) {
+
+         tL2C_LCB *p_lcb = l2cu_find_lcb_by_bd_addr(p_tcb->peer_bda, p_tcb->transport);
+         tL2C_LINK_STATE link_state = p_lcb != NULL ? p_lcb->link_state : LST_DISCONNECTED;
+         VLOG(1) << __func__ << "ch_state= " << ch_state << " link_state= " << link_state;
+
+        if ((ch_state == GATT_CH_OPEN) ||
+                ((ch_state == GATT_CH_CONN) && (link_state == LST_CONNECTED))) {
           /* only LCB exist between remote device and local */
           ret = L2CA_RemoveFixedChnl(L2CAP_ATT_CID, p_tcb->peer_bda);
         } else {
