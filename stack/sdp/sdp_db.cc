@@ -432,7 +432,7 @@ bool SDP_AddAttributeToRecord (tSDP_RECORD *p_rec, uint16_t attr_id,
       if (p_attr->id > attr_id) break;
     }
 
-    if (p_rec->num_attributes == SDP_MAX_REC_ATTR) return (false);
+    if (p_rec->num_attributes >= SDP_MAX_REC_ATTR) return (false);
 
     /* If not found, see if we can allocate a new entry */
     if (xx == p_rec->num_attributes)
