@@ -157,6 +157,7 @@ static RawAddress retry_bda;
 static int conn_retry_count = 1;
 static alarm_t *av_coll_detected_timer = NULL;
 static bool isA2dpSink = false;
+static bool codec_config_update_enabled = false;
 
 /*SPLITA2DP */
 bool bt_split_a2dp_enabled = false;
@@ -565,7 +566,6 @@ static void btif_av_check_and_start_collission_timer(int index) {
 static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int index) {
   int i;
   char a2dp_role[255] = "false";
-  RawAddress *bt_addr = nullptr;
   BTIF_TRACE_IMP("%s event:%s flags %x on index %x", __func__,
                    dump_av_sm_event_name((btif_av_sm_event_t)event),
                    btif_av_cb[index].flags, index);
@@ -616,6 +616,10 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       break;
 
     case BTIF_SM_EXIT_EVT:
+      if (codec_config_update_enabled == false) {
+        codec_config_update_enabled = true;
+        BTIF_TRACE_IMP("%s: Codec config update enabled changed to true", __func__);
+      }
       break;
 
     case BTA_AV_ENABLE_EVT:
@@ -720,13 +724,11 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       break;
 
     case BTIF_AV_SOURCE_CONFIG_UPDATED_EVT:
-      if (p_data != NULL) {
-          bt_addr = (RawAddress *)p_data;
-      } else {
-          bt_addr = &btif_av_cb[index].peer_bda;
-      }
-      btif_report_source_codec_state(p_data, bt_addr);
-      break;
+    {
+      RawAddress dummy_bdaddr = {{0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
+      btif_report_source_codec_state(NULL, &dummy_bdaddr);
+    }
+    break;
 
     /*
      * In case Signalling channel is not down
@@ -2086,10 +2088,19 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
       //}
       break;
     case BTIF_AV_SOURCE_CONFIG_UPDATED_EVT:
+      if (codec_config_update_enabled == false)
+      {
+        BTIF_TRACE_IMP("ignore updating BTIF_AV_SOURCE_CONFIG_UPDATED_EVT");
+        return;
+      }
       if (p_param != NULL) {
         bt_addr = (RawAddress *)p_param;
         index = btif_av_idx_by_bdaddr(bt_addr);
+        if (index == btif_max_av_clients) {
+            index = 0;
+        }
       }
+      BTIF_TRACE_IMP("Process BTIF_AV_SOURCE_CONFIG_UPDATED_EVT on idx = %d", index);
       break;
 
     case BTIF_AV_DISCONNECT_REQ_EVT:
@@ -2775,8 +2786,11 @@ static bt_status_t init_src(
       btif_av_cb[i].codec_priorities = codec_priorities;
     status = btif_av_init(BTA_A2DP_SOURCE_SERVICE_ID);
     if (status == BT_STATUS_SUCCESS) bt_av_src_callbacks = callbacks;
+    if (codec_config_update_enabled != false) {
+        BTIF_TRACE_IMP("%s: Codec cfg update enabled changed to false", __func__);
+        codec_config_update_enabled = false;
+    }
   }
-
   return status;
 }
 
@@ -3419,6 +3433,11 @@ bt_status_t btif_av_execute_service(bool b_enable) {
     }
     BTA_AvUpdateMaxAVClient(btif_max_av_clients);
   } else {
+    if (btif_av_is_playing()) {
+        BTIF_TRACE_DEBUG("Reset codec before BT ShutsDown");
+        RawAddress dummy_bda = {{0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
+        btif_report_source_codec_state(NULL, &dummy_bda);
+    }
     /* Also shut down the AV state machine */
     for (i = 0; i < btif_max_av_clients; i++ ) {
       if (btif_av_cb[i].sm_handle != NULL) {
