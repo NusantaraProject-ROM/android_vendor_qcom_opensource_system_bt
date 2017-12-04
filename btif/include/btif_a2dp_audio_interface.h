@@ -29,8 +29,8 @@
 //#include "audio_a2dp_hw.h"
 #include "bta_av_api.h"
 
-/*Default LDAC bitrate */
-#define DEFAULT_LDAC_BITRATE 330000
+/*Default LDAC bitrate  */
+#define DEFAULT_LDAC_BITRATE 660000
 
 typedef enum {
   A2DP_CTRL_GET_CODEC_CONFIG = 15,
