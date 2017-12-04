@@ -76,7 +76,7 @@ static void bta_dm_service_search_remname_cback(const RawAddress& bd_addr,
 
 static void bta_dm_rem_name_cback(const RawAddress& bd_addr,
                                         DEV_CLASS dc, BD_NAME bd_name);
-static void bta_dm_remname_cback(tBTM_REMOTE_DEV_NAME* p_remote_name);
+static void bta_dm_remname_cback(void* p);
 static void bta_dm_find_services(const RawAddress& bd_addr);
 static void bta_dm_discover_next_device(void);
 static void bta_dm_sdp_callback(uint16_t sdp_status);
@@ -98,7 +98,7 @@ static bool bta_dm_check_av(uint16_t event);
 static void bta_dm_bl_change_cback(tBTM_BL_EVENT_DATA* p_data);
 
 static void bta_dm_policy_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
-                                uint8_t app_id, const RawAddress* peer_addr);
+                                uint8_t app_id, const RawAddress& peer_addr);
 
 /* Extended Inquiry Response */
 #if (BTM_LOCAL_IO_CAPS != BTM_IO_CAP_NONE)
@@ -115,7 +115,7 @@ static void bta_dm_search_timer_cback(void* data);
 static void bta_dm_disable_conn_down_timer_cback(void* data);
 static void bta_dm_bond_retrail_cback(void* data);
 static void bta_dm_rm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
-                            uint8_t app_id, const RawAddress* peer_addr);
+                            uint8_t app_id, const RawAddress& peer_addr);
 static void bta_dm_adjust_roles(bool delay_role_switch);
 static char* bta_dm_get_remname(void);
 static void bta_dm_bond_cancel_complete_cback(tBTM_STATUS result);
@@ -1184,12 +1184,14 @@ void bta_dm_pin_reply(tBTA_DM_MSG* p_data) {
  *
  ******************************************************************************/
 static void bta_dm_policy_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
-                                uint8_t app_id, const RawAddress* peer_addr) {
+                                uint8_t app_id, const RawAddress& peer_addr) {
   tBTA_DM_PEER_DEVICE* p_dev = NULL;
   uint16_t policy = app_id;
   uint32_t mask = (uint32_t)(1 << id);
 
-  if (peer_addr) p_dev = bta_dm_find_peer_device(*peer_addr);
+  if (peer_addr != RawAddress::kEmpty) {
+    p_dev = bta_dm_find_peer_device(peer_addr);
+  }
 
   APPL_TRACE_DEBUG(" bta_dm_policy_cback cmd:%d, policy:0x%x", status, policy);
   switch (status) {
@@ -2686,7 +2688,8 @@ static void bta_dm_service_search_remname_cback(const RawAddress& bd_addr,
  * Returns          void
  *
  ******************************************************************************/
-static void bta_dm_remname_cback(tBTM_REMOTE_DEV_NAME* p_remote_name) {
+static void bta_dm_remname_cback(void* p) {
+  tBTM_REMOTE_DEV_NAME* p_remote_name = (tBTM_REMOTE_DEV_NAME*)p;
   APPL_TRACE_DEBUG("bta_dm_remname_cback len = %d name=<%s>",
                    p_remote_name->length, p_remote_name->remote_bd_name);
 
@@ -3337,7 +3340,7 @@ static void bta_dm_vnd_info_report_cback (uint8_t evt_len, uint8_t *p_data) {
  * Returns
  *
  ******************************************************************************/
-static void bta_dm_rs_cback(UNUSED_ATTR tBTM_ROLE_SWITCH_CMPL* p1) {
+static void bta_dm_rs_cback(UNUSED_ATTR void* p1) {
   APPL_TRACE_WARNING("bta_dm_rs_cback:%d", bta_dm_cb.rs_event);
   if (bta_dm_cb.rs_event == BTA_DM_API_SEARCH_EVT) {
     bta_dm_cb.search_msg.rs_res =
@@ -3390,7 +3393,7 @@ static bool bta_dm_check_av(uint16_t event) {
         }
         /* else either already master or can not switch for some reasons */
         bta_dm_policy_cback(BTA_SYS_PLCY_CLR, 0, HCI_ENABLE_MASTER_SLAVE_SWITCH,
-                            &p_dev->peer_bdaddr);
+                            p_dev->peer_bdaddr);
         break;
       }
     }
@@ -3466,7 +3469,7 @@ void bta_dm_acl_change(tBTA_DM_MSG* p_data) {
           if (need_policy_change) {
             bta_dm_policy_cback(BTA_SYS_PLCY_CLR, 0,
                                 HCI_ENABLE_MASTER_SLAVE_SWITCH,
-                                &p_dev->peer_bdaddr);
+                                p_dev->peer_bdaddr);
           }
         } else {
           /* there's AV no activity on this link and role switch happened
@@ -3729,12 +3732,12 @@ static void bta_dm_disable_conn_down_timer_cback(UNUSED_ATTR void* data) {
  *
  ******************************************************************************/
 static void bta_dm_rm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
-                            uint8_t app_id, const RawAddress* peer_addr) {
+                            uint8_t app_id, const RawAddress& peer_addr) {
   uint8_t j;
   tBTA_PREF_ROLES role;
   tBTA_DM_PEER_DEVICE* p_dev;
 
-  p_dev = bta_dm_find_peer_device(*peer_addr);
+  p_dev = bta_dm_find_peer_device(peer_addr);
   if (status == BTA_SYS_CONN_OPEN) {
     if (p_dev) {
       /* Do not set to connected if we are in the middle of unpairing. When AV
