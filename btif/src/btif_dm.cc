@@ -955,7 +955,7 @@ static void btif_dm_pin_req_evt(tBTA_DM_PIN_REQ* p_pin_req) {
   /* check for auto pair possiblity only if bond was initiated by local device
    */
   if (pairing_cb.is_local_initiated && (p_pin_req->min_16_digit == false)) {
-    if (pairing_cb.bd_addr == bd_addr)
+    if (pairing_cb.bd_addr != bd_addr)
       {
         /* Pin code from different device reject it as we dont support more than 1 pairing */
         BTIF_TRACE_DEBUG("%s()rejecting pairing request", __FUNCTION__);
