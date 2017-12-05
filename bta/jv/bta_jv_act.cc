@@ -53,6 +53,8 @@
 extern fixed_queue_t *btu_general_alarm_queue;
 using bluetooth::Uuid;
 
+constexpr uint16_t DEFAULT_LE_MPS = 23;
+
 /* one of these exists for each client */
 struct fc_client {
   struct fc_client* next_all_list;
@@ -1049,7 +1051,7 @@ void bta_jv_l2cap_connect(tBTA_JV_MSG* p_data) {
         (bta_jv_check_psm(cc->remote_psm))) /* allowed */
     {
       handle = GAP_ConnOpen("", sec_id, 0, &cc->peer_bd_addr, cc->remote_psm,
-                            &cfg, ertm_info, cc->sec_mask, chan_mode_mask,
+                            DEFAULT_LE_MPS,&cfg, ertm_info, cc->sec_mask, chan_mode_mask,
                             bta_jv_l2cap_client_cback, cc->type);
       if (handle != GAP_INVALID_HANDLE) {
         evt_data.status = BTA_JV_SUCCESS;
@@ -1222,7 +1224,7 @@ void bta_jv_l2cap_start_server(tBTA_JV_MSG* p_data) {
   if (0 == sec_id || ((ls->type == BTA_JV_CONN_TYPE_L2CAP) &&
                       (false == bta_jv_check_psm(ls->local_psm))) ||
       (handle = GAP_ConnOpen("JV L2CAP", sec_id, 1, nullptr, ls->local_psm,
-                             &cfg, ertm_info, ls->sec_mask, chan_mode_mask,
+                             DEFAULT_LE_MPS,&cfg, ertm_info, ls->sec_mask, chan_mode_mask,
                              bta_jv_l2cap_server_cback, ls->type)) ==
           GAP_INVALID_HANDLE) {
     bta_jv_free_sec_id(&sec_id);
