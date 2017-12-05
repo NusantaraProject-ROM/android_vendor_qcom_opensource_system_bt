@@ -609,6 +609,31 @@ void btsnd_hcic_qos_setup(uint16_t handle, uint8_t flags, uint8_t service_type,
   btu_hcif_send_cmd(LOCAL_BR_EDR_CONTROLLER_ID, p);
 }
 
+void btsnd_hcic_flow_spec(uint16_t handle, uint8_t flags, uint8_t direction,
+                          uint8_t service_type, uint32_t token_rate,
+                          uint32_t token_size, uint32_t peak, uint32_t latency){
+
+  BT_HDR* p = (BT_HDR*)osi_malloc(HCI_CMD_BUF_SIZE);
+  uint8_t* pp = (uint8_t*)(p + 1);
+
+  p->len = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_FLOW_SPECIFICATION;
+  p->offset = 0;
+
+  UINT16_TO_STREAM(pp, HCI_FLOW_SPECIFICATION);
+  UINT8_TO_STREAM(pp, HCIC_PARAM_SIZE_FLOW_SPECIFICATION);
+
+  UINT16_TO_STREAM(pp, handle);
+  UINT8_TO_STREAM(pp, flags);
+  UINT8_TO_STREAM(pp, direction);
+  UINT8_TO_STREAM(pp, service_type);
+  UINT32_TO_STREAM(pp, token_rate);
+  UINT32_TO_STREAM(pp, token_size);
+  UINT32_TO_STREAM(pp, peak);
+  UINT32_TO_STREAM(pp, latency);
+
+  btu_hcif_send_cmd(LOCAL_BR_EDR_CONTROLLER_ID, p);
+}
+
 void btsnd_hcic_switch_role(const RawAddress& bd_addr, uint8_t role) {
   BT_HDR* p = (BT_HDR*)osi_malloc(HCI_CMD_BUF_SIZE);
   uint8_t* pp = (uint8_t*)(p + 1);
