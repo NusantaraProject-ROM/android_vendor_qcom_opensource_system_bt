@@ -457,6 +457,7 @@ void avdt_l2c_disconnect_ind_cback(uint16_t lcid, bool ack_needed) {
 
     avdt_ad_tc_close_ind(p_tbl, 0);
   }
+  L2CA_SetMediaStreamChannel(lcid, false);
 }
 
 /*******************************************************************************
@@ -479,6 +480,7 @@ void avdt_l2c_disconnect_cfm_cback(uint16_t lcid, uint16_t result) {
   if (p_tbl != NULL) {
     avdt_ad_tc_close_ind(p_tbl, result);
   }
+  L2CA_SetMediaStreamChannel(lcid, false);
 }
 
 /*******************************************************************************
