@@ -2093,7 +2093,7 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
 
     case BTA_DM_IOT_INFO_EVT: {
       tBTA_DM_IOT_INFO_DATA iot_info = p_data->iot_info;
-      BTIF_TRACE_WARNING("gghai: BTA_DM_IOT_INFO_EVT");
+      BTIF_TRACE_WARNING("BTA_DM_IOT_INFO_EVT");
       btif_vendor_iot_device_broadcast_event(&iot_info.bd_addr, iot_info.error_type, iot_info.error_info,
               iot_info.event_mask, iot_info.event_power_level, iot_info.event_rssi, iot_info.event_link_quality);
       break;

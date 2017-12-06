@@ -143,7 +143,7 @@ static bool is_profile(const char* p1, const char* p2) {
  ****************************************************************************/
 
 static int init(bt_callbacks_t* callbacks) {
-  LOG_INFO(LOG_TAG, "gghai: %s", __func__);
+  LOG_INFO(LOG_TAG, "QTI OMR1 stack: %s", __func__);
 
   if (interface_ready()) return BT_STATUS_DONE;
 
@@ -158,7 +158,7 @@ static int init(bt_callbacks_t* callbacks) {
 }
 
 static int enable(bool start_restricted) {
-  LOG_INFO(LOG_TAG, "gghai: %s: start restricted = %d", __func__, start_restricted);
+  LOG_INFO(LOG_TAG, "QTI OMR1 stack: %s: start restricted = %d", __func__, start_restricted);
 
   restricted_mode = start_restricted;
 

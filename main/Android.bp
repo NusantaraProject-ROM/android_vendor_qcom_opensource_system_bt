@@ -2,7 +2,7 @@
 // Bluetooth main HW module / shared library for target
 // ========================================================
 cc_library_shared {
-    name: "libbluetoothQti",
+    name: "libbluetooth_qti",
     defaults: ["fluoride_defaults_qti"],
     header_libs: ["libbluetooth_headers"],
     export_header_lib_headers: ["libbluetooth_headers"],
