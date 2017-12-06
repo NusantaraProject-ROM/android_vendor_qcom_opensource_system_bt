@@ -73,9 +73,9 @@ static const tA2DP_LDAC_CIE a2dp_ldac_src_default_config = {
 static const tA2DP_LDAC_CIE a2dp_ldac_offload_default_config = {
     A2DP_LDAC_VENDOR_ID,                // vendorId
     A2DP_LDAC_CODEC_ID,                 // codecId
-    A2DP_LDAC_SAMPLING_FREQ_48000,      // sampleRate
+    A2DP_LDAC_SAMPLING_FREQ_96000,      // sampleRate
     A2DP_LDAC_CHANNEL_MODE_STEREO,      // channelMode
-    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 // bits_per_sample
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_32// bits_per_sample
 };
 tA2DP_LDAC_CIE a2dp_ldac_default_config;
 
