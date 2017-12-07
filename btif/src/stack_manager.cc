@@ -108,8 +108,12 @@ static void event_init_stack(void* context) {
     module_init(get_module(OSI_MODULE));
     module_init(get_module(BT_UTILS_MODULE));
     module_init(get_module(BTIF_CONFIG_MODULE));
+
+    future_t* local_hack_future = future_new();
+    hack_future = local_hack_future;
     btif_init_bluetooth();
 
+    future_await(local_hack_future);
     // stack init is synchronous, so no waiting necessary here
     stack_is_initialized = true;
   }

@@ -322,6 +322,13 @@ extern void btsnd_hcic_qos_setup(uint16_t handle, uint8_t flags,
 #define HCI_QOS_DELAY_VAR_OFF 16
 /* QoS Setup */
 
+extern void btsnd_hcic_flow_spec(uint16_t handle, uint8_t flags, uint8_t direction,
+                          uint8_t service_type, uint32_t token_rate,
+                          uint32_t token_size, uint32_t peak, uint32_t latency);
+
+#define HCIC_PARAM_SIZE_FLOW_SPECIFICATION 21
+/* flow specification */
+
 /* Switch Role Request */
 extern void btsnd_hcic_switch_role(const RawAddress& bd_addr, uint8_t role);
 

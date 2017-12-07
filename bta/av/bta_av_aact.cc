@@ -350,6 +350,41 @@ static void notify_start_failed(tBTA_AV_SCB* p_scb) {
   (*bta_av_cb.p_cback)(BTA_AV_START_EVT, &bta_av_data);
 }
 
+static void bta_av_update_flow_spec(tBTA_AV_SCB* p_scb) {
+
+  const char *codec_name;
+  uint8_t *p_codec_info = (uint8_t*) p_scb->cfg.codec_info;
+
+  tBT_FLOW_SPEC flow_spec;
+  memset(&flow_spec, 0x00, sizeof(flow_spec));
+
+  flow_spec.flow_direction = 0x00;     /* flow direction - out going */
+  flow_spec.service_type = 0x02;       /* Guaranteed */
+  flow_spec.token_rate = 0x00;         /* bytes/second - no token rate is specified*/
+  flow_spec.token_bucket_size = 0x00;  /* bytes - no token bucket is needed*/
+  flow_spec.latency = 0xFFFFFFFF;      /* microseconds - default value */
+
+  codec_name = A2DP_CodecName(p_codec_info);
+  if (strcmp(codec_name,"SBC") == 0) {
+    flow_spec.peak_bandwidth = (345*1000)/8; /* bytes/second */
+
+  } else if (strcmp(codec_name,"aptX") == 0)  {
+    flow_spec.peak_bandwidth = (380*1000)/8; /* bytes/second */
+
+  } else if (strcmp(codec_name,"aptX-HD") == 0) {
+    flow_spec.peak_bandwidth = (660*1000)/8; /* bytes/second */
+
+  } else if (strcmp(codec_name,"LDAC") == 0) {
+    flow_spec.peak_bandwidth = (660*1000)/8; /* bytes/second */
+
+  } else if (strcmp(codec_name,"AAC") == 0) {
+    flow_spec.peak_bandwidth = (320*1000)/8; /* bytes/second */
+  }
+  APPL_TRACE_DEBUG("codec_name %s peak_bandwidth %d",codec_name,
+                                flow_spec.peak_bandwidth);
+  BTM_FlowSpec (p_scb->peer_addr, &flow_spec, NULL);
+}
+
 /*******************************************************************************
  *
  * Function         bta_av_st_rc_timer
@@ -744,12 +779,21 @@ static void bta_av_a2dp_sdp_cback(bool found, tA2DP_Service* p_service) {
 
   tBTA_AV_SDP_RES* p_msg =
       (tBTA_AV_SDP_RES*)osi_malloc(sizeof(tBTA_AV_SDP_RES));
-  p_msg->hdr.event =
-      (found) ? BTA_AV_SDP_DISC_OK_EVT : BTA_AV_SDP_DISC_FAIL_EVT;
-  if (found && (p_service != NULL))
-    p_scb->avdt_version = p_service->avdt_version;
-  else
-    p_scb->avdt_version = 0x00;
+
+  if (!found && (p_scb->skip_sdp == true)) {
+    p_msg->hdr.event = BTA_AV_SDP_DISC_OK_EVT;
+    p_scb->avdt_version = AVDT_VERSION;
+    p_scb->skip_sdp = false;
+    APPL_TRACE_WARNING("%s: Continue AVDTP signaling process for incoming A2dp connection",
+                      __func__);
+  } else {
+    p_msg->hdr.event =
+        (found) ? BTA_AV_SDP_DISC_OK_EVT : BTA_AV_SDP_DISC_FAIL_EVT;
+    if (found && (p_service != NULL))
+      p_scb->avdt_version = p_service->avdt_version;
+    else
+      p_scb->avdt_version = 0x00;
+  }
   p_msg->hdr.layer_specific = bta_av_cb.handle;
 
   bta_sys_sendmsg(p_msg);
@@ -1065,7 +1109,7 @@ void bta_av_do_disc_a2dp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
 
   bta_sys_conn_open(BTA_ID_AV, p_scb->hdi, p_scb->peer_addr);
 
-  if (p_scb->skip_sdp == true) {
+  if (p_scb->skip_sdp == true && (a2dp_get_avdt_sdp_ver() < AVDT_VERSION_SYNC)) {
     tA2DP_Service a2dp_ser;
     a2dp_ser.avdt_version = AVDT_VERSION;
     p_scb->skip_sdp = false;
@@ -1451,7 +1495,7 @@ void bta_av_str_opened(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   APPL_TRACE_DEBUG("%s: l2c_cid: 0x%x stream_mtu: %d mtu: %d", __func__,
                    p_scb->l2c_cid, p_scb->stream_mtu, mtu);
   if (mtu == 0 || mtu > p_scb->stream_mtu) mtu = p_scb->stream_mtu;
-
+  APPL_TRACE_DEBUG("%s:updated mtu: %d", __func__, mtu);
   /* Set the media channel as high priority */
   L2CA_SetTxPriority(p_scb->l2c_cid, L2CAP_CHNL_PRIORITY_HIGH);
   L2CA_SetChnlFlushability(p_scb->l2c_cid, true);
@@ -1461,6 +1505,8 @@ void bta_av_str_opened(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
 
   p_scb->l2c_bufs = 0;
   p_scb->p_cos->open(p_scb->hndl, mtu);
+
+  bta_av_update_flow_spec(p_scb);
 
   {
     /* TODO check if other audio channel is open.
@@ -2757,8 +2803,8 @@ void bta_av_suspend_cfm(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
 
   suspend_rsp.status = BTA_AV_SUCCESS;
   if (err_code && (err_code != AVDT_ERR_BAD_STATE)) {
-    /* Disable suspend feature only with explicit rejection(not with timeout) */
-    if (err_code != AVDT_ERR_TIMEOUT) {
+    /* Disable suspend feature only with explicit rejection(not with timeout & connect error) */
+    if ((err_code != AVDT_ERR_TIMEOUT) && (err_code != AVDT_ERR_CONNECT)) {
       p_scb->suspend_sup = false;
     }
     suspend_rsp.status = BTA_AV_FAIL;
@@ -2840,6 +2886,7 @@ void bta_av_rcfg_str_ok(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     APPL_TRACE_DEBUG("%s: l2c_cid: 0x%x stream_mtu: %d mtu: %d", __func__,
                      p_scb->l2c_cid, p_scb->stream_mtu, mtu);
     if (mtu == 0 || mtu > p_scb->stream_mtu) mtu = p_scb->stream_mtu;
+    APPL_TRACE_DEBUG("%s: updated mtu: %d", __func__, mtu);
     p_scb->p_cos->update_mtu(p_scb->hndl, mtu);
   }
 
@@ -2862,6 +2909,7 @@ void bta_av_rcfg_str_ok(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     bta_av_data.reconfig = reconfig;
     (*bta_av_cb.p_cback)(BTA_AV_RECONFIG_EVT, &bta_av_data);
   }
+  bta_av_update_flow_spec(p_scb);
 }
 
 /*******************************************************************************
@@ -3372,7 +3420,7 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
   unsigned char status = 0;
   //uint16_t sample_rate;
   codec_name = A2DP_CodecName(p_scb->cfg.codec_info);
-  APPL_TRACE_DEBUG("bta_av_vendor_offload_start");
+  APPL_TRACE_DEBUG("%s: enc_update_in_progress = %d", __func__, enc_update_in_progress);
   APPL_TRACE_IMP("bta_av_vendor_offload_start: vsc flags:-"
     "vs_configs_exchanged:%u tx_started:%u tx_start_initiated:%u"
     "tx_enc_update_initiated:%u", btif_a2dp_src_vsc.vs_configs_exchanged, btif_a2dp_src_vsc.tx_started,
@@ -3450,6 +3498,7 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
                                param, offload_vendor_callback);
 #endif
   //offload_start.p_scb = p_scb;
+  APPL_TRACE_DEBUG("%s: done, enc_update_in_progress = %d", __func__, enc_update_in_progress);
 }
 void bta_av_vendor_offload_stop()
 {

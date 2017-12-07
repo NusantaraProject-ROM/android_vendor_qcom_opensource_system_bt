@@ -44,6 +44,7 @@
 extern int btif_av_get_latest_device_idx_to_start();
 extern int btif_get_is_remote_started_idx();
 extern tBTA_AV_HNDL btif_av_get_av_hdl_from_idx(int idx);
+extern bool btif_av_is_playing_on_other_idx(int current_index);
 extern int btif_max_av_clients;
 
 static void btif_a2dp_data_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event);
@@ -65,6 +66,7 @@ void btif_a2dp_control_cleanup(void) {
 static void btif_a2dp_recv_ctrl_data(void) {
   tA2DP_CTRL_CMD cmd = A2DP_CTRL_CMD_NONE;
   int n;
+  int rs_idx, cur_idx;
 
   uint8_t read_cmd = 0; /* The read command size is one octet */
   n = UIPC_Read(UIPC_CH_ID_AV_CTRL, NULL, &read_cmd, 1);
@@ -119,16 +121,31 @@ static void btif_a2dp_recv_ctrl_data(void) {
       }
 
       if (btif_a2dp_source_is_streaming()) {
-        APPL_TRACE_WARNING("%s: A2DP command %s while source is streaming",
+        APPL_TRACE_WARNING("%s: A2DP command %s while source is streaming, return",
                            __func__, audio_a2dp_hw_dump_ctrl_event(cmd));
-        btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+        btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
         break;
       }
 
+      rs_idx = btif_get_is_remote_started_idx();
+      cur_idx = btif_av_get_latest_device_idx_to_start();
+
+      APPL_TRACE_IMP("%s: RS Idx %d, Cur Idx %d, A2DP command %s",
+        __func__, rs_idx, cur_idx, audio_a2dp_hw_dump_ctrl_event(cmd));
+
       if (btif_a2dp_source_is_remote_start()) {
-        APPL_TRACE_WARNING("%s: remote a2dp started, cancle remote start timer",
-                           __func__);
-        btif_a2dp_source_cancel_remote_start();
+          if (((rs_idx != btif_max_av_clients) && (rs_idx == cur_idx))
+                                    || (rs_idx == btif_max_av_clients)){
+            btif_a2dp_source_cancel_remote_start();
+            if (rs_idx != btif_max_av_clients)
+                btif_dispatch_sm_event(
+                BTIF_AV_RESET_REMOTE_STARTED_FLAG_UPDATE_AUDIO_STATE_EVT, NULL, 0);
+             APPL_TRACE_WARNING("%s: Cancel RS timer for the current index",
+                                __func__);
+          } else {
+            APPL_TRACE_WARNING("%s: RS timer running on other index, ignore",
+                               __func__);
+          }
       }
 
       /* In Dual A2dp, first check for started state of stream
@@ -138,21 +155,21 @@ static void btif_a2dp_recv_ctrl_data(void) {
        * and ACK the audio HAL.
        */
       if (btif_av_stream_started_ready()) {
-        /* already started, setup audio data channel listener and ack back immediately */
-        int idx = btif_get_is_remote_started_idx();
-        APPL_TRACE_DEBUG("%s: remote started idx : %d",__func__, idx);
-        if (idx < btif_max_av_clients) {
-             uint8_t hdl = btif_av_get_av_hdl_from_idx(idx);
-             APPL_TRACE_DEBUG("%s: hdl = %d",__func__, hdl);
+        if ((rs_idx != btif_max_av_clients) && (rs_idx == cur_idx)) {
+             uint8_t hdl = btif_av_get_av_hdl_from_idx(rs_idx);
+             APPL_TRACE_DEBUG("%s: setup codec idx %d hdl = %d",
+                                                __func__, rs_idx, hdl);
              if (hdl >= 0)
                 btif_a2dp_source_setup_codec(hdl);
         }
         UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb);
         btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+        APPL_TRACE_WARNING("%s: A2DP command %s while AV stream is alreday started",
+                         __func__, audio_a2dp_hw_dump_ctrl_event(cmd));
+        break;
       } else if (btif_av_stream_ready()) {
         /* Setup audio data channel listener */
         UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb);
-
         /*
          * Post start event and wait for audio path to open.
          * If we are the source, the ACK will be sent after the start
@@ -186,15 +203,36 @@ static void btif_a2dp_recv_ctrl_data(void) {
 
     case A2DP_CTRL_CMD_SUSPEND:
       /* Local suspend */
+      rs_idx = btif_get_is_remote_started_idx();
+      cur_idx = btif_av_get_latest_device_idx_to_start();
+
+      APPL_TRACE_IMP("%s: RS Idx %d, Cur Idx %d, A2DP command %s",
+                __func__, rs_idx, cur_idx, audio_a2dp_hw_dump_ctrl_event(cmd));
+
       if (btif_av_stream_started_ready()) {
-        btif_dispatch_sm_event(BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL, 0);
-        break;
+          if (rs_idx != btif_max_av_clients) {
+              bool is_playing_othr_idx = btif_av_is_playing_on_other_idx(rs_idx);
+              if (is_playing_othr_idx)
+              {
+                  APPL_TRACE_DEBUG("%s: Other Idx than RS Idx %d is started",
+                                                            __func__, rs_idx);
+                  btif_dispatch_sm_event(BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL, 0);
+                  break;
+              } else {
+                  APPL_TRACE_DEBUG("%s: Idx %d is remote started, ACK back",
+                                                                __func__, rs_idx);
+              }
+          } else {
+              APPL_TRACE_DEBUG("%s: No idx in remote started, trigger suspend",
+                                                                        __func__);
+              btif_dispatch_sm_event(BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL, 0);
+              break;
+          }
       }
       /* If we are not in started state, just ack back ok and let
        * audioflinger close the channel. This can happen if we are
        * remotely suspended, clear REMOTE SUSPEND flag.
        */
-      btif_av_clear_remote_suspend_flag();
       btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
       break;
 

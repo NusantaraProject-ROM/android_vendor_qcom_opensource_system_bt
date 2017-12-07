@@ -36,6 +36,8 @@
 #include "utl.h"
 #include <cutils/properties.h>
 #include "device/include/interop.h"
+#include "btif/include/btif_storage.h"
+
 /*****************************************************************************
  *  Constants
  ****************************************************************************/
@@ -1121,6 +1123,28 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
       APPL_TRACE_DEBUG("%s BRSF HF: 0x%x, phone: 0x%x", __func__,
                        p_scb->peer_features, features);
 
+      bt_property_t prop_name;
+      bt_bdname_t bdname;
+      bool remote_name = FALSE;
+
+      BTIF_STORAGE_FILL_PROPERTY(&prop_name, BT_PROPERTY_BDNAME,
+              sizeof(bt_bdname_t), &bdname);
+      if (btif_storage_get_remote_device_property(&p_scb->peer_addr,
+                   &prop_name) == BT_STATUS_SUCCESS)
+      {
+          remote_name = TRUE;
+      }
+
+      if (interop_match_addr(INTEROP_DISABLE_CODEC_NEGOTIATION,
+          &p_scb->peer_addr) ||
+          (remote_name && interop_match_name(INTEROP_DISABLE_CODEC_NEGOTIATION,
+          (const char *)bdname.name)))
+      {
+          APPL_TRACE_IMP("%s disable codec negotiation for phone, remote" \
+                                  "for blacklisted device", __func__);
+          features = features & ~(BTA_AG_FEAT_CODEC);
+          p_scb->peer_features = p_scb->peer_features & ~(BTA_AG_PEER_FEAT_CODEC);
+      }
       /* send BRSF, send OK */
       bta_ag_send_result(p_scb, BTA_AG_LOCAL_RES_BRSF, NULL, (int16_t)features);
       bta_ag_send_ok(p_scb);
@@ -1499,6 +1523,16 @@ void bta_ag_hfp_result(tBTA_AG_SCB* p_scb, tBTA_AG_API_RESULT* p_result) {
       ** then  open sco.
       */
       bta_ag_send_call_inds(p_scb, p_result->result);
+
+      if (interop_match_addr(INTEROP_DELAY_SCO_FOR_MT_CALL,
+          &p_scb->peer_addr))
+      {
+         /* Ensure that call active indicator is sent prior to SCO connection
+            request by adding some delay. Some remotes are very strict in the
+            order of call indicator and SCO connection request. */
+         APPL_TRACE_IMP("%s: sleeping 20msec before opening sco", __func__);
+         usleep(20*1000);
+      }
 
       if (!(p_scb->features & BTA_AG_FEAT_NOSCO)) {
         if (p_result->data.audio_handle == bta_ag_scb_to_idx(p_scb) &&

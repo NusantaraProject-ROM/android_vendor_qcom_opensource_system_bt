@@ -183,6 +183,11 @@ static void bta_av_sys_rs_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
 static void bta_av_api_enable_multicast(tBTA_AV_DATA *p_data);
 static void bta_av_api_update_max_av_clients(tBTA_AV_DATA * p_data);
 
+bool bta_av_multiple_streams_started(void);
+
+extern int btif_get_is_remote_started_idx();
+extern int btif_max_av_clients;
+
 /* action functions */
 const tBTA_AV_NSM_ACT bta_av_nsm_act[] = {
     bta_av_api_enable,       /* BTA_AV_API_ENABLE_EVT */
@@ -743,14 +748,25 @@ static void bta_av_ci_data(tBTA_AV_DATA* p_data) {
   int i;
   uint8_t chnl = (uint8_t)p_data->hdr.layer_specific;
 
-  for (i = 0; i < BTA_AV_NUM_STRS; i++) {
+  for (i = 0; i < btif_max_av_clients; i++) {
     p_scb = bta_av_cb.p_scb[i];
 
     /* Check if the Stream is in Started state before sending data
      * in Dual Handoff mode, get SCB where START is done.
      */
     if (p_scb && (p_scb->chnl == chnl) && (p_scb->started)) {
-      bta_av_ssm_execute(p_scb, BTA_AV_SRC_DATA_READY_EVT, p_data);
+      if (p_scb->hdi == btif_get_is_remote_started_idx()) {
+          APPL_TRACE_WARNING("%s: Not to send data to remote Started index %d",
+            __func__, p_scb->hdi);
+      } else if ((!bta_av_is_multicast_enabled()) &&
+            (bta_av_multiple_streams_started()) &&
+            (btif_get_is_remote_started_idx() == btif_max_av_clients)) {
+            // Hit when suspend is sent for remote start but ack not received yet
+            APPL_TRACE_WARNING("%s: Remote Start update delayed, drop data for index %d",
+              __func__, p_scb->hdi);
+      } else {
+          bta_av_ssm_execute(p_scb, BTA_AV_SRC_DATA_READY_EVT, p_data);
+      }
     }
   }
 }
@@ -1198,6 +1214,18 @@ uint16_t bta_av_chk_mtu(tBTA_AV_SCB* p_scb, UNUSED_ATTR uint16_t mtu) {
   int i;
   uint8_t mask;
 
+    /* If multicast is not enabled we do not need to assign lesser MTU even if multi connections are
+  avaialable as when active device changes it configures encoder accordingly with proper MTU size
+  This change is required only if multicast is enabled as that requires duplication of same packetes
+  to two different channels and this logic helps to choose lesser MTU to avoid fragmentation*/
+
+    if (!is_multicast_enabled)
+    {
+        APPL_TRACE_DEBUG("bta_av_chk_mtu Non-multicast, conn_audio:0x%x, ret:%d",
+                                                bta_av_cb.conn_audio, mtu);
+        return mtu;
+    }
+
   /* TODO_MV mess with the mtu according to the number of EDR/non-EDR headsets
    */
   if (p_scb->chnl == BTA_AV_CHNL_AUDIO) {
@@ -1208,7 +1236,7 @@ uint16_t bta_av_chk_mtu(tBTA_AV_SCB* p_scb, UNUSED_ATTR uint16_t mtu) {
         if ((p_scb != p_scbi) && p_scbi &&
             (p_scbi->chnl == BTA_AV_CHNL_AUDIO)) {
           mask = BTA_AV_HNDL_TO_MSK(i);
-          APPL_TRACE_DEBUG("[%d] mtu: %d, mask:0x%x", i, p_scbi->stream_mtu,
+          APPL_TRACE_DEBUG("%s: [%d] mtu: %d, mask:0x%x", __func__, i, p_scbi->stream_mtu,
                            mask);
           if (bta_av_cb.conn_audio & mask) {
             if (ret_mtu > p_scbi->stream_mtu) ret_mtu = p_scbi->stream_mtu;
@@ -1234,7 +1262,11 @@ uint16_t bta_av_chk_mtu(tBTA_AV_SCB* p_scb, UNUSED_ATTR uint16_t mtu) {
  ******************************************************************************/
 void bta_av_dup_audio_buf(tBTA_AV_SCB* p_scb, BT_HDR* p_buf) {
   /* Test whether there is more than one audio channel connected */
-  if ((p_buf == NULL) || (bta_av_cb.audio_open_cnt < 2)) return;
+  if ((p_buf == NULL) || (bta_av_cb.audio_open_cnt < 2)
+    || (!bta_av_is_multicast_enabled())) {
+      APPL_TRACE_DEBUG("bta_av_dup_audio_buf: data not to dup ");
+    return;
+  }
 
   uint16_t copy_size = BT_HDR_SIZE + p_buf->len + p_buf->offset;
   for (int i = 0; i < BTA_AV_NUM_STRS; i++) {
@@ -1323,7 +1355,8 @@ bool bta_av_hdl_event(BT_HDR* p_msg) {
     /* state machine events */
     bta_av_sm_execute(&bta_av_cb, p_msg->event, (tBTA_AV_DATA*)p_msg);
   } else {
-    APPL_TRACE_VERBOSE("handle=0x%x", p_msg->layer_specific);
+      APPL_TRACE_VERBOSE("%s: AV ssm event=0x%x(%s) on handle = 0x%x", __func__,
+        p_msg->event, bta_av_evt_code(p_msg->event), p_msg->layer_specific);
     /* stream state machine events */
     bta_av_ssm_execute(bta_av_hndl_to_scb(p_msg->layer_specific), p_msg->event,
                        (tBTA_AV_DATA*)p_msg);

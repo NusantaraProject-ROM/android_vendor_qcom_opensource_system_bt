@@ -609,6 +609,16 @@ typedef struct {
   uint32_t delay_variation;   /* microseconds */
 } FLOW_SPEC;
 
+typedef struct {
+  uint8_t qos_flags;          /* TBD */
+  uint8_t flow_direction;       /* flow direction */
+  uint8_t service_type;       /* see below */
+  uint32_t token_rate;        /* bytes/second */
+  uint32_t token_bucket_size; /* bytes */
+  uint32_t peak_bandwidth;    /* bytes/second */
+  uint32_t latency;           /* microseconds */
+} tBT_FLOW_SPEC;
+
 /* Values for service_type */
 #define NO_TRAFFIC 0
 #define BEST_EFFORT 1

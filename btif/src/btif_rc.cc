@@ -415,6 +415,8 @@ extern bool check_cod(const RawAddress* remote_bdaddr, uint32_t cod);
 extern bool btif_av_is_split_a2dp_enabled();
 extern int btif_av_idx_by_bdaddr(RawAddress *bd_addr);
 extern bool btif_av_check_flag_remote_suspend(int index);
+extern bt_status_t btif_hf_check_if_sco_connected();
+
 extern fixed_queue_t* btu_general_alarm_queue;
 
 /*****************************************************************************
@@ -904,6 +906,11 @@ void handle_rc_disconnect(tBTA_AV_RC_CLOSE* p_rc_close) {
  *
  ***************************************************************************/
 void handle_rc_passthrough_cmd(tBTA_AV_REMOTE_CMD* p_remote_cmd) {
+  if (btif_hf_check_if_sco_connected() == BT_STATUS_SUCCESS) {
+        BTIF_TRACE_ERROR("Ignore passthrough commands as SCO is present.");
+        return;
+  }
+
   if (p_remote_cmd == NULL) {
     BTIF_TRACE_ERROR("%s: No remote command!", __func__);
     return;
@@ -1718,6 +1725,29 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
                    ctype, label, pavrc_cmd->reg_notif.event_id);
   RawAddress rc_addr = p_dev->rc_addr;
 
+  if (interop_match_addr(INTEROP_DISABLE_PLAYER_APPLICATION_SETTING_CMDS,
+            &rc_addr))
+  {
+      if (event == AVRC_PDU_LIST_PLAYER_APP_ATTR || event == AVRC_PDU_GET_PLAYER_APP_VALUE_TEXT ||
+          event == AVRC_PDU_GET_CUR_PLAYER_APP_VALUE || event == AVRC_PDU_SET_PLAYER_APP_VALUE ||
+          event == AVRC_PDU_GET_PLAYER_APP_ATTR_TEXT || event == AVRC_PDU_LIST_PLAYER_APP_VALUES)
+      {
+          send_reject_response (p_dev->rc_handle, label, pavrc_cmd->pdu,
+                                AVRC_STS_BAD_PARAM, pavrc_cmd->cmd.opcode);
+          BTIF_TRACE_DEBUG("Blacklisted CK send AVRC_PDU_LIST_PLAYER_APP_ATTR reject");
+          return;
+      }
+      if ((pavrc_cmd->reg_notif.event_id == BTRC_EVT_APP_SETTINGS_CHANGED) &&
+                (event == AVRC_PDU_REGISTER_NOTIFICATION))
+      {
+          send_reject_response (p_dev->rc_handle, label, pavrc_cmd->pdu,
+                                AVRC_STS_BAD_PARAM, pavrc_cmd->cmd.opcode);
+          p_dev->rc_notif[BTRC_EVT_APP_SETTINGS_CHANGED - 1].bNotify = FALSE;
+          BTIF_TRACE_DEBUG("Blacklisted CK send BTRC_EVT_APP_SETTINGS_CHANGED not implemented")
+          return;
+      }
+  }
+
   if (!(p_dev->rc_features & BTA_AV_FEAT_APP_SETTING) && ((event == AVRC_PDU_LIST_PLAYER_APP_ATTR)
       || (event == AVRC_PDU_LIST_PLAYER_APP_VALUES) || (event == AVRC_PDU_GET_CUR_PLAYER_APP_VALUE)
       || (event == AVRC_PDU_SET_PLAYER_APP_VALUE) || (event == AVRC_PDU_GET_PLAYER_APP_ATTR_TEXT)
@@ -2297,10 +2327,7 @@ static bt_status_t get_play_status_rsp(RawAddress* bd_addr,
   {
       BTIF_TRACE_ERROR("%s: clear remote suspend flag: %d",__FUNCTION__, av_index);
       btif_av_clear_remote_suspend_flag();
-      if (btif_av_is_split_a2dp_enabled())
-      {
-          btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-      }
+      btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
   }
 
   avrc_rsp.get_play_status.pdu = AVRC_PDU_GET_PLAY_STATUS;
@@ -2308,11 +2335,7 @@ static bt_status_t get_play_status_rsp(RawAddress* bd_addr,
   avrc_rsp.get_play_status.status =
       ((play_status != BTRC_PLAYSTATE_ERROR) ? AVRC_STS_NO_ERROR
                                              : AVRC_STS_BAD_PARAM);
-  if ((avrc_rsp.get_play_status.play_status == BTRC_PLAYSTATE_PLAYING) &&
-       (btif_av_check_flag_remote_suspend(av_index))) {
-      BTIF_TRACE_ERROR("%s: clear remote suspend flag: %d",__FUNCTION__, av_index);
-      btif_av_clear_remote_suspend_flag();
-  }
+
   /* Send the response */
   SEND_METAMSG_RSP(p_dev, rsp_index, &avrc_rsp);
 
@@ -2687,10 +2710,7 @@ static bt_status_t register_notification_rsp_sho_mcast(
           (btif_av_check_flag_remote_suspend(av_index))) {
           BTIF_TRACE_ERROR("%s: clear remote suspend flag: %d",__FUNCTION__,av_index );
           btif_av_clear_remote_suspend_flag();
-          if (btif_av_is_split_a2dp_enabled())
-          {
-              btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-          }
+          btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
       }
       break;
     case BTRC_EVT_TRACK_CHANGE:
@@ -2713,6 +2733,13 @@ static bt_status_t register_notification_rsp_sho_mcast(
           p_param->uids_changed.uid_counter;
       break;
     case BTRC_EVT_NOW_PLAYING_CONTENT_CHANGED:
+      break;
+    case BTRC_EVT_APP_SETTINGS_CHANGED:
+      avrc_rsp.reg_notif.param.player_setting.num_attr = p_param->player_setting.num_attr;
+      memcpy(&avrc_rsp.reg_notif.param.player_setting.attr_id,
+                                 p_param->player_setting.attr_ids, 2);
+      memcpy(&avrc_rsp.reg_notif.param.player_setting.attr_value,
+                                 p_param->player_setting.attr_values, 2);
       break;
 
     default:
@@ -2794,10 +2821,7 @@ static bt_status_t register_notification_rsp(
         {
             BTIF_TRACE_ERROR("%s: clear remote suspend flag: %d",__FUNCTION__,av_index );
             btif_av_clear_remote_suspend_flag();
-            if (btif_av_is_split_a2dp_enabled())
-            {
-                btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-            }
+            btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
         }
         break;
       case BTRC_EVT_TRACK_CHANGE:
@@ -2805,6 +2829,12 @@ static bt_status_t register_notification_rsp(
                sizeof(btrc_uid_t));
         break;
       case BTRC_EVT_APP_SETTINGS_CHANGED:
+        if (interop_match_addr(INTEROP_DISABLE_PLAYER_APPLICATION_SETTING_CMDS,
+                    bd_addr))
+        {
+            BTIF_TRACE_DEBUG("Blacklisted CK for BTRC_EVT_APP_SETTINGS_CHANGED event");
+            return BT_STATUS_UNHANDLED;
+        }
         avrc_rsp.reg_notif.param.player_setting.num_attr = p_param->player_setting.num_attr;
         memcpy(&avrc_rsp.reg_notif.param.player_setting.attr_id,
                                    p_param->player_setting.attr_ids, 2);
