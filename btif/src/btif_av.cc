@@ -4117,12 +4117,15 @@ void btif_av_reset_reconfig_flag() {
 bool btif_av_allow_codec_config_change(btav_a2dp_codec_index_t codec_type,
           btav_a2dp_codec_sample_rate_t sample_rate) {
   BTIF_TRACE_DEBUG("%s",__func__);
-  /* Only 48khz sampling rate is supported in Split A2dp mode, disregard
-   * codec switch request for sample rate change
-   * LDAC is not supported in Split A2dp currently, disregard LDAC switch req
+  /* Only 48khz sampling rate is supported in Split A2dp mode for other codecs, disregard
+   * codec switch request for sample rate change.
+   * LDAC Supports all sampling rates and switch request will be honored
   */
-  if (codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC ||
-      (sample_rate > 0 && sample_rate != BTAV_A2DP_CODEC_SAMPLE_RATE_48000)) {
+
+  if (codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC) {
+      return true;
+  }
+  if (sample_rate > 0 && sample_rate != BTAV_A2DP_CODEC_SAMPLE_RATE_48000) {
       BTIF_TRACE_DEBUG("config not supported codec_type = %d, sample_rate = %d",
                         codec_type, sample_rate)
       return false; //Only 48k is supported in split mode
