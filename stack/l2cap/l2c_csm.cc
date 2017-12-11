@@ -34,6 +34,7 @@
 #include "hcimsgs.h"
 #include "l2c_int.h"
 #include "l2cdefs.h"
+#include "device/include/interop.h"
 
 /******************************************************************************/
 /*            L O C A L    F U N C T I O N     P R O T O T Y P E S            */
@@ -179,6 +180,7 @@ static void l2c_csm_closed(tL2C_CCB* p_ccb, uint16_t event, void* p_data) {
     case L2CEVT_LP_CONNECT_CFM_NEG: /* Link failed          */
       /* Disconnect unless ACL collision and upper layer wants to handle it */
       if (((p_ci->status != HCI_ERR_CONNECTION_EXISTS) && (p_ci->status != HCI_ERR_CONTROLLER_BUSY))
+          || interop_match_addr(INTEROP_DISABLE_CONNECTION_AFTER_COLLISION, &p_ccb->p_lcb->remote_bd_addr)
           || !btm_acl_notif_conn_collision(p_ccb->p_lcb->remote_bd_addr)) {
         L2CAP_TRACE_API(
             "L2CAP - Calling ConnectCfm_Cb(), CID: 0x%04x  Status: %d",
