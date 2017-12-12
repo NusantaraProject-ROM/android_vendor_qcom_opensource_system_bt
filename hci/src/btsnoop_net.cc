@@ -31,6 +31,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <fcntl.h>
 #include <mutex>
 
 #include "osi/include/log.h"
@@ -52,6 +53,9 @@ static std::mutex client_socket_mutex_;
 static int listen_socket_ = -1;
 static int client_socket_ = -1;
 static int listen_socket_local_ = -1;
+// A pair of FD to send information to the listen thread
+static int notification_listen_fd = -1;
+static int notification_write_fd = -1;
 
 void btsnoop_net_open() {
 #if (BT_NET_DEBUG != TRUE)
@@ -65,16 +69,36 @@ void btsnoop_net_open() {
               strerror(errno));
 }
 
+static int notify_listen_thread() {
+  char buffer = '0';
+  int ret = -1;
+
+  OSI_NO_INTR(ret = write(notification_write_fd, &buffer, 1));
+  if ( ret < 0){
+    LOG_ERROR(LOG_TAG,
+        "%s: Error in notifying the listen thread to exit",__func__)
+    return -1;
+  }
+
+  return 0;
+}
+
 void btsnoop_net_close() {
 #if (BT_NET_DEBUG != TRUE)
   return;  // Disable using network sockets for security reasons
 #endif
 
   if (listen_thread_valid_) {
+    notify_listen_thread();
+    pthread_join(listen_thread_, NULL);
     shutdown(listen_socket_, SHUT_RDWR);
     shutdown(listen_socket_local_, SHUT_RDWR);
-    pthread_join(listen_thread_, NULL);
+    safe_close_(&listen_socket_);
+    safe_close_(&listen_socket_local_);
     safe_close_(&client_socket_);
+    safe_close_(&notification_listen_fd);
+    safe_close_(&notification_write_fd);
+    LOG_WARN(LOG_TAG, "%s stopped the btsnoop listen thread", __func__);
     listen_thread_valid_ = false;
   }
 }
@@ -103,6 +127,21 @@ static void* listen_fn_(UNUSED_ATTR void* context) {
   int enable = 1;
   int fd_max = -1;
   struct timeval socket_timeout;
+  int self_pipe_fds[2];
+
+  // Set up the communication channel
+  if (pipe2(self_pipe_fds, O_NONBLOCK)){
+    LOG_ERROR(LOG_TAG,
+        "%s:Unable to establish a communication channel to the listen thread ",
+        __func__);
+    return NULL;
+  }
+
+  notification_listen_fd = self_pipe_fds[0];
+  notification_write_fd = self_pipe_fds[1];
+
+  FD_SET(notification_listen_fd, &sock_fds);
+  fd_max = notification_listen_fd;
 
   prctl(PR_SET_NAME, (unsigned long)LISTEN_THREAD_NAME_, 0, 0, 0);
 
@@ -112,8 +151,11 @@ static void* listen_fn_(UNUSED_ATTR void* context) {
               strerror(errno));
     goto cleanup;
   }
+
   FD_SET(listen_socket_, &sock_fds);
-  fd_max = listen_socket_;
+  if(listen_socket_ > fd_max) {
+    fd_max = listen_socket_;
+  }
 
   if (setsockopt(listen_socket_, SOL_SOCKET, SO_REUSEADDR, &enable,
                  sizeof(enable)) == -1) {
@@ -139,7 +181,7 @@ static void* listen_fn_(UNUSED_ATTR void* context) {
 
   listen_socket_local_ = local_snoop_socket_create();
   if (listen_socket_local_ != -1) {
-    if(listen_socket_local_ > listen_socket_) {
+    if(listen_socket_local_ > fd_max) {
       fd_max = listen_socket_local_;
     }
     FD_SET(listen_socket_local_, &sock_fds);
@@ -182,6 +224,9 @@ static void* listen_fn_(UNUSED_ATTR void* context) {
                  strerror(errno));
         continue;
       }
+    } else if((notification_listen_fd != -1) && FD_ISSET(notification_listen_fd, &sock_fds)) {
+      LOG_WARN(LOG_TAG, "%s exting from listen_fn_ thread ", __func__);
+      return NULL;
     }
 
     socket_timeout.tv_sec = 0;
