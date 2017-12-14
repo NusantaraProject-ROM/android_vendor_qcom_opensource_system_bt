@@ -1247,7 +1247,7 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
 
         /* Trigger SDP on the device */
         pairing_cb.sdp_attempts = 1;
-        btif_dm_get_remote_services(bd_addr);
+        btif_dm_get_remote_services_by_transport(&bd_addr, BT_TRANSPORT_BR_EDR);
       }
     }
     // Do not call bond_state_changed_cb yet. Wait until remote service
@@ -1537,7 +1537,7 @@ static void btif_dm_search_services_evt(uint16_t event, char* p_param) {
         BTIF_TRACE_WARNING("%s:SDP failed after bonding re-attempting",
                            __func__);
         pairing_cb.sdp_attempts++;
-        btif_dm_get_remote_services(bd_addr);
+        btif_dm_get_remote_services_by_transport(&bd_addr, BT_TRANSPORT_BR_EDR);
         return;
       }
       prop[0].type = BT_PROPERTY_UUIDS;
