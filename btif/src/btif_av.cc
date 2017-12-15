@@ -159,6 +159,7 @@ static int conn_retry_count = 1;
 static alarm_t *av_coll_detected_timer = NULL;
 static bool isA2dpSink = false;
 static bool codec_config_update_enabled = false;
+bool is_codec_config_dump = false;
 
 /*SPLITA2DP */
 bool bt_split_a2dp_enabled = false;
@@ -1285,6 +1286,7 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
       /* update multicast state here if new device is connected
        * after A2dp connection. New A2dp device is connected
        * whlie playing */
+      is_codec_config_dump = true;
       btif_av_update_multicast_state(index);
       if (btif_av_cb[index].peer_sep == AVDT_TSEP_SRC) {
         BTA_AvStart(btif_av_cb[index].bta_handle);
