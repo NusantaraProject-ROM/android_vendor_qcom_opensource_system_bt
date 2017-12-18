@@ -2731,6 +2731,7 @@ void bta_av_str_closed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   L2CA_SetMediaStreamChannel(p_scb->l2c_cid, false);
 
   if (p_scb->open_status != BTA_AV_SUCCESS) {
+    APPL_TRACE_WARNING("%s Open Fail !!!", __func__);
     /* must be failure when opening the stream */
     data.open.bd_addr = p_scb->peer_addr;
     data.open.status = p_scb->open_status;
@@ -2749,6 +2750,7 @@ void bta_av_str_closed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     bta_av_cleanup(p_scb, p_data);
     (*bta_av_cb.p_cback)(event, &data);
   } else {
+    APPL_TRACE_WARNING("%s Open success !!!", __func__);
     /* do stop if we were started */
     if (p_scb->co_started) {
       bta_av_str_stopped(p_scb, NULL);

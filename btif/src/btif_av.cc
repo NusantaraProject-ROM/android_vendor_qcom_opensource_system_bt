@@ -3900,15 +3900,15 @@ void btif_av_move_idle(RawAddress bd_addr) {
   /* inform the application that ACL is disconnected and move to idle state */
   index = btif_av_idx_by_bdaddr(&bd_addr);
   if (index == btif_max_av_clients) {
-    BTIF_TRACE_DEBUG("btif_av_move_idle: Already in IDLE");
+    BTIF_TRACE_IMP("btif_av_move_idle: Already in IDLE");
     return;
   }
   btif_sm_state_t state = btif_sm_get_state(btif_av_cb[index].sm_handle);
-  BTIF_TRACE_DEBUG("ACL Disconnected state %d  is same device %d",state,
+  BTIF_TRACE_IMP("ACL Disconnected state %d  is same device %d",state,
            memcmp (&bd_addr, &(btif_av_cb[index].peer_bda), sizeof(bd_addr)));
   if (state == BTIF_AV_STATE_OPENING &&
       (memcmp (&bd_addr, &(btif_av_cb[index].peer_bda), sizeof(bd_addr)) == 0)) {
-    BTIF_TRACE_DEBUG("Moving BTIF State from Opening to Idle due to ACL disconnect");
+    BTIF_TRACE_IMP("Moving BTIF State from Opening to Idle due to ACL disconnect");
     btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED, &(btif_av_cb[index].peer_bda));
     BTA_AvClose(btif_av_cb[index].bta_handle);
     btif_av_check_and_start_collission_timer(index);
