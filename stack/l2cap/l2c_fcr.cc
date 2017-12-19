@@ -1053,6 +1053,10 @@ static void process_s_frame(tL2C_CCB* p_ccb, BT_HDR* p_buf,
   CHECK(p_buf != NULL);
 
   tL2C_FCRB* p_fcrb = &p_ccb->fcrb;
+
+  if(p_fcrb == NULL)
+    return;
+
   uint16_t s_frame_type =
       (ctrl_word & L2CAP_FCR_SUP_BITS) >> L2CAP_FCR_SUP_SHIFT;
   bool remote_was_busy;
