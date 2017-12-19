@@ -1894,13 +1894,14 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       }
       else
       {
-        if (btif_av_cb[index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING)
+        if (!((btif_av_cb[index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING)
+                                          || (p_av->suspend.initiator == true)))
         {
-          btif_report_audio_state(BTAV_AUDIO_STATE_STOPPED, &(btif_av_cb[index].peer_bda));
+          btif_report_audio_state(BTAV_AUDIO_STATE_REMOTE_SUSPEND, &(btif_av_cb[index].peer_bda));
         }
         else
         {
-          btif_report_audio_state(BTAV_AUDIO_STATE_REMOTE_SUSPEND, &(btif_av_cb[index].peer_bda));
+          btif_report_audio_state(BTAV_AUDIO_STATE_STOPPED, &(btif_av_cb[index].peer_bda));
         }
       }
 
@@ -3449,7 +3450,14 @@ bt_status_t btif_av_execute_service(bool b_enable) {
           if (btif_av_is_split_a2dp_enabled()) {
             btif_a2dp_audio_interface_deinit();
             btif_a2dp_audio_if_init = false;
-          }else{
+          } else {
+             tA2DP_CTRL_CMD pending_cmd = btif_a2dp_get_pending_command();
+             BTIF_TRACE_DEBUG("%s: a2dp-ctrl-cmd : %s", __func__,
+                                     audio_a2dp_hw_dump_ctrl_event(pending_cmd));
+             if (pending_cmd) {
+                 btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+             }
+             btif_a2dp_source_on_stopped(NULL);
              btif_sm_change_state(btif_av_cb[i].sm_handle, BTIF_AV_STATE_IDLE);
              btif_queue_advance();
 
@@ -4117,12 +4125,15 @@ void btif_av_reset_reconfig_flag() {
 bool btif_av_allow_codec_config_change(btav_a2dp_codec_index_t codec_type,
           btav_a2dp_codec_sample_rate_t sample_rate) {
   BTIF_TRACE_DEBUG("%s",__func__);
-  /* Only 48khz sampling rate is supported in Split A2dp mode, disregard
-   * codec switch request for sample rate change
-   * LDAC is not supported in Split A2dp currently, disregard LDAC switch req
+  /* Only 48khz sampling rate is supported in Split A2dp mode for other codecs, disregard
+   * codec switch request for sample rate change.
+   * LDAC Supports all sampling rates and switch request will be honored
   */
-  if (codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC ||
-      (sample_rate > 0 && sample_rate != BTAV_A2DP_CODEC_SAMPLE_RATE_48000)) {
+
+  if (codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC) {
+      return true;
+  }
+  if (sample_rate > 0 && sample_rate != BTAV_A2DP_CODEC_SAMPLE_RATE_48000) {
       BTIF_TRACE_DEBUG("config not supported codec_type = %d, sample_rate = %d",
                         codec_type, sample_rate)
       return false; //Only 48k is supported in split mode

@@ -1485,6 +1485,7 @@ void bta_dm_inq_cmpl(tBTA_DM_MSG* p_data) {
      */
     bta_dm_search_cb.name_discover_done = false;
     bta_dm_search_cb.peer_name[0] = 0;
+    bta_dm_search_cb.transport = BTA_TRANSPORT_UNKNOWN;
     bta_dm_discover_device(
         bta_dm_search_cb.p_btm_inq_info->results.remote_bd_addr);
   } else {
@@ -2114,6 +2115,7 @@ static void bta_dm_discover_next_device(void) {
   if (bta_dm_search_cb.p_btm_inq_info != NULL) {
     bta_dm_search_cb.name_discover_done = false;
     bta_dm_search_cb.peer_name[0] = 0;
+    bta_dm_search_cb.transport = BTA_TRANSPORT_UNKNOWN;
     bta_dm_discover_device(
         bta_dm_search_cb.p_btm_inq_info->results.remote_bd_addr);
   } else {
@@ -2151,8 +2153,6 @@ static void bta_dm_discover_device(const RawAddress& remote_bd_addr) {
     transport = bta_dm_search_cb.transport;
   }
 
-  /* Reset transport state for next discovery */
-  bta_dm_search_cb.transport = BTA_TRANSPORT_UNKNOWN;
 
   VLOG(1) << __func__ << " BDA: " << remote_bd_addr;
 
@@ -2180,12 +2180,17 @@ static void bta_dm_discover_device(const RawAddress& remote_bd_addr) {
        (bta_dm_search_cb.p_btm_inq_info &&
         (!bta_dm_search_cb.p_btm_inq_info->appl_knows_rem_name)))) {
     if (bta_dm_read_remote_device_name(bta_dm_search_cb.peer_bdaddr,
-                                       transport) == true)
+                                       transport) == true) {
+      /* Continue the service search on same transport after rnr complete */
+      bta_dm_search_cb.transport = transport;
       return;
-
+    }
     /* starting name discovery failed */
     bta_dm_search_cb.name_discover_done = true;
   }
+
+  /* Reset transport state for next discovery */
+  bta_dm_search_cb.transport = BTA_TRANSPORT_UNKNOWN;
 
   /* if application wants to discover service */
   if (bta_dm_search_cb.services) {

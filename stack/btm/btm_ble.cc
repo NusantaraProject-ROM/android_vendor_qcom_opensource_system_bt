@@ -2077,7 +2077,7 @@ uint8_t btm_proc_smp_cback(tSMP_EVT event, const RawAddress& bd_addr,
                                       (tBTM_LE_EVT_DATA*)p_data);
         }
 
-        if (event == SMP_COMPLT_EVT) {
+        if ((event == SMP_COMPLT_EVT)&&!p_data->cmplt.smp_over_br) {
           BTM_TRACE_DEBUG(
               "evt=SMP_COMPLT_EVT before update sec_level=0x%x sec_flags=0x%x",
               p_data->cmplt.sec_level, p_dev_rec->sec_flags);

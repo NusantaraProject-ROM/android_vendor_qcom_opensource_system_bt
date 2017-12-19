@@ -1303,6 +1303,9 @@ void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap) {
       } else if (strcmp(tok,"aptxhd") == 0) {
         LOG_INFO(LOG_TAG,"%s: APTXHD offload supported",__func__);
         aptxhd_offload = TRUE;
+      } else if (strcmp(tok,"ldac") == 0) {
+        LOG_INFO(LOG_TAG,"%s: ldac offload supported",__func__);
+        ldac_offload = TRUE;
       }
       tok = strtok_r(NULL, "-", &tmp_token);
     };
@@ -1330,7 +1333,8 @@ bool A2DP_IsCodecEnabledInOffload(btav_a2dp_codec_index_t codec_index) {
       codec_status = aptxhd_offload;
       break;
     case BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC:
-      LOG_INFO(LOG_TAG,"LDAC not enabled in offload currently");
+      if (!ldac_offload)
+          LOG_INFO(LOG_TAG,"LDAC not enabled in offload currently");
       codec_status = ldac_offload;
       break;
     case BTAV_A2DP_CODEC_INDEX_SOURCE_MAX:

@@ -180,7 +180,7 @@ bool btm_ble_get_acl_remote_addr(tBTM_SEC_DEV_REC* p_dev_rec,
 
   switch (p_dev_rec->ble.active_addr_type) {
     case BTM_BLE_ADDR_PSEUDO:
-      if (dummy == p_dev_rec->ble.cur_rand_addr)
+      if (dummy != p_dev_rec->ble.cur_rand_addr)
         conn_addr = p_dev_rec->ble.cur_rand_addr;
       else
         conn_addr = p_dev_rec->bd_addr;

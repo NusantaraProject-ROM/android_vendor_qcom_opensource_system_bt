@@ -70,6 +70,7 @@ cc_library_shared {
         "libbt-utils",
         "libbtcore",
         "libosi",
+        "libosi_ext",
     ],
     // Shared library link options.
     // References to global symbols and functions should bind to the library
