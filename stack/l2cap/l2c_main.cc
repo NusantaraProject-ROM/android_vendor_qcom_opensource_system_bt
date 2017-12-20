@@ -775,6 +775,9 @@ void l2c_init(void) {
   /* the psm is increased by 2 before being used */
   l2cb.dyn_psm = 0xFFF;
 
+  /* the LE PSM is increased by 1 before being used */
+  l2cb.le_dyn_psm = LE_DYNAMIC_PSM_START - 1;
+
   /* start new timers for all lcbs */
   tL2C_LCB* p_lcb = &l2cb.lcb_pool[0];
   for (xx = 0; xx < MAX_L2CAP_LINKS; xx++, p_lcb++) {

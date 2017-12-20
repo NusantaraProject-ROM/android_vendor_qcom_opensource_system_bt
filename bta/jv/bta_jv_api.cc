@@ -150,6 +150,7 @@ bool BTA_JvIsEncrypted(const RawAddress& bd_addr) {
  *
  ******************************************************************************/
 tBTA_JV_STATUS BTA_JvGetChannelId(int conn_type, uint32_t id, int32_t channel) {
+  VLOG(2) << __func__ << ": conn_type=" << conn_type;
   tBTA_JV_API_ALLOC_CHANNEL* p_msg =
       (tBTA_JV_API_ALLOC_CHANNEL*)osi_malloc(sizeof(tBTA_JV_API_ALLOC_CHANNEL));
 
