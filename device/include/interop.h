@@ -224,6 +224,11 @@ bool interop_match_addr(const interop_feature_t feature,
 // must be null terminated.
 bool interop_match_name(const interop_feature_t feature, const char* name);
 
+// This api will lookup remote name with |addr| by btif_storage api internally.
+// Then if either interop_match_addr or interop_match_name is matched, this function
+// will return true.
+bool interop_match_addr_or_name(const interop_feature_t feature, const RawAddress* addr);
+
 // Check if a given |manufacturer| matches a known interoperability workaround
 // as identified by the |interop_feature_t| enum. This API is used for
 // manufacturer based lookups where more information is not available.
