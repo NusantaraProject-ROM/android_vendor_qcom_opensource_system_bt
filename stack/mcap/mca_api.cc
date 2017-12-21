@@ -120,8 +120,10 @@ tMCA_HANDLE MCA_Register(tMCA_REG* p_reg, tMCA_CTRL_CBACK* p_cback) {
   CHECK(p_reg != NULL);
   CHECK(p_cback != NULL);
 
-  MCA_TRACE_API("MCA_Register: ctrl_psm:0x%x, data_psm:0x%x", p_reg->ctrl_psm,
-                p_reg->data_psm);
+  if (p_reg == NULL) {
+    MCA_TRACE_ERROR("MCA_Register: p_reg is NULL");
+    return 0;
+  }
 
   p_rcb = mca_rcb_alloc(p_reg);
   if (p_rcb != NULL) {
@@ -131,6 +133,8 @@ tMCA_HANDLE MCA_Register(tMCA_REG* p_reg, tMCA_CTRL_CBACK* p_cback) {
         MCA_TRACE_ERROR("INVALID_PSM");
         return 0;
       }
+      MCA_TRACE_API("MCA_Register: ctrl_psm:0x%x, data_psm:0x%x", p_reg->ctrl_psm,
+          p_reg->data_psm);
 
       l2c_cacp_appl = *(tL2CAP_APPL_INFO*)&mca_l2c_int_appl;
       l2c_cacp_appl.pL2CA_ConnectCfm_Cb = NULL;

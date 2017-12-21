@@ -240,11 +240,13 @@ void BTA_AvStart(tBTA_AV_HNDL handle) {
  * Returns          void
  *
  ******************************************************************************/
-void BTA_AvOffloadStart(tBTA_AV_HNDL hndl) {
-  BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+void BTA_AvOffloadStart(tBTA_AV_HNDL hndl, bool do_scrambling) {
+  tBTA_AV_API_OFFLOAD_START* p_buf =
+     (tBTA_AV_API_OFFLOAD_START*)osi_malloc(sizeof(tBTA_AV_API_OFFLOAD_START));
 
-  p_buf->event = BTA_AV_API_OFFLOAD_START_EVT;
-  p_buf->layer_specific = hndl;
+  p_buf->hdr.event = BTA_AV_API_OFFLOAD_START_EVT;
+  p_buf->hdr.layer_specific = hndl;
+  p_buf->do_scrambling = do_scrambling;
 
   bta_sys_sendmsg(p_buf);
 }

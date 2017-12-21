@@ -1057,9 +1057,9 @@ A2dpCodecConfigSbc::A2dpCodecConfigSbc(
     btav_a2dp_codec_priority_t codec_priority)
     : A2dpCodecConfig(BTAV_A2DP_CODEC_INDEX_SOURCE_SBC, "SBC", codec_priority) {
   LOG_DEBUG(LOG_TAG,"%s",__func__);
-  if (A2DP_GetOffloadStatus()) {
-    a2dp_sbc_caps = a2dp_sbc_offload_caps;
-    a2dp_sbc_default_config = a2dp_sbc_offload_default_config;
+  if (A2DP_GetOffloadStatus() && !A2DP_IsScramblingSupported()) {
+      a2dp_sbc_caps = a2dp_sbc_offload_caps;
+      a2dp_sbc_default_config = a2dp_sbc_offload_default_config;
   }
   else {
     a2dp_sbc_caps = a2dp_sbc_src_caps;
