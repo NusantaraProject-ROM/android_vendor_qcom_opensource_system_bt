@@ -88,6 +88,7 @@ typedef struct controller_t {
   uint8_t* (*get_local_supported_codecs)(uint8_t* number_of_codecs);
   bool (*supports_ble_offload_features)(void);
   uint8_t (*get_le_all_initiating_phys)(void);
+  uint8_t* (*get_scrambling_supported_freqs)(uint8_t* number_of_freqs);
 
 } controller_t;
 

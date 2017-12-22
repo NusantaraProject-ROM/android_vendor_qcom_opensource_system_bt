@@ -48,6 +48,7 @@
 #include "osi/include/properties.h"
 #include "btif/include/btif_a2dp_source.h"
 #include "device/include/interop.h"
+#include "device/include/controller.h"
 
 
 /*****************************************************************************
@@ -158,6 +159,7 @@ static int conn_retry_count = 1;
 static alarm_t *av_coll_detected_timer = NULL;
 static bool isA2dpSink = false;
 static bool codec_config_update_enabled = false;
+bool is_codec_config_dump = false;
 
 /*SPLITA2DP */
 bool bt_split_a2dp_enabled = false;
@@ -938,16 +940,20 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
         uint8_t peer_handle = BTRC_HANDLE_NONE;
         if (btif_rc_get_connected_peer(&peer_addr) &&
             (btif_av_cb[index].peer_bda == peer_addr)) {
-
-          /*
-           * Disconnect AVRCP connection, if
-           * A2DP conneciton failed, for any reason
+          /* Do not disconnect AVRCP connection if A2DP
+           * connection failed due to SDP failure since remote
+           * may not support A2DP. In such case we will keep
+           * AVRCP only connection.
            */
-          BTIF_TRACE_WARNING("%s: Disconnecting AVRCP: peer_addr=%s", __func__,
+          if (p_bta_data->open.status != BTA_AV_FAIL_SDP) {
+            BTIF_TRACE_WARNING("%s: Disconnecting AVRCP: peer_addr=%s", __func__,
                              peer_addr.ToString().c_str());
-          peer_handle = btif_rc_get_connected_peer_handle(peer_addr);
-          if (peer_handle != BTRC_HANDLE_NONE) {
-            BTA_AvCloseRc(peer_handle);
+            peer_handle = btif_rc_get_connected_peer_handle(peer_addr);
+            if (peer_handle != BTRC_HANDLE_NONE) {
+              BTA_AvCloseRc(peer_handle);
+            }
+          } else {
+            BTIF_TRACE_WARNING("Keep AVRCP only connection");
           }
         }
         state = BTAV_CONNECTION_STATE_DISCONNECTED;
@@ -1284,6 +1290,7 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
       /* update multicast state here if new device is connected
        * after A2dp connection. New A2dp device is connected
        * whlie playing */
+      is_codec_config_dump = true;
       btif_av_update_multicast_state(index);
       if (btif_av_cb[index].peer_sep == AVDT_TSEP_SRC) {
         BTA_AvStart(btif_av_cb[index].bta_handle);
@@ -1894,13 +1901,14 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       }
       else
       {
-        if (btif_av_cb[index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING)
+        if (!((btif_av_cb[index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING)
+                                          || (p_av->suspend.initiator == true)))
         {
-          btif_report_audio_state(BTAV_AUDIO_STATE_STOPPED, &(btif_av_cb[index].peer_bda));
+          btif_report_audio_state(BTAV_AUDIO_STATE_REMOTE_SUSPEND, &(btif_av_cb[index].peer_bda));
         }
         else
         {
-          btif_report_audio_state(BTAV_AUDIO_STATE_REMOTE_SUSPEND, &(btif_av_cb[index].peer_bda));
+          btif_report_audio_state(BTAV_AUDIO_STATE_STOPPED, &(btif_av_cb[index].peer_bda));
         }
       }
 
@@ -1991,7 +1999,12 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
           btif_av_cb[index].flags != BTIF_AV_FLAG_REMOTE_SUSPEND &&
           btif_av_cb[index].remote_started == false)
       {
-          BTA_AvOffloadStart(btif_av_cb[index].bta_handle);
+          bool is_scrambling_enabled = btif_av_is_scrambling_enabled();
+
+          BTIF_TRACE_WARNING("%s:is_scrambling_enabled %d",__func__,
+                                    is_scrambling_enabled);
+
+          BTA_AvOffloadStart(btif_av_cb[index].bta_handle, is_scrambling_enabled);
       }
       else if (btif_av_cb[index].remote_started)
       {
@@ -3449,7 +3462,14 @@ bt_status_t btif_av_execute_service(bool b_enable) {
           if (btif_av_is_split_a2dp_enabled()) {
             btif_a2dp_audio_interface_deinit();
             btif_a2dp_audio_if_init = false;
-          }else{
+          } else {
+             tA2DP_CTRL_CMD pending_cmd = btif_a2dp_get_pending_command();
+             BTIF_TRACE_DEBUG("%s: a2dp-ctrl-cmd : %s", __func__,
+                                     audio_a2dp_hw_dump_ctrl_event(pending_cmd));
+             if (pending_cmd) {
+                 btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+             }
+             btif_a2dp_source_on_stopped(NULL);
              btif_sm_change_state(btif_av_cb[i].sm_handle, BTIF_AV_STATE_IDLE);
              btif_queue_advance();
 
@@ -3710,6 +3730,59 @@ tBTA_AV_LATENCY btif_av_get_sink_latency() {
 
   BTIF_TRACE_DEBUG("%s, return sink latency: %d", __func__, sink_latency);
   return sink_latency;
+}
+
+
+/******************************************************************************
+**
+** Function        btif_av_is_scrambling_enabled
+**
+** Description     get scrambling is enabled from bluetooth.
+**
+** Returns         bool
+**
+********************************************************************************/
+bool btif_av_is_scrambling_enabled() {
+  uint8_t no_of_freqs = 0;
+  uint8_t *freqs = NULL;
+  char value[PROPERTY_VALUE_MAX] = {'\0'};
+  btav_a2dp_codec_config_t codec_config;
+  std::vector<btav_a2dp_codec_config_t> codecs_local_capabilities;
+  std::vector<btav_a2dp_codec_config_t> codecs_selectable_capabilities;
+  A2dpCodecs* a2dp_codecs = bta_av_get_a2dp_codecs();
+  if (a2dp_codecs == nullptr) return false;
+
+  osi_property_get("persist.vendor.bt.splita2dp.44_1_war", value, "false");
+
+  if(strcmp(value, "true")) {
+    BTIF_TRACE_WARNING(
+        "persist.vendor.bt.splita2dp.44_1_war is not set");
+    return false;
+  }
+
+  if (!a2dp_codecs->getCodecConfigAndCapabilities(
+          &codec_config, &codecs_local_capabilities,
+          &codecs_selectable_capabilities)) {
+    BTIF_TRACE_WARNING(
+        "btif_av_is_scrambling_enabled failed: "
+        "cannot get codec config and capabilities");
+    return false;
+  }
+  freqs = controller_get_interface()->get_scrambling_supported_freqs(&no_of_freqs);
+  if(no_of_freqs == 0) {
+    BTIF_TRACE_WARNING(
+        "BT controller doesn't support scrambling");
+    return false;
+  }
+
+  if (freqs != NULL) {
+    for ( uint8_t i = 0; i < no_of_freqs; i++) {
+      if (freqs[i] ==  ( uint8_t ) codec_config.sample_rate ) {
+         return true;
+      }
+    }
+  }
+  return false;
 }
 
 uint8_t btif_av_get_peer_sep(int index) {
@@ -4117,12 +4190,15 @@ void btif_av_reset_reconfig_flag() {
 bool btif_av_allow_codec_config_change(btav_a2dp_codec_index_t codec_type,
           btav_a2dp_codec_sample_rate_t sample_rate) {
   BTIF_TRACE_DEBUG("%s",__func__);
-  /* Only 48khz sampling rate is supported in Split A2dp mode, disregard
-   * codec switch request for sample rate change
-   * LDAC is not supported in Split A2dp currently, disregard LDAC switch req
+  /* Only 48khz sampling rate is supported in Split A2dp mode for other codecs, disregard
+   * codec switch request for sample rate change.
+   * LDAC Supports all sampling rates and switch request will be honored
   */
-  if (codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC ||
-      (sample_rate > 0 && sample_rate != BTAV_A2DP_CODEC_SAMPLE_RATE_48000)) {
+
+  if (codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC) {
+      return true;
+  }
+  if (sample_rate > 0 && sample_rate != BTAV_A2DP_CODEC_SAMPLE_RATE_48000) {
       BTIF_TRACE_DEBUG("config not supported codec_type = %d, sample_rate = %d",
                         codec_type, sample_rate)
       return false; //Only 48k is supported in split mode

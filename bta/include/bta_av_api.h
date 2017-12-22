@@ -838,7 +838,7 @@ void BTA_AvMetaCmd(uint8_t rc_handle, uint8_t label, tBTA_AV_CMD cmd_code,
  * Returns          void
  *
  ******************************************************************************/
-void BTA_AvOffloadStart(tBTA_AV_HNDL hndl);
+void BTA_AvOffloadStart(tBTA_AV_HNDL hndl, bool do_scrambling);
 
 /*******************************************************************************
  *

@@ -179,6 +179,21 @@ void LogMsg(uint32_t trace_set_mask, const char* fmt_str, ...) {
   }
 }
 
+void vnd_LogMsg(uint32_t trace_set_mask, const char *fmt_str, ...) {
+  int trace_layer = TRACE_GET_LAYER(trace_set_mask);
+  const char *tag;
+  if (trace_layer >= TRACE_LAYER_MAX_NUM)
+    trace_layer = 0;
+
+  tag = bt_layer_tags[trace_layer];
+
+  va_list ap;
+  va_start(ap, fmt_str);
+  if(logger_interface)
+    logger_interface->send_log_msg(tag, fmt_str, ap);
+  va_end(ap);
+}
+
 /* this function should go into BTAPP_DM for example */
 static uint8_t BTAPP_SetTraceLevel(uint8_t new_level) {
   if (new_level != 0xFF) appl_trace_level = new_level;

@@ -174,7 +174,12 @@ void avdt_scb_hdl_getconfig_rsp(UNUSED_ATTR tAVDT_SCB* p_scb,
  *
  ******************************************************************************/
 void avdt_scb_hdl_open_cmd(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
-  avdt_scb_event(p_scb, AVDT_SCB_API_OPEN_RSP_EVT, p_data);
+  if(!avdt_cb.conn_in_progress) {
+    avdt_scb_event(p_scb, AVDT_SCB_API_OPEN_RSP_EVT, p_data);
+  } else {
+    AVDT_TRACE_WARNING("Outgoing conn in progress, Reject Remote initiated AV Open");
+    avdt_scb_rej_state(p_scb, p_data);
+  }
 }
 
 /*******************************************************************************

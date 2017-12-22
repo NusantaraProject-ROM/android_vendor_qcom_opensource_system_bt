@@ -180,7 +180,7 @@ bool btm_ble_get_acl_remote_addr(tBTM_SEC_DEV_REC* p_dev_rec,
 
   switch (p_dev_rec->ble.active_addr_type) {
     case BTM_BLE_ADDR_PSEUDO:
-      if (dummy == p_dev_rec->ble.cur_rand_addr)
+      if (dummy != p_dev_rec->ble.cur_rand_addr)
         conn_addr = p_dev_rec->ble.cur_rand_addr;
       else
         conn_addr = p_dev_rec->bd_addr;
@@ -1944,6 +1944,30 @@ tBTM_STATUS BTM_RegBusyLevelNotif(tBTM_BL_CHANGE_CB* p_cb, uint8_t* p_level,
     btm_cb.p_bl_changed_cb = p_cb;
 
   return (BTM_SUCCESS);
+}
+
+
+/*******************************************************************************
+ *
+ * Function         BTM_SetA2dpStreamQoS
+ *
+ * Description      This function is called to setup QoS
+ *                  for a2dp streaming link
+ *
+ * Returns          status of the operation
+ *
+ ******************************************************************************/
+tBTM_STATUS BTM_SetA2dpStreamQoS(const RawAddress& bd, tBTM_CMPL_CB* p_cb) {
+  FLOW_SPEC p_flow;
+
+  p_flow.qos_flags = 0;
+  p_flow.service_type = BEST_EFFORT;
+  p_flow.token_rate = 0x00000000;
+  p_flow.peak_bandwidth = 0x00000000;
+  p_flow.latency =  0x00002710;
+  p_flow.delay_variation = 0xFFFFFFFF;
+
+  return BTM_SetQoS(bd, &p_flow, p_cb);
 }
 
 /*******************************************************************************

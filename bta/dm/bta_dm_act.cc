@@ -1485,6 +1485,7 @@ void bta_dm_inq_cmpl(tBTA_DM_MSG* p_data) {
      */
     bta_dm_search_cb.name_discover_done = false;
     bta_dm_search_cb.peer_name[0] = 0;
+    bta_dm_search_cb.transport = BTA_TRANSPORT_UNKNOWN;
     bta_dm_discover_device(
         bta_dm_search_cb.p_btm_inq_info->results.remote_bd_addr);
   } else {
@@ -2114,6 +2115,7 @@ static void bta_dm_discover_next_device(void) {
   if (bta_dm_search_cb.p_btm_inq_info != NULL) {
     bta_dm_search_cb.name_discover_done = false;
     bta_dm_search_cb.peer_name[0] = 0;
+    bta_dm_search_cb.transport = BTA_TRANSPORT_UNKNOWN;
     bta_dm_discover_device(
         bta_dm_search_cb.p_btm_inq_info->results.remote_bd_addr);
   } else {
@@ -2151,8 +2153,6 @@ static void bta_dm_discover_device(const RawAddress& remote_bd_addr) {
     transport = bta_dm_search_cb.transport;
   }
 
-  /* Reset transport state for next discovery */
-  bta_dm_search_cb.transport = BTA_TRANSPORT_UNKNOWN;
 
   VLOG(1) << __func__ << " BDA: " << remote_bd_addr;
 
@@ -2180,12 +2180,17 @@ static void bta_dm_discover_device(const RawAddress& remote_bd_addr) {
        (bta_dm_search_cb.p_btm_inq_info &&
         (!bta_dm_search_cb.p_btm_inq_info->appl_knows_rem_name)))) {
     if (bta_dm_read_remote_device_name(bta_dm_search_cb.peer_bdaddr,
-                                       transport) == true)
+                                       transport) == true) {
+      /* Continue the service search on same transport after rnr complete */
+      bta_dm_search_cb.transport = transport;
       return;
-
+    }
     /* starting name discovery failed */
     bta_dm_search_cb.name_discover_done = true;
   }
+
+  /* Reset transport state for next discovery */
+  bta_dm_search_cb.transport = BTA_TRANSPORT_UNKNOWN;
 
   /* if application wants to discover service */
   if (bta_dm_search_cb.services) {
@@ -3070,6 +3075,10 @@ void bta_dm_acl_change(tBTA_DM_MSG* p_data) {
             bta_dm_cb.device_list.count);
         if (p_dev->info & BTA_DM_DI_AV_ACTIVE) {
           /* there's AV activity on this link */
+          if ((p_data->acl_change.new_role == HCI_ROLE_SLAVE) &&
+              (p_data->acl_change.hci_status == HCI_SUCCESS)) {
+            BTM_SetA2dpStreamQoS(p_bda, NULL);
+          }
           if (p_data->acl_change.new_role == HCI_ROLE_SLAVE &&
               bta_dm_cb.device_list.count > 1 &&
               p_data->acl_change.hci_status == HCI_SUCCESS) {
@@ -3473,16 +3482,11 @@ static void bta_dm_adjust_roles(bool delay_role_switch) {
                                BTA_DM_SWITCH_DELAY_TIMER_MS,
                                bta_dm_delay_role_switch_cback, NULL);
           }
-        } else if (br_count == 1) {
-          if (delay_role_switch == FALSE && BTM_GetWifiState()) {
-              BTM_SwitchRole (bta_dm_cb.device_list.peer_device[i].peer_bdaddr,
-                              HCI_ROLE_MASTER, NULL);
-          }  else if(delay_role_switch == TRUE) {
-            alarm_set_on_mloop(bta_dm_cb.switch_delay_timer,
-                           BTA_DM_SWITCH_DELAY_TIMER_MS,
-                           bta_dm_delay_role_switch_cback,
-                           NULL);
-          }
+        } else if ((br_count == 1) &&
+                   (bta_dm_cb.device_list.peer_device[i].pref_role ==
+                    BTA_MASTER_ROLE_PREF)) {
+          BTM_SwitchRole(bta_dm_cb.device_list.peer_device[i].peer_bdaddr,
+                         HCI_ROLE_MASTER, NULL);
         }
       }
     }

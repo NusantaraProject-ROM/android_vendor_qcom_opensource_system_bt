@@ -955,6 +955,19 @@ extern uint16_t BTM_GetNumAclLinks(void);
 
 /*******************************************************************************
  *
+ * Function         BTM_SetA2dpStreamQoS
+ *
+ * Description      This function is called to setup QoS
+ *                  for a2dp streaming link
+ *
+ * Returns          status of the operation
+ *
+ ******************************************************************************/
+extern tBTM_STATUS BTM_SetA2dpStreamQoS(const RawAddress& BD_ADDR ,
+                                        tBTM_CMPL_CB* p_cb);
+
+/*******************************************************************************
+ *
  * Function         BTM_SetQoS
  *
  * Description      This function is called to setup QoS

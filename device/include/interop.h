@@ -186,6 +186,11 @@ typedef enum {
   // and notification, doesn't send Passthrough commands back to DUT in Streaming State
   INTEROP_DISABLE_PLAYER_APPLICATION_SETTING_CMDS,
 
+  // Disable profile connection for headsets/car-kits
+  // Some car kits going bad state when DUT initiate profile connection in collision scenerio
+  // Hence don't initaite profile level connections and wait for incoming connetcion
+  INTEROP_DISABLE_CONNECTION_AFTER_COLLISION,
+
   END_OF_INTEROP_LIST
 } interop_feature_t;
 

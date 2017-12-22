@@ -53,6 +53,10 @@ static void event_clean_up_stack(void* context);
 static void event_signal_stack_up(void* context);
 static void event_signal_stack_down(void* context);
 
+extern void start_bt_logger(void);
+extern void init_vnd_Logger(void);
+extern void clean_vnd_logger(void);
+
 // Unvetted includes/imports, etc which should be removed or vetted in the
 // future
 static future_t* hack_future;
@@ -104,6 +108,7 @@ static void event_init_stack(void* context) {
              __func__);
   } else {
     module_management_start();
+    start_bt_logger();
 
     module_init(get_module(OSI_MODULE));
     module_init(get_module(BT_UTILS_MODULE));
@@ -140,6 +145,7 @@ static void event_start_up_stack(UNUSED_ATTR void* context) {
   }
 
   ensure_stack_is_initialized();
+  init_vnd_Logger();
 
   LOG_INFO(LOG_TAG, "%s is bringing up the stack", __func__);
   future_t* local_hack_future = future_new();
@@ -215,6 +221,7 @@ static void event_clean_up_stack(void* context) {
   module_clean_up(get_module(OSI_MODULE));
   module_management_stop();
   LOG_INFO(LOG_TAG, "%s finished", __func__);
+  clean_vnd_logger();
 
 cleanup:;
   semaphore_t* semaphore = (semaphore_t*)context;

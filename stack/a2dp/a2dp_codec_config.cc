@@ -47,6 +47,7 @@
 // |codec_index| and |codec_priority| are the codec type and priority to use
 // for the initialization.
 bool mA2dp_offload_status = false;
+bool mA2dp_offload_scrambling_support = false;
 bool offload_capability = false;
 bool sbc_offload = false;
 bool aac_offload = false;
@@ -1277,7 +1278,7 @@ bool A2DP_InitCodecConfig(btav_a2dp_codec_index_t codec_index,
   return false;
 }
 
-void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap) {
+void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap, bool scrambling_support) {
   //char value[PROPERTY_VALUE_MAX] = {'\0'};
   char *tok = NULL;
   char *tmp_token = NULL;
@@ -1303,14 +1304,22 @@ void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap) {
       } else if (strcmp(tok,"aptxhd") == 0) {
         LOG_INFO(LOG_TAG,"%s: APTXHD offload supported",__func__);
         aptxhd_offload = TRUE;
+      } else if (strcmp(tok,"ldac") == 0) {
+        LOG_INFO(LOG_TAG,"%s: ldac offload supported",__func__);
+        ldac_offload = TRUE;
       }
       tok = strtok_r(NULL, "-", &tmp_token);
     };
   }
+  mA2dp_offload_scrambling_support = scrambling_support;
 }
 
 bool A2DP_GetOffloadStatus() {
   return mA2dp_offload_status;
+}
+
+bool A2DP_IsScramblingSupported() {
+  return mA2dp_offload_scrambling_support;
 }
 
 bool A2DP_IsCodecEnabledInOffload(btav_a2dp_codec_index_t codec_index) {
@@ -1330,7 +1339,8 @@ bool A2DP_IsCodecEnabledInOffload(btav_a2dp_codec_index_t codec_index) {
       codec_status = aptxhd_offload;
       break;
     case BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC:
-      LOG_INFO(LOG_TAG,"LDAC not enabled in offload currently");
+      if (!ldac_offload)
+          LOG_INFO(LOG_TAG,"LDAC not enabled in offload currently");
       codec_status = ldac_offload;
       break;
     case BTAV_A2DP_CODEC_INDEX_SOURCE_MAX:

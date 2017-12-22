@@ -1917,6 +1917,11 @@ void smp_process_secure_connection_long_term_key(void) {
  ******************************************************************************/
 void smp_set_derive_link_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
   SMP_TRACE_DEBUG("%s", __func__);
+  tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(p_cb->pairing_bda);
+  if (p_dev_rec) {
+    SMP_TRACE_DEBUG("%s: dev_type = %d ", __func__,p_dev_rec->device_type);
+    p_dev_rec->device_type |= BT_DEVICE_TYPE_BREDR;
+  }
   p_cb->derive_lk = true;
   smp_update_key_mask(p_cb, SMP_SEC_KEY_TYPE_LK, false);
   smp_key_distribution(p_cb, NULL);

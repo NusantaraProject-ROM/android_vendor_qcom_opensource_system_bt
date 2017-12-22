@@ -155,6 +155,18 @@ static BT_HDR* make_read_local_supported_codecs(void) {
   return make_command_no_params(HCI_READ_LOCAL_SUPPORTED_CODECS);
 }
 
+static BT_HDR* make_read_scrambling_supported_freqs(void) {
+
+  uint8_t* stream;
+  uint8_t sub_opcode = VS_QHCI_GET_SCRAMBLING_FREQS;
+  const uint8_t parameter_size = 1;
+  BT_HDR* packet =
+      make_command(HCI_VSC_SPLIT_A2DP_OPCODE, parameter_size, &stream);
+
+  UINT8_TO_STREAM(stream, sub_opcode);
+  return packet;
+}
+
 static BT_HDR *make_ble_read_offload_features_support(void) {
 return make_command_no_params(HCI_BLE_VENDOR_CAP_OCF);
 }
@@ -219,7 +231,8 @@ static const hci_packet_factory_t interface = {
     make_ble_read_number_of_supported_advertising_sets,
     make_ble_set_event_mask,
     make_read_local_supported_codecs,
-    make_ble_read_offload_features_support};
+    make_ble_read_offload_features_support,
+    make_read_scrambling_supported_freqs};
 
 const hci_packet_factory_t* hci_packet_factory_get_interface() {
   buffer_allocator = buffer_allocator_get_interface();

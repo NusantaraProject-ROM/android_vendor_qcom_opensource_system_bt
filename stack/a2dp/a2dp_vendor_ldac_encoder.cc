@@ -343,6 +343,11 @@ static void a2dp_vendor_ldac_encoder_update(uint16_t peer_mtu,
                                             bool* p_restart_input,
                                             bool* p_restart_output,
                                             bool* p_config_updated) {
+
+  if (A2DP_GetOffloadStatus()) {
+    LOG_INFO(LOG_TAG,"LDAC is running in offload mode");
+    return;
+  }
   tA2DP_LDAC_ENCODER_PARAMS* p_encoder_params =
       &a2dp_ldac_encoder_cb.ldac_encoder_params;
   uint8_t codec_info[AVDT_CODEC_SIZE];
@@ -507,6 +512,10 @@ void a2dp_vendor_ldac_encoder_cleanup(void) {
 }
 
 void a2dp_vendor_ldac_feeding_reset(void) {
+  if (A2DP_GetOffloadStatus()) {
+    LOG_INFO(LOG_TAG,"LDAC is running in offload mode");
+    return;
+  }
   /* By default, just clear the entire state */
   memset(&a2dp_ldac_encoder_cb.ldac_feeding_state, 0,
          sizeof(a2dp_ldac_encoder_cb.ldac_feeding_state));
@@ -533,6 +542,11 @@ period_ms_t a2dp_vendor_ldac_get_encoder_interval_ms(void) {
 void a2dp_vendor_ldac_send_frames(uint64_t timestamp_us) {
   uint8_t nb_frame = 0;
   uint8_t nb_iterations = 0;
+
+  if (A2DP_GetOffloadStatus()) {
+    LOG_INFO(LOG_TAG,"LDAC is running in offload mode");
+    return;
+  }
 
   a2dp_ldac_get_num_frame_iteration(&nb_iterations, &nb_frame, timestamp_us);
   LOG_VERBOSE(LOG_TAG, "%s: Sending %d frames per iteration, %d iterations",
@@ -753,6 +767,11 @@ void A2dpCodecConfigLdac::debug_codec_dump(int fd) {
   a2dp_ldac_encoder_stats_t* stats = &a2dp_ldac_encoder_cb.stats;
   tA2DP_LDAC_ENCODER_PARAMS* p_encoder_params =
       &a2dp_ldac_encoder_cb.ldac_encoder_params;
+
+  if (A2DP_GetOffloadStatus()) {
+      LOG_INFO(LOG_TAG,"LDAC is running in offload mode");
+      return;
+  }
 
   A2dpCodecConfig::debug_codec_dump(fd);
 

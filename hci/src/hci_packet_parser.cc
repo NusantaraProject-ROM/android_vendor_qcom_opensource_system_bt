@@ -86,6 +86,26 @@ static void parse_read_local_supported_codecs_response(
   buffer_allocator->free(response);
 }
 
+static void parse_read_scrambling_supported_freqs_response(
+    BT_HDR* response, uint8_t* number_of_scrambling_supported_freqs,
+    uint8_t* scrambling_supported_freqs) {
+  uint8_t sub_opcode;
+  uint8_t* stream = read_command_complete_header(
+      response, HCI_VSC_SPLIT_A2DP_OPCODE, 0 /* bytes after */);
+  if (stream) {
+    STREAM_TO_UINT8(sub_opcode, stream);
+  }
+  if (stream && sub_opcode == VS_QHCI_GET_SCRAMBLING_FREQS) {
+    STREAM_TO_UINT8(*number_of_scrambling_supported_freqs, stream);
+    for (uint8_t i = 0; i < *number_of_scrambling_supported_freqs; i++) {
+      STREAM_TO_UINT8(*scrambling_supported_freqs, stream);
+      scrambling_supported_freqs++;
+    }
+  }
+
+  buffer_allocator->free(response);
+}
+
 static void parse_ble_read_offload_features_response(
     BT_HDR *response,
     bool *ble_offload_features_supported) {
@@ -281,7 +301,8 @@ static const hci_packet_parser_t interface = {
     parse_ble_read_maximum_advertising_data_length,
     parse_ble_read_number_of_supported_advertising_sets,
     parse_read_local_supported_codecs_response,
-    parse_ble_read_offload_features_response};
+    parse_ble_read_offload_features_response,
+    parse_read_scrambling_supported_freqs_response};
 
 const hci_packet_parser_t* hci_packet_parser_get_interface() {
   buffer_allocator = buffer_allocator_get_interface();

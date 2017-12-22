@@ -1058,6 +1058,11 @@ void GATT_Deregister(tGATT_IF gatt_if) {
     return;
   }
 
+  if(gatt_cb.srv_list_info->empty()) {
+    VLOG(1) << __func__ << "srv list info is empty";
+    return;
+  }
+
   /* stop all services  */
   /* todo an applcaiton can not be deregistered if its services is also used by
     other application

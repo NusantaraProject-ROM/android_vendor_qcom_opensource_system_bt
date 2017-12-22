@@ -411,6 +411,11 @@
 /* VOIP Network Wifi OCF */
 #define HCI_VSC_VOIP_NETWORK_WIFI_OCF   (0x001C | HCI_GRP_VENDOR_SPECIFIC)
 
+#define HCI_VSC_SPLIT_A2DP_OPCODE  (0x000A | HCI_GRP_VENDOR_SPECIFIC)
+
+#define VS_QHCI_GET_SCRAMBLING_FREQS          0x11
+#define VS_QHCI_SCRAMBLE_A2DP_MEDIA           0x12
+
 /* subcode for VOIP Network Wifi */
 #define HCI_VSC_SUBCODE_VOIP_NETWORK_WIFI               0x01
 
