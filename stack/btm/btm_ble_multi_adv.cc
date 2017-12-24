@@ -22,6 +22,7 @@
 #include <base/strings/string_number_conversions.h>
 #include <base/time/time.h>
 #include <string.h>
+#include <mutex>
 #include <queue>
 #include <vector>
 
@@ -56,7 +57,7 @@ using IdTxPowerStatusCb = base::Callback<void(
 using SetEnableData = BleAdvertiserHciInterface::SetEnableData;
 extern void btm_gen_resolvable_private_addr(
     base::Callback<void(uint8_t[8])> cb);
-
+std::mutex lock_;
 constexpr int ADV_DATA_LEN_MAX = 251;
 
 namespace {
@@ -817,6 +818,7 @@ class BleAdvertisingManagerImpl
 
     VLOG(1) << __func__ << " inst_id: " << +inst_id;
 
+    std::lock_guard<std::mutex> lock(lock_);
     if (!BleAdvertisingManager::IsInitialized()) {
       LOG(ERROR) << "Stack already shutdown";
       return;
@@ -1024,6 +1026,7 @@ void btm_ble_adv_init() {
  *
  ******************************************************************************/
 void btm_ble_multi_adv_cleanup(void) {
+  std::lock_guard<std::mutex> lock(lock_);
 #ifdef WIPOWER_SUPPORTED
   is_wipower_adv = false;
   wipower_inst_id = BTM_BLE_MULTI_ADV_DEFAULT_STD;
