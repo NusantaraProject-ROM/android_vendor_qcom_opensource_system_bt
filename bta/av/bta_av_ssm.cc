@@ -403,7 +403,7 @@ static const uint8_t bta_av_sst_rcfg[][BTA_AV_NUM_COLS] = {
 static const uint8_t bta_av_sst_closing[][BTA_AV_NUM_COLS] = {
     /* Event                     Action 1               Action 2 Next state */
     /* AP_OPEN_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* AP_CLOSE_EVT */ {BTA_AV_STR_CLOSED, BTA_AV_SIGNORE,
+    /* AP_CLOSE_EVT */ {BTA_AV_DISCONNECT_REQ, BTA_AV_STR_CLOSED,
                         BTA_AV_INIT_SST},
     /* AP_START_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
     /* AP_STOP_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
