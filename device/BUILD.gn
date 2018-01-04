@@ -19,6 +19,7 @@ static_library("device") {
     "src/controller.cc",
     "src/esco_parameters.cc",
     "src/interop.cc",
+    "src/profile_config.cc",
   ]
 
   include_dirs = [

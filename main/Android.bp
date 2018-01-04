@@ -35,6 +35,8 @@ cc_library_shared {
         "system/bt/embdrv/sbc/decoder/include",
         "system/bt/utils/include",
         "vendor/qcom/opensource/bluetooth/hal/include",
+        "vendor/qcom/opensource/bluetooth_ext/vhal/include",
+        "vendor/qcom/opensource/bluetooth_ext/system_bt_ext"
     ],
     logtags: ["../EventLogTags.logtags"],
     shared_libs: [
@@ -82,6 +84,7 @@ cc_library_shared {
         "bt_did.conf",
         "bt_stack.conf",
         "interop_database.conf",
+        "bt_profile.conf",
         "libbt-hci",
         "libldacBT_enc",
         "libldacBT_abr",

@@ -35,6 +35,7 @@
 #include <time.h>
 
 #include <hardware/bluetooth.h>
+#include <hardware/vendor.h>
 
 #include "bt_common.h"
 #include "bt_hci_bdroid.h"
@@ -46,6 +47,7 @@
 #include "btsnoop.h"
 #include "btu.h"
 #include "device/include/interop.h"
+#include "device/include/profile_config.h"
 #include "hci_layer.h"
 #include "hcimsgs.h"
 #include "osi/include/alarm.h"
@@ -121,6 +123,7 @@ void post_to_hci_message_loop(const tracked_objects::Location& from_here,
  *****************************************************************************/
 void bte_main_boot_entry(void) {
   module_init(get_module(INTEROP_MODULE));
+  module_init(get_module(PROFILE_CONFIG_MODULE));
 
   hci = hci_layer_get_interface();
   if (!hci) {
@@ -146,6 +149,7 @@ void bte_main_cleanup() {
   module_clean_up(get_module(STACK_CONFIG_MODULE));
 
   module_clean_up(get_module(INTEROP_MODULE));
+  module_clean_up(get_module(PROFILE_CONFIG_MODULE));
 }
 
 /******************************************************************************
