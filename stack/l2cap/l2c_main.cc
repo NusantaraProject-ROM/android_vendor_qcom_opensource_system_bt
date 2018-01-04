@@ -67,7 +67,6 @@ void l2c_rcv_acl_data(BT_HDR* p_msg) {
   tL2C_LCB* p_lcb;
   tL2C_CCB* p_ccb = NULL;
   uint16_t l2cap_len, rcv_cid, psm;
-  uint16_t credit;
   uint16_t soc_log_stats_id;
 
   /* Extract the handle */
@@ -225,9 +224,19 @@ void l2c_rcv_acl_data(BT_HDR* p_msg) {
     else {
       if (p_lcb->transport == BT_TRANSPORT_LE) {
         l2c_lcc_proc_pdu(p_ccb, p_msg);
+
+        /* The remote device has one less credit left */
+        --p_ccb->remote_credit_count;
         // Got a pkt, valid send out credits to the peer device
-        credit = L2CAP_LE_DEFAULT_CREDIT;
-        l2c_csm_execute(p_ccb, L2CEVT_L2CA_SEND_FLOW_CONTROL_CREDIT, &credit);
+
+        /* If the credits left on the remote device are getting low, send some */
+        if (p_ccb->remote_credit_count <= L2CAP_LE_CREDIT_THRESHOLD) {
+          uint16_t credits = L2CAP_LE_CREDIT_DEFAULT - p_ccb->remote_credit_count;
+          p_ccb->remote_credit_count = L2CAP_LE_CREDIT_DEFAULT;
+
+          /* Return back credits */
+          l2c_csm_execute(p_ccb, L2CEVT_L2CA_SEND_FLOW_CONTROL_CREDIT, &credits);
+        }
       } else {
         /* Basic mode packets go straight to the state machine */
         if (p_ccb->peer_cfg.fcr.mode == L2CAP_FCR_BASIC_MODE)
