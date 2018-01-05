@@ -21,6 +21,7 @@
 #include "btif_sock_sdp.h"
 
 #include <errno.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 
@@ -40,6 +41,7 @@
 #include "btm_int.h"
 #include "btu.h"
 #include "hcimsgs.h"
+#include "osi/include/properties.h"
 #include "sdp_api.h"
 #include "utl.h"
 
@@ -81,14 +83,20 @@ static const tBTA_OP_FMT bta_ops_obj_fmt[OBEX_PUSH_NUM_FORMATS] = {
    BTA_OP_ICAL_MASK | BTA_OP_VNOTE_MASK | BTA_OP_VMSG_MASK | BTA_OP_ANY_MASK)
 #endif
 
-#define RESERVED_SCN_PBS 19
 #define RESERVED_SCN_OPS 12
+#define RESERVED_SCN_SAP 16
+#define RESERVED_SCN_PBS 19
 #define RESERVED_SCN_FTP 20
+#define RESERVED_SCN_MNS 22
 #define RESERVED_SCN_DUN 25
+#define RESERVED_SCN_MAP 26
 
 #define UUID_MAX_LENGTH 16
 #define UUID_MATCHES(u1, u2) !memcmp(u1, u2, UUID_MAX_LENGTH)
 #define SPP_PROFILE_VERSION   0x0102
+
+#define NO_OF_EMAIL_ACCOUNTS_PROPERTY "persist.bluetooth.emailaccountcount"
+#define DEFAULT_ACTIVE_ACCOUNTS "0"
 
 // Adds a protocol list and service name (if provided) to an SDP record given by
 // |sdp_handle|, and marks it as browseable. This is a shortcut for defining a
@@ -521,15 +529,28 @@ static int add_rfc_sdp_by_uuid(const char* name, const uint8_t* uuid,
 }
 
 bool is_reserved_rfc_channel(const int channel) {
-  switch (channel) {
-    case RESERVED_SCN_PBS:
-    case RESERVED_SCN_OPS:
-    case RESERVED_SCN_FTP:
-    case RESERVED_SCN_DUN:
-      return true;
-  }
-
-  return false;
+    APPL_TRACE_DEBUG("is_reserved_rfc_channel: %d", channel);
+    switch(channel) {
+        case RESERVED_SCN_PBS:
+        case RESERVED_SCN_OPS:
+        case RESERVED_SCN_SAP:
+        case RESERVED_SCN_FTP:
+        case RESERVED_SCN_DUN:
+        case RESERVED_SCN_MAP:
+        case RESERVED_SCN_MNS:
+            APPL_TRACE_DEBUG("reserved rfcomm channel, channel_no = %d", channel);
+            return true;
+    }
+    /* Code to check number of email instances in use */
+    char no_of_email_instance[2] = {0};
+    osi_property_get(NO_OF_EMAIL_ACCOUNTS_PROPERTY, no_of_email_instance, DEFAULT_ACTIVE_ACCOUNTS);
+    if (channel > RESERVED_SCN_MAP
+            && channel <= (RESERVED_SCN_MAP + atoi(no_of_email_instance))) {
+        APPL_TRACE_DEBUG("reserved chnannel for MAP MAS email instance, channel_no = %d",
+                channel);
+        return true;
+    }
+    return false;
 }
 
 int get_reserved_rfc_channel(const uint8_t* uuid) {
