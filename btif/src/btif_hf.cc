@@ -83,6 +83,7 @@
 static uint32_t btif_hf_features = BTIF_HF_FEATURES;
 
 #define BTIF_HF_CALL_END_TIMEOUT 6
+#define BTIF_HF_CALL_END_TIMEOUT_2 2
 
 #define BTIF_HF_INVALID_IDX (-1)
 
@@ -1717,6 +1718,18 @@ bool btif_hf_call_terminated_recently() {
     return true;
   } else {
     btif_hf_cb[0].call_end_timestamp.tv_sec = 0;
+    return false;
+  }
+}
+
+bool btif_hf_call_terminated_recently_2() {
+  struct timespec now;
+
+  clock_gettime(CLOCK_MONOTONIC, &now);
+  if (now.tv_sec <=
+      btif_hf_cb[0].call_end_timestamp.tv_sec + BTIF_HF_CALL_END_TIMEOUT_2) {
+    return true;
+  } else {
     return false;
   }
 }
