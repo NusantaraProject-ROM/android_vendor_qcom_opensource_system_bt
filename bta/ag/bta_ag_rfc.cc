@@ -126,6 +126,8 @@ static void bta_ag_mgmt_cback(uint32_t code, uint16_t port_handle,
                    code, port_handle, handle);
 
   p_scb = bta_ag_scb_by_idx(handle);
+  VLOG(1) << __func__ << " p_scb addr:" << p_scb->peer_addr;
+  APPL_TRACE_DEBUG("%s: p_scb->conn_handle: %d", __func__, p_scb->conn_handle);
   if (p_scb != NULL) {
     /* ignore close event for port handles other than connected handle */
     if ((code != PORT_SUCCESS) && (port_handle != p_scb->conn_handle)) {
@@ -136,12 +138,18 @@ static void bta_ag_mgmt_cback(uint32_t code, uint16_t port_handle,
     if (code == PORT_SUCCESS) {
       if (p_scb->conn_handle) /* Outgoing connection */
       {
-        if (port_handle == p_scb->conn_handle) found_handle = true;
-      } else /* Incoming connection */
-      {
-        for (i = 0; i < BTA_AG_NUM_IDX; i++) {
-          if (port_handle == p_scb->serv_handle[i]) found_handle = true;
+        if (port_handle == p_scb->conn_handle) {
+          found_handle = true;
+          APPL_TRACE_DEBUG("%s: outgoing connection found_handle: %d", __func__, found_handle);
         }
+      } else {/* Incoming connection */
+         for (i = 0; i < BTA_AG_NUM_IDX; i++) {
+           if (port_handle == p_scb->serv_handle[i]){
+             found_handle = true;
+             APPL_TRACE_DEBUG("%s:Incoming connection found_handle:%d, p_scb->serv_handle[%d]:%d",
+                               __func__, found_handle, i, p_scb->serv_handle[i]);
+           }
+         }
       }
 
       if (!found_handle) {
@@ -160,6 +168,7 @@ static void bta_ag_mgmt_cback(uint32_t code, uint16_t port_handle,
       event = BTA_AG_RFC_SRV_CLOSE_EVT;
     }
 
+    APPL_TRACE_DEBUG("%s: event: %d", __func__, event);
     tBTA_AG_RFC* p_buf = (tBTA_AG_RFC*)osi_malloc(sizeof(tBTA_AG_RFC));
     p_buf->hdr.event = event;
     p_buf->hdr.layer_specific = handle;
