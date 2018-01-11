@@ -410,6 +410,7 @@ static int btif_max_rc_clients = 1;
  *  Externs
  *****************************************************************************/
 extern bool btif_hf_call_terminated_recently();
+extern bool btif_hf_call_terminated_recently_2();
 extern bool btif_hf_is_call_vr_idle();
 extern bool check_cod(const RawAddress* remote_bdaddr, uint32_t cod);
 extern bool btif_av_is_split_a2dp_enabled();
@@ -943,6 +944,14 @@ void handle_rc_passthrough_cmd(tBTA_AV_REMOTE_CMD* p_remote_cmd) {
       !btif_av_is_device_connected(p_dev->rc_addr)) {
     BTIF_TRACE_ERROR("Passthrough on AVRCP only device: Ignore..");
     return;
+  }
+
+  if (btif_hf_call_terminated_recently_2()) {
+    if ((p_remote_cmd->rc_id == BTA_AV_RC_PLAY || p_remote_cmd->rc_id == BTA_AV_RC_PAUSE) &&
+            (p_remote_cmd->key_state == AVRC_STATE_PRESS)) {
+      APPL_TRACE_WARNING("Play/Pause cmd while hf call terminated recently: Ignore..");
+      return;
+    }
   }
 
   bool ignore_play_processed = false;
