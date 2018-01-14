@@ -1,6 +1,36 @@
 /******************************************************************************
  * Copyright (C) 2017, The Linux Foundation. All rights reserved.
  * Not a Contribution.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ * * Neither the name of The Linux Foundation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
 /******************************************************************************
  *
@@ -46,6 +76,8 @@
 #include <mutex>
 
 #include <bluetooth/uuid.h>
+#include "hardware/vendor.h"
+
 #include <hardware/bluetooth.h>
 
 #include "advertise_data_parser.h"
@@ -74,6 +106,12 @@
 #include "stack/btm/btm_int.h"
 #include "stack_config.h"
 #include "stack/sdp/sdpint.h"
+
+
+#include "stack/sdp/sdpint.h"
+#include "btif_tws_plus.h"
+
+
 
 using bluetooth::Uuid;
 /******************************************************************************
@@ -335,6 +373,9 @@ bt_status_t btif_in_execute_service_request(tBTA_SERVICE_ID service_id,
     case BTA_HIDD_SERVICE_ID: {
       btif_hd_execute_service(b_enable);
     } break;
+     case BTA_TWS_PLUS_SERVICE_ID: {
+      btif_tws_plus_execute_service(b_enable);
+    } break;
     default:
       BTIF_TRACE_ERROR("%s: Unknown service %d being %s", __func__, service_id,
                        (b_enable) ? "enabled" : "disabled");
@@ -556,7 +597,7 @@ bool check_sdp_bl(const RawAddress* remote_bdaddr) {
                                      manufacturer));
 }
 
-static void bond_state_changed(bt_status_t status, const RawAddress& bd_addr,
+void bond_state_changed(bt_status_t status, const RawAddress& bd_addr,
                                bt_bond_state_t state) {
   btif_stats_add_bond_event(bd_addr, BTIF_DM_FUNC_BOND_STATE_CHANGED, state);
 
@@ -1178,8 +1219,14 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
         (p_auth_cmpl->key_type == HCI_LKEY_TYPE_AUTH_COMB_P_256) ||
         pairing_cb.bond_type == BOND_TYPE_PERSISTENT) {
       bt_status_t ret;
+      bool status;
       BTIF_TRACE_DEBUG("%s: Storing link key. key_type=0x%x, bond_type=%d",
                        __func__, p_auth_cmpl->key_type, pairing_cb.bond_type);
+      if(btif_is_tws_plus_device(&bd_addr)) {
+        status = btif_tws_plus_set_dev_type(&bd_addr, TWS_PLUS_DEV_TYPE_PRIMARY);
+        ASSERTC(status == TRUE, "Adding TWS_PLUS dev type failed", status);
+      }
+
       ret = btif_storage_add_bonded_device(&bd_addr, p_auth_cmpl->key,
                                            p_auth_cmpl->key_type,
                                            pairing_cb.pin_code_len);
@@ -1382,8 +1429,8 @@ static void btif_dm_search_devices_evt(uint16_t event, char* p_param) {
       tBTA_SERVICE_MASK services = 0;
 
       p_search_data = (tBTA_DM_SEARCH*)p_param;
-      RawAddress& bdaddr = p_search_data->inq_res.bd_addr;
-
+      RawAddress bdaddr = p_search_data->inq_res.bd_addr;
+      RawAddress peer_eb_bdaddr = RawAddress::kEmpty;
       BTIF_TRACE_DEBUG("%s() %s device_type = 0x%x\n", __func__,
                        bdaddr.ToString().c_str(),
                        p_search_data->inq_res.device_type);
@@ -1484,6 +1531,13 @@ static void btif_dm_search_devices_evt(uint16_t event, char* p_param) {
                 "failed to save remote addr type (inquiry)", status);
         /* Callback to notify upper layer of device */
         HAL_CBACK(bt_hal_cbacks, device_found_cb, num_properties, properties);
+
+        if( btif_tws_plus_process_eir( p_search_data, &peer_eb_bdaddr) ) {
+            BTIF_TRACE_DEBUG("%s() %s \n", __func__,
+                   peer_eb_bdaddr.ToString().c_str());
+
+          btif_tws_plus_set_peer_eb_addr(&bdaddr, &peer_eb_bdaddr);
+        }
       }
     } break;
 
@@ -1540,6 +1594,7 @@ static void btif_dm_search_services_evt(uint16_t event, char* p_param) {
       bt_property_t prop[2];
       int num_properties = 0;
       bt_status_t ret;
+      bool is_tws_plus_device = false;
 
       RawAddress& bd_addr = p_data->disc_res.bd_addr;
 
@@ -1590,7 +1645,11 @@ static void btif_dm_search_services_evt(uint16_t event, char* p_param) {
         if (p_data->disc_res.bd_addr == pairing_cb.static_bdaddr)
           bond_state_changed(BT_STATUS_SUCCESS, bd_addr, BT_BOND_STATE_BONDING);
 
-        bond_state_changed(BT_STATUS_SUCCESS, bd_addr, BT_BOND_STATE_BONDED);
+        if((is_tws_plus_device = btif_is_tws_plus_device(&bd_addr))) {
+            btif_tws_plus_get_services(&bd_addr);
+        } else {
+            bond_state_changed(BT_STATUS_SUCCESS, bd_addr, BT_BOND_STATE_BONDED);
+        }
       }
 
       if (p_data->disc_res.num_uuids != 0) {
@@ -1612,7 +1671,7 @@ static void btif_dm_search_services_evt(uint16_t event, char* p_param) {
         num_properties++;
       }
 
-      if(num_properties > 0) {
+      if(!is_tws_plus_device && num_properties > 0) {
         /* Send the event to the BTIF */
         HAL_CBACK(bt_hal_cbacks, remote_device_properties_cb, BT_STATUS_SUCCESS,
                   &bd_addr, num_properties, prop);
@@ -1765,6 +1824,7 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
           btif_in_execute_service_request(i, true);
         }
       }
+      btif_in_execute_service_request(33, true);
       /* clear control blocks */
       memset(&pairing_cb, 0, sizeof(btif_dm_pairing_cb_t));
       pairing_cb.bond_type = BOND_TYPE_PERSISTENT;
@@ -1773,6 +1833,8 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
       ** and bonded_devices_info_cb
       */
       btif_storage_load_bonded_devices();
+
+      btif_tws_plus_load_tws_devices();
 
       btif_enable_bluetooth_evt(p_data->enable.status);
     } break;
@@ -1785,6 +1847,7 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
           (tBTA_SERVICE_MASK)(BTA_SERVICE_ID_TO_SERVICE_MASK(BTA_BLE_SERVICE_ID))) {
         btif_in_execute_service_request(BTA_BLE_SERVICE_ID, FALSE);
       }
+      btif_in_execute_service_request(33, false);
       btif_disable_bluetooth_evt();
       break;
 

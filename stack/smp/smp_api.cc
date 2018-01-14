@@ -1,3 +1,38 @@
+/*
+ * Copyright (C) 2017, The Linux Foundation. All rights reserved.
+ * Not a Contribution.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ * * Neither the name of The Linux Foundation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 /******************************************************************************
  *
  *  Copyright (C) 2008-2012 Broadcom Corporation
@@ -564,4 +599,53 @@ bool SMP_CreateLocalSecureConnectionsOobData(tBLE_BD_ADDR* addr_to_send_to) {
   smp_sm_event(p_cb, SMP_CR_LOC_SC_OOB_DATA_EVT, NULL);
 
   return true;
+}
+
+/*******************************************************************************
+ *
+ * Function         SMP_DeriveBrEdrLinkKey
+ *
+ * Description      This function is called to encrypt the data with the
+ *                  specified key
+ *
+ * Parameters:      key                 - Pointer to key key[0] conatins the MSB
+ *                  key_len             - key length
+ *                  plain_text          - Pointer to data to be encrypted
+ *                                        plain_text[0] conatins the MSB
+ *                  pt_len              - plain text length
+ *                  p_out                - output of the encrypted texts
+ *
+ *  Returns         Boolean - request is successful
+ ******************************************************************************/
+bool SMP_DeriveBrEdrLinkKey(const RawAddress& peer_eb_addr, uint8_t* key,
+                                                         uint8_t *p_out)
+{
+  bool status = false;
+  uint8_t TWS_SALT[16];
+  uint8_t intermediate_key[16];
+  uint8_t rev_link_key[16], rev_salt[16], H6_link_key[16];
+  uint8_t* p1, *salt1, *salt2, *temp_H6_link_key;
+
+  /* Reverse link key */
+  memset(rev_link_key, 0, 16);
+  p1 = rev_link_key;
+  REVERSE_ARRAY_TO_STREAM(p1, key, 16);
+
+  /* Reverse TWS salt*/
+  memset(TWS_SALT, 0, 16);
+  memcpy(&TWS_SALT[10], &peer_eb_addr.address[0], 6);
+  salt1 = rev_salt;
+  salt2 = TWS_SALT;
+  REVERSE_ARRAY_TO_STREAM(salt1, salt2, 16);
+
+  memset(intermediate_key, 0, 16);
+  memset(H6_link_key, 0, 16);
+  temp_H6_link_key = H6_link_key;
+  if(smp_calculate_h7(rev_salt, rev_link_key, intermediate_key)) {
+    if(smp_calculate_h6(intermediate_key, (uint8_t*)"2swt", temp_H6_link_key)) {
+      status = true;
+    }
+  }
+  REVERSE_ARRAY_TO_STREAM(p_out, temp_H6_link_key, 16);
+  return status;
 }

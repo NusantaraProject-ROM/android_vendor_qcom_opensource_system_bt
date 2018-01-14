@@ -2125,4 +2125,14 @@ extern void BTM_PCM2Setup_Write(bool clk_master, tBTM_VSC_CMPL_CB* p_arc_cb);
  ******************************************************************************/
 extern tBTM_CONTRL_STATE BTM_PM_ReadControllerState(void);
 
+
+extern bool BTM_SecUpdateTwsPeerAddr(const RawAddress& eb_addr,
+                                     const RawAddress& peer_eb_addr);
+
+extern bool BTM_SecGetTwsPlusPeerDev(const RawAddress& eb_addr,
+                                     RawAddress& peer_bd_addr);
+
+extern bool BTM_SecIsTwsPlusDev(const RawAddress& eb_addr);
+
+
 #endif /* BTM_API_H */

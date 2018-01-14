@@ -1,3 +1,38 @@
+/*
+ * Copyright (C) 2017, The Linux Foundation. All rights reserved.
+ * Not a Contribution.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ * * Neither the name of The Linux Foundation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 /******************************************************************************
  *
  *  Copyright (C) 1999-2012 Broadcom Corporation
@@ -723,6 +758,39 @@ bool SDP_AddProfileDescriptorList(uint32_t handle, uint16_t profile_uuid,
 #endif
 }
 
+bool SDP_AddProfileDescriptorListUuid128(uint32_t handle, uint8_t *profile_uuid,
+                                  uint16_t version) {
+#if (SDP_SERVER_ENABLED == TRUE)
+  uint8_t* p;
+  bool result;
+  uint8_t* p_buff = (uint8_t*)osi_malloc(sizeof(uint8_t) * SDP_MAX_ATTR_LEN);
+
+  p = p_buff + 2;
+
+  /* First, build the profile descriptor list. This consists of a data element
+   * sequence. */
+  /* The sequence consists of profile's UUID and version number  */
+  UINT8_TO_BE_STREAM(p, (UUID_DESC_TYPE << 3) | SIZE_SIXTEEN_BYTES);
+  ARRAY_TO_BE_STREAM(p, profile_uuid, 16);
+
+  UINT8_TO_BE_STREAM(p, (UINT_DESC_TYPE << 3) | SIZE_TWO_BYTES);
+  UINT16_TO_BE_STREAM(p, version);
+
+  /* Add in type and length fields */
+  *p_buff = (uint8_t)((DATA_ELE_SEQ_DESC_TYPE << 3) | SIZE_IN_NEXT_BYTE);
+  *(p_buff + 1) = (uint8_t)(p - (p_buff + 2));
+
+  result =
+      SDP_AddAttribute(handle, ATTR_ID_BT_PROFILE_DESC_LIST,
+                       DATA_ELE_SEQ_DESC_TYPE, (uint32_t)(p - p_buff), p_buff);
+  osi_free(p_buff);
+  return result;
+
+#else /* SDP_SERVER_ENABLED == FALSE */
+  return (false);
+#endif
+}
+
 /*******************************************************************************
  *
  * Function         SDP_AddProfileDescriptorListToRecord
@@ -835,6 +903,28 @@ bool SDP_AddServiceClassIdList(uint32_t handle, uint16_t num_services,
     UINT8_TO_BE_STREAM(p, (UUID_DESC_TYPE << 3) | SIZE_TWO_BYTES);
     UINT16_TO_BE_STREAM(p, *p_service_uuids);
   }
+
+  result =
+      SDP_AddAttribute(handle, ATTR_ID_SERVICE_CLASS_ID_LIST,
+                       DATA_ELE_SEQ_DESC_TYPE, (uint32_t)(p - p_buff), p_buff);
+  osi_free(p_buff);
+  return result;
+#else /* SDP_SERVER_ENABLED == FALSE */
+  return (false);
+#endif
+}
+
+bool SDP_AddServiceClassIdListUuid128(uint32_t handle, uint8_t* p_service_uuids) {
+#if (SDP_SERVER_ENABLED == TRUE)
+  uint8_t* p;
+  bool result;
+  uint8_t* p_buff =
+      (uint8_t*)osi_malloc(sizeof(uint8_t) * SDP_MAX_ATTR_LEN * 2);
+
+  p = p_buff;
+
+  UINT8_TO_BE_STREAM(p, (UUID_DESC_TYPE << 3) | SIZE_SIXTEEN_BYTES);
+  ARRAY_TO_BE_STREAM(p, p_service_uuids, 16);
 
   result =
       SDP_AddAttribute(handle, ATTR_ID_SERVICE_CLASS_ID_LIST,

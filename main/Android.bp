@@ -65,6 +65,7 @@ cc_library_shared {
     whole_static_libs: [
         "libbt-bta_qti",
         "libbtdevice_qti",
+        "libbt-bta-ext",
         "libbtdevice_ext",
         "libbtif_qti",
         "libbtif_ext",

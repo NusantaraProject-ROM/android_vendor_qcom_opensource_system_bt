@@ -239,4 +239,7 @@ extern void smp_link_encrypted(const RawAddress& bda, uint8_t encr_enable);
 bool aes_cipher_msg_auth_code(BT_OCTET16 key, uint8_t* input, uint16_t length,
                               uint16_t tlen, uint8_t* p_signature);
 
+bool SMP_DeriveBrEdrLinkKey(const RawAddress& peer_eb_addr, uint8_t* key,
+                             uint8_t *p_out);
+
 #endif /* SMP_API_H */

@@ -502,6 +502,8 @@ typedef struct {
   uint16_t hci_handle;     /* Handle to connection when exists   */
   uint16_t clock_offset;   /* Latest known clock offset          */
   RawAddress bd_addr;      /* BD_ADDR of the device              */
+  RawAddress peer_eb_addr;    /* Peer Earbud ADDR of dev if exists  */
+
   DEV_CLASS dev_class;     /* DEV_CLASS of the device            */
   LINK_KEY link_key;       /* Device link key                    */
   uint8_t pin_code_length; /* Length of the pin_code used for paring */
