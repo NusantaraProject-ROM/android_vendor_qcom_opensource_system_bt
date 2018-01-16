@@ -108,7 +108,8 @@ extern void BTM_BleObtainVendorCapabilities(tBTM_BLE_VSC_CB* p_cmn_vsc_cb);
  * This function is called to set scan parameters. |cb| is called with operation
  * status
  **/
-extern void BTM_BleSetScanParams(uint32_t scan_interval, uint32_t scan_window,
+extern void BTM_BleSetScanParams(uint8_t scan_phy, std::vector<uint32_t> scan_interval,
+                                 std::vector<uint32_t> scan_window,
                                  tBLE_SCAN_MODE scan_type,
                                  base::Callback<void(uint8_t)> cb);
 

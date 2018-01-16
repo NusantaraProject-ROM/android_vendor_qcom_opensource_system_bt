@@ -124,12 +124,22 @@ static int background_connections_count() {
  ******************************************************************************/
 void btm_update_scanner_filter_policy(tBTM_BLE_SFP scan_policy) {
   tBTM_BLE_INQ_CB* p_inq = &btm_cb.ble_ctr_cb.inq_var;
+  std::vector<uint16_t> scan_interval = {BTM_BLE_GAP_DISC_SCAN_WIN, BTM_BLE_GAP_DISC_SCAN_WIN};
+  std::vector<uint16_t> scan_window = {BTM_BLE_GAP_DISC_SCAN_WIN, BTM_BLE_GAP_DISC_SCAN_WIN};
+  uint8_t i=0;
 
-  uint32_t scan_interval =
-      !p_inq->scan_interval ? BTM_BLE_GAP_DISC_SCAN_INT : p_inq->scan_interval;
-  uint32_t scan_window =
-      !p_inq->scan_window ? BTM_BLE_GAP_DISC_SCAN_WIN : p_inq->scan_window;
+  uint8_t scan_phy = SCAN_PHY_LE_1M;
+  if (controller_get_interface()->supports_ble_coded_phy()) scan_phy |= SCAN_PHY_LE_CODED;
 
+  int phy_cnt = std::bitset<std::numeric_limits<uint8_t>::digits>(scan_phy).count();
+  if(!p_inq->scan_interval.empty() && !p_inq->scan_window.empty()) {
+    for(i=0; i< phy_cnt; i++) {
+      scan_interval[i] =
+           !p_inq->scan_interval[i] ? BTM_BLE_GAP_DISC_SCAN_INT : p_inq->scan_interval[i];
+      scan_window[i] =
+           !p_inq->scan_window[i] ? BTM_BLE_GAP_DISC_SCAN_WIN : p_inq->scan_window[i];
+    }
+  }
   BTM_TRACE_EVENT("%s", __func__);
 
   p_inq->sfp = scan_policy;
@@ -138,8 +148,9 @@ void btm_update_scanner_filter_policy(tBTM_BLE_SFP scan_policy) {
                          : p_inq->scan_type;
 
   btm_send_hci_set_scan_params(
-      p_inq->scan_type, (uint16_t)scan_interval, (uint16_t)scan_window,
-      btm_cb.ble_ctr_cb.addr_mgnt_cb.own_addr_type, scan_policy);
+      scan_phy, p_inq->scan_type, scan_interval, scan_window,
+      btm_cb.ble_ctr_cb.addr_mgnt_cb.own_addr_type,
+      scan_policy);
 }
 
 /*******************************************************************************

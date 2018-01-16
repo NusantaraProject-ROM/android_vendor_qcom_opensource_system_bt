@@ -407,15 +407,26 @@ tBTM_STATUS BTM_BleObserve(bool start, uint8_t duration,
                            tBTM_CMPL_CB* p_cmpl_cb) {
   tBTM_BLE_INQ_CB* p_inq = &btm_cb.ble_ctr_cb.inq_var;
   tBTM_STATUS status = BTM_WRONG_MODE;
+  uint8_t i=0;
+  std::vector<uint16_t> scan_interval = {BTM_BLE_GAP_DISC_SCAN_WIN, BTM_BLE_GAP_DISC_SCAN_WIN};
+  std::vector<uint16_t> scan_window = {BTM_BLE_GAP_DISC_SCAN_WIN, BTM_BLE_GAP_DISC_SCAN_WIN};
 
-  uint32_t scan_interval =
-      !p_inq->scan_interval ? BTM_BLE_GAP_DISC_SCAN_INT : p_inq->scan_interval;
-  uint32_t scan_window =
-      !p_inq->scan_window ? BTM_BLE_GAP_DISC_SCAN_WIN : p_inq->scan_window;
+  uint8_t scan_phy = !p_inq->scan_phy ? SCAN_PHY_LE_1M : p_inq->scan_phy;
 
-  BTM_TRACE_EVENT("%s : scan_type:%d, %d, %d", __func__,
-                  btm_cb.btm_inq_vars.scan_type, p_inq->scan_interval,
-                  p_inq->scan_window);
+  int phy_cnt = std::bitset<std::numeric_limits<uint8_t>::digits>(scan_phy).count();
+  if(!p_inq->scan_interval.empty() && !p_inq->scan_window.empty()) {
+  for(i=0; i< phy_cnt; i++) {
+      scan_interval[i] =
+         !p_inq->scan_interval[i] ? BTM_BLE_GAP_DISC_SCAN_INT : p_inq->scan_interval[i];
+      scan_window[i] =
+         !p_inq->scan_window[i] ? BTM_BLE_GAP_DISC_SCAN_WIN : p_inq->scan_window[i];
+
+      BTM_TRACE_EVENT("%s : scan_type:%d, %d, %d %d", __func__,
+                      btm_cb.btm_inq_vars.scan_type, scan_interval[i],
+                      scan_window[i], p_inq->scan_phy);
+    }
+  }
+
 
   if (!controller_get_interface()->supports_ble()) return BTM_ILLEGAL_VALUE;
 
@@ -442,9 +453,9 @@ tBTM_STATUS BTM_BleObserve(bool start, uint8_t duration,
       btm_ble_enable_resolving_list_for_platform(BTM_BLE_RL_SCAN);
 #endif
 
-      btm_send_hci_set_scan_params(
-          p_inq->scan_type, (uint16_t)scan_interval, (uint16_t)scan_window,
-          btm_cb.ble_ctr_cb.addr_mgnt_cb.own_addr_type, BTM_BLE_DEFAULT_SFP);
+      btm_send_hci_set_scan_params(scan_phy, p_inq->scan_type,
+           scan_interval, scan_window,
+           btm_cb.ble_ctr_cb.addr_mgnt_cb.own_addr_type, BTM_BLE_DEFAULT_SFP);
 
       p_inq->scan_duplicate_filter = BTM_BLE_DUPLICATE_DISABLE;
       status = btm_ble_start_scan();
@@ -934,16 +945,53 @@ tBTM_STATUS BTM_BleSetAdvParams(uint16_t adv_int_min, uint16_t adv_int_max,
   return status;
 }
 
+uint8_t btm_ble_get_scan_phy(uint8_t scan_phy_input) {
+  switch(scan_phy_input) {
+    case PHY_LE_1M_IN:
+      return SCAN_PHY_LE_1M;
+    case PHY_LE_CODED_IN:
+      return SCAN_PHY_LE_CODED;
+    case PHY_LE_ALL_SUPPORTED_IN:
+      return SCAN_PHY_LE_ALL_SUPPORTED;
+  }
+  return SCAN_PHY_LE_1M;
+}
+
+bool btm_ble_is_scan_param_valid(uint8_t scan_phy_cnt, std::vector<uint32_t> scan_interval,
+                                 std::vector<uint32_t> scan_window, uint32_t max_scan_interval,
+                                 uint32_t max_scan_window) {
+  bool result = false;
+  uint8_t i=0 , valid_cnt =0;
+  if(scan_interval.empty() || scan_window.empty()) {
+    return false;
+  }
+  for(i=0; i<scan_phy_cnt; i++) {
+    if (BTM_BLE_ISVALID_PARAM(scan_interval[i], BTM_BLE_SCAN_INT_MIN,
+        max_scan_interval) &&
+        BTM_BLE_ISVALID_PARAM(scan_window[i], BTM_BLE_SCAN_WIN_MIN,
+        max_scan_window)) {
+      valid_cnt++;
+    }
+  }
+  if(valid_cnt == scan_phy_cnt) {
+    result = true;
+  }
+
+  return result;
+}
+
 /**
  * This function is called to set scan parameters. |cb| is called with operation
  * status
  **/
-void BTM_BleSetScanParams(uint32_t scan_interval, uint32_t scan_window,
+void BTM_BleSetScanParams(uint8_t scan_phy, std::vector<uint32_t> scan_interval,
+                          std::vector<uint32_t> scan_window,
                           tBLE_SCAN_MODE scan_mode,
                           base::Callback<void(uint8_t)> cb) {
   tBTM_BLE_INQ_CB* p_cb = &btm_cb.ble_ctr_cb.inq_var;
   uint32_t max_scan_interval;
   uint32_t max_scan_window;
+  uint8_t i=0;
 
   BTM_TRACE_EVENT("%s", __func__);
   if (!controller_get_interface()->supports_ble()) return;
@@ -960,22 +1008,34 @@ void BTM_BleSetScanParams(uint32_t scan_interval, uint32_t scan_window,
     max_scan_window = BTM_BLE_EXT_SCAN_WIN_MAX;
   }
 
-  if (BTM_BLE_ISVALID_PARAM(scan_interval, BTM_BLE_SCAN_INT_MIN,
-                            max_scan_interval) &&
-      BTM_BLE_ISVALID_PARAM(scan_window, BTM_BLE_SCAN_WIN_MIN,
-                            max_scan_window) &&
+  scan_phy = btm_ble_get_scan_phy(scan_phy);
+
+  int phy_cnt = std::bitset<std::numeric_limits<uint8_t>::digits>(scan_phy).count();
+
+  if (btm_ble_is_scan_param_valid(phy_cnt, scan_interval, scan_window,
+          max_scan_interval, max_scan_window) &&
       (scan_mode == BTM_BLE_SCAN_MODE_ACTI ||
-       scan_mode == BTM_BLE_SCAN_MODE_PASS)) {
+       scan_mode == BTM_BLE_SCAN_MODE_PASS) &&
+      (scan_phy == SCAN_PHY_LE_1M || scan_phy == SCAN_PHY_LE_CODED ||
+       scan_phy == SCAN_PHY_LE_ALL_SUPPORTED)) {
+    uint32_t scan_int_arr[phy_cnt], scan_win_arr[phy_cnt];
     p_cb->scan_type = scan_mode;
-    p_cb->scan_interval = scan_interval;
-    p_cb->scan_window = scan_window;
+    for(i=0; i<phy_cnt; i++) {
+      scan_int_arr[i] = scan_interval[i];
+      scan_win_arr[i] = scan_window[i];
+    }
+    p_cb->scan_phy = scan_phy;
+    p_cb->scan_interval.assign(scan_int_arr, scan_int_arr+phy_cnt);
+    p_cb->scan_window.assign(scan_win_arr, scan_win_arr+phy_cnt);
 
     cb.Run(BTM_SUCCESS);
   } else {
     cb.Run(BTM_ILLEGAL_VALUE);
 
-    BTM_TRACE_ERROR("Illegal params: scan_interval = %d scan_window = %d",
-                    scan_interval, scan_window);
+    for(i=0; i< phy_cnt;i++) {
+      BTM_TRACE_ERROR("Illegal params: scan_interval = %d scan_window = %d"
+                       "scan_phy = %d", scan_interval[i], scan_window[i], scan_phy);
+    }
   }
 }
 
@@ -1334,21 +1394,49 @@ void btm_send_hci_scan_enable(uint8_t enable, uint8_t filter_duplicates) {
   }
 }
 
-void btm_send_hci_set_scan_params(uint8_t scan_type, uint16_t scan_int,
-                                  uint16_t scan_win, uint8_t addr_type_own,
+void btm_send_hci_set_scan_params(uint8_t scan_phy, uint8_t scan_type,
+                                  std::vector<uint16_t> scan_int,
+                                  std::vector<uint16_t> scan_win,
+                                  uint8_t addr_type_own,
                                   uint8_t scan_filter_policy) {
   if (controller_get_interface()->supports_ble_extended_advertising()) {
-    scanning_phy_cfg phy_cfg;
-    phy_cfg.scan_type = scan_type;
-    phy_cfg.scan_int = scan_int;
-    phy_cfg.scan_win = scan_win;
+    int phy_cnt =
+        std::bitset<std::numeric_limits<uint8_t>::digits>(scan_phy).count();
+    scanning_phy_cfg *phy_cfg = new scanning_phy_cfg[phy_cnt];
+    for(int i=0; i<phy_cnt; i++) {
+      phy_cfg[i].scan_type = scan_type;
+      phy_cfg[i].scan_int = scan_int[i];
+      phy_cfg[i].scan_win = scan_win[i];
+    }
 
     btsnd_hcic_ble_set_extended_scan_params(addr_type_own, scan_filter_policy,
-                                            1, &phy_cfg);
+                                            scan_phy, phy_cfg);
   } else {
-    btsnd_hcic_ble_set_scan_params(scan_type, scan_int, scan_win, addr_type_own,
+    btsnd_hcic_ble_set_scan_params(scan_type, scan_int[0], scan_win[0], addr_type_own,
                                    scan_filter_policy);
   }
+}
+
+bool btm_ble_is_scan_params_low_latency() {
+    bool result = true;
+    tBTM_BLE_CB* p_ble_cb = &btm_cb.ble_ctr_cb;
+    uint8_t i=0, cnt=0;
+    if(p_ble_cb->inq_var.scan_interval.empty() ||
+        p_ble_cb->inq_var.scan_window.empty()) {
+      return true;
+    }
+    int phy_cnt = std::bitset<std::numeric_limits<uint8_t>::digits>(p_ble_cb->inq_var.scan_phy).count();
+    for(i=0; i< phy_cnt; i++) {
+        if ((p_ble_cb->inq_var.scan_interval[i] != BTM_BLE_LOW_LATENCY_SCAN_INT) ||
+           (p_ble_cb->inq_var.scan_window[i] != BTM_BLE_LOW_LATENCY_SCAN_WIN)) {
+            cnt++;
+        }
+    }
+    if(phy_cnt == cnt) {
+        result = false;
+    }
+
+    return result;
 }
 
 /*******************************************************************************
@@ -1376,6 +1464,12 @@ tBTM_STATUS btm_ble_start_inquiry(uint8_t mode, uint8_t duration) {
   tBTM_STATUS status = BTM_CMD_STARTED;
   tBTM_BLE_CB* p_ble_cb = &btm_cb.ble_ctr_cb;
   tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
+  std::vector<uint16_t> scan_interval = {0, 0};
+  std::vector<uint16_t> scan_window = {0, 0};
+  int phy_cnt =0, i=0;
+
+  uint8_t scan_phy = SCAN_PHY_LE_1M;
+  if (controller_get_interface()->supports_ble_coded_phy()) scan_phy |= SCAN_PHY_LE_CODED;
 
   BTM_TRACE_DEBUG("btm_ble_start_inquiry: mode = %02x inq_active = 0x%02x",
                   mode, btm_cb.btm_inq_vars.inq_active);
@@ -1387,27 +1481,29 @@ tBTM_STATUS btm_ble_start_inquiry(uint8_t mode, uint8_t duration) {
     return (BTM_BUSY);
   }
 
+  phy_cnt = std::bitset<std::numeric_limits<uint8_t>::digits>(scan_phy).count();
+  for(i=0; i< phy_cnt; i++) {
+    scan_interval[i] = BTM_BLE_LOW_LATENCY_SCAN_INT;
+    scan_window[i] = BTM_BLE_LOW_LATENCY_SCAN_WIN;
+  }
+
   if (!BTM_BLE_IS_SCAN_ACTIVE(p_ble_cb->scan_activity)) {
     btm_send_hci_set_scan_params(
-        BTM_BLE_SCAN_MODE_ACTI, BTM_BLE_LOW_LATENCY_SCAN_INT,
-        BTM_BLE_LOW_LATENCY_SCAN_WIN,
-        btm_cb.ble_ctr_cb.addr_mgnt_cb.own_addr_type, SP_ADV_ALL);
+        scan_phy, BTM_BLE_SCAN_MODE_ACTI, scan_interval,
+        scan_window, btm_cb.ble_ctr_cb.addr_mgnt_cb.own_addr_type, SP_ADV_ALL);
 #if (BLE_PRIVACY_SPT == TRUE)
     /* enable IRK list */
     btm_ble_enable_resolving_list_for_platform(BTM_BLE_RL_SCAN);
 #endif
     p_ble_cb->inq_var.scan_duplicate_filter = BTM_BLE_DUPLICATE_DISABLE;
     status = btm_ble_start_scan();
-  } else if ((p_ble_cb->inq_var.scan_interval !=
-              BTM_BLE_LOW_LATENCY_SCAN_INT) ||
-             (p_ble_cb->inq_var.scan_window != BTM_BLE_LOW_LATENCY_SCAN_WIN)) {
+  } else if (!btm_ble_is_scan_params_low_latency()) {
     BTM_TRACE_DEBUG("%s, restart LE scan with low latency scan params",
                     __func__);
     btm_send_hci_scan_enable(BTM_BLE_SCAN_DISABLE, BTM_BLE_DUPLICATE_ENABLE);
     btm_send_hci_set_scan_params(
-        BTM_BLE_SCAN_MODE_ACTI, BTM_BLE_LOW_LATENCY_SCAN_INT,
-        BTM_BLE_LOW_LATENCY_SCAN_WIN,
-        btm_cb.ble_ctr_cb.addr_mgnt_cb.own_addr_type, SP_ADV_ALL);
+        scan_phy, BTM_BLE_SCAN_MODE_ACTI, scan_interval,
+        scan_window, btm_cb.ble_ctr_cb.addr_mgnt_cb.own_addr_type, SP_ADV_ALL);
     btm_send_hci_scan_enable(BTM_BLE_SCAN_ENABLE, BTM_BLE_DUPLICATE_DISABLE);
   }
 
@@ -2230,8 +2326,7 @@ void btm_ble_stop_inquiry(void) {
   /* If no more scan activity, stop LE scan now */
   if (!BTM_BLE_IS_SCAN_ACTIVE(p_ble_cb->scan_activity))
     btm_ble_stop_scan();
-  else if ((p_ble_cb->inq_var.scan_interval != BTM_BLE_LOW_LATENCY_SCAN_INT) ||
-           (p_ble_cb->inq_var.scan_window != BTM_BLE_LOW_LATENCY_SCAN_WIN)) {
+  else if (!btm_ble_is_scan_params_low_latency()) {
     BTM_TRACE_DEBUG("%s: setting default params for ongoing observe", __func__);
     btm_ble_stop_scan();
     btm_ble_start_scan();
