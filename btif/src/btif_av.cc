@@ -633,27 +633,16 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       btif_av_cb[index].bta_handle = ((tBTA_AV*)p_data)->registr.hndl;
       break;
 
-    case BTA_AV_PENDING_EVT:
     case BTIF_AV_CONNECT_REQ_EVT: {
-      if (event == BTIF_AV_CONNECT_REQ_EVT) {
         btif_av_connect_req_t* connect_req_p = (btif_av_connect_req_t*)p_data;
         btif_av_cb[index].peer_bda = *connect_req_p->target_bda;
         BTA_AvOpen(btif_av_cb[index].peer_bda, btif_av_cb[index].bta_handle, true,
                    BTA_SEC_AUTHENTICATE, connect_req_p->uuid);
-      } else if (event == BTA_AV_PENDING_EVT) {
-        btif_av_cb[index].peer_bda = ((tBTA_AV*)p_data)->pend.bd_addr;
-        if (bt_av_src_callbacks != NULL) {
-          BTA_AvOpen(btif_av_cb[index].peer_bda, btif_av_cb[index].bta_handle, true,
-                     BTA_SEC_AUTHENTICATE, UUID_SERVCLASS_AUDIO_SOURCE);
-        }
-        if (bt_av_sink_callbacks != NULL) {
-          BTA_AvOpen(btif_av_cb[index].peer_bda, btif_av_cb[index].bta_handle, true,
-                     BTA_SEC_AUTHENTICATE, UUID_SERVCLASS_AUDIO_SINK);
-        }
-      }
-      btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_OPENING);
-    } break;
 
+      btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_OPENING);
+      } break;
+
+    case BTA_AV_PENDING_EVT:
     case BTA_AV_RC_OPEN_EVT:
       /* IOP_FIX: Jabra 620 only does RC open without AV open whenever it
        * connects. So
