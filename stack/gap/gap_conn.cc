@@ -564,53 +564,29 @@ uint16_t GAP_ConnWriteData(uint16_t gap_handle, BT_HDR* msg) {
  *                  GAP_CONGESTION          - system is congested
  *
  ******************************************************************************/
-uint16_t GAP_ConnWriteData(uint16_t gap_handle, uint8_t* p_data,
-                           uint16_t max_len, uint16_t* p_len) {
+uint16_t GAP_ConnWriteData(uint16_t gap_handle, BT_HDR* msg) {
   tGAP_CCB* p_ccb = gap_find_ccb_by_handle(gap_handle);
-  BT_HDR* p_buf;
 
-  *p_len = 0;
-
-  if (!p_ccb) return (GAP_ERR_BAD_HANDLE);
-
-  if (p_ccb->con_state != GAP_CCB_STATE_CONNECTED) return (GAP_ERR_BAD_STATE);
-
-  while (max_len) {
-    if (p_ccb->cfg.fcr.mode == L2CAP_FCR_ERTM_MODE)
-      p_buf = (BT_HDR*)osi_malloc(L2CAP_FCR_ERTM_BUF_SIZE);
-    else
-      p_buf = (BT_HDR*)osi_malloc(GAP_DATA_BUF_SIZE);
-
-    p_buf->offset = L2CAP_MIN_OFFSET;
-    p_buf->len =
-        (p_ccb->rem_mtu_size < max_len) ? p_ccb->rem_mtu_size : max_len;
-    p_buf->event = BT_EVT_TO_BTU_SP_DATA;
-
-    memcpy((uint8_t*)(p_buf + 1) + p_buf->offset, p_data, p_buf->len);
-
-    *p_len += p_buf->len;
-    max_len -= p_buf->len;
-    p_data += p_buf->len;
-
-    DVLOG(1) << StringPrintf("GAP_WriteData %d bytes", p_buf->len);
-
-    fixed_queue_enqueue(p_ccb->tx_queue, p_buf);
+  if (!p_ccb) {
+    osi_free(msg);
+    return GAP_ERR_BAD_HANDLE;
   }
 
-  if (p_ccb->is_congested) {
-    return (BT_PASS);
+  if (p_ccb->con_state != GAP_CCB_STATE_CONNECTED) {
+    osi_free(msg);
+    return GAP_ERR_BAD_STATE;
   }
 
-  /* Send the buffer through L2CAP */
-  while ((p_buf = (BT_HDR*)fixed_queue_try_dequeue(p_ccb->tx_queue)) != NULL) {
-    uint8_t status = L2CA_DATA_WRITE(p_ccb->connection_id, p_buf);
-
-    if (status == L2CAP_DW_CONGESTED) {
-      p_ccb->is_congested = true;
-      break;
-    } else if (status != L2CAP_DW_SUCCESS)
-      return (GAP_ERR_BAD_STATE);
+  if (msg->len > p_ccb->rem_mtu_size) {
+    osi_free(msg);
+    return GAP_ERR_ILL_PARM;
   }
+
+  DVLOG(1) << StringPrintf("GAP_WriteData %d bytes", msg->len);
+
+  fixed_queue_enqueue(p_ccb->tx_queue, msg);
+
+  if (!gap_try_write_queued_data(p_ccb)) return GAP_ERR_BAD_STATE;
 
   return (BT_PASS);
 }
