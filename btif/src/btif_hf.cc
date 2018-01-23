@@ -51,6 +51,7 @@
 #include "osi/include/properties.h"
 #include <cutils/properties.h>
 #include "device/include/controller.h"
+#include "btif_storage.h"
 
 namespace bluetooth {
 namespace headset {
@@ -924,6 +925,17 @@ static bt_status_t connect_int(RawAddress* bd_addr, uint16_t uuid) {
         "%s: Cannot connect %s: maximum %d clients already connected", __func__,
         bd_addr->ToString().c_str(), btif_max_hf_clients);
     return BT_STATUS_BUSY;
+  }
+
+  if (!btif_storage_is_device_bonded(bd_addr)) {
+    BTIF_TRACE_WARNING("HF %s()## connect_int ## Device Not Bonded %s \n", __func__,
+                         bd_addr->ToString().c_str());
+    btif_hf_cb[i].state = BTHF_CONNECTION_STATE_DISCONNECTED;
+    /* inform the application of the disconnection as the connection is not processed */
+    HAL_HF_CBACK(bt_hf_callbacks, ConnectionStateCallback, btif_hf_cb[i].state,
+                  bd_addr);
+    btif_queue_advance();
+    return BT_STATUS_SUCCESS;
   }
 
   if (is_connected(bd_addr)) {

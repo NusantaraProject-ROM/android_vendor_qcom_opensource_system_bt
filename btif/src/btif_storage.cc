@@ -814,8 +814,14 @@ bt_status_t btif_storage_remove_bonded_device(
 bt_status_t btif_storage_is_device_bonded(RawAddress *remote_bd_addr) {
 
   
-  std::string addrstr = remote_bd_addr->ToString();
-  const char* bdstr = addrstr.c_str();
+  char bdstr[17] = {'\0'};
+  snprintf(bdstr, sizeof(bdstr), "%02x:%02x:%02x:%02x:%02x:%02x",
+                                  remote_bd_addr->address[0],
+                                  remote_bd_addr->address[1],
+                                  remote_bd_addr->address[2],
+                                  remote_bd_addr->address[3],
+                                  remote_bd_addr->address[4],
+                                  remote_bd_addr->address[5]);
   if((btif_config_exist(bdstr, "LinkKey")) &&
      (btif_config_exist(bdstr, "LinkKeyType")))
     return BT_STATUS_SUCCESS;
