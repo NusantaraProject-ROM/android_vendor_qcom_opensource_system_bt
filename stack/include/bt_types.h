@@ -528,7 +528,9 @@ typedef struct {
 #define BD_ADDR_LEN 6 /* Device address length */
 
 #ifdef __cplusplus
-#include <hardware/bluetooth.h>
+
+#include <bluetooth/uuid.h>
+#include <include/hardware/bluetooth.h>
 
 inline void BDADDR_TO_STREAM(uint8_t*& p, const RawAddress& a) {
   for (int ijk = 0; ijk < BD_ADDR_LEN; ijk++)
@@ -649,23 +651,6 @@ typedef uint8_t ACCESS_CODE[ACCESS_CODE_BYTE_LEN];
 #define SYNC_REPS 1 /* repeats of sync word transmitted to start of burst */
 
 #define BT_1SEC_TIMEOUT_MS (1 * 1000) /* 1 second */
-
-/* Maximum UUID size - 16 bytes, and structure to hold any type of UUID. */
-#define MAX_UUID_SIZE 16
-typedef struct {
-#define LEN_UUID_16 2
-#define LEN_UUID_32 4
-#define LEN_UUID_128 16
-
-  uint16_t len;
-
-  union {
-    uint16_t uuid16;
-    uint32_t uuid32;
-    uint8_t uuid128[MAX_UUID_SIZE];
-  } uu;
-
-} tBT_UUID;
 
 #define BT_EIR_FLAGS_TYPE 0x01
 #define BT_EIR_MORE_16BITS_UUID_TYPE 0x02

@@ -7,7 +7,7 @@ btifCommonIncludes = [
     "system/bt/bta/dm",
     "system/bt/btcore/include",
     "system/bt/device/include",
-    "system/bt/include",
+    "system/bt/internal_include",
     "system/bt/stack/include",
     "system/bt/stack/l2cap",
     "system/bt/stack/a2dp",
@@ -21,9 +21,12 @@ btifCommonIncludes = [
     "system/bt/embdrv/sbc/encoder/include",
     "system/bt/embdrv/sbc/decoder/include",
     "system/bt/utils/include",
+
     "vendor/qcom/opensource/bluetooth/hal/include",
-    "system/libhwbinder/include",
     "vendor/qcom/opensource/bluetooth_ext/vhal/include",
+
+    "system/bt/include",
+
 ]
 
 // libbtif static library for target
@@ -116,9 +119,9 @@ cc_test {
     defaults: ["fluoride_defaults"],
     include_dirs: btifCommonIncludes,
     srcs: ["test/btif_storage_test.cc"],
+    header_libs: ["libbluetooth_headers"],
     shared_libs: [
         "liblog",
-        "libhardware",
         "libcutils",
         "libutils",
     ],
@@ -142,9 +145,9 @@ cc_test {
       "src/btif_profile_queue.cc",
       "test/btif_profile_queue_test.cc"
     ],
+    header_libs: ["libbluetooth_headers"],
     shared_libs: [
         "liblog",
-        "libhardware",
         "libcutils",
     ],
     static_libs: [

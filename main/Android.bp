@@ -1,9 +1,11 @@
+
 // Bluetooth main HW module / shared library for target
 // ========================================================
 cc_library_shared {
-    name: "bluetooth.default",
+    name: "libbluetooth",
     defaults: ["fluoride_defaults"],
-    relative_install_path: "hw",
+    header_libs: ["libbluetooth_headers"],
+    export_header_lib_headers: ["libbluetooth_headers"],
     srcs: [
         // platform specific
         "bte_conf.cc",
@@ -20,7 +22,7 @@ cc_library_shared {
         "system/bt/bta/sys",
         "system/bt/bta/dm",
         "system/bt/btcore/include",
-        "system/bt/include",
+        "system/bt/internal_include",
         "system/bt/stack/include",
         "system/bt/stack/l2cap",
         "system/bt/stack/a2dp",

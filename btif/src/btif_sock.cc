@@ -36,12 +36,14 @@
 #include "btif_util.h"
 #include "osi/include/thread.h"
 
+using bluetooth::Uuid;
+
 static bt_status_t btsock_listen(btsock_type_t type, const char* service_name,
-                                 const uint8_t* uuid, int channel, int* sock_fd,
+                                 const Uuid* uuid, int channel, int* sock_fd,
                                  int flags, int app_uid);
 static bt_status_t btsock_connect(const RawAddress* bd_addr, btsock_type_t type,
-                                  const uint8_t* uuid, int channel,
-                                  int* sock_fd, int flags, int app_uid);
+                                  const Uuid* uuid, int channel, int* sock_fd,
+                                  int flags, int app_uid);
 static bt_status_t btsock_get_sockopt(btsock_type_t type, int channel,
                                       btsock_option_type_t option_name,
                                       void *option_value, int *option_len);
@@ -126,10 +128,9 @@ void btif_sock_cleanup(void) {
 }
 
 static bt_status_t btsock_listen(btsock_type_t type, const char* service_name,
-                                 const uint8_t* service_uuid, int channel,
+                                 const Uuid* service_uuid, int channel,
                                  int* sock_fd, int flags, int app_uid) {
   if ((flags & BTSOCK_FLAG_NO_SDP) == 0) {
-    CHECK(service_uuid != NULL || channel > 0);
     CHECK(sock_fd != NULL);
   }
 
@@ -163,9 +164,8 @@ static bt_status_t btsock_listen(btsock_type_t type, const char* service_name,
 }
 
 static bt_status_t btsock_connect(const RawAddress* bd_addr, btsock_type_t type,
-                                  const uint8_t* uuid, int channel,
-                                  int* sock_fd, int flags, int app_uid) {
-  CHECK(uuid != NULL || channel > 0);
+                                  const Uuid* uuid, int channel, int* sock_fd,
+                                  int flags, int app_uid) {
   CHECK(bd_addr != NULL);
   CHECK(sock_fd != NULL);
 

@@ -13,7 +13,7 @@ cc_defaults {
         "system/bt/bta/include",
         "system/bt/btcore/include",
         "system/bt/hci/include",
-        "system/bt/include",
+        "system/bt/internal_include",
         "system/bt/stack/include",
         "system/bt/stack/btm",
         "system/bt/udrv/include",
@@ -25,6 +25,7 @@ cc_defaults {
     shared_libs: [
         "libcutils",
     ],
+    header_libs: ["libbluetooth_headers"],
     cflags: ["-DBUILDCFG"],
 }
 
@@ -121,7 +122,6 @@ cc_test {
         "test/bta_hf_client_test.cc",
     ],
     shared_libs: [
-        "libhardware",
         "liblog",
         "libprotobuf-cpp-lite",
     ],

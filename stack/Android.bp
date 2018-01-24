@@ -20,7 +20,7 @@ cc_library_static {
         "srvc",
     ],
     header_libs: [
-        "libhardware_headers",
+        "libbluetooth_headers",
     ],
     include_dirs: [
         "external/aac/libAACenc/include",
@@ -33,7 +33,7 @@ cc_library_static {
         "system/bt/vnd/ble",
         "system/bt/btif/include",
         "system/bt/hci/include",
-        "system/bt/include",
+        "system/bt/internal_include",
         "system/bt/udrv/include",
         "system/bt/bta/include",
         "system/bt/bta/sys",
@@ -196,7 +196,7 @@ cc_test {
     ],
     include_dirs: [
         "system/bt",
-        "system/bt/include",
+        "system/bt/internal_include",
     ],
     srcs: ["test/stack_a2dp_test.cc"],
     shared_libs: [
@@ -224,7 +224,7 @@ cc_test {
     ],
     include_dirs: [
         "system/bt",
-        "system/bt/include",
+        "system/bt/internal_include",
         "system/bt/btcore/include",
         "system/bt/hci/include",
         "system/bt/utils/include",
@@ -260,10 +260,10 @@ cc_test {
     ],
     include_dirs: [
         "system/bt",
-        "system/bt/include",
+        "system/bt/internal_include",
         "system/bt/btcore/include",
         "system/bt/hci/include",
-        "system/bt/include",
+        "system/bt/internal_include",
         "system/bt/utils/include",
     ],
     srcs: [
@@ -312,7 +312,7 @@ cc_test {
     ],
     include_dirs: [
         "system/bt/",
-        "system/bt/include",
+        "system/bt/internal_include",
         "system/bt/btcore/include",
         "system/bt/bta/include",
     ],
