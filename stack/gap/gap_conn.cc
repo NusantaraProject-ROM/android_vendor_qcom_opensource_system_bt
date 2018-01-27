@@ -95,6 +95,9 @@ static void gap_disconnect_ind(uint16_t l2cap_cid, bool ack_needed);
 static void gap_data_ind(uint16_t l2cap_cid, BT_HDR* p_msg);
 static void gap_congestion_ind(uint16_t lcid, bool is_congested);
 static void gap_tx_complete_ind(uint16_t l2cap_cid, uint16_t sdu_sent);
+static void gap_credits_received_cb(uint16_t l2cap_cid,
+                                    uint16_t credits_received,
+                                    uint16_t credit_count);
 
 static tGAP_CCB* gap_find_ccb_by_cid(uint16_t cid);
 static tGAP_CCB* gap_find_ccb_by_handle(uint16_t handle);
@@ -125,6 +128,7 @@ void gap_conn_init(void) {
   conn.reg_info.pL2CA_DataInd_Cb = gap_data_ind;
   conn.reg_info.pL2CA_CongestionStatus_Cb = gap_congestion_ind;
   conn.reg_info.pL2CA_TxComplete_Cb = gap_tx_complete_ind;
+  conn.reg_info.pL2CA_CreditsReceived_Cb = gap_credits_received_cb;
 }
 
 /*******************************************************************************
@@ -407,8 +411,9 @@ uint16_t GAP_ConnReadData(uint16_t gap_handle, uint8_t* p_data,
 
   mutex_global_unlock();
 
-  DVLOG(1) << StringPrintf("GAP_ConnReadData - rx_queue_size left=%d, *p_len=%d",
-                  p_ccb->rx_queue_size, *p_len);
+  DVLOG(1) << StringPrintf(
+      "GAP_ConnReadData - rx_queue_size left=%d, *p_len=%d",
+      p_ccb->rx_queue_size, *p_len);
 
   return (BT_PASS);
 }
@@ -439,8 +444,8 @@ int GAP_GetRxQueueCnt(uint16_t handle, uint32_t* p_rx_queue_count) {
   } else
     rc = GAP_INVALID_HANDLE;
 
-  DVLOG(1) << StringPrintf("GAP_GetRxQueueCnt - rc = 0x%04x, rx_queue_count=%d", rc,
-                  *p_rx_queue_count);
+  DVLOG(1) << StringPrintf("GAP_GetRxQueueCnt - rc = 0x%04x, rx_queue_count=%d",
+                           rc, *p_rx_queue_count);
 
   return (rc);
 }
@@ -694,13 +699,23 @@ void gap_tx_complete_ind(uint16_t l2cap_cid, uint16_t sdu_sent) {
 
   if ((p_ccb->con_state == GAP_CCB_STATE_CONNECTED) && (sdu_sent == 0xFFFF)) {
     DVLOG(1) << StringPrintf("%s: GAP_EVT_TX_EMPTY", __func__);
-    p_ccb->p_callback(p_ccb->gap_handle, GAP_EVT_TX_EMPTY);
+    p_ccb->p_callback(p_ccb->gap_handle, GAP_EVT_TX_EMPTY, nullptr);
   }
   else if ((p_ccb->con_state == GAP_CCB_STATE_CONNECTED) && (sdu_sent >= 1))
   {
     DVLOG(1) << __func__ << " GAP_EVT_TX_DONE " ;
-    p_ccb->p_callback (p_ccb->gap_handle, GAP_EVT_TX_DONE);
+    p_ccb->p_callback (p_ccb->gap_handle, GAP_EVT_TX_DONE, nullptr);
   }
+}
+
+void gap_credits_received_cb(uint16_t l2cap_cid, uint16_t credits_received,
+                             uint16_t credit_count) {
+  tGAP_CCB* p_ccb = gap_find_ccb_by_cid(l2cap_cid);
+  if (!p_ccb) return;
+
+  tGAP_CB_DATA data{.coc_credits = {.credits_received = credits_received,
+                                    .credit_count = credit_count}};
+  p_ccb->p_callback(p_ccb->gap_handle, GAP_EVT_LE_COC_CREDITS, &data);
 }
 
 /*******************************************************************************
@@ -766,7 +781,7 @@ static void gap_connect_ind(const RawAddress& bd_addr, uint16_t l2cap_cid,
   }
 
   DVLOG(1) << StringPrintf("GAP_CONN - Rcvd L2CAP conn ind, CID: 0x%x",
-                  p_ccb->connection_id);
+                           p_ccb->connection_id);
 
   /* Send a Configuration Request. */
   if (p_ccb->transport == BT_TRANSPORT_BR_EDR)
@@ -789,7 +804,7 @@ static void gap_checks_con_flags(tGAP_CCB* p_ccb) {
   if ((p_ccb->con_flags & GAP_CCB_FLAGS_CONN_DONE) == GAP_CCB_FLAGS_CONN_DONE) {
     p_ccb->con_state = GAP_CCB_STATE_CONNECTED;
 
-    p_ccb->p_callback(p_ccb->gap_handle, GAP_EVT_CONN_OPENED);
+    p_ccb->p_callback(p_ccb->gap_handle, GAP_EVT_CONN_OPENED, nullptr);
   }
 }
 
@@ -871,7 +886,7 @@ static void gap_connect_cfm(uint16_t l2cap_cid, uint16_t result) {
   } else {
     /* Tell the user if he has a callback */
     if (p_ccb->p_callback)
-      (*p_ccb->p_callback)(p_ccb->gap_handle, GAP_EVT_CONN_CLOSED);
+      (*p_ccb->p_callback)(p_ccb->gap_handle, GAP_EVT_CONN_CLOSED, nullptr);
 
     gap_release_ccb(p_ccb);
   }
@@ -950,7 +965,7 @@ static void gap_config_cfm(uint16_t l2cap_cid, tL2CAP_CFG_INFO* p_cfg) {
 
     gap_checks_con_flags(p_ccb);
   } else {
-    p_ccb->p_callback(p_ccb->gap_handle, GAP_EVT_CONN_CLOSED);
+    p_ccb->p_callback(p_ccb->gap_handle, GAP_EVT_CONN_CLOSED, nullptr);
     gap_release_ccb(p_ccb);
   }
 }
@@ -976,7 +991,7 @@ static void gap_disconnect_ind(uint16_t l2cap_cid, bool ack_needed) {
 
   if (ack_needed) L2CA_DISCONNECT_RSP(l2cap_cid);
 
-  p_ccb->p_callback(p_ccb->gap_handle, GAP_EVT_CONN_CLOSED);
+  p_ccb->p_callback(p_ccb->gap_handle, GAP_EVT_CONN_CLOSED, nullptr);
   gap_release_ccb(p_ccb);
 }
 
@@ -1008,7 +1023,7 @@ static void gap_data_ind(uint16_t l2cap_cid, BT_HDR* p_msg) {
                                    p_ccb->rx_queue_size, p_msg->len);
      */
 
-    p_ccb->p_callback(p_ccb->gap_handle, GAP_EVT_CONN_DATA_AVAIL);
+    p_ccb->p_callback(p_ccb->gap_handle, GAP_EVT_CONN_DATA_AVAIL, nullptr);
   } else {
     osi_free(p_msg);
   }
@@ -1024,13 +1039,12 @@ static void gap_data_ind(uint16_t l2cap_cid, BT_HDR* p_msg) {
  ******************************************************************************/
 static void gap_congestion_ind(uint16_t lcid, bool is_congested) {
   tGAP_CCB* p_ccb;
-  uint16_t event;
   BT_HDR* p_buf;
   uint8_t status;
   uint16_t policy_setting;
 
   DVLOG(1) << StringPrintf("GAP_CONN - Rcvd L2CAP Is Congested (%d), CID: 0x%x",
-                  is_congested, lcid);
+                           is_congested, lcid);
 
   /* Find CCB based on CID */
   p_ccb = gap_find_ccb_by_cid(lcid);
@@ -1038,9 +1052,10 @@ static void gap_congestion_ind(uint16_t lcid, bool is_congested) {
 
   p_ccb->is_congested = is_congested;
 
-
-  event = (is_congested) ? GAP_EVT_CONN_CONGESTED : GAP_EVT_CONN_UNCONGESTED;
-  p_ccb->p_callback(p_ccb->gap_handle, event);
+  p_ccb->p_callback(
+      p_ccb->gap_handle,
+      (is_congested) ? GAP_EVT_CONN_CONGESTED : GAP_EVT_CONN_UNCONGESTED,
+      nullptr);
 
   if (is_congested) {
     policy_setting =  btm_cb.btm_def_link_policy  &
@@ -1181,7 +1196,7 @@ static void gap_release_ccb(tGAP_CCB* p_ccb) {
     if ((p_ccb_local->con_state != GAP_CCB_STATE_IDLE) &&
         (p_ccb_local->psm == p_ccb->psm)) {
       DVLOG(1) << __func__ << " : " << +p_ccb_local->psm
-              << " PSM is still in use, do not deregister";
+               << " PSM is still in use, do not deregister";
       return;
     }
   }
