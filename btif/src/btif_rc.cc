@@ -1764,16 +1764,18 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
       }
   }
 
-  if (!(p_dev->rc_features & BTA_AV_FEAT_APP_SETTING) && ((event == AVRC_PDU_LIST_PLAYER_APP_ATTR)
-      || (event == AVRC_PDU_LIST_PLAYER_APP_VALUES) || (event == AVRC_PDU_GET_CUR_PLAYER_APP_VALUE)
-      || (event == AVRC_PDU_SET_PLAYER_APP_VALUE) || (event == AVRC_PDU_GET_PLAYER_APP_ATTR_TEXT)
-      || (event == AVRC_PDU_GET_PLAYER_APP_VALUE_TEXT)))
+#if (defined(AVRC_QTI_V1_3_OPTIONAL_FEAT) && AVRC_QTI_V1_3_OPTIONAL_FEAT == TRUE)
+#else
+  if (event == AVRC_PDU_LIST_PLAYER_APP_ATTR || event == AVRC_PDU_LIST_PLAYER_APP_VALUES ||
+      event == AVRC_PDU_GET_CUR_PLAYER_APP_VALUE || event == AVRC_PDU_SET_PLAYER_APP_VALUE ||
+      event == AVRC_PDU_GET_PLAYER_APP_ATTR_TEXT || event == AVRC_PDU_GET_PLAYER_APP_VALUE_TEXT)
   {
       BTIF_TRACE_EVENT("Player application settings feature is not enabled");
       send_reject_response(p_dev->rc_handle, label, pavrc_cmd->pdu,
                            AVRC_STS_BAD_CMD, pavrc_cmd->cmd.opcode);
       return;
   }
+#endif
 
   switch (event) {
     case AVRC_PDU_GET_PLAY_STATUS: {

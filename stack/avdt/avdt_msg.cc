@@ -1531,6 +1531,7 @@ void avdt_msg_ind(tAVDT_CCB* p_ccb, BT_HDR* p_buf) {
     /* get and verify signal */
     AVDT_MSG_PRS_SIG(p, sig);
     msg.hdr.sig_id = sig;
+    AVDT_TRACE_DEBUG("sig = %d ", sig);
     if ((sig == 0) || (sig > AVDT_SIG_MAX)) {
       AVDT_TRACE_WARNING("Dropping msg sig=%d msg_type:%d", sig, msg_type);
       ok = false;
@@ -1580,6 +1581,8 @@ void avdt_msg_ind(tAVDT_CCB* p_ccb, BT_HDR* p_buf) {
       err = avdt_msg_prs_rej(&msg, p, sig);
       evt = avdt_msg_rej_2_evt[sig - 1];
     }
+
+    AVDT_TRACE_DEBUG("evt = %d", evt);
 
     /* if parsing failed */
     if (err != 0) {

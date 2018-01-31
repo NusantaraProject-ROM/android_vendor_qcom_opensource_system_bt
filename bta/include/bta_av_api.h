@@ -54,6 +54,7 @@
 #define BTA_AV_FAIL_ROLE 5 /* failed due to role management related issues */
 #define BTA_AV_FAIL_GET_CAP \
   6 /* get capability failed due to no SEP availale on the peer  */
+#define BTA_AV_FAIL_UNSUPPORTED 7 /* Offload Start Rsp handling in open state */
 
 typedef uint8_t tBTA_AV_STATUS;
 

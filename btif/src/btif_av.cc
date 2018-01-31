@@ -1512,8 +1512,10 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
       }
 
       /* inform the application that we are disconnected */
+      btif_av_cb[index].flags |= BTIF_AV_FLAG_PENDING_DISCONNECT;
       btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED,
                                         &(btif_av_cb[index].peer_bda));
+      btif_av_cb[index].flags &= ~BTIF_AV_FLAG_PENDING_DISCONNECT;
 
       /* change state to idle, send acknowledgement if start is pending */
       if (btif_av_cb[index].flags & BTIF_AV_FLAG_PENDING_START) {
@@ -1560,6 +1562,12 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
           __func__);
       btif_a2dp_on_offload_started(BTA_AV_FAIL);
     } break;
+
+    case BTA_AV_OFFLOAD_START_RSP_EVT:
+      APPL_TRACE_WARNING("Offload Start Rsp is unsupported in opened state");
+      if (btif_av_cb[index].flags & BTIF_AV_FLAG_REMOTE_SUSPEND)
+        btif_a2dp_on_offload_started(BTA_AV_FAIL_UNSUPPORTED);
+      break;
 
     case BTA_AV_RC_OPEN_EVT: {
       btif_av_check_rc_connection_priority(p_data);
@@ -2379,6 +2387,15 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
 
     case BTA_AV_OFFLOAD_START_RSP_EVT:
       index = btif_av_get_latest_playing_device_idx();
+      if (index == btif_max_av_clients) {
+        for (int i = 0; i < btif_max_av_clients; i++) {
+          if (btif_av_check_flag_remote_suspend(i)) {
+            index = i;
+            break;
+          }
+        }
+      }
+      BTIF_TRACE_EVENT("index = %d, max connections = %d", index, btif_max_av_clients);
       break;
 
     case BTA_AV_OFFLOAD_STOP_RSP_EVT:
@@ -2918,12 +2935,12 @@ static bt_status_t init_src(
     btif_max_av_clients = max_a2dp_connections;
     for (int i = 0; i < btif_max_av_clients; i++)
       btif_av_cb[i].codec_priorities = codec_priorities;
-    status = btif_av_init(BTA_A2DP_SOURCE_SERVICE_ID);
-    if (status == BT_STATUS_SUCCESS) bt_av_src_callbacks = callbacks;
     if (codec_config_update_enabled != false) {
         BTIF_TRACE_IMP("%s: Codec cfg update enabled changed to false", __func__);
         codec_config_update_enabled = false;
     }
+    status = btif_av_init(BTA_A2DP_SOURCE_SERVICE_ID);
+    if (status == BT_STATUS_SUCCESS) bt_av_src_callbacks = callbacks;
   }
   return status;
 }

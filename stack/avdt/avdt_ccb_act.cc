@@ -355,6 +355,7 @@ void avdt_ccb_hdl_start_rsp(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   event = (p_data->msg.hdr.err_code == 0) ? AVDT_SCB_MSG_START_RSP_EVT
                                           : AVDT_SCB_MSG_START_REJ_EVT;
 
+  AVDT_TRACE_DEBUG("%s event = %d ", __func__, event);
   /* get to where seid's are stashed in current cmd */
   p = (uint8_t*)(p_ccb->p_curr_cmd + 1);
 
