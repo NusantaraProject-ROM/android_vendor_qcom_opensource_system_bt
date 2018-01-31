@@ -19,6 +19,8 @@
 #ifndef BT_UTILS_H
 #define BT_UTILS_H
 
+#include "bt_types.h"
+
 static const char BT_UTILS_MODULE[] = "bt_utils_module";
 
 /*******************************************************************************
@@ -26,6 +28,8 @@ static const char BT_UTILS_MODULE[] = "bt_utils_module";
  ******************************************************************************/
 
 #define COD_AUDIO_DEVICE (0x200400)
+#define COD_HID_MASK 0x0700
+#define COD_HID_MAJOR 0x0500
 
 typedef enum {
   TASK_HIGH_MEDIA = 0,
@@ -60,5 +64,6 @@ typedef enum {
 void raise_priority_a2dp(tHIGH_PRIORITY_TASK high_task);
 bool is_device_present(char* header, unsigned char* device_details);
 bt_soc_type get_soc_type();
+uint32_t bt_devclass_to_uint(DEV_CLASS dev_class);
 
 #endif /* BT_UTILS_H */

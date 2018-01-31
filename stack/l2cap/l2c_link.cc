@@ -84,7 +84,7 @@ bool l2c_link_hci_conn_req(const RawAddress& bd_addr) {
          xx++, p_lcb_cur++) {
       if (p_lcb_cur == p_lcb) continue;
 
-      if (p_lcb_cur->in_use) {
+      if ((p_lcb_cur->in_use) || ((bt_devclass_to_uint(btm_cb.connecting_dc) & COD_HID_MASK) == COD_HID_MAJOR)) {
         no_links = false;
         p_lcb->link_role = HCI_ROLE_MASTER;
         break;

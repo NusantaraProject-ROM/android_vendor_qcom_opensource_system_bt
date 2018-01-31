@@ -216,3 +216,23 @@ static void init_soc_type() {
 bt_soc_type get_soc_type() {
   return soc_type;
 }
+
+/*****************************************************************************
+**
+** Function        bt_devclass_to_uint
+**
+** Description     This function is used to get cod in unit from COD array.
+**
+** Returns         cod.
+**
+*******************************************************************************/
+uint32_t bt_devclass_to_uint(DEV_CLASS dev_class) {
+  uint32_t cod = 0;
+
+  if (dev_class != NULL) {
+    /* if COD is 0, irrespective of the device type set it to Unclassified
+     * device */
+    cod = (dev_class[2]) | (dev_class[1] << 8) | (dev_class[0] << 16);
+  }
+  return cod;
+}
