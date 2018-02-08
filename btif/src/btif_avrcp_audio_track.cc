@@ -60,6 +60,18 @@ void* BtifAvrcpAudioTrackCreate(int trackFreq, int channelType) {
   return (void*)trackHolder;
 }
 
+int BtifAvrcpAudioTrackLatency(void* handle) {
+  if (handle == NULL) {
+    LOG_ERROR(LOG_TAG, "%s: handle is null!", __func__);
+    return 0;
+  }
+  BtifAvrcpAudioTrack* trackHolder = static_cast<BtifAvrcpAudioTrack*>(handle);
+  CHECK(trackHolder != NULL);
+  CHECK(trackHolder->track != NULL);
+  LOG_VERBOSE(LOG_TAG, "%s Track.cpp: get latency", __func__);
+  return trackHolder->track->latency();
+}
+
 void BtifAvrcpAudioTrackStart(void* handle) {
   if (handle == NULL) {
     LOG_ERROR(LOG_TAG, "%s: handle is null!", __func__);

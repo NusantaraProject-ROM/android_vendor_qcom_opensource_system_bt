@@ -80,7 +80,11 @@ typedef struct {
   uint16_t len;
   uint16_t offset;
   uint16_t layer_specific;
+  uint64_t enque_ns;
 } tBT_SBC_HDR;
+
+extern uint64_t btif_update_reported_delay(uint64_t inst_delay);
+extern bool btif_is_sink_delay_report_supported();
 
 /* BTIF A2DP Sink control block */
 typedef struct {
@@ -94,6 +98,7 @@ typedef struct {
   tA2DP_CHANNEL_COUNT channel_count;
   btif_a2dp_sink_focus_state_t rx_focus_state; /* audio focus state */
   void* audio_track;
+  uint32_t latency; /* latency of rendering Audio samples at MMAudio */
 } tBTIF_A2DP_SINK_CB;
 
 static tBTIF_A2DP_SINK_CB btif_a2dp_sink_cb;
@@ -312,6 +317,7 @@ static void btif_a2dp_sink_clear_track_event(void) {
   BtifAvrcpAudioTrackDelete(btif_a2dp_sink_cb.audio_track);
 #endif
   btif_a2dp_sink_cb.audio_track = NULL;
+  btif_a2dp_sink_cb.latency = 0;
 }
 
 static void btif_a2dp_sink_audio_handle_start_decoding(void) {
@@ -329,6 +335,7 @@ static void btif_a2dp_sink_audio_handle_start_decoding(void) {
   }
   alarm_set(btif_a2dp_sink_cb.decode_alarm, BTIF_SINK_MEDIA_TIME_TICK_MS,
             btif_decode_alarm_cb, NULL);
+  APPL_TRACE_DEBUG("Track Started and decode_alarm is set");
 }
 
 static void btif_a2dp_sink_handle_inc_media(tBT_SBC_HDR* p_msg) {
@@ -379,6 +386,8 @@ static void btif_a2dp_sink_avk_handle_timer(UNUSED_ATTR void* context) {
   tBT_SBC_HDR* p_msg;
   int num_sbc_frames;
   int num_frames_to_process;
+  uint64_t inst_delay = 0;       /* avg delay incurred per frame in 20 ms */
+  uint64_t inst_delay_total = 0; /* sum of delay for all frames processed till now */
 
   if (fixed_queue_is_empty(btif_a2dp_sink_cb.rx_audio_queue)) {
     APPL_TRACE_DEBUG("%s: empty queue", __func__);
@@ -416,6 +425,15 @@ static void btif_a2dp_sink_avk_handle_timer(UNUSED_ATTR void* context) {
       /* Queue packet has more frames */
       p_msg->num_frames_to_be_processed = num_frames_to_process;
       btif_a2dp_sink_handle_inc_media(p_msg);
+      if (btif_is_sink_delay_report_supported()) {
+        struct timespec ts_now;
+        uint64_t curr_time;
+        clock_gettime(CLOCK_BOOTTIME, &ts_now);
+        curr_time = (uint64_t)ts_now.tv_sec * 1000000000 + ts_now.tv_nsec;
+        if (curr_time > p_msg->enque_ns) {
+          inst_delay_total += p_msg->num_frames_to_be_processed * (curr_time - p_msg->enque_ns);
+        }
+      }
       p_msg->num_frames_to_be_processed =
           num_sbc_frames - num_frames_to_process;
       num_frames_to_process = 0;
@@ -433,6 +451,11 @@ static void btif_a2dp_sink_avk_handle_timer(UNUSED_ATTR void* context) {
         num_frames_to_process - p_msg->num_frames_to_be_processed;
     osi_free(p_msg);
   } while (num_frames_to_process > 0);
+
+  if (btif_is_sink_delay_report_supported()) {
+    inst_delay = inst_delay_total / btif_a2dp_sink_cb.frames_to_process;
+    btif_update_reported_delay(inst_delay);
+  }
 
   APPL_TRACE_DEBUG("Process Frames - ");
 }
@@ -498,6 +521,9 @@ static void btif_a2dp_sink_decoder_update_event(
     APPL_TRACE_ERROR("%s: A2dpSink: Track creation failed", __func__);
     return;
   }
+  if (btif_is_sink_delay_report_supported()) {
+    btif_a2dp_sink_cb.latency = BtifAvrcpAudioTrackLatency(btif_a2dp_sink_cb.audio_track);
+  }
 
   btif_a2dp_sink_cb.frames_to_process = A2DP_GetSinkFramesCountToProcess(
       BTIF_SINK_MEDIA_TIME_TICK_MS, p_buf->codec_info);
@@ -507,6 +533,11 @@ static void btif_a2dp_sink_decoder_update_event(
     APPL_TRACE_ERROR("%s: Cannot compute the number of frames to process",
                      __func__);
   }
+}
+
+uint32_t get_audiotrack_latency() {
+  APPL_TRACE_DEBUG("%s: latency = %d", __func__,btif_a2dp_sink_cb.latency);
+  return btif_a2dp_sink_cb.latency;
 }
 
 uint8_t btif_a2dp_sink_enqueue_buf(BT_HDR* p_pkt) {
@@ -531,6 +562,13 @@ uint8_t btif_a2dp_sink_enqueue_buf(BT_HDR* p_pkt) {
   p_msg->len = p_pkt->len;
   p_msg->offset = 0;
   p_msg->layer_specific = p_pkt->layer_specific;
+
+  if (btif_is_sink_delay_report_supported()) {
+    struct timespec ts_now;
+    clock_gettime(CLOCK_BOOTTIME, &ts_now);
+    p_msg->enque_ns = (uint64_t)ts_now.tv_sec * 1000000000 + ts_now.tv_nsec;
+  }
+
   BTIF_TRACE_VERBOSE("%s: frames to process %d, len %d", __func__,
                      p_msg->num_frames_to_be_processed, p_msg->len);
   fixed_queue_enqueue(btif_a2dp_sink_cb.rx_audio_queue, p_msg);

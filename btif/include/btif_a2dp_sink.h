@@ -51,6 +51,9 @@ void btif_a2dp_sink_shutdown(void);
 // Get the audio sample rate for the A2DP Sink module.
 tA2DP_SAMPLE_RATE btif_a2dp_sink_get_sample_rate(void);
 
+// Get Audio Track Latency
+uint32_t get_audiotrack_latency();
+
 // Get the audio channel count for the A2DP Sink module.
 tA2DP_CHANNEL_COUNT btif_a2dp_sink_get_channel_count(void);
 

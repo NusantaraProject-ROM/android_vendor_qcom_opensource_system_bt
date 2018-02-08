@@ -456,4 +456,15 @@ void initialize_audio_hidl();
 void deinit_audio_hal();
 
 RawAddress btif_av_get_addr_by_index(int idx);
+
+/*******************************************************************************
+**
+** Function         btif_get_average_delay
+**
+** Description      Returns average of instantaneous delay values
+**
+** Returns          int64_t
+*******************************************************************************/
+int64_t btif_get_average_delay();
+
 #endif /* BTIF_AV_H */

@@ -337,6 +337,23 @@ tBTA_AV_SCB* bta_av_hndl_to_scb(uint16_t handle) {
 }
 
 /*******************************************************************************
+**
+** Function         bta_avk_is_avdt_sync
+**
+** Description      If the current connection supports AVDT1.3
+**
+** Returns          true for supports AVDT1.3, false for not.
+**
+*******************************************************************************/
+bool bta_avk_is_avdt_sync(uint16_t handle) {
+  tBTA_AV_SCB* p_scb = bta_av_hndl_to_scb(handle);
+  if (p_scb && (p_scb->avdt_version >= AVDT_VERSION_SYNC))
+    return true;
+  else
+    return false;
+}
+
+/*******************************************************************************
  *
  * Function         bta_av_alloc_scb
  *

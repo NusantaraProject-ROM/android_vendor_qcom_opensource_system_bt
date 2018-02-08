@@ -117,6 +117,7 @@ extern bool enc_update_in_progress;
 extern bool tx_enc_update_initiated;
 extern tBTIF_A2DP_SOURCE_VSC btif_a2dp_src_vsc;
 extern void btif_media_send_reset_vendor_state();
+extern bool btif_device_in_sink_role();
 
 static void bta_av_st_rc_timer(tBTA_AV_SCB* p_scb,
                                UNUSED_ATTR tBTA_AV_DATA* p_data);
@@ -620,6 +621,10 @@ static void bta_av_proc_stream_evt(uint8_t handle, const RawAddress* bd_addr,
 
           memcpy(&p_msg->cfg, p_data->config_ind.p_cfg, sizeof(tAVDT_CFG));
           break;
+
+        case AVDT_DELAY_REPORT_CFM_EVT:
+          APPL_TRACE_DEBUG("%s: AVDT_DELAY_REPORT_CFM_EVT", __func__);
+          return;
 
         case AVDT_SECURITY_IND_EVT:
           p_msg->msg.security_ind.p_data = (uint8_t*)(p_msg + 1);
@@ -2264,6 +2269,13 @@ void bta_av_getcap_results(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     /* use only the services peer supports */
     cfg.psc_mask &= p_scb->p_cap->psc_mask;
     p_scb->cur_psc_mask = cfg.psc_mask;
+
+    if (btif_device_in_sink_role()) {
+      if (p_scb->cur_psc_mask & AVDT_PSC_DELAY_RPT)
+        p_scb->avdt_version = AVDT_VERSION_SYNC;
+      else
+        p_scb->avdt_version = AVDT_VERSION;
+    }
 
     if ((uuid_int == UUID_SERVCLASS_AUDIO_SINK) &&
         (p_scb->seps[p_scb->sep_idx].p_app_sink_data_cback != NULL)) {
