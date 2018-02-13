@@ -4874,6 +4874,7 @@ void bta_dm_close_gatt_conn(UNUSED_ATTR tBTA_DM_MSG* p_data) {
  *
  ******************************************************************************/
 void btm_dm_start_gatt_discovery(const RawAddress& bd_addr) {
+  APPL_TRACE_DEBUG("btm_dm_start_gatt_discovery");
   bta_dm_search_cb.gatt_disc_active = true;
 
   /* connection is already open */
@@ -4887,8 +4888,11 @@ void btm_dm_start_gatt_discovery(const RawAddress& bd_addr) {
       BTA_GATTC_Open(bta_dm_search_cb.client_if, bd_addr, true,
                      BTA_GATT_TRANSPORT_LE, true);
     } else {
-      BTA_GATTC_Open(bta_dm_search_cb.client_if, bd_addr, true,
-                     BTA_GATT_TRANSPORT_LE, false);
+      APPL_TRACE_DEBUG("btm_dm_start_gatt_discovery: ACL is disconnected");
+      /* don't create ACL for GATT discovery if ACL already disconnected */
+          APPL_TRACE_DEBUG("btm_dm_start_gatt_discovery: Not creating acl"
+            " for client_if = %d", bta_dm_search_cb.client_if);
+          bta_dm_search_cb.gatt_disc_active = false;
     }
   }
 }
