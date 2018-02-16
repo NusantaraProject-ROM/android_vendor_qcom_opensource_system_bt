@@ -122,6 +122,10 @@ bool l2c_link_hci_conn_req(const RawAddress& bd_addr) {
     else
       p_lcb->link_role = l2cu_get_conn_role(p_lcb);
 
+    if ((p_lcb->link_role == BTM_ROLE_MASTER)&&(interop_database_match_addr(INTEROP_DISABLE_ROLE_SWITCH, &bd_addr))) {
+      p_lcb->link_role = BTM_ROLE_SLAVE;
+      L2CAP_TRACE_WARNING ("l2c_link_hci_conn_req:set link_role= %d",p_lcb->link_role);
+    }
     btsnd_hcic_accept_conn(bd_addr, p_lcb->link_role);
 
     p_lcb->link_state = LST_CONNECTING;

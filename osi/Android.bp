@@ -1,20 +1,20 @@
 cc_defaults {
-    name: "fluoride_osi_defaults",
-    defaults: ["fluoride_defaults"],
+    name: "fluoride_osi_defaults_qti",
+    defaults: ["fluoride_defaults_qti"],
     include_dirs: [
-        "system/bt",
-        "system/bt/internal_include",
-        "system/bt/osi/src/protos",
-        "system/bt/utils/include",
-        "system/bt/stack/include",
+        "vendor/qcom/opensource/system/bt",
+        "vendor/qcom/opensource/system/bt/internal_include",
+        "vendor/qcom/opensource/system/bt/osi/src/protos",
+        "vendor/qcom/opensource/system/bt/utils/include",
+        "vendor/qcom/opensource/system/bt/stack/include",
     ]
 }
 
 // Static libraries required by other modules
 // ========================================================
 cc_test_library {
-    name: "libosi-AllocationTestHarness",
-    defaults: ["fluoride_osi_defaults"],
+    name: "libosi-AllocationTestHarness_qti",
+    defaults: ["fluoride_osi_defaults_qti"],
     srcs: [
         "test/AllocationTestHarness.cc",
     ],
@@ -25,8 +25,8 @@ cc_test_library {
 }
 
 cc_test_library {
-    name: "libosi-AlarmTestHarness",
-    defaults: ["fluoride_osi_defaults"],
+    name: "libosi-AlarmTestHarness_qti",
+    defaults: ["fluoride_osi_defaults_qti"],
     srcs: [
         "test/AlarmTestHarness.cc",
     ],
@@ -39,8 +39,8 @@ cc_test_library {
 // Bluetooth Protobuf static library for target and host
 // ========================================================
 cc_library_static {
-    name: "libbt-protos",
-    defaults: ["fluoride_defaults"],
+    name: "libbt-protos_qti",
+    defaults: ["fluoride_defaults_qti"],
     srcs: ["src/protos/bluetooth.proto"],
     proto: {
         export_proto_headers: true,
@@ -52,8 +52,8 @@ cc_library_static {
 // libosi static library for target
 // ========================================================
 cc_library_static {
-    name: "libosi",
-    defaults: ["fluoride_osi_defaults"],
+    name: "libosi_qti",
+    defaults: ["fluoride_osi_defaults_qti"],
     // TODO(mcchou): Remove socket_utils sources after platform specific
     // dependencies are abstracted.
     srcs: [
@@ -85,7 +85,7 @@ cc_library_static {
     shared_libs: [
         "liblog",
     ],
-    static_libs: ["libbt-protos"],
+    static_libs: ["libbt-protos_qti"],
     host_supported: true,
     // TODO(armansito): Setting _GNU_SOURCE isn't very platform-independent but
     // should be compatible for a Linux host OS. We should figure out what to do for
@@ -106,9 +106,9 @@ cc_library_static {
 // libosi unit tests for target and host
 // ========================================================
 cc_test {
-    name: "net_test_osi",
+    name: "net_test_osi_qti",
     test_suites: ["device-tests"],
-    defaults: ["fluoride_osi_defaults"],
+    defaults: ["fluoride_osi_defaults_qti"],
     host_supported: true,
     srcs: [
         "test/AlarmTestHarness.cc",
@@ -139,9 +139,9 @@ cc_test {
         "libcutils",
     ],
     static_libs: [
-        "libbt-protos",
+        "libbt-protos_qti",
         "libgmock",
-        "libosi",
+        "libosi_qti",
     ],
     target: {
         linux: {

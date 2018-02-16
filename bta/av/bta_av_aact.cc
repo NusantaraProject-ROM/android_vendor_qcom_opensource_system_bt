@@ -325,6 +325,9 @@ static void bta_av_save_addr(tBTA_AV_SCB* p_scb, const RawAddress& b) {
     p_scb->suspend_sup = true;
   }
 
+  std::string addrstr = b.ToString();
+  const char* bd_addr_str = addrstr.c_str();
+  APPL_TRACE_DEBUG("%s: b[%s]", __func__, bd_addr_str);
   /* do this copy anyway, just in case the first addr matches
    * the control block one by accident */
   p_scb->peer_addr = b;
@@ -432,7 +435,7 @@ static bool bta_av_next_getcap(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   tAVDT_GETCAP_REQ* p_req;
   bool sent_cmd = false;
   uint16_t uuid_int = p_scb->uuid_int;
-  uint8_t sep_requested = 0;
+  uint8_t sep_requested = AVDT_TSEP_SNK;
 
   if (uuid_int == UUID_SERVCLASS_AUDIO_SOURCE)
     sep_requested = AVDT_TSEP_SNK;
@@ -614,6 +617,7 @@ static void bta_av_proc_stream_evt(uint8_t handle, const RawAddress* bd_addr,
     if (event == AVDT_SUSPEND_CFM_EVT) p_msg->initiator = true;
 
     APPL_TRACE_VERBOSE("%s: hndl:x%x", __func__, p_scb->hndl);
+    VLOG(1) << __func__ << "p_msg->bd_addr:" << bd_addr;
     p_msg->hdr.layer_specific = p_scb->hndl;
     p_msg->handle = handle;
     p_msg->avdt_event = event;
@@ -857,14 +861,22 @@ void bta_av_switch_role(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
   if (p_scb->q_tag == BTA_AV_Q_TAG_OPEN) {
     if (bta_av_switch_if_needed(p_scb) ||
         !bta_av_link_role_ok(p_scb, A2DP_SET_MULTL_BIT)) {
+      APPL_TRACE_DEBUG("%s: Role switch request in progress", __func__);
       p_scb->wait |= BTA_AV_WAIT_ROLE_SW_RES_OPEN;
     } else {
       /* this should not happen in theory. Just in case...
        * continue to do_disc_a2dp */
-      switch_res = BTA_AV_RS_DONE;
+
+       if(!p_scb->num_disc_snks) {
+          /* Only there is no discovered sink list, then do discovery */
+          APPL_TRACE_DEBUG("%s: continue discovery request(hndl:0x%x)",
+                             __func__, p_scb->hndl);
+          switch_res = BTA_AV_RS_DONE;
+        }
     }
   } else {
     /* report failure on OPEN */
+    APPL_TRACE_DEBUG("%s: Role switch request failed", __func__);
     switch_res = BTA_AV_RS_FAIL;
   }
 
@@ -872,6 +884,7 @@ void bta_av_switch_role(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
     if (bta_av_cb.rs_idx == (p_scb->hdi + 1)) {
       bta_av_cb.rs_idx = 0;
     }
+    APPL_TRACE_DEBUG("%s: Role switch request to be retried", __func__);
     p_scb->wait &= ~BTA_AV_WAIT_ROLE_SW_RETRY;
     p_scb->q_tag = 0;
     p_buf->switch_res = switch_res;
@@ -1028,6 +1041,7 @@ void bta_av_do_disc_a2dp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
                sizeof(tBTA_AV_API_OPEN));
         p_scb->wait |= BTA_AV_WAIT_ROLE_SW_RES_OPEN;
         p_scb->q_tag = BTA_AV_Q_TAG_OPEN;
+        APPL_TRACE_DEBUG("%s: AV Role switch triggered", __func__);
       } else {
         ok_continue = true;
       }
@@ -1047,6 +1061,7 @@ void bta_av_do_disc_a2dp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
       if (bta_av_link_role_ok(p_scb, A2DP_SET_MULTL_BIT)) {
         ok_continue = true;
       } else {
+        APPL_TRACE_DEBUG("%s: Role not proper yet, wait", __func__);
         p_scb->wait |= BTA_AV_WAIT_ROLE_SW_RES_OPEN;
       }
       break;
@@ -1072,13 +1087,15 @@ void bta_av_do_disc_a2dp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
           ((bta_av_cb.conn_audio & mask) || /* connected audio */
           (bta_av_cb.conn_video & mask))) {  /* connected video */
           BTM_GetRole(p_scbi->peer_addr, &role);
+          APPL_TRACE_DEBUG("%s:Current role for idx %d is %d",__func__, p_scb->hdi, role);
           if (BTM_ROLE_MASTER != role) {
             if (!interop_database_match_addr(INTEROP_DISABLE_ROLE_SWITCH,
                                           &p_scbi->peer_addr)) {
+              APPL_TRACE_DEBUG("%s:RS disabled, returning",__func__);
               return;
             }else {
-              APPL_TRACE_DEBUG("%s:other connected remote is blacklisted for RS",__func__);
-              APPL_TRACE_DEBUG("%s:RS is not possible, continue avdtp signaling",__func__);
+              APPL_TRACE_DEBUG("%s: Other connected remote is blacklisted for RS",__func__);
+              APPL_TRACE_DEBUG("%s: RS is not possible, continue avdtp signaling",__func__);
             }
           }
         }
@@ -1093,6 +1110,7 @@ void bta_av_do_disc_a2dp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   p_scb->wait &= ~BTA_AV_WAIT_ROLE_SW_BITS;
 
   if (p_scb->wait & BTA_AV_WAIT_CHECK_RC) {
+    APPL_TRACE_DEBUG("%s: Start RC Timer, wait:x%x",__func__, p_scb->wait);
     p_scb->wait &= ~BTA_AV_WAIT_CHECK_RC;
     bta_sys_start_timer(p_scb->avrc_ct_timer, BTA_AV_RC_DISC_TIME_VAL,
                         BTA_AV_AVRC_TIMER_EVT, p_scb->hndl);
@@ -3490,7 +3508,7 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
     "tx_enc_update_initiated:%u", btif_a2dp_src_vsc.vs_configs_exchanged, btif_a2dp_src_vsc.tx_started,
     btif_a2dp_src_vsc.tx_start_initiated, tx_enc_update_initiated);
   enc_update_in_progress = FALSE;
-  if (!btif_hf_is_call_vr_idle()) {
+  if (!bluetooth::headset::btif_hf_is_call_vr_idle()) {
     APPL_TRACE_IMP("ignore VS start request as Call is not idle");
     status = 2;//INCALL FAILURE
     (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
@@ -3634,6 +3652,9 @@ void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
       APPL_TRACE_IMP("Restricting streaming MTU size for MQ Bitpool");
       mtu = MAX_2MBPS_AVDTP_MTU;
     }
+
+    mtu = mtu + AVDT_MEDIA_HDR_SIZE;
+    APPL_TRACE_DEBUG("%s Adding AVDTP media Header in stream_mtu : %d", __func__, mtu);
 
     if (mtu > BTA_AV_MAX_A2DP_MTU)
         mtu = BTA_AV_MAX_A2DP_MTU;

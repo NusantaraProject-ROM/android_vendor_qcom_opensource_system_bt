@@ -57,12 +57,14 @@ typedef enum {
   BTIF_AV_RESET_REMOTE_STARTED_FLAG_UPDATE_AUDIO_STATE_EVT,
   BTIF_AV_INIT_REQ_EVT,
   BTIF_AV_REINIT_AUDIO_IF,
+  BTIF_AV_SETUP_CODEC_REQ_EVT,
 } btif_av_sm_event_t;
 
 /*******************************************************************************
  *  BTIF AV API
  ******************************************************************************/
 
+bool btif_av_is_handoff_set();
 /*******************************************************************************
  *
  * Function         btif_av_get_addr

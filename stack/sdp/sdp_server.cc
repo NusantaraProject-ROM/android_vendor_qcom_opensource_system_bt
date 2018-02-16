@@ -49,7 +49,7 @@
 #include "osi/include/osi.h"
 #include "sdp_api.h"
 #include "sdpint.h"
-#include "service/logging_helpers.h"
+//#include "service/logging_helpers.h"
 
 #include <cutils/properties.h>
 
@@ -164,7 +164,8 @@ int sdp_get_stored_avrc_tg_version(RawAddress addr)
     profile_info_t profile_info = AVRCP_0103_SUPPORT;
     const profile_t profile = AVRCP_ID;
 
-    VLOG(2) << __func__ << " target BD Addr: " << addr.ToString().c_str();
+    SDP_TRACE_DEBUG("%s target BD Addr: %s",\
+             __func__, addr.ToString().c_str());
 
 
     feature = profile_feature_fetch(profile, profile_info);
@@ -179,7 +180,8 @@ int sdp_get_stored_avrc_tg_version(RawAddress addr)
        return stored_ver;
     }
     while (fread(&data, sizeof(data), 1, fp) != 0) {
-        VLOG(2) << __func__ << "Entry: addr " <<  addr.ToString().c_str() << " ver " << data.ver;
+        SDP_TRACE_DEBUG("Entry: addr = %x:%x:%x, ver = 0x%x",\
+                data.addr[0], data.addr[1], data.addr[2], data.ver);
         if(!memcmp(&addr, data.addr, 3)) {
             stored_ver = data.ver;
             SDP_TRACE_DEBUG("Entry found with version: 0x%x", stored_ver);

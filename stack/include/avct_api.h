@@ -340,6 +340,6 @@ extern bool AVCT_CheckIncomingConn(RawAddress peer_addr);
 ** Returns          BD Address.
 **
 *******************************************************************************/
-extern bool avct_get_peer_addr_by_ccb (uint8_t idx, RawAddress addr);
+extern bool avct_get_peer_addr_by_ccb (uint8_t idx, RawAddress& addr);
 
 #endif /* AVCT_API_H */

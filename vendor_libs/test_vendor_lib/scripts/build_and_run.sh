@@ -39,7 +39,7 @@ AOSP_ABS=$1
 DEVICE=$2
 
 # The location of Bluetooth within AOSP.
-BT_REL=/system/bt
+BT_REL=/vendor/qcom/opensource/system/bt
 BT_ABS=${AOSP_ABS}${BT_REL}
 
 # The location of the test vendor library.

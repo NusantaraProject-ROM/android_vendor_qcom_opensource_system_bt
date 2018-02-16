@@ -166,7 +166,12 @@ void bte_main_enable() {
   APPL_TRACE_DEBUG("%s", __func__);
 
   module_start_up(get_module(BTSNOOP_MODULE));
-  module_start_up(get_module(HCI_MODULE));
+  if (!module_start_up(get_module(HCI_MODULE))) {
+    LOG_ERROR(LOG_TAG,
+    "%s HCI_MODULE failed to start, Killing the bluetooth process", __func__);
+    /* Killing the process to force a restart as part of fault tolerance */
+    kill(getpid(), SIGKILL);
+  }
 
   BTU_StartUp();
 }

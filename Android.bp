@@ -9,7 +9,6 @@ subdirs = [
     "stack",
     "osi",
     "embdrv",
-    "service",
     "include",
     "main",
     "bta",

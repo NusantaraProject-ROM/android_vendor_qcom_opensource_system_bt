@@ -4271,6 +4271,7 @@ static void btm_sec_connect_after_reject_timeout(UNUSED_ATTR void* data) {
 
   BTM_TRACE_EVENT("%s", __func__);
   btm_cb.p_collided_dev_rec = 0;
+  btm_cb.collision_start_time = 0;
 
   if (btm_sec_dd_create_conn(p_dev_rec) != BTM_CMD_STARTED) {
     BTM_TRACE_WARNING("Security Manager: %s: failed to start connection",

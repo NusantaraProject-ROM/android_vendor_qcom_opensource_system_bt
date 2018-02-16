@@ -61,7 +61,7 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
   if (p_av_start == NULL) {
     /* ack back a local start request */
     if (btif_av_is_split_a2dp_enabled()) {
-      if (btif_hf_is_call_vr_idle())
+      if (bluetooth::headset::btif_hf_is_call_vr_idle())
         //btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, NULL, 0);
         btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, (char *)&hdl, 1);
       else {
@@ -184,7 +184,10 @@ void btif_a2dp_on_offload_started(tBTA_AV_STATUS status) {
       APPL_TRACE_ERROR("%s offload start failed", __func__);
       RawAddress bd_addr;
       btif_av_get_peer_addr(&bd_addr);
-      btif_dispatch_sm_event(BTIF_AV_DISCONNECT_REQ_EVT, (void *)bd_addr.address,
+     /* status 13 means that there is a sco connection request during start vs cmd
+        in such case, will not disconnect the stack, this trigger connect again*/
+      if(status != 13) 
+          btif_dispatch_sm_event(BTIF_AV_DISCONNECT_REQ_EVT, (void *)bd_addr.address,
                              sizeof(RawAddress));
     }
   } else {

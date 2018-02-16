@@ -1,7 +1,7 @@
 // simulation library for testing virtual devices
 // ========================================================
 cc_library_static {
-    name: "libbt-rootcanal",
+    name: "libbt-rootcanal_qti",
     proprietary: true,
     srcs: [
         "src/acl_packet.cc",
@@ -38,11 +38,11 @@ cc_library_static {
         "libbluetooth_headers",
     ],
     include_dirs: [
-        "system/bt",
-        "system/bt/utils/include",
-        "system/bt/hci/include",
-        "system/bt/internal_include",
-        "system/bt/stack/include",
+        "vendor/qcom/opensource/system/bt",
+        "vendor/qcom/opensource/system/bt/utils/include",
+        "vendor/qcom/opensource/system/bt/hci/include",
+        "vendor/qcom/opensource/system/bt/internal_include",
+        "vendor/qcom/opensource/system/bt/stack/include",
     ],
     shared_libs: [
         "libbase",
@@ -57,7 +57,7 @@ cc_library_static {
 // test-vendor unit tests for host
 // ========================================================
 cc_test_host {
-    name: "test-vendor_test_host",
+    name: "test-vendor_test_host_qti",
     srcs: [
         "src/async_manager.cc",
         "src/bt_address.cc",
@@ -77,10 +77,10 @@ cc_test_host {
         "include",
     ],
     include_dirs: [
-        "system/bt",
-        "system/bt/utils/include",
-        "system/bt/hci/include",
-        "system/bt/stack/include",
+        "vendor/qcom/opensource/system/bt",
+        "vendor/qcom/opensource/system/bt/utils/include",
+        "vendor/qcom/opensource/system/bt/hci/include",
+        "vendor/qcom/opensource/system/bt/stack/include",
     ],
     shared_libs: [
         "liblog",

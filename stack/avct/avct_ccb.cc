@@ -145,7 +145,7 @@ tAVCT_CCB* avct_ccb_by_idx(uint8_t idx) {
 ** Returns          BD Address.
 **
 *******************************************************************************/
-bool avct_get_peer_addr_by_ccb (uint8_t idx, RawAddress addr)
+bool avct_get_peer_addr_by_ccb (uint8_t idx, RawAddress& addr)
 {
     tAVCT_CCB   *p_ccb;
     bool     value = FALSE;

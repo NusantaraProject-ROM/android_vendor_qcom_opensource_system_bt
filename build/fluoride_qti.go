@@ -21,7 +21,7 @@ import (
 )
 
 func init() {
-	android.RegisterModuleType("fluoride_defaults", fluorideDefaultsFactory)
+	android.RegisterModuleType("fluoride_defaults_qti", fluorideDefaultsFactory)
 }
 
 func fluorideDefaultsFactory() android.Module {

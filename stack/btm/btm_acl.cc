@@ -579,6 +579,12 @@ tBTM_STATUS BTM_SwitchRole(const RawAddress& remote_bd_addr, uint8_t new_role,
   VLOG(1) << __func__ << " BDA: " << remote_bd_addr;
 
 
+#if (BTM_SCO_INCLUDED == TRUE)
+    /* Check if there is any SCO Active on this BD Address */
+    is_sco_active = btm_is_sco_active_by_bdaddr(remote_bd_addr);
+    if (is_sco_active == true) return (BTM_NO_RESOURCES);
+#endif
+
   /* Make sure the local/remote devices supports switching */
   if (!btm_dev_support_switch(remote_bd_addr))
     return(BTM_MODE_UNSUPPORTED);
@@ -598,13 +604,6 @@ tBTM_STATUS BTM_SwitchRole(const RawAddress& remote_bd_addr, uint8_t new_role,
                 INTEROP_DISABLE_ROLE_SWITCH, &remote_bd_addr)) ||
                 (!btm_cb.is_wifi_connected && (btm_get_bredr_acl_count() <= 1)))
       return(BTM_SUCCESS);
-
-#if (BTM_SCO_INCLUDED == TRUE)
-  /* Check if there is any SCO Active on this BD Address */
-  is_sco_active = btm_is_sco_active_by_bdaddr(remote_bd_addr);
-
-  if (is_sco_active == true) return (BTM_NO_RESOURCES);
-#endif
 
   /* Ignore role switch request if the previous request was not completed */
   if (p->switch_role_state != BTM_ACL_SWKEY_STATE_IDLE) {
@@ -2803,7 +2802,7 @@ void btm_acl_paging(BT_HDR* p, const RawAddress& bda) {
   } else {
     if (!BTM_ACL_IS_CONNECTED(bda)) {
       VLOG(1) << "connecting_bda: " << btm_cb.connecting_bda;
-      if (btm_cb.paging && bda != btm_cb.connecting_bda) {
+      if (btm_cb.paging && bda == btm_cb.connecting_bda) {
         fixed_queue_enqueue(btm_cb.page_queue, p);
       } else {
         p_dev_rec = btm_find_or_alloc_dev(bda);

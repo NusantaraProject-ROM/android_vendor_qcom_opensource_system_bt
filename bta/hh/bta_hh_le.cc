@@ -1683,8 +1683,7 @@ void bta_hh_le_srvc_search_cmpl(tBTA_GATTC_SEARCH_CMPL* p_data) {
              cn != list_end(service->characteristics); cn = list_next(cn)) {
          tBTA_GATTC_CHARACTERISTIC *p_char =
               (tBTA_GATTC_CHARACTERISTIC*) list_node(cn);
-          if (p_char->uuid.uu.uuid16 == GATT_UUID_BATTERY_LEVEL &&
-                   p_char->uuid.len == LEN_UUID_16) {
+          if (p_char->uuid.As16Bit()== GATT_UUID_BATTERY_LEVEL) {
             p_dev_cb->hid_srvc[srvc_index].incl_srvc_inst = service->handle;
             p_rpt = bta_hh_le_find_alloc_report_entry(p_dev_cb, service->s_handle,
                           GATT_UUID_BATTERY_LEVEL, p_char->handle);
@@ -1699,8 +1698,6 @@ void bta_hh_le_srvc_search_cmpl(tBTA_GATTC_SEARCH_CMPL* p_data) {
                            read_report_descriptor_ccc_cb, p_rpt);
           }
       }
-      APPL_TRACE_DEBUG("%s: have HID service inst_id= %d", __func__,
-                       p_dev_cb->hid_srvc.srvc_inst_id);
     } else if (service->uuid == Uuid::From16Bit(UUID_SERVCLASS_SCAN_PARAM)) {
       p_dev_cb->scan_refresh_char_handle = 0;
       p_dev_cb->scan_int_char_handle  = 0;
@@ -1719,7 +1716,7 @@ void bta_hh_le_srvc_search_cmpl(tBTA_GATTC_SEARCH_CMPL* p_data) {
             p_dev_cb->scps_notify = BTA_HH_LE_SCPS_NOTIFY_NONE;
 
         }
-        if (p_char->uuid.uu.uuid16 == Uuid::From16Bit(GATT_UUID_SCAN_INT_WINDOW)) {
+        if (p_char->uuid == Uuid::From16Bit(GATT_UUID_SCAN_INT_WINDOW)) {
            p_dev_cb->scan_int_char_handle = p_char->handle;
         }
         if (p_dev_cb->scan_refresh_char_handle &&  p_dev_cb->scan_int_char_handle)
@@ -1765,7 +1762,7 @@ void bta_hh_le_input_rpt_notify(tBTA_GATTC_NOTIFY* p_data) {
 
   app_id = p_dev_cb->app_id;
 
-  if (p_char->uuid.uu.uuid16 == GATT_UUID_SCAN_REFRESH) {
+  if (p_char->uuid.As16Bit()== GATT_UUID_SCAN_REFRESH) {
       APPL_TRACE_DEBUG("Notification received for scan refresh parameters");
       BTA_HhUpdateLeScanParam(p_dev_cb->hid_handle,BTM_BLE_SCAN_SLOW_INT_1,
                                              BTM_BLE_SCAN_SLOW_WIN_1);
@@ -2289,7 +2286,7 @@ static void write_scpp_cb(uint16_t conn_id, tGATT_STATUS status,
 
   const tBTA_GATTC_CHARACTERISTIC* p_char =
       BTA_GATTC_GetCharacteristic(conn_id, handle);
-  uint16_t uuid = p_char->uuid.uu.uuid16;
+  uint16_t uuid = p_char->uuid.As16Bit();
 
   if (uuid != GATT_UUID_SCAN_INT_WINDOW)
      return;

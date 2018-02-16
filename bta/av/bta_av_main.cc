@@ -1125,12 +1125,17 @@ bool bta_av_switch_if_needed(tBTA_AV_SCB* p_scb) {
       BTM_GetRole(p_scbi->peer_addr, &role);
       /* this channel is open - clear the role switch link policy for this link
        */
+      APPL_TRACE_DEBUG("%s: Role %d for index %d", __func__, role, i);
       if (BTM_ROLE_MASTER != role) {
         if (bta_av_cb.features & BTA_AV_FEAT_MASTER)
           bta_sys_clear_policy(BTA_ID_AV, HCI_ENABLE_MASTER_SLAVE_SWITCH,
                                p_scbi->peer_addr);
         ret = BTM_SwitchRole(p_scbi->peer_addr, BTM_ROLE_MASTER, NULL);
+        APPL_TRACE_IMP("%s: AV Role switch request returns: %d", __func__, ret);
         if ((ret == BTM_REPEATED_ATTEMPTS) ||
+            (ret == BTM_MODE_UNSUPPORTED) ||
+            (ret == BTM_UNKNOWN_ADDR) ||
+            (ret == BTM_SUCCESS) ||
             ((ret == BTM_NO_RESOURCES) &&
               btm_is_sco_active_by_bdaddr(p_scbi->peer_addr)))
           return false;
@@ -1183,9 +1188,13 @@ bool bta_av_link_role_ok(tBTA_AV_SCB* p_scb, uint8_t bits) {
        * If we try again it will anyways fail
        * return from here
        */
+      APPL_TRACE_IMP("%s: AV Role switch request returns: %d", __func__, ret);
       if ((ret == BTM_REPEATED_ATTEMPTS) ||
+          (ret == BTM_MODE_UNSUPPORTED) ||
+          (ret == BTM_UNKNOWN_ADDR) ||
+          (ret == BTM_SUCCESS) ||
           ((ret == BTM_NO_RESOURCES) &&
-           btm_is_sco_active_by_bdaddr(p_scb->peer_addr)))
+            btm_is_sco_active_by_bdaddr(p_scb->peer_addr)))
         return true;
 
       if (BTM_CMD_STARTED != ret) {

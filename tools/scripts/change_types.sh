@@ -4,7 +4,7 @@
 # directory and replace all |TYPES| according to the list below.
 
 # NOTE 1:
-# If this script is run from .../system/bt (as it's intended to be),
+# If this script is run from .../vendor/qcom/opensource/system/bt (as it's intended to be),
 # please edit stack/include/bt_types.h next and remove the typedef's
 # near the top and restore the definitions of TRUE and FALSE. These
 # are still used in the vnd_* files and device specific repositories.
@@ -79,7 +79,7 @@ echo "All done."
 
 # Try to be helpful ...
 PWD=`pwd`
-if [[ "${PWD}" == */system/bt ]]
+if [[ "${PWD}" == */vendor/qcom/opensource/system/bt ]]
 then
   echo "Please edit ${PWD}/stack/include/bt_types.h next."
 fi

@@ -77,6 +77,7 @@ extern int btif_get_is_remote_started_idx();
 extern bool btif_av_is_playing_on_other_idx(int current_index);
 extern int btif_get_is_remote_started_idx();
 extern bool reconfig_a2dp;
+extern bool audio_start_awaited;
 bool deinit_pending = false;
 static void btif_a2dp_audio_send_start_req();
 static void btif_a2dp_audio_send_suspend_req();
@@ -211,7 +212,7 @@ Status mapToStatus(uint8_t resp)
 static void* server_thread(UNUSED_ATTR void* arg) {
   LOG_INFO(LOG_TAG,"%s",__func__);
   Lock lk(mtx);
-  if (server_died == false) {
+  while (server_died == false) {
     LOG_INFO(LOG_TAG,"waitin on condition");
     mCV.wait(lk);
   }
@@ -220,7 +221,6 @@ static void* server_thread(UNUSED_ATTR void* arg) {
     server_died = false;
     on_hidl_server_died();
   }
-  pthread_join(audio_hal_monitor, NULL);
   LOG_INFO(LOG_TAG,"%s EXIT",__func__);
   return NULL;
 }
@@ -239,8 +239,11 @@ void btif_a2dp_audio_interface_init() {
   deinit_pending = false;
   server_died = false;
   int ret = pthread_create(&audio_hal_monitor, (const pthread_attr_t*)NULL, server_thread, nullptr);
-  if (ret != 0)
+  if (ret != 0) {
     LOG_ERROR(LOG_TAG,"pthread create falied");
+  } else {
+    pthread_detach(audio_hal_monitor);
+  }
   btAudio->linkToDeath(BTAudioHidlDeathRecipient, 0);
   LOG_INFO(LOG_TAG,"%s:Init returned",__func__);
 }
@@ -451,7 +454,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         status = A2DP_CTRL_ACK_FAILURE;
         break;
       }
-      if (!btif_hf_is_call_vr_idle()) {
+      if (!bluetooth::headset::btif_hf_is_call_vr_idle()) {
         status  = A2DP_CTRL_ACK_INCALL_FAILURE;
         break;
       }
@@ -486,7 +489,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
        * Some headsets such as "Sony MW600", don't allow AVDTP START
        * while in a call, and respond with BAD_STATE.
        */
-      if (!btif_hf_is_call_vr_idle()) {
+      if (!bluetooth::headset::btif_hf_is_call_vr_idle()) {
         status = A2DP_CTRL_ACK_INCALL_FAILURE;
         break;
       }
@@ -509,6 +512,19 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
           status = A2DP_CTRL_ACK_PENDING;
         }
       }
+
+      if (audio_start_awaited) {
+        if (reconfig_a2dp || (btif_av_is_under_handoff())) {
+          APPL_TRACE_DEBUG("Audio start awaited handle start under handoff");
+          audio_start_awaited = false;
+          btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
+          int idx = btif_av_get_latest_device_idx_to_start();
+          if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SRC)
+            status = A2DP_CTRL_ACK_SUCCESS;
+          break;
+        }
+      }
+
       /* In dual a2dp mode check for stream started first*/
       if (btif_av_stream_started_ready()) {
         /*

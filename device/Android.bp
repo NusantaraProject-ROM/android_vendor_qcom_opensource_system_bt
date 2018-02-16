@@ -1,17 +1,17 @@
 // Bluetooth device static library for target
 // ========================================================
 cc_library_static {
-    name: "libbtdevice",
-    defaults: ["fluoride_defaults"],
+    name: "libbtdevice_qti",
+    defaults: ["fluoride_defaults_qti"],
     local_include_dirs: [
         "include",
     ],
     include_dirs: [
-        "system/bt",
-        "system/bt/btcore/include",
-        "system/bt/hci/include",
-        "system/bt/internal_include",
-        "system/bt/stack/include",
+        "vendor/qcom/opensource/system/bt",
+        "vendor/qcom/opensource/system/bt/btcore/include",
+        "vendor/qcom/opensource/system/bt/hci/include",
+        "vendor/qcom/opensource/system/bt/internal_include",
+        "vendor/qcom/opensource/system/bt/stack/include",
         "vendor/qcom/opensource/bluetooth_ext/system_bt_ext",
     ],
     srcs: [
@@ -34,10 +34,10 @@ cc_library_static {
 // Bluetooth device unit tests for target
 // ========================================================
 cc_test {
-    name: "net_test_device",
+    name: "net_test_device_qti",
     test_suites: ["device-tests"],
-    defaults: ["fluoride_defaults"],
-    include_dirs: ["system/bt"],
+    defaults: ["fluoride_defaults_qti"],
+    include_dirs: ["vendor/qcom/opensource/system/bt"],
     srcs: [
         "test/interop_test.cc",
     ],
@@ -46,11 +46,11 @@ cc_test {
         "libdl",
     ],
     static_libs: [
-        "libbtdevice",
+        "libbtdevice_qti",
         "libbtdevice_ext",
-        "libbtcore",
-        "libosi",
-        "libosi-AllocationTestHarness",
+        "libbtcore_qti",
+        "libosi_qti",
+        "libosi-AllocationTestHarness_qti",
         "libcutils",
         "libbluetooth-types",
     ],

@@ -55,6 +55,7 @@
 #include "btif/include/btif_debug_btsnoop.h"
 #include "btif/include/btif_debug_conn.h"
 #include "btif_a2dp.h"
+#include "btif_hf.h"
 #include "btif_api.h"
 #include "btif_config.h"
 #include "device/include/controller.h"
@@ -87,8 +88,6 @@ bool restricted_mode = false;
 
 /* list all extended interfaces here */
 
-/* handsfree profile */
-extern bthf_interface_t* btif_hf_get_interface();
 /* handsfree profile - client */
 extern bthf_client_interface_t* btif_hf_client_get_interface();
 /* advanced audio profile */
@@ -144,7 +143,7 @@ static bool is_profile(const char* p1, const char* p2) {
  ****************************************************************************/
 
 static int init(bt_callbacks_t* callbacks) {
-  LOG_INFO(LOG_TAG, "%s", __func__);
+  LOG_INFO(LOG_TAG, "gghai: %s", __func__);
 
   if (interface_ready()) return BT_STATUS_DONE;
 
@@ -159,7 +158,7 @@ static int init(bt_callbacks_t* callbacks) {
 }
 
 static int enable(bool start_restricted) {
-  LOG_INFO(LOG_TAG, "%s: start restricted = %d", __func__, start_restricted);
+  LOG_INFO(LOG_TAG, "gghai: %s: start restricted = %d", __func__, start_restricted);
 
   restricted_mode = start_restricted;
 
@@ -236,7 +235,7 @@ int get_remote_services(RawAddress* remote_addr) {
   /* sanity check */
   if (interface_ready() == false) return BT_STATUS_NOT_READY;
 
-  return btif_dm_get_remote_services(*remote_addr);
+  return btif_dm_get_remote_services_from_app(*remote_addr);
 }
 
 static int start_discovery(void) {
@@ -345,7 +344,7 @@ static const void* get_profile_interface(const char* profile_id) {
 
   /* check for supported profile interfaces */
   if (is_profile(profile_id, BT_PROFILE_HANDSFREE_ID))
-    return btif_hf_get_interface();
+    return bluetooth::headset::GetInterface();
 
   if (is_profile(profile_id, BT_PROFILE_HANDSFREE_CLIENT_ID))
     return btif_hf_client_get_interface();

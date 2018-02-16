@@ -151,7 +151,7 @@ EXPORT_SYMBOL module_t interop_module = {
     .init = NULL,
     .start_up = NULL,
     .shut_down = NULL,
-    .clean_up = interop_clean_up,
+    .clean_up = interop_clean_up
     .dependencies = {NULL},
 };
 

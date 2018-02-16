@@ -2,21 +2,21 @@
 
 known_tests=(
   bluetoothtbd_test
-  net_test_audio_a2dp_hw
+  net_test_audio_a2dp_hw_qti
   net_test_bluetooth
-  net_test_btcore
-  net_test_bta
-  net_test_btif
-  net_test_btif_profile_queue
-  net_test_device
-  net_test_hci
-  net_test_stack
-  net_test_stack_multi_adv
-  net_test_stack_ad_parser
-  net_test_stack_smp
-  net_test_types
-  net_test_btu_message_loop
-  net_test_osi
+  net_test_btcore_qti
+  net_test_bta_qti
+  net_test_btif_qti
+  net_test_btif_profile_queue_qti
+  net_test_device_qti
+  net_test_hci_qti
+  net_test_stack_qti
+  net_test_stack_multi_adv_qti
+  net_test_stack_ad_parser_qti
+  net_test_stack_smp_qti
+  net_test_types_qti
+  net_test_btu_message_loop_qti
+  net_test_osi_qti
   performance_test
 )
 

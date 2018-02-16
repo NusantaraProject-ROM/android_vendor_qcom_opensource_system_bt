@@ -60,6 +60,7 @@ using system_bt_osi::A2dpSessionMetrics;
  * layers we might need to temporarily buffer up data.
  */
 #define MAX_OUTPUT_A2DP_FRAME_QUEUE_SZ (MAX_PCM_FRAME_NUM_PER_TICK * 2)
+#define BTIF_UNBLOCK_AUDIO_START_TOUT 2000
 #define BTIF_REMOTE_START_TOUT 3000
 enum {
   BTIF_A2DP_SOURCE_STATE_OFF,
@@ -165,6 +166,7 @@ typedef struct {
   fixed_queue_t* cmd_msg_queue;
   fixed_queue_t* tx_audio_queue;
   bool tx_flush; /* Discards any outgoing data when true */
+  alarm_t* unblock_audio_start_alarm;
   alarm_t* media_alarm;
   alarm_t *remote_start_alarm;
   const tA2DP_ENCODER_INTERFACE* encoder_interface;
@@ -180,6 +182,7 @@ static int btif_a2dp_source_state = BTIF_A2DP_SOURCE_STATE_OFF;
 extern bool enc_update_in_progress;
 extern bool reconfig_a2dp;
 extern bool tx_enc_update_initiated;
+extern bool is_block_hal_start;
 static void btif_a2dp_source_command_ready(fixed_queue_t* queue, void* context);
 static void btif_a2dp_source_startup_delayed(void* context);
 static void btif_a2dp_source_shutdown_delayed(void* context);
@@ -204,6 +207,7 @@ static void btm_read_rssi_cb(void* data);
 static void btm_read_failed_contact_counter_cb(void* data);
 static void btm_read_automatic_flush_timeout_cb(void* data);
 static void btm_read_tx_power_cb(void* data);
+static void btif_a2dp_source_unblock_audio_start_timeout(void* context);
 static void btif_a2dp_source_remote_start_timeout(void* context);
 UNUSED_ATTR static const char* dump_media_event(uint16_t event) {
   switch (event) {
@@ -327,6 +331,11 @@ void btif_a2dp_source_shutdown(void) {
 
   APPL_TRACE_EVENT("## A2DP SOURCE STOP MEDIA THREAD ##");
 
+  if (btif_a2dp_source_cb.unblock_audio_start_alarm != NULL) {
+    alarm_free(btif_a2dp_source_cb.unblock_audio_start_alarm);
+    btif_a2dp_source_cb.unblock_audio_start_alarm = NULL;
+  }
+
   // Stop the timer
   alarm_free(btif_a2dp_source_cb.media_alarm);
   btif_a2dp_source_cb.media_alarm = NULL;
@@ -411,6 +420,42 @@ void btif_a2dp_source_on_remote_start() {
   alarm_set(btif_a2dp_source_cb.remote_start_alarm, BTIF_REMOTE_START_TOUT,
             btif_media_remote_start_alarm_cb, NULL);
   APPL_TRACE_DEBUG("%s: Remote start timer started", __func__);
+}
+
+static void btif_media_unblock_audio_start_alarm_cb(UNUSED_ATTR void *context) {
+  thread_post(btif_a2dp_source_cb.worker_thread,
+              btif_a2dp_source_unblock_audio_start_timeout, NULL);
+}
+
+void btif_trigger_unblock_audio_start_recovery_timer() {
+  // Clear any existing timer before allocate
+  btif_a2dp_source_cancel_unblock_audio_start();
+
+  // Allocate new timer
+  btif_a2dp_source_cb.unblock_audio_start_alarm = alarm_new("btif.unblock_audio_start_task");
+  if (!btif_a2dp_source_cb.unblock_audio_start_alarm) {
+    LOG_ERROR(LOG_TAG,"%s:unable to allocate unblock start alarm",__func__);
+    return;
+  }
+  alarm_set(btif_a2dp_source_cb.unblock_audio_start_alarm, BTIF_UNBLOCK_AUDIO_START_TOUT,
+            btif_media_unblock_audio_start_alarm_cb, NULL);
+  APPL_TRACE_DEBUG("%s: Unblock Audio start timer started", __func__);
+}
+
+void btif_a2dp_source_cancel_unblock_audio_start(void) {
+  APPL_TRACE_DEBUG("%s: Unblock Audio start timer cancelled", __func__);
+  if (btif_a2dp_source_cb.unblock_audio_start_alarm != NULL) {
+    alarm_free(btif_a2dp_source_cb.unblock_audio_start_alarm);
+    btif_a2dp_source_cb.unblock_audio_start_alarm = NULL;
+  }
+  return;
+}
+
+static void btif_a2dp_source_unblock_audio_start_timeout(void* context) {
+  APPL_TRACE_DEBUG("%s: After 2 sec timeout unblock the Audio Start timer", __func__);
+  if (is_block_hal_start) {
+    is_block_hal_start = false;
+  }
 }
 
 static void btif_a2dp_source_command_ready(fixed_queue_t* queue,

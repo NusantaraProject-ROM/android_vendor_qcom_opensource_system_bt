@@ -56,6 +56,7 @@
 #include "btif_config.h"
 #include "btif_dm.h"
 #include "btif_av.h"
+#include "btif_hf.h"
 #include "btif_hd.h"
 #include "btif_hh.h"
 #include "btif_sdp.h"
@@ -311,7 +312,7 @@ bt_status_t btif_in_execute_service_request(tBTA_SERVICE_ID service_id,
   switch (service_id) {
     case BTA_HFP_SERVICE_ID:
     case BTA_HSP_SERVICE_ID: {
-      btif_hf_execute_service(b_enable);
+      bluetooth::headset::btif_hf_execute_service(b_enable);
     } break;
     case BTA_A2DP_SOURCE_SERVICE_ID: {
       btif_av_execute_service(b_enable);
@@ -1526,8 +1527,14 @@ static void btif_dm_search_services_evt(uint16_t event, char* p_param) {
 
       BTIF_TRACE_DEBUG("%s:(result=0x%x, services 0x%x)", __func__,
                        p_data->disc_res.result, p_data->disc_res.services);
+      /* retry sdp service search, if sdp fails for pairing bd address,
+      ** report sdp results to APP immediately for non pairing addresses
+      */
       if ((p_data->disc_res.result != BTA_SUCCESS) &&
           (pairing_cb.state == BT_BOND_STATE_BONDING) &&
+          ((p_data->disc_res.bd_addr == pairing_cb.bd_addr) ||
+          (p_data->disc_res.bd_addr == pairing_cb.static_bdaddr.address)) &&
+          (pairing_cb.sdp_attempts > 0) &&
           (pairing_cb.sdp_attempts < BTIF_DM_MAX_SDP_ATTEMPTS_AFTER_PAIRING)) {
         BTIF_TRACE_WARNING("%s:SDP failed after bonding re-attempting",
                            __func__);
@@ -2670,6 +2677,26 @@ bt_status_t btif_dm_get_adapter_property(bt_property_t* prop) {
       return BT_STATUS_FAIL;
   }
   return BT_STATUS_SUCCESS;
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_dm_get_remote_services_from_app
+ *
+ * Description      Start SDP to get remote services
+ *
+ * Returns          bt_status_t
+ *
+ ******************************************************************************/
+bt_status_t btif_dm_get_remote_services_from_app(const RawAddress& remote_addr) {
+  if ((pairing_cb.state == BT_BOND_STATE_BONDING) &&
+     (remote_addr == pairing_cb.bd_addr)) {
+    BTIF_TRACE_WARNING("%s():in bonding state, return busy", __FUNCTION__);
+    return BT_STATUS_BUSY;
+  }
+
+  BTIF_TRACE_DEBUG("%s():SDP service search from APP", __FUNCTION__);
+  return btif_dm_get_remote_services(remote_addr);
 }
 
 /*******************************************************************************

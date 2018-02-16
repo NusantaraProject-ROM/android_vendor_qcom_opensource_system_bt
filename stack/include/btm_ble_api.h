@@ -873,4 +873,16 @@ extern void BTM_BleSetPhy(const RawAddress& bd_addr, uint8_t tx_phys,
 
 extern void btm_ble_multi_adv_cleanup(void);
 
+/*******************************************************************************
+ *
+ * Function         BTM_GetRemoteDeviceName
+ *
+ * Description      This function is called to get the dev name of remote device
+ *                  from NV
+ *
+ * Returns          TRUE if success; otherwise failed.
+ *
+ ******************************************************************************/
+extern bool BTM_GetRemoteDeviceName(const RawAddress& bd_addr, BD_NAME bdname);
+
 #endif

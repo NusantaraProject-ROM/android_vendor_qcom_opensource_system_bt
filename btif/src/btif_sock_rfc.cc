@@ -288,17 +288,18 @@ bt_status_t btsock_rfc_listen(const char* service_name,
   if (!is_init_done()) return BT_STATUS_NOT_READY;
 
   if ((flags & BTSOCK_FLAG_NO_SDP) == 0) {
-    if (is_uuid_empty(service_uuid)) {
+    if (!service_uuid || service_uuid->IsEmpty()) {
         if (!is_reserved_rfc_channel(channel)) {
-          APPL_TRACE_DEBUG(
-              "BTA_JvGetChannelId: service_uuid not set AND "
-              "BTSOCK_FLAG_NO_SDP is not set - changing to SPP, channel = %d", channel);
+      APPL_TRACE_DEBUG(
+          "%s: service_uuid not set AND BTSOCK_FLAG_NO_SDP is not set - "
+          "changing to SPP",
+          __func__);
             service_uuid =
-                UUID_SPP;  // Use serial port profile to listen to specified channel
+                &UUID_SPP;  // Use serial port profile to listen to specified channel
          }
     } else {
       // Check the service_uuid. overwrite the channel # if reserved
-      int reserved_channel = get_reserved_rfc_channel(service_uuid);
+      int reserved_channel = get_reserved_rfc_channel(*service_uuid);
       if (reserved_channel > 0) {
         channel = reserved_channel;
       }
@@ -924,6 +925,7 @@ int bta_co_rfc_data_outgoing(uint32_t id, uint8_t* buf, uint16_t size) {
   return true;
 }
 
+#ifdef RFC_SOCKOPT_FEATURE
 static rfc_slot_t* find_rfc_slot_by_scn(int scn)
 {
     int i;
@@ -944,7 +946,6 @@ static rfc_slot_t* find_rfc_slot_by_scn(int scn)
     }
     return NULL;
 }
-
 
 bt_status_t btsock_rfc_get_sockopt(int channel, btsock_option_type_t option_name,
                                             void *option_value, int *option_len)
@@ -1036,3 +1037,4 @@ bt_status_t btsock_rfc_set_sockopt(int channel, btsock_option_type_t option_name
 
     return status;
 }
+#endif

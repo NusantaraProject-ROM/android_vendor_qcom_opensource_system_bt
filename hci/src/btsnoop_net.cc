@@ -124,10 +124,14 @@ void btsnoop_net_write(const void* data, size_t length) {
 
 static void* listen_fn_(UNUSED_ATTR void* context) {
   fd_set sock_fds;
+  fd_set save_sock_fds;
   int enable = 1;
   int fd_max = -1;
   struct timeval socket_timeout;
   int self_pipe_fds[2];
+
+  FD_ZERO(&sock_fds);
+  FD_ZERO(&save_sock_fds);
 
   // Set up the communication channel
   if (pipe2(self_pipe_fds, O_NONBLOCK)){
@@ -140,7 +144,7 @@ static void* listen_fn_(UNUSED_ATTR void* context) {
   notification_listen_fd = self_pipe_fds[0];
   notification_write_fd = self_pipe_fds[1];
 
-  FD_SET(notification_listen_fd, &sock_fds);
+  FD_SET(notification_listen_fd, &save_sock_fds);
   fd_max = notification_listen_fd;
 
   prctl(PR_SET_NAME, (unsigned long)LISTEN_THREAD_NAME_, 0, 0, 0);
@@ -152,7 +156,7 @@ static void* listen_fn_(UNUSED_ATTR void* context) {
     goto cleanup;
   }
 
-  FD_SET(listen_socket_, &sock_fds);
+  FD_SET(listen_socket_, &save_sock_fds);
   if(listen_socket_ > fd_max) {
     fd_max = listen_socket_;
   }
@@ -184,12 +188,13 @@ static void* listen_fn_(UNUSED_ATTR void* context) {
     if(listen_socket_local_ > fd_max) {
       fd_max = listen_socket_local_;
     }
-    FD_SET(listen_socket_local_, &sock_fds);
+    FD_SET(listen_socket_local_, &save_sock_fds);
   }
 
   for (;;) {
     int client_socket = -1;
 
+    sock_fds = save_sock_fds;
     if ((select(fd_max + 1, &sock_fds, NULL, NULL, NULL)) == -1) {
       LOG_ERROR(LOG_TAG, "%s select failed %s", __func__, strerror(errno));
       if(errno == EINTR)

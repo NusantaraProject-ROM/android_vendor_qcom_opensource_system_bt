@@ -43,6 +43,7 @@
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 #include "smp_api.h"
+#include "btif/include/btif_storage.h"
 
 extern bool aes_cipher_msg_auth_code(BT_OCTET16 key, uint8_t* input,
                                      uint16_t length, uint16_t tlen,
@@ -111,7 +112,33 @@ bool BTM_SecAddBleDevice(const RawAddress& bd_addr, BD_NAME bd_name,
 
   return true;
 }
+/*******************************************************************************
+ *
+ * Function         BTM_GetRemoteDeviceName
+ *
+ * Description      This function is called to get the dev name of remote device
+ *                  from NV
+ *
+ * Returns          TRUE if success; otherwise failed.
+ *
+ ******************************************************************************/
+bool BTM_GetRemoteDeviceName(const RawAddress& bd_addr, BD_NAME bd_name)
+{
+  BTM_TRACE_DEBUG("%s", __func__);
+  bool ret = FALSE;
+  bt_bdname_t bdname;
+  bt_property_t prop_name;
+  BTIF_STORAGE_FILL_PROPERTY(&prop_name, BT_PROPERTY_BDNAME,
+                            sizeof(bt_bdname_t), &bdname);
 
+  if (btif_storage_get_remote_device_property(
+      &bd_addr, &prop_name) == BT_STATUS_SUCCESS) {
+    APPL_TRACE_DEBUG("%s, NV name = %s", __func__, bdname.name);
+    strlcpy((char*) bd_name, (char*) bdname.name, BD_NAME_LEN);
+    ret = TRUE;
+  }
+  return ret;
+}
 /*******************************************************************************
  *
  * Function         BTM_SecAddBleKey

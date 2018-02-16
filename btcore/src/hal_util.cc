@@ -29,7 +29,7 @@
 
 using base::StringPrintf;
 
-#define BLUETOOTH_LIBRARY_NAME "libbluetooth.so"
+#define BLUETOOTH_LIBRARY_NAME "libbluetoothQti.so"
 
 int hal_util_load_bt_library(const bt_interface_t** interface) {
   const char* sym = BLUETOOTH_INTERFACE_STRING;

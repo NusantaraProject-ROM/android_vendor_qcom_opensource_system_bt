@@ -87,6 +87,18 @@
 #endif
 #endif
 
+static const char* dump_hf_client_conn_state(uint16_t event) {
+  switch (event) {
+    CASE_RETURN_STR(BTHF_CLIENT_CONNECTION_STATE_DISCONNECTED)
+    CASE_RETURN_STR(BTHF_CLIENT_CONNECTION_STATE_CONNECTING)
+    CASE_RETURN_STR(BTHF_CLIENT_CONNECTION_STATE_CONNECTED)
+    CASE_RETURN_STR(BTHF_CLIENT_CONNECTION_STATE_SLC_CONNECTED)
+    CASE_RETURN_STR(BTHF_CLIENT_CONNECTION_STATE_DISCONNECTING)
+    default:
+      return "UNKNOWN MSG ID";
+  }
+}
+
 /*******************************************************************************
  *  Local type definitions
  ******************************************************************************/
@@ -136,7 +148,7 @@ char btif_hf_client_version[PROPERTY_VALUE_MAX];
       return BT_STATUS_NOT_READY;                                            \
     } else if ((cb)->state != BTHF_CLIENT_CONNECTION_STATE_SLC_CONNECTED) {  \
       BTIF_TRACE_WARNING("BTHF CLIENT: %s: SLC connection not up. state=%s", \
-                         __func__, dump_hf_conn_state((cb)->state));         \
+                         __func__, dump_hf_client_conn_state((cb)->state));         \
       return BT_STATUS_NOT_READY;                                            \
     } else {                                                                 \
       BTIF_TRACE_EVENT("BTHF CLIENT: %s", __func__);                         \
@@ -172,7 +184,7 @@ static void btif_in_hf_client_generic_evt(uint16_t event, char* p_param) {
   switch (event) {
     case BTIF_HF_CLIENT_CB_AUDIO_CONNECTING: {
       HAL_CBACK(bt_hf_client_callbacks, audio_state_cb, &cb->peer_bda,
-                (bthf_client_audio_state_t)BTHF_AUDIO_STATE_CONNECTING);
+                (bthf_client_audio_state_t)BTHF_CLIENT_AUDIO_STATE_CONNECTING);
     } break;
     default: {
       BTIF_TRACE_WARNING("%s: : Unknown event 0x%x", __func__, event);

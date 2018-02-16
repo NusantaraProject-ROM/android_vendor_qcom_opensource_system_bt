@@ -293,7 +293,7 @@ class BleScannerInterfaceImpl : public BleScannerInterface {
                            const bluetooth::Uuid* p_uuid_mask,
                            const RawAddress* bd_addr, char addr_type,
                            vector<uint8_t> data, vector<uint8_t> mask,
-                           FilterConfigCallback cb) override {
+                           FilterConfigCallback cb) { // gghai remove override coz of change in HAL
     BTIF_TRACE_DEBUG("%s, %d, %d", __func__, action, filt_type);
 
     if (!stack_manager_get_interface()->get_stack_is_running()) return;
@@ -371,6 +371,18 @@ class BleScannerInterfaceImpl : public BleScannerInterface {
       default:
         LOG_ERROR(LOG_TAG, "%s: Unknown filter type (%d)!", __func__, action);
         return;
+    }
+  }
+
+// gghai : added this function to adapt to Google's HAL changes
+  void ScanFilterAdd(int filter_index, std::vector<ApcfCommand> filters,
+                     FilterConfigCallback cb) override {
+    int action = 0;
+	for (const ApcfCommand& filter : filters) {
+      ScanFilterAddRemove(action, filter.type, filter_index, filter.company,
+              filter.company_mask, &filter.uuid, &filter.uuid_mask,
+              &filter.address, filter.addr_type, filter.data, filter.data_mask,
+              cb);
     }
   }
 

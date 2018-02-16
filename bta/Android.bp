@@ -1,6 +1,6 @@
 cc_defaults {
-    name: "fluoride_bta_defaults",
-    defaults: ["fluoride_defaults"],
+    name: "fluoride_bta_defaults_qti",
+    defaults: ["fluoride_defaults_qti"],
     local_include_dirs: [
         "include",
         "sys",
@@ -9,16 +9,16 @@ cc_defaults {
         "hh",
     ],
     include_dirs: [
-        "system/bt",
-        "system/bt/bta/include",
-        "system/bt/btcore/include",
-        "system/bt/hci/include",
-        "system/bt/internal_include",
-        "system/bt/stack/include",
-        "system/bt/stack/btm",
-        "system/bt/udrv/include",
-        "system/bt/vnd/include",
-        "system/bt/utils/include",
+        "vendor/qcom/opensource/system/bt",
+        "vendor/qcom/opensource/system/bt/bta/include",
+        "vendor/qcom/opensource/system/bt/btcore/include",
+        "vendor/qcom/opensource/system/bt/hci/include",
+        "vendor/qcom/opensource/system/bt/internal_include",
+        "vendor/qcom/opensource/system/bt/stack/include",
+        "vendor/qcom/opensource/system/bt/stack/btm",
+        "vendor/qcom/opensource/system/bt/udrv/include",
+        "vendor/qcom/opensource/system/bt/vnd/include",
+        "vendor/qcom/opensource/system/bt/utils/include",
         "vendor/qcom/opensource/bluetooth_ext/system_bt_ext",
         "vendor/qcom/opensource/bluetooth_ext/vhal/include",
     ],
@@ -32,8 +32,8 @@ cc_defaults {
 // BTA static library for target
 // ========================================================
 cc_library_static {
-    name: "libbt-bta",
-    defaults: ["fluoride_bta_defaults"],
+    name: "libbt-bta_qti",
+    defaults: ["fluoride_bta_defaults_qti"],
     srcs: [
         "ag/bta_ag_act.cc",
         "ag/bta_ag_api.cc",
@@ -116,8 +116,8 @@ cc_library_static {
 // bta unit tests for target
 // ========================================================
 cc_test {
-    name: "net_test_bta",
-    defaults: ["fluoride_bta_defaults"],
+    name: "net_test_bta_qti",
+    defaults: ["fluoride_bta_defaults_qti"],
     srcs: [
         "test/bta_hf_client_test.cc",
     ],
@@ -126,11 +126,11 @@ cc_test {
         "libprotobuf-cpp-lite",
     ],
     static_libs: [
-        "libbtcore",
-        "libbt-bta",
+        "libbtcore_qti",
+        "libbt-bta_qti",
         "libbluetooth-types",
-        "libosi",
-        "libbt-protos",
+        "libosi_qti",
+        "libbt-protos_qti",
         "libbtdevice_ext",
     ],
 }

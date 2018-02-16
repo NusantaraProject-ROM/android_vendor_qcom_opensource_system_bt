@@ -224,6 +224,8 @@ class StackA2dpTest : public ::testing::Test {
           // Needed to avoid using "default:" case so we can capture when
           // a new codec is added, and it can be included here.
           break;
+		default:
+          break;
       }
 
       if (supported) {

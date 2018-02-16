@@ -1,5 +1,5 @@
 bootstrap_go_package {
-    name: "soong-fluoride",
+    name: "soong-fluoride_qti",
     pkgPath: "android/soong/fluoride",
     deps: [
         "blueprint",
@@ -9,13 +9,13 @@ bootstrap_go_package {
         "soong-cc",
     ],
     srcs: [
-        "fluoride.go",
+        "fluoride_qti.go",
     ],
     pluginFor: ["soong_build"],
 }
 
 fluoride_defaults {
-    name: "fluoride_types_defaults",
+    name: "fluoride_types_defaults_qti",
     cflags: [
         "-DEXPORT_SYMBOL=__attribute__((visibility(\"default\")))",
         "-fvisibility=hidden",
@@ -47,10 +47,11 @@ fluoride_defaults {
 }
 
 fluoride_defaults {
-    name: "fluoride_defaults",
-    defaults: ["fluoride_types_defaults"],
+    name: "fluoride_defaults_qti",
+    defaults: ["fluoride_types_defaults_qti"],
     header_libs: ["libbluetooth_headers"],
     static_libs: [
         "libbluetooth-types",
     ],
 }
+

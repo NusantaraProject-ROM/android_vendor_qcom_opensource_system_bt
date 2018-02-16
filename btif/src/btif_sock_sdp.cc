@@ -516,9 +516,9 @@ static int add_rfc_sdp_by_uuid(const char* name, const Uuid& uuid,
   } else if (uuid == UUID_MAP_MAS) {
     // Record created by new SDP create record interface
     handle = 0xff;
-  } else if (UUID_MATCHES(UUID_FTP,uuid)) {
+  } else if (UUID_FTP == uuid) {
     handle = add_ftp_sdp(name, final_channel);
-  } else if (UUID_MATCHES(UUID_DUN,uuid)) {
+  } else if (UUID_DUN == uuid) {
     handle = add_dun_sdp(name, final_channel);
   } else {
     handle = add_sdp_by_uuid(name, uuid, final_channel);
@@ -557,9 +557,9 @@ int get_reserved_rfc_channel(const bluetooth::Uuid& uuid) {
     return RESERVED_SCN_PBS;
   } else if (uuid == UUID_OBEX_OBJECT_PUSH) {
     return RESERVED_SCN_OPS;
-  } else if (UUID_MATCHES(UUID_FTP, uuid)) {
+  } else if (UUID_FTP == uuid) {
     return RESERVED_SCN_FTP;
-  } else if (UUID_MATCHES(UUID_DUN, uuid)) {
+  } else if (UUID_DUN == uuid) {
     return RESERVED_SCN_DUN;
   }
 

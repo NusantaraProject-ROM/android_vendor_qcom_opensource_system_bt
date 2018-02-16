@@ -1,8 +1,8 @@
 // Bluetooth SBC decoder static library for target
 // ========================================================
 cc_library_static {
-    name: "libbt-sbc-decoder",
-    defaults: ["fluoride_defaults"],
+    name: "libbt-sbc-decoder_qti",
+    defaults: ["fluoride_defaults_qti"],
     srcs: [
         "srce/alloc.c",
         "srce/bitalloc.c",

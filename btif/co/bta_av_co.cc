@@ -230,6 +230,21 @@ static tBTA_AV_CO_PEER* bta_av_co_get_peer(tBTA_AV_HNDL hndl) {
   return &bta_av_co_cb.peers[index];
 }
 
+uint8_t* bta_av_co_get_peer_codec_info(tBTA_AV_HNDL hndl) {
+  uint8_t index;
+  index = BTA_AV_CO_AUDIO_HNDL_TO_INDX(hndl);
+  APPL_TRACE_DEBUG("%s: handle = %d index = %d", __func__, hndl, index);
+  /* Sanity check */
+  if (index >= BTA_AV_CO_NUM_ELEMENTS(bta_av_co_cb.peers)) {
+    APPL_TRACE_ERROR("%s: peer index out of bounds: %d", __func__, index);
+    return NULL;
+  }
+  APPL_TRACE_ERROR("%s ", __func__);
+  for (int i = 0; i < AVDT_CODEC_SIZE; i++)
+    APPL_TRACE_ERROR("%d ", bta_av_co_cb.peers[index].codec_config[i]);
+  return bta_av_co_cb.peers[index].codec_config;
+}
+
 /*******************************************************************************
  **
  ** Function         bta_av_co_audio_init
@@ -515,8 +530,7 @@ tA2DP_STATUS bta_av_co_audio_getconfig(tBTA_AV_HNDL hndl, uint8_t* p_codec_info,
  ******************************************************************************/
 void bta_av_co_audio_setconfig(tBTA_AV_HNDL hndl, const uint8_t* p_codec_info,
                                UNUSED_ATTR uint8_t seid,
-                               UNUSED_ATTR const RawAddress& addr,
-                               uint8_t num_protect,
+                               const RawAddress& addr, uint8_t num_protect,
                                const uint8_t* p_protect_info,
                                uint8_t t_local_sep, uint8_t avdt_handle) {
   tBTA_AV_CO_PEER* p_peer;
@@ -524,6 +538,9 @@ void bta_av_co_audio_setconfig(tBTA_AV_HNDL hndl, const uint8_t* p_codec_info,
   uint8_t category = A2DP_SUCCESS;
   bool reconfig_needed = false;
 
+  std::string addrstr = addr.ToString();
+  const char* bd_addr_str = addrstr.c_str();
+  APPL_TRACE_DEBUG("%s: Device [%s]", __func__, bd_addr_str);
   APPL_TRACE_IMP("%s: p_codec_info[%x:%x:%x:%x:%x:%x]", __func__,
                    p_codec_info[1], p_codec_info[2], p_codec_info[3],
                    p_codec_info[4], p_codec_info[5], p_codec_info[6]);
@@ -584,6 +601,7 @@ void bta_av_co_audio_setconfig(tBTA_AV_HNDL hndl, const uint8_t* p_codec_info,
     if (t_local_sep == AVDT_TSEP_SRC) {
       APPL_TRACE_DEBUG("%s: peer is A2DP SINK", __func__);
       bool restart_output = false;
+      p_peer->addr = addr;
       if ((bta_av_co_cb.codecs == nullptr) ||
           !bta_av_co_set_codec_ota_config(p_peer, p_codec_info, num_protect,
                                           p_protect_info, &restart_output)) {
@@ -591,6 +609,7 @@ void bta_av_co_audio_setconfig(tBTA_AV_HNDL hndl, const uint8_t* p_codec_info,
                          A2DP_CodecName(p_codec_info));
       } else {
         codec_config_supported = true;
+        APPL_TRACE_DEBUG("%s: restart_output: %d", __func__, restart_output);
         // Check if reconfiguration is needed
         if (restart_output ||
             ((num_protect == 1) && (!bta_av_co_cb.cp.active))) {
@@ -1105,6 +1124,7 @@ const tA2DP_ENCODER_INTERFACE* bta_av_co_get_encoder_interface(void) {
 bool bta_av_co_set_codec_user_config(
     const btav_a2dp_codec_config_t& codec_user_config) {
   uint8_t result_codec_config[AVDT_CODEC_SIZE];
+  RawAddress bt_addr;
   const tBTA_AV_CO_SINK* p_sink = nullptr;
   bool restart_input = false;
   bool restart_output = false;
@@ -1193,14 +1213,19 @@ done:
   // request succeeded or failed.
   // NOTE: Currently, the input is restarted by sending an upcall
   // and informing the Media Framework about the change.
-  btif_dispatch_sm_event(BTIF_AV_SOURCE_CONFIG_UPDATED_EVT, (void *)p_peer->addr.address,
+  if (p_peer == nullptr) {
+    bt_addr = RawAddress::kAny;
+    btif_dispatch_sm_event(BTIF_AV_SOURCE_CONFIG_UPDATED_EVT, (void *)bt_addr.address, sizeof(RawAddress));
+    APPL_TRACE_DEBUG("%s BDA: %s", __func__, bt_addr.ToString().c_str());
+  } else {
+    btif_dispatch_sm_event(BTIF_AV_SOURCE_CONFIG_UPDATED_EVT, (void *)p_peer->addr.address,
                          sizeof(RawAddress));
+    APPL_TRACE_DEBUG("%s BDA: %s", __func__, p_peer->addr.ToString().c_str());
+  }
   if (!success || !restart_output) {
     APPL_TRACE_DEBUG("%s:reseting codec reconfig flag",__func__);
     btif_av_reset_codec_reconfig_flag();
   }
-  APPL_TRACE_DEBUG("%s BDA: %s", __func__, p_peer->addr.ToString().c_str());
-
   return success;
 }
 
@@ -1266,6 +1291,8 @@ static bool bta_av_co_set_codec_ota_config(tBTA_AV_CO_PEER* p_peer,
     return false;
   }
 
+  APPL_TRACE_DEBUG("%s: restart_output:%d, restart_input:%d, config_updated:%d",
+                       __func__, restart_output, restart_input, config_updated);
   if (restart_output) {
     APPL_TRACE_DEBUG("%s: restart output", __func__);
     A2DP_DumpCodecInfo(result_codec_config);

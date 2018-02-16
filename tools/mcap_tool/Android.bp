@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 cc_binary {
-    name: "mcap_tool",
-    defaults : ["fluoride_defaults"],
+    name: "mcap_tool_qti",
+    defaults : ["fluoride_defaults_qti"],
     srcs: [
       "mcap_test_app.cc",
       "mcap_test_mcl.cc",
@@ -24,10 +24,10 @@ cc_binary {
       "mcap_tool.cc",
     ],
     include_dirs: [
-      "system/bt",
-      "system/bt/internal_include",
-      "system/bt/stack/include",
-      "system/bt/btcore/include",
+      "vendor/qcom/opensource/system/bt",
+      "vendor/qcom/opensource/system/bt/internal_include",
+      "vendor/qcom/opensource/system/bt/stack/include",
+      "vendor/qcom/opensource/system/bt/btcore/include",
     ],
     tags: ["debug", "optional"],
     shared_libs: [
@@ -35,7 +35,7 @@ cc_binary {
       "libutils",
     ],
     static_libs: [
-      "libbtcore",
-      "libosi",
+      "libbtcore_qti",
+      "libosi_qti",
     ]
 }

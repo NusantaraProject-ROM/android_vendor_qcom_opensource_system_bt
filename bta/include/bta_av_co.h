@@ -237,4 +237,5 @@ uint8_t bta_av_co_cp_get_flag(void);
  ******************************************************************************/
 bool bta_av_co_cp_is_active(void);
 
+uint8_t* bta_av_co_get_peer_codec_info(tBTA_AV_HNDL hndl);
 #endif /* BTA_AV_CO_H */

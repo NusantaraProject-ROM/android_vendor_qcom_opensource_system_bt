@@ -213,7 +213,7 @@ void btif_queue_cleanup(uint16_t uuid) {
  *
  ******************************************************************************/
 void btif_queue_advance() {
-    if (thread_is_self(bt_jni_workqueue_thread))
+/*    if (thread_is_self(bt_jni_workqueue_thread)) // gghai
     {
         queue_int_handle_evt(BTIF_QUEUE_ADVANCE_EVT, NULL);
     }
@@ -221,7 +221,9 @@ void btif_queue_advance() {
     {
         btif_transfer_context(queue_int_handle_evt, BTIF_QUEUE_ADVANCE_EVT,
                         NULL, 0, NULL);
-    }
+    }*/
+    btif_transfer_context(queue_int_handle_evt, BTIF_QUEUE_ADVANCE_EVT,
+                        NULL, 0, NULL);
 }
 
 // This function dispatches the next pending connect request. It is called from

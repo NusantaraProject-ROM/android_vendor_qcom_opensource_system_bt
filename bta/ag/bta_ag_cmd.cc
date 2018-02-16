@@ -43,7 +43,7 @@
  ****************************************************************************/
 
 /* Ring timeout */
-#define BTA_AG_RING_TIMEOUT_MS (5 * 1000) /* 5 seconds */
+#define BTA_AG_RING_TIMEOUT_MS (3 * 1000) /* 3 seconds */
 
 #define BTA_AG_CMD_MAX_VAL 32767 /* Maximum value is signed 16-bit value */
 

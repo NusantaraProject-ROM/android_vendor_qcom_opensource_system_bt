@@ -44,12 +44,15 @@ static bt_status_t btsock_listen(btsock_type_t type, const char* service_name,
 static bt_status_t btsock_connect(const RawAddress* bd_addr, btsock_type_t type,
                                   const Uuid* uuid, int channel, int* sock_fd,
                                   int flags, int app_uid);
+
+#ifdef RFC_SOCKOPT_FEATURE
 static bt_status_t btsock_get_sockopt(btsock_type_t type, int channel,
                                       btsock_option_type_t option_name,
                                       void *option_value, int *option_len);
 static bt_status_t btsock_set_sockopt(btsock_type_t type, int channel,
                                       btsock_option_type_t option_name,
                                       void *option_value, int option_len);
+#endif
 static void btsock_signaled(int fd, int type, int flags, uint32_t user_id);
 
 static std::atomic_int thread_handle{-1};
@@ -57,9 +60,11 @@ static thread_t* thread;
 
 btsock_interface_t* btif_sock_get_interface(void) {
   static btsock_interface_t interface = {sizeof(interface), btsock_listen,
-                                         btsock_connect,btsock_get_sockopt,
-                                         btsock_set_sockopt};
-
+                                         btsock_connect,
+#ifdef RFC_SOCKOPT_FEATURE
+                                         btsock_get_sockopt, btsock_set_sockopt
+#endif
+                                         };
   return &interface;
 }
 
@@ -212,7 +217,7 @@ static void btsock_signaled(int fd, int type, int flags, uint32_t user_id) {
   }
 }
 
-
+#ifdef RFC_SOCKOPT_FEATURE // gghai
 static bt_status_t btsock_get_sockopt(btsock_type_t type, int channel,
                                       btsock_option_type_t option_name,
                                       void *option_value, int *option_len)
@@ -277,3 +282,4 @@ static bt_status_t btsock_set_sockopt(btsock_type_t type, int channel,
     }
     return status;
 }
+#endif

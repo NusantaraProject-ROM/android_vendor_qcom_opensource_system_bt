@@ -137,6 +137,8 @@ A2dpCodecConfig* A2dpCodecConfig::createCodec(
     // Add a switch statement for each vendor-specific codec
     case BTAV_A2DP_CODEC_INDEX_MAX:
       break;
+    default:
+      break;
   }
 
   if (codec_config != nullptr) {
@@ -247,16 +249,30 @@ bool A2dpCodecConfig::setCodecUserConfig(
   // Save copies of the current codec config, and the OTA codec config, so they
   // can be compared for changes.
   btav_a2dp_codec_config_t saved_codec_config = getCodecConfig();
+
+  LOG_DEBUG(LOG_TAG, "%s: saved_codec_config: ", __func__);
+  print_codec_parameters(saved_codec_config);
+
+  print_codec_config(ota_codec_config_);
   uint8_t saved_ota_codec_config[AVDT_CODEC_SIZE];
   memcpy(saved_ota_codec_config, ota_codec_config_, sizeof(ota_codec_config_));
   uint8_t zero[AVDT_CODEC_SIZE] = {0};
 
   btav_a2dp_codec_config_t saved_codec_user_config = codec_user_config_;
+
+  LOG_DEBUG(LOG_TAG, "%s: saved_codec_user_config: ", __func__);
+  print_codec_parameters(saved_codec_user_config);
+
   codec_user_config_ = codec_user_config;
   btav_a2dp_codec_config_t saved_codec_audio_config = codec_audio_config_;
+
+  LOG_DEBUG(LOG_TAG, "%s: saved_codec_audio_config: ", __func__);
+  print_codec_parameters(saved_codec_audio_config);
+
   codec_audio_config_ = codec_audio_config;
   bool success =
       setCodecConfig(p_peer_codec_info, is_capability, p_result_codec_config);
+  LOG_DEBUG(LOG_TAG, "%s: success: %d, is_capability:%d", __func__, success, is_capability);
   if (!success) {
     // Restore the local copy of the user and audio config
     codec_user_config_ = saved_codec_user_config;
@@ -268,6 +284,10 @@ bool A2dpCodecConfig::setCodecUserConfig(
   // The input (audio data) should be restarted if the audio format has changed
   //
   btav_a2dp_codec_config_t new_codec_config = getCodecConfig();
+
+  LOG_DEBUG(LOG_TAG, "%s: new_codec_config: ", __func__);
+  print_codec_parameters(new_codec_config);
+
   if ((saved_codec_config.sample_rate != new_codec_config.sample_rate) ||
       (saved_codec_config.bits_per_sample !=
        new_codec_config.bits_per_sample) ||
@@ -284,12 +304,15 @@ bool A2dpCodecConfig::setCodecUserConfig(
     *p_restart_output = true;
   }
 
+   LOG_DEBUG(LOG_TAG, "%s: *p_restart_input:%d, *p_restart_output:%d, *p_config_updated:%d",
+                     __func__, *p_restart_input, *p_restart_output, *p_config_updated);
   bool encoder_restart_input = *p_restart_input;
   bool encoder_restart_output = *p_restart_output;
   bool encoder_config_updated = *p_config_updated;
   if (updateEncoderUserConfig(p_peer_params, &encoder_restart_input,
                               &encoder_restart_output,
                               &encoder_config_updated)) {
+    LOG_DEBUG(LOG_TAG, "%s: updated encoder user config:", __func__);
     if (encoder_restart_input) *p_restart_input = true;
     if (encoder_restart_output) *p_restart_output = true;
     if (encoder_config_updated) *p_config_updated = true;
@@ -563,8 +586,10 @@ bool A2dpCodecs::setCodecConfig(const uint8_t* p_peer_codec_info,
   if (a2dp_codec_config == nullptr) return false;
   if (!a2dp_codec_config->setCodecConfig(p_peer_codec_info, is_capability,
                                          p_result_codec_config)) {
+    LOG_DEBUG(LOG_TAG, "%s: Codec config didn't set, return false", __func__);
     return false;
   }
+  LOG_DEBUG(LOG_TAG, "%s: select_current_codec:%d", __func__,select_current_codec);
   if (select_current_codec) {
     current_codec_config_ = a2dp_codec_config;
   }
@@ -584,22 +609,8 @@ bool A2dpCodecs::setCodecUserConfig(
   *p_restart_output = false;
   *p_config_updated = false;
 
-  LOG_DEBUG(
-      LOG_TAG,
-      "%s: Configuring: codec_type=%d codec_priority=%d "
-      "sample_rate=0x%x bits_per_sample=0x%x "
-      "channel_mode=0x%x codec_specific_1=%" PRIi64
-      " "
-      "codec_specific_2=%" PRIi64
-      " "
-      "codec_specific_3=%" PRIi64
-      " "
-      "codec_specific_4=%" PRIi64,
-      __func__, codec_user_config.codec_type, codec_user_config.codec_priority,
-      codec_user_config.sample_rate, codec_user_config.bits_per_sample,
-      codec_user_config.channel_mode, codec_user_config.codec_specific_1,
-      codec_user_config.codec_specific_2, codec_user_config.codec_specific_3,
-      codec_user_config.codec_specific_4);
+  LOG_DEBUG(LOG_TAG, "%s: configuring codec_user_config: ", __func__);
+  print_codec_parameters(codec_user_config);
 
   if (codec_user_config.codec_type < BTAV_A2DP_CODEC_INDEX_MAX) {
     auto iter = indexed_codecs_.find(codec_user_config.codec_type);
@@ -729,7 +740,9 @@ bool A2dpCodecs::setCodecOtaConfig(
   *p_restart_output = false;
   *p_config_updated = false;
 
-
+  LOG_DEBUG(LOG_TAG, "%s:  p_ota_codec_config[%x:%x:%x:%x:%x:%x]", __func__,
+                   p_ota_codec_config[1],  p_ota_codec_config[2],  p_ota_codec_config[3],
+                   p_ota_codec_config[4],  p_ota_codec_config[5],  p_ota_codec_config[6]);
   // Check whether the codec config for the same codec is explicitly configured
   // by user configuration. If yes, then the OTA codec configuration is
   // ignored.
@@ -754,6 +767,13 @@ bool A2dpCodecs::setCodecOtaConfig(
 
   // Reuse the existing codec user config and codec audio config
   codec_audio_config = a2dp_codec_config->getCodecAudioConfig();
+  codec_user_config = a2dp_codec_config->getCodecUserConfig();
+
+  LOG_DEBUG(LOG_TAG, "%s: codec_user_config After fetching: ", __func__);
+  print_codec_parameters(codec_user_config);
+
+  LOG_DEBUG(LOG_TAG, "%s: codec_audio_config After fetching: ", __func__);
+  print_codec_parameters(codec_audio_config);
   if (!a2dp_codec_config->setCodecUserConfig(
           codec_user_config, codec_audio_config, p_peer_params,
           p_ota_codec_config, false, p_result_codec_config, p_restart_input,
@@ -764,6 +784,10 @@ bool A2dpCodecs::setCodecOtaConfig(
     goto fail;
   }
   CHECK(current_codec_config_ != nullptr);
+
+  LOG_WARN(LOG_TAG,
+               "%s: *p_restart_input: %d, *p_restart_output: %d",
+               __func__, *p_restart_input, *p_restart_output);
 
   if (*p_restart_input || *p_restart_output) *p_config_updated = true;
 
@@ -1092,6 +1116,44 @@ int A2DP_GetTrackChannelCount(const uint8_t* p_codec_info) {
   return -1;
 }
 
+int A2DP_GetTrackBitsPerSample(const uint8_t* p_codec_info) {
+  tA2DP_CODEC_TYPE codec_type = A2DP_GetCodecType(p_codec_info);
+
+  LOG_VERBOSE(LOG_TAG, "%s: codec_type = 0x%x", __func__, codec_type);
+
+  switch (codec_type) {
+    case A2DP_MEDIA_CT_SBC:
+      return 16;
+    case A2DP_MEDIA_CT_AAC:
+      return 16;
+    case A2DP_MEDIA_CT_NON_A2DP: {
+      uint32_t vendor_id = A2DP_VendorCodecGetVendorId(p_codec_info);
+      uint16_t codec_id = A2DP_VendorCodecGetCodecId(p_codec_info);
+      // Check for aptX
+      if (vendor_id == A2DP_APTX_VENDOR_ID &&
+          codec_id == A2DP_APTX_CODEC_ID_BLUETOOTH) {
+        return 16;
+      }
+
+      // Check for aptX-HD
+      if (vendor_id == A2DP_APTX_HD_VENDOR_ID &&
+          codec_id == A2DP_APTX_HD_CODEC_ID_BLUETOOTH) {
+        return 24;
+      }
+
+      // Check for LDAC
+      if (vendor_id == A2DP_LDAC_VENDOR_ID && codec_id == A2DP_LDAC_CODEC_ID) {
+        return 32;
+      }
+    }
+    default:
+      break;
+  }
+
+  LOG_ERROR(LOG_TAG, "%s: unsupported codec type 0x%x", __func__, codec_type);
+  return -1;
+}
+
 int A2DP_GetSinkTrackChannelType(const uint8_t* p_codec_info) {
   tA2DP_CODEC_TYPE codec_type = A2DP_GetCodecType(p_codec_info);
 
@@ -1345,6 +1407,7 @@ bool A2DP_IsCodecEnabledInOffload(btav_a2dp_codec_index_t codec_index) {
       break;
     case BTAV_A2DP_CODEC_INDEX_SOURCE_MAX:
     case BTAV_A2DP_CODEC_INDEX_SINK_MAX:
+    default:
       break;
     }
   } else {
@@ -1376,3 +1439,29 @@ bool A2DP_DumpCodecInfo(const uint8_t* p_codec_info) {
   LOG_ERROR(LOG_TAG, "%s: unsupported codec type 0x%x", __func__, codec_type);
   return false;
 }
+void print_codec_config(uint8_t codec_arry[]) {
+   for(int i = 0; i < AVDT_CODEC_SIZE; i++)
+   {
+      LOG_INFO(LOG_TAG, "%s: codec_arry[%d] = %d", __func__, i, codec_arry[i]);
+   }
+}
+
+void print_codec_parameters(btav_a2dp_codec_config_t config) {
+    LOG_DEBUG(
+     LOG_TAG,
+     "codec_type=%d codec_priority=%d "
+     "sample_rate=0x%x bits_per_sample=0x%x "
+     "channel_mode=0x%x codec_specific_1=%" PRIi64
+     " "
+     "codec_specific_2=%" PRIi64
+     " "
+     "codec_specific_3=%" PRIi64
+     " "
+     "codec_specific_4=%" PRIi64,
+     config.codec_type, config.codec_priority,
+     config.sample_rate, config.bits_per_sample,
+     config.channel_mode, config.codec_specific_1,
+     config.codec_specific_2, config.codec_specific_3,
+     config.codec_specific_4);
+}
+

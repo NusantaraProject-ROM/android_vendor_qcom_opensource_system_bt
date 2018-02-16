@@ -75,6 +75,7 @@ static int32_t packet_counter;
 static bool sock_snoop_active = false;
 
 extern bt_logger_interface_t *logger_interface;
+static long int gmt_offset;
 
 // TODO(zachoverflow): merge btsnoop and btsnoop_net together
 void btsnoop_net_open();
@@ -94,17 +95,22 @@ static void btsnoop_write_packet(packet_type_t type, uint8_t* packet,
 
 static future_t* start_up(void) {
   std::lock_guard<std::mutex> lock(btsnoop_mutex);
+  time_t t = time(NULL);
+  struct tm tm_cur;
+
+  localtime_r (&t, &tm_cur);
+  gmt_offset = tm_cur.tm_gmtoff;
 
   if (!is_btsnoop_enabled()) {
     delete_btsnoop_files();
   } else {
     open_next_snoop_file();
-    packets_per_file = osi_property_get_int32(BTSNOOP_MAX_PACKETS_PROPERTY,
+    packets_per_file = (//osi_property_get_int32(BTSNOOP_MAX_PACKETS_PROPERTY, // gghai
                                               DEFAULT_BTSNOOP_SIZE);
     btsnoop_net_open();
     START_SNOOP_LOGGING();
   }
-  media_capture = vendor_logging_level&HCI_SNOOP_LOG_FULL;
+  //media_capture = vendor_logging_level&HCI_SNOOP_LOG_FULL; // gghai
   LOG_ERROR(LOG_TAG, "%s: A2DP media snoop-capture status: %d", __func__, media_capture);
 
   return NULL;
@@ -140,6 +146,7 @@ static void capture(const BT_HDR* buffer, bool is_received) {
 
   std::lock_guard<std::mutex> lock(btsnoop_mutex);
   uint64_t timestamp_us = time_gettimeofday_us();
+  timestamp_us += gmt_offset*1000000;
   btsnoop_mem_capture(buffer, timestamp_us);
 
   if (logfile_fd == INVALID_FD) return;
@@ -183,7 +190,9 @@ static void delete_btsnoop_files() {
 static bool is_btsnoop_enabled() {
   char btsnoop_enabled[PROPERTY_VALUE_MAX] = {0};
   osi_property_get(BTSNOOP_ENABLE_PROPERTY, btsnoop_enabled, "false");
-  return strncmp(btsnoop_enabled, "true", 4) == 0;
+  bool ret = strncmp(btsnoop_enabled, "true", 4) == 0;
+  LOG_ERROR(LOG_TAG, "%s is_btsnoop_enabled = %d", __func__, ret);
+  return true;
 }
 
 static char* get_btsnoop_log_path(char* btsnoop_path) {

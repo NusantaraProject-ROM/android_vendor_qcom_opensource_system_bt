@@ -3,7 +3,7 @@ subdirs = [
 ]
 
 cc_defaults {
-    name: "fluoride_service_defaults",
+    name: "fluoride_service_defaults_qti",
     defaults: ["fluoride_defaults"],
     include_dirs: [
         "system/bt",
@@ -65,7 +65,7 @@ btserviceBaseTestSrc = [
 // Native system service for target
 // ========================================================
 cc_binary {
-    name: "bluetoothtbd",
+    name: "bluetoothtbd_qti",
     defaults: ["fluoride_service_defaults"],
     srcs: btserviceBinderDaemonSrc +
     btserviceLinuxSrc +
@@ -91,7 +91,7 @@ cc_binary {
 
 // ========================================================
 cc_test {
-    name: "bluetoothtbd_test",
+    name: "bluetoothtbd_test_qti",
     test_suites: ["device-tests"],
     defaults: ["fluoride_service_defaults"],
     srcs: btserviceBaseTestSrc +
@@ -150,7 +150,7 @@ cc_test {
 // Native system service CLI for target
 // ========================================================
 cc_binary {
-    name: "bluetooth-cli",
+    name: "bluetooth-cli_qti",
     defaults: ["fluoride_defaults"],
     srcs: ["client/main.cc"],
     static_libs: [
@@ -165,7 +165,7 @@ cc_binary {
 // Heart Rate GATT service example for target
 // ========================================================
 cc_binary {
-    name: "bt-example-hr-server",
+    name: "bt-example-hr-server_qti",
     defaults: ["fluoride_defaults"],
     local_include_dirs: ["example/heart_rate"],
     srcs: [
@@ -182,7 +182,7 @@ cc_binary {
 }
 
 cc_library_static {
-    name: "libbluetoothtbd_hal",
+    name: "libbluetoothtbd_hal_qti",
     defaults: ["fluoride_defaults"],
     include_dirs: ["system/bt"],
     header_libs: ["libbluetooth_headers"],

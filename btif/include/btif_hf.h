@@ -20,10 +20,25 @@
 #define BTIF_HF_H
 
 #include <stdbool.h>
+#include <hardware/bluetooth_headset_interface.h>
+
+
+namespace bluetooth {
+namespace headset {
+
+Interface* GetInterface();
+
 
 // Check whether there is a Hands-Free call in progress.
 // Returns true if no call is in progress.
 bool btif_hf_is_call_idle(void);
 bool btif_hf_is_call_vr_idle(void);
+bt_status_t btif_hf_execute_service(bool b_enable);
+bt_status_t btif_hf_check_if_sco_connected();
+
+
+
+}  // namespace headset
+}  // na
 
 #endif /* BTIF_HF_H */

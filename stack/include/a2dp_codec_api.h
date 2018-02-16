@@ -576,6 +576,11 @@ bool A2DP_CodecTypeEquals(const uint8_t* p_codec_info_a,
 // If the codec type is not recognized, the return value is false.
 bool A2DP_CodecEquals(const uint8_t* p_codec_info_a,
                       const uint8_t* p_codec_info_b);
+// Gets the bits per audio sample for the A2DP codec.
+// |p_codec_info| is a pointer to the codec_info to decode.
+// Returns the bits per audio sample on success, or -1 if |p_codec_info|
+// contains invalid codec information.
+int A2DP_GetTrackBitsPerSample(const uint8_t* p_codec_info);
 
 // Gets the track sample rate value for the A2DP codec.
 // |p_codec_info| is a pointer to the codec_info to decode.
@@ -657,6 +662,8 @@ bool A2DP_IsCodecEnabledInOffload(btav_a2dp_codec_index_t codec_index);
 // Returns true if the codec information is valid, otherwise false.
 bool A2DP_DumpCodecInfo(const uint8_t* p_codec_info);
 
+void print_codec_config(uint8_t codec_arry[]);
+void print_codec_parameters(btav_a2dp_codec_config_t config);
 // Add enum-based flag operators to the btav_a2dp_codec_config_t fields
 #ifndef DEFINE_ENUM_FLAG_OPERATORS
 #define DEFINE_ENUM_FLAG_OPERATORS(bitmask)                                 \

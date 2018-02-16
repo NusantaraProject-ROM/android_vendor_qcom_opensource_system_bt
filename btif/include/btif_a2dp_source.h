@@ -62,6 +62,8 @@ bool btif_a2dp_source_is_remote_start(void);
 // Cancel remote start alarm
 void btif_a2dp_source_cancel_remote_start(void);
 
+void btif_a2dp_source_cancel_unblock_audio_start(void);
+
 // Setup the A2DP Source codec, and prepare the encoder.
 // This function should be called prior to starting A2DP streaming.
 bt_status_t btif_a2dp_source_setup_codec(tBTA_AV_HNDL handle);
@@ -121,4 +123,6 @@ void btif_a2dp_source_update_metrics(void);
 // started within this time, then the timer will be cancelled. Else-If
 // timer expires, avdpt suspend will be issued to the remote
 void btif_a2dp_source_on_remote_start(void);
+
+void btif_trigger_unblock_audio_start_recovery_timer(void);
 #endif /* BTIF_A2DP_SOURCE_H */

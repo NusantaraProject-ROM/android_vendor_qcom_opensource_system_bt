@@ -23,6 +23,7 @@
  ******************************************************************************/
 #ifndef AVRC_API_H
 #define AVRC_API_H
+
 #include "avct_api.h"
 #include "avrc_defs.h"
 #include "bt_target.h"
