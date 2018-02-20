@@ -428,6 +428,11 @@ static int set_os_callouts(bt_os_callouts_t* callouts) {
   return BT_STATUS_SUCCESS;
 }
 
+// gghai: for JNI HAL compatibility
+static void dumpMetrics(std::string* output) {
+  LOG_INFO(LOG_TAG, "%s", __func__);
+}
+
 static int config_clear(void) {
   LOG_INFO(LOG_TAG, "%s", __func__);
   return btif_config_clear() ? BT_STATUS_SUCCESS : BT_STATUS_FAIL;
@@ -463,6 +468,7 @@ EXPORT_SYMBOL bt_interface_t bluetoothInterface = {
     set_os_callouts,
     read_energy_info,
     dump,
+    dumpMetrics,
     config_clear,
     interop_database_clear,
     interop_database_add,

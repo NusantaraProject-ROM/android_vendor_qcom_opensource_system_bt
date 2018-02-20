@@ -389,9 +389,9 @@ static void btif_initiate_av_open_timer_timeout(UNUSED_ATTR void* data) {
 static void btif_report_connection_state(btav_connection_state_t state,
                                          RawAddress* bd_addr) {
   if (bt_av_sink_callbacks != NULL) {
-    HAL_CBACK(bt_av_sink_callbacks, connection_state_cb, bd_addr, state);
+    HAL_CBACK(bt_av_sink_callbacks, connection_state_cb, *bd_addr, state);
   } else if (bt_av_src_callbacks != NULL) {
-    HAL_CBACK(bt_av_src_callbacks, connection_state_cb, bd_addr, state);
+    HAL_CBACK(bt_av_src_callbacks, connection_state_cb, *bd_addr, state);
   }
 }
 
@@ -411,9 +411,9 @@ static void btif_report_connection_state(btav_connection_state_t state,
 static void btif_report_audio_state(btav_audio_state_t state,
                                     RawAddress* bd_addr) {
   if (bt_av_sink_callbacks != NULL) {
-    HAL_CBACK(bt_av_sink_callbacks, audio_state_cb, bd_addr, state);
+    HAL_CBACK(bt_av_sink_callbacks, audio_state_cb, *bd_addr, state);
   } else if (bt_av_src_callbacks != NULL) {
-    HAL_CBACK(bt_av_src_callbacks, audio_state_cb, bd_addr, state);
+    HAL_CBACK(bt_av_src_callbacks, audio_state_cb, *bd_addr, state);
   }
 }
 
@@ -475,7 +475,7 @@ static void btif_report_source_codec_state(UNUSED_ATTR void* p_data,
     BTIF_TRACE_DEBUG("%s codec config changed BDA:0x%02X%02X%02X%02X%02X%02X", __func__,
                    bd_addr->address[0], bd_addr->address[1], bd_addr->address[2],
                    bd_addr->address[3], bd_addr->address[4], bd_addr->address[5]);
-    HAL_CBACK(bt_av_src_callbacks, audio_config_cb, bd_addr, codec_config,
+    HAL_CBACK(bt_av_src_callbacks, audio_config_cb, *bd_addr, codec_config,
               codecs_local_capabilities, codecs_selectable_capabilities);
   }
 }
@@ -502,7 +502,7 @@ static void btif_av_collission_timer_timeout(UNUSED_ATTR void *data) {
     if (bt_av_src_callbacks != NULL) {
       BTIF_TRACE_DEBUG("%s Starting A2dp connection", __FUNCTION__);
       conn_retry_count++;
-      btif_queue_connect(UUID_SERVCLASS_AUDIO_SOURCE, target_bda, connect_int);
+      btif_queue_connect(UUID_SERVCLASS_AUDIO_SOURCE, *target_bda, connect_int);
     } else {
       BTIF_TRACE_DEBUG("%s Aborting A2dp connection retry", __FUNCTION__);
     }
@@ -743,7 +743,7 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
           "channel_count=%d",
           __func__, req.sample_rate, req.channel_count);
       if (bt_av_sink_callbacks != NULL) {
-        HAL_CBACK(bt_av_sink_callbacks, audio_config_cb, &(req.peer_bd),
+        HAL_CBACK(bt_av_sink_callbacks, audio_config_cb, req.peer_bd,
                   req.sample_rate, req.channel_count);
       }
     } break;
@@ -876,10 +876,10 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
       /* inform the application that we are entering connecting state */
       if (bt_av_sink_callbacks != NULL)
         HAL_CBACK(bt_av_sink_callbacks, connection_state_cb,
-                  &(btif_av_cb[index].peer_bda), BTAV_CONNECTION_STATE_CONNECTING);
+                  btif_av_cb[index].peer_bda, BTAV_CONNECTION_STATE_CONNECTING);
       else if (bt_av_src_callbacks != NULL)
         HAL_CBACK(bt_av_src_callbacks, connection_state_cb,
-                  &(btif_av_cb[index].peer_bda), BTAV_CONNECTION_STATE_CONNECTING);
+                  btif_av_cb[index].peer_bda, BTAV_CONNECTION_STATE_CONNECTING);
       break;
 
     case BTIF_SM_EXIT_EVT:
@@ -1022,7 +1022,7 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
                          req.channel_count);
       if (btif_av_cb[index].peer_sep == AVDT_TSEP_SRC &&
           bt_av_sink_callbacks != NULL) {
-        HAL_CBACK(bt_av_sink_callbacks, audio_config_cb, &(btif_av_cb[index].peer_bda),
+        HAL_CBACK(bt_av_sink_callbacks, audio_config_cb, btif_av_cb[index].peer_bda,
                   req.sample_rate, req.channel_count);
       }
     } break;
@@ -2177,6 +2177,34 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
       index = btif_av_idx_by_bdaddr(bt_addr);
       break;
 
+    case BTIF_AV_TRIGGER_HANDOFF_REQ_EVT:
+      bt_addr = (RawAddress *)p_param;
+      index = btif_av_idx_by_bdaddr(bt_addr);
+      BTIF_TRACE_IMP("BTIF_AV_TRIGGER_HANDOFF_REQ_EVT on index %d", index);
+
+      if (index >= 0 && index < btif_max_av_clients)
+      {
+        for(int i = 0; i< btif_max_av_clients; i++)
+        {
+          if (i == index)
+            btif_av_cb[i].current_playing = TRUE;
+          else
+            btif_av_cb[i].current_playing = FALSE;
+
+          BTIF_TRACE_IMP("current_playing for index %d: %d", i, btif_av_cb[i].current_playing);
+        }
+
+        /*  RC play state is to be cleared to make sure the same when retained
+         *  does not impact UI initiated play*/
+        btif_rc_clear_playing_state(FALSE);
+        btif_av_trigger_dual_handoff(TRUE, btif_av_cb[index].peer_bda.address);
+      }
+      else
+      {
+        BTIF_TRACE_WARNING("Device is no longer connected, device switch failed");
+      }
+      break;
+
     case BTIF_AV_START_STREAM_REQ_EVT:
       /* Get the last connected device on which START can be issued
        * Get the Dual A2dp Handoff Device first, if none is present,
@@ -3103,14 +3131,14 @@ static bt_status_t connect_int(RawAddress* bd_addr, uint16_t uuid) {
   return BT_STATUS_SUCCESS;
 }
 
-static bt_status_t src_connect_sink(RawAddress* bd_addr) {
+static bt_status_t src_connect_sink(const RawAddress& bd_addr) {
   BTIF_TRACE_EVENT("%s", __func__);
   CHECK_BTAV_INIT();
 
   return btif_queue_connect(UUID_SERVCLASS_AUDIO_SOURCE, bd_addr, connect_int);
 }
 
-static bt_status_t sink_connect_src(RawAddress* bd_addr) {
+static bt_status_t sink_connect_src(const RawAddress& bd_addr) {
   BTIF_TRACE_EVENT("%s", __func__);
   CHECK_BTAV_INIT();
 
@@ -3126,13 +3154,31 @@ static bt_status_t sink_connect_src(RawAddress* bd_addr) {
  * Returns          bt_status_t
  *
  ******************************************************************************/
-static bt_status_t disconnect(RawAddress* bd_addr) {
+static bt_status_t disconnect(const RawAddress& bd_addr) {
   BTIF_TRACE_EVENT("%s", __func__);
   CHECK_BTAV_INIT();
 
   /* Switch to BTIF context */
   return btif_transfer_context(btif_av_handle_event, BTIF_AV_DISCONNECT_REQ_EVT,
-                               (char*)bd_addr, sizeof(RawAddress), NULL);
+                               (char *)&bd_addr, sizeof(RawAddress), NULL);
+}
+
+/*******************************************************************************
+ *
+ * Function         set_active_device
+ *
+ * Description      Tears down the AV signalling channel with the remote headset
+ *
+ * Returns          bt_status_t
+ *
+ ******************************************************************************/
+static bt_status_t set_active_device(const RawAddress& bd_addr) {
+  BTIF_TRACE_EVENT("%s", __func__);
+  CHECK_BTAV_INIT();
+
+  /* Initiate handoff for the device with address in the argument*/
+  return btif_transfer_context(btif_av_handle_event, BTIF_AV_TRIGGER_HANDOFF_REQ_EVT,
+                               (char *)&bd_addr, sizeof(RawAddress), NULL);
 }
 
 static bt_status_t codec_config_src(
@@ -3173,6 +3219,14 @@ static bt_status_t codec_config_src(
 
   return BT_STATUS_SUCCESS;
 }
+
+// gghai: for JNI HAL compatibility
+static bt_status_t codec_config_src(
+    const RawAddress& bd_addr,
+    std::vector<btav_a2dp_codec_config_t> codec_preferences) {
+  return codec_config_src(codec_preferences);
+}
+
 
 /*******************************************************************************
  *
@@ -3274,6 +3328,7 @@ static const btav_source_interface_t bt_av_src_interface = {
     init_src,
     src_connect_sink,
     disconnect,
+    set_active_device,
     codec_config_src,
     cleanup_src,
 #ifdef BT_AV_SHO_FEATURE

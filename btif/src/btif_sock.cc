@@ -53,6 +53,9 @@ static bt_status_t btsock_set_sockopt(btsock_type_t type, int channel,
                                       btsock_option_type_t option_name,
                                       void *option_value, int option_len);
 #endif
+
+static void btsock_request_max_tx_data_length(const RawAddress& bd_addr);
+
 static void btsock_signaled(int fd, int type, int flags, uint32_t user_id);
 
 static std::atomic_int thread_handle{-1};
@@ -60,11 +63,12 @@ static thread_t* thread;
 
 btsock_interface_t* btif_sock_get_interface(void) {
   static btsock_interface_t interface = {sizeof(interface), btsock_listen,
-                                         btsock_connect,
+                                          btsock_connect
 #ifdef RFC_SOCKOPT_FEATURE
-                                         btsock_get_sockopt, btsock_set_sockopt
+                                          , btsock_get_sockopt, btsock_set_sockopt
 #endif
-                                         };
+                                          , btsock_request_max_tx_data_length
+                                        };
   return &interface;
 }
 
@@ -202,6 +206,12 @@ static bt_status_t btsock_connect(const RawAddress* bd_addr, btsock_type_t type,
   }
   return status;
 }
+
+// gghai : For JNI HAL compatibility
+static void btsock_request_max_tx_data_length(const RawAddress& remote_device) {
+  LOG_INFO(LOG_TAG, "%s", __func__)
+}
+
 
 static void btsock_signaled(int fd, int type, int flags, uint32_t user_id) {
   switch (type) {

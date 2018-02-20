@@ -860,7 +860,7 @@ class HeadsetInterface : Interface {
                             RawAddress* bd_addr) override;
   bt_status_t DeviceStatusNotification(bthf_network_state_t ntk_state,
                                        bthf_service_type_t svc_type, int signal,
-                                       int batt_chg) override;
+                                       int batt_chg, RawAddress* bd_addr) override;
   bt_status_t CopsResponse(const char* cops, RawAddress* bd_addr) override;
   bt_status_t CindResponse(int svc, int num_active, int num_held,
                            bthf_call_state_t call_setup_state, int signal,
@@ -878,7 +878,7 @@ class HeadsetInterface : Interface {
   bt_status_t PhoneStateChange(int num_active, int num_held,
                                bthf_call_state_t call_setup_state,
                                const char* number,
-                               bthf_call_addrtype_t type) override;
+                               bthf_call_addrtype_t type, RawAddress* bd_addr) override;
 
   void Cleanup() override;
   bt_status_t SetScoAllowed(bool value) override;
@@ -966,7 +966,7 @@ static bt_status_t connect_int(RawAddress* bd_addr, uint16_t uuid) {
 
 bt_status_t HeadsetInterface::Connect(RawAddress* bd_addr) {
   CHECK_BTHF_INIT();
-  return btif_queue_connect(UUID_SERVCLASS_AG_HANDSFREE, bd_addr, connect_int);
+  return btif_queue_connect(UUID_SERVCLASS_AG_HANDSFREE, *bd_addr, connect_int);
 }
 
 /*******************************************************************************
@@ -1176,7 +1176,7 @@ bt_status_t HeadsetInterface::VolumeControl(bthf_volume_type_t type, int volume,
  * Returns          bt_status_t
  *
  ******************************************************************************/
-bt_status_t HeadsetInterface::DeviceStatusNotification(bthf_network_state_t ntk_state,
+bt_status_t DeviceStatusNotification(bthf_network_state_t ntk_state,
                                               bthf_service_type_t svc_type,
                                               int signal, int batt_chg) {
   CHECK_BTHF_INIT();
@@ -1195,6 +1195,13 @@ bt_status_t HeadsetInterface::DeviceStatusNotification(bthf_network_state_t ntk_
   }
 
   return BT_STATUS_SUCCESS;
+}
+
+// gghai : for JNI HAL compatibility
+bt_status_t HeadsetInterface::DeviceStatusNotification(bthf_network_state_t ntk_state,
+                                              bthf_service_type_t svc_type,
+                                              int signal, int batt_chg, RawAddress* bd_addr) {
+  return bluetooth::headset::DeviceStatusNotification(ntk_state, svc_type, signal, batt_chg);
 }
 
 /*******************************************************************************
@@ -1468,7 +1475,7 @@ bt_status_t HeadsetInterface::ClccResponse(int index, bthf_call_direction_t dir,
  *
  ******************************************************************************/
 
-bt_status_t HeadsetInterface::PhoneStateChange(int num_active, int num_held,
+bt_status_t PhoneStateChange(int num_active, int num_held,
                                       bthf_call_state_t call_setup_state,
                                       const char* number,
                                       bthf_call_addrtype_t type) {
@@ -1705,6 +1712,14 @@ update_call_states:
     }
   }
   return status;
+}
+
+// gghai : for JNI HAL compatibility
+bt_status_t HeadsetInterface::PhoneStateChange(int num_active, int num_held,
+                                      bthf_call_state_t call_setup_state,
+                                      const char* number,
+                                      bthf_call_addrtype_t type, RawAddress* bd_addr) {
+  return bluetooth::headset::PhoneStateChange(num_active, num_held, call_setup_state, number, type);
 }
 
 /*******************************************************************************

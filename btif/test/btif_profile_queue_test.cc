@@ -24,6 +24,11 @@ static bool sStackRunning;
 
 bool get_stack_is_running(void) { return sStackRunning; }
 
+bt_status_t btif_test_queue_connect(uint16_t uuid, const RawAddress* bda,
+                               btif_connect_cb_t connect_cb) {
+  return btif_queue_connect(uuid, *bda, connect_cb);
+}
+
 static stack_manager_t sStackManager = {nullptr, nullptr, nullptr, nullptr,
                                         get_stack_is_running};
 
@@ -89,17 +94,17 @@ static bt_status_t test_connect_cb(RawAddress* bda, uint16_t uuid) {
 
 TEST_F(BtifProfileQueueTest, test_connect) {
   sResult = NOT_SET;
-  btif_queue_connect(kTestUuid1, &kTestAddr1, test_connect_cb);
+  btif_test_queue_connect(kTestUuid1, &kTestAddr1, test_connect_cb);
   EXPECT_EQ(sResult, UUID1_ADDR1);
 }
 
 TEST_F(BtifProfileQueueTest, test_connect_same_uuid_do_not_repeat) {
   sResult = NOT_SET;
-  btif_queue_connect(kTestUuid1, &kTestAddr1, test_connect_cb);
+  btif_test_queue_connect(kTestUuid1, &kTestAddr1, test_connect_cb);
   EXPECT_EQ(sResult, UUID1_ADDR1);
   // Second connection request on the same UUID do not repeat
   sResult = NOT_SET;
-  btif_queue_connect(kTestUuid1, &kTestAddr1, test_connect_cb);
+  btif_test_queue_connect(kTestUuid1, &kTestAddr1, test_connect_cb);
   EXPECT_EQ(sResult, NOT_SET);
   // Not even after we advance the queue
   sResult = NOT_SET;
@@ -111,23 +116,23 @@ TEST_F(BtifProfileQueueTest, test_connect_same_uuid_do_not_repeat) {
 TEST_F(BtifProfileQueueTest, test_multiple_connects) {
   // First item is executed
   sResult = NOT_SET;
-  btif_queue_connect(kTestUuid1, &kTestAddr1, test_connect_cb);
+  btif_test_queue_connect(kTestUuid1, &kTestAddr1, test_connect_cb);
   EXPECT_EQ(sResult, UUID1_ADDR1);
   // Second item with advance is executed
   sResult = NOT_SET;
   btif_queue_advance();
-  btif_queue_connect(kTestUuid2, &kTestAddr1, test_connect_cb);
+  btif_test_queue_connect(kTestUuid2, &kTestAddr1, test_connect_cb);
   EXPECT_EQ(sResult, UUID2_ADDR1);
 }
 
 TEST_F(BtifProfileQueueTest, test_multiple_connects_without_advance) {
   // First item is executed
   sResult = NOT_SET;
-  btif_queue_connect(kTestUuid1, &kTestAddr1, test_connect_cb);
+  btif_test_queue_connect(kTestUuid1, &kTestAddr1, test_connect_cb);
   EXPECT_EQ(sResult, UUID1_ADDR1);
   // Second item without advance is not executed
   sResult = NOT_SET;
-  btif_queue_connect(kTestUuid2, &kTestAddr1, test_connect_cb);
+  btif_test_queue_connect(kTestUuid2, &kTestAddr1, test_connect_cb);
   EXPECT_EQ(sResult, NOT_SET);
   sResult = NOT_SET;
   // Connect next doesn't work
@@ -142,11 +147,11 @@ TEST_F(BtifProfileQueueTest, test_multiple_connects_without_advance) {
 TEST_F(BtifProfileQueueTest, test_cleanup_first_allow_second) {
   // First item is executed
   sResult = NOT_SET;
-  btif_queue_connect(kTestUuid1, &kTestAddr1, test_connect_cb);
+  btif_test_queue_connect(kTestUuid1, &kTestAddr1, test_connect_cb);
   EXPECT_EQ(sResult, UUID1_ADDR1);
   // Second item without advance is not executed
   sResult = NOT_SET;
-  btif_queue_connect(kTestUuid2, &kTestAddr1, test_connect_cb);
+  btif_test_queue_connect(kTestUuid2, &kTestAddr1, test_connect_cb);
   EXPECT_EQ(sResult, NOT_SET);
   // Connect next doesn't work
   sResult = NOT_SET;
@@ -162,11 +167,11 @@ TEST_F(BtifProfileQueueTest, test_cleanup_first_allow_second) {
 TEST_F(BtifProfileQueueTest, test_cleanup_both) {
   // First item is executed
   sResult = NOT_SET;
-  btif_queue_connect(kTestUuid1, &kTestAddr1, test_connect_cb);
+  btif_test_queue_connect(kTestUuid1, &kTestAddr1, test_connect_cb);
   EXPECT_EQ(sResult, UUID1_ADDR1);
   // Second item without advance is not executed
   sResult = NOT_SET;
-  btif_queue_connect(kTestUuid2, &kTestAddr1, test_connect_cb);
+  btif_test_queue_connect(kTestUuid2, &kTestAddr1, test_connect_cb);
   EXPECT_EQ(sResult, NOT_SET);
   // Connect next doesn't work
   sResult = NOT_SET;
@@ -183,11 +188,11 @@ TEST_F(BtifProfileQueueTest, test_cleanup_both) {
 TEST_F(BtifProfileQueueTest, test_cleanup_both_reverse_order) {
   // First item is executed
   sResult = NOT_SET;
-  btif_queue_connect(kTestUuid1, &kTestAddr1, test_connect_cb);
+  btif_test_queue_connect(kTestUuid1, &kTestAddr1, test_connect_cb);
   EXPECT_EQ(sResult, UUID1_ADDR1);
   // Second item without advance is not executed
   sResult = NOT_SET;
-  btif_queue_connect(kTestUuid2, &kTestAddr1, test_connect_cb);
+  btif_test_queue_connect(kTestUuid2, &kTestAddr1, test_connect_cb);
   EXPECT_EQ(sResult, NOT_SET);
   // Connect next doesn't work
   sResult = NOT_SET;

@@ -186,7 +186,7 @@ void btif_a2dp_on_offload_started(tBTA_AV_STATUS status) {
       btif_av_get_peer_addr(&bd_addr);
      /* status 13 means that there is a sco connection request during start vs cmd
         in such case, will not disconnect the stack, this trigger connect again*/
-      if(status != 13) 
+      if(status != 13)
           btif_dispatch_sm_event(BTIF_AV_DISCONNECT_REQ_EVT, (void *)bd_addr.address,
                              sizeof(RawAddress));
     }

@@ -31,7 +31,7 @@
 
 typedef bt_status_t (*btif_connect_cb_t)(RawAddress* bda, uint16_t uuid);
 
-bt_status_t btif_queue_connect(uint16_t uuid, const RawAddress* bda,
+bt_status_t btif_queue_connect(uint16_t uuid, const RawAddress& bda,
                                btif_connect_cb_t connect_cb);
 void btif_queue_cleanup(uint16_t uuid);
 void btif_queue_advance();
