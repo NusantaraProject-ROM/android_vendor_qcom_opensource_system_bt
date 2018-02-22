@@ -98,6 +98,7 @@ enum {
   BTA_DM_API_REMOVE_DEVICE_EVT,
   BTA_DM_API_HCI_RAW_COMMAND_EVT,
   BTA_DM_API_SET_WIFI_STATE_EVT,
+  BTA_DM_API_IOT_REPORT_EVT,
   BTA_DM_MAX_EVT
 };
 
@@ -277,6 +278,18 @@ typedef struct {
   uint16_t handle;
   tBT_TRANSPORT transport;
 } tBTA_DM_ACL_CHANGE;
+
+/* data type for BTA_DM_API_IOT_REPORT_EVT*/
+typedef struct {
+  BT_HDR hdr;
+  RawAddress bd_addr;
+  uint16_t error_type;
+  uint16_t error_info;
+  uint32_t event_mask;
+  uint8_t event_power_level;
+  uint8_t event_rssi;
+  uint8_t event_link_quality;
+} tBTA_DM_VND_IOT_REPORT;
 
 /* data type for BTA_DM_PM_BTM_STATUS_EVT */
 typedef struct {
@@ -527,6 +540,7 @@ typedef union {
   tBTA_DM_API_REMOVE_ALL_ACL remove_all_acl;
   tBTA_DM_API_RAW_COMMAND btc_command;
   tBTA_DM_API_SET_WIFI_STATE wifi_state;
+  tBTA_DM_VND_IOT_REPORT iot_info;
 } tBTA_DM_MSG;
 
 #define BTA_DM_NUM_PEER_DEVICE 7
@@ -829,6 +843,7 @@ extern void bta_dm_bond(tBTA_DM_MSG* p_data);
 extern void bta_dm_bond_cancel(tBTA_DM_MSG* p_data);
 extern void bta_dm_pin_reply(tBTA_DM_MSG* p_data);
 extern void bta_dm_acl_change(tBTA_DM_MSG* p_data);
+extern void bta_dm_process_iot_report(tBTA_DM_MSG *p_data);
 extern void bta_dm_add_device(tBTA_DM_MSG* p_data);
 extern void bta_dm_remove_device(tBTA_DM_MSG* p_data);
 extern void bta_dm_close_acl(tBTA_DM_MSG* p_data);

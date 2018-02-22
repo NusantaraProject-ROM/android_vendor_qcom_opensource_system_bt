@@ -166,6 +166,7 @@ static void bta_dm_observe_results_cb(tBTM_INQ_RESULTS* p_inq, uint8_t* p_eir,
 static void bta_dm_observe_cmpl_cb(void* p_result);
 static void bta_dm_delay_role_switch_cback(void* data);
 static void bta_dm_disable_timer_cback(void* data);
+static void bta_dm_vnd_info_report_cback(uint8_t evt_len, uint8_t *p_data);
 
 const uint16_t bta_service_id_to_uuid_lkup_tbl[BTA_MAX_SERVICE_ID] = {
     UUID_SERVCLASS_PNP_INFORMATION,       /* Reserved */
@@ -330,6 +331,7 @@ void bta_dm_init_cb(void) {
       bta_dm_cb.pm_timer[i].timer[j] = alarm_new("bta_dm.pm_timer");
     }
   }
+  btm_register_iot_info_cback(bta_dm_vnd_info_report_cback);
 }
 
 /*******************************************************************************
@@ -1085,14 +1087,14 @@ static void bta_dm_policy_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
 
     case BTA_SYS_PLCY_CLR:
       if (!p_dev) return;
-      /* clear the policy from the default link policy */
-      p_dev->link_policy &= (~policy);
-      BTM_SetLinkPolicy(p_dev->peer_bdaddr, &(p_dev->link_policy));
 
       if (policy & (HCI_ENABLE_SNIFF_MODE | HCI_ENABLE_PARK_MODE)) {
         /* if clearing sniff/park, wake the link */
         bta_dm_pm_active(p_dev->peer_bdaddr);
       }
+      /* clear the policy from the default link policy */
+      p_dev->link_policy &= (~policy);
+      BTM_SetLinkPolicy(p_dev->peer_bdaddr, &(p_dev->link_policy));
       break;
 
     case BTA_SYS_PLCY_DEF_SET:
@@ -2956,6 +2958,62 @@ static void bta_dm_bl_change_cback(tBTM_BL_EVENT_DATA* p_data) {
 }
 
 /*******************************************************************************
+**
+** Function         vnd_get_error_info
+**
+** Description      Returns error info mask based on error type sent by SoC
+**
+**
+** Returns          uint16_t
+**
+*******************************************************************************/
+uint16_t vnd_get_error_info(uint16_t error_type) {
+  switch(error_type) {
+    case BT_SOC_CONNECTION_FAIL:
+      return SOC_PAGE_TIMEOUT;
+    case BT_SOC_DISCONNECTION:
+      return SOC_HALF_LSTO;
+    case BT_SOC_A2DP_GLITCH:
+      return SOC_HALF_LSTO;
+    case BT_SOC_VOICE_BREAK:
+      return SOC_SCO_MISSES;
+    default:
+      return 0;
+  }
+}
+
+/*******************************************************************************
+**
+** Function         bta_dm_vnd_info_report_cback
+**
+** Description      Called from btm when SoC sends IOT device info report
+**
+**
+** Returns          void
+**
+*******************************************************************************/
+static void bta_dm_vnd_info_report_cback (uint8_t evt_len, uint8_t *p_data) {
+  uint8_t iot_info_len;
+  APPL_TRACE_DEBUG("bta_dm_vnd_info_report_cback");
+  tBTA_DM_VND_IOT_REPORT *p_msg =
+      (tBTA_DM_VND_IOT_REPORT *)osi_malloc(sizeof(tBTA_DM_VND_IOT_REPORT));
+
+  p_msg->hdr.event = BTA_DM_API_IOT_REPORT_EVT;
+  STREAM_TO_UINT16(p_msg->error_type, p_data);
+  STREAM_TO_UINT8(iot_info_len, p_data);
+  STREAM_TO_BDADDR(p_msg->bd_addr, p_data);
+  STREAM_SKIP_UINT16(p_data); // currently connection handle is not required.
+  STREAM_TO_UINT32(p_msg->event_mask, p_data);
+  STREAM_TO_UINT8(p_msg->event_power_level, p_data);
+  STREAM_TO_UINT8(p_msg->event_rssi, p_data);
+  if(p_msg->error_type == BT_SOC_A2DP_GLITCH)
+      STREAM_TO_UINT8(p_msg->event_link_quality, p_data);
+  p_msg->error_info = vnd_get_error_info(p_msg->error_type);
+
+  bta_sys_sendmsg(p_msg);
+}
+
+/*******************************************************************************
  *
  * Function         bta_dm_rs_cback
  *
@@ -3218,6 +3276,14 @@ void bta_dm_acl_change(tBTA_DM_MSG* p_data) {
       bta_dm_cb.device_list.le_count--;
     conn.link_down.link_type = p_data->acl_change.transport;
 
+    if ((p_data->acl_change.transport == BT_TRANSPORT_LE) &&
+        bta_dm_search_cb.gatt_disc_active &&
+        bta_dm_search_cb.peer_bdaddr == p_bda) {
+      APPL_TRACE_WARNING("%s cancel gatt discovery, addr: %s", __func__,
+          p_bda.ToString().c_str());
+      bta_dm_cancel_gatt_discovery(bta_dm_search_cb.peer_bdaddr);
+    }
+
     if ((p_data->acl_change.transport == BT_TRANSPORT_BR_EDR) &&
         bta_dm_search_cb.wait_disc &&
         bta_dm_search_cb.peer_bdaddr == p_bda) {
@@ -3261,6 +3327,35 @@ void bta_dm_acl_change(tBTA_DM_MSG* p_data) {
   bta_dm_adjust_roles(true);
 }
 
+/*******************************************************************************
+**
+** Function         bta_dm_process_iot_report
+**
+** Description      Sends disable event to application
+**
+**
+** Returns          void
+**
+*******************************************************************************/
+void bta_dm_process_iot_report(tBTA_DM_MSG *p_data)
+{
+  APPL_TRACE_WARNING("bta_dm_process_iot_report");
+  tBTA_DM_VND_IOT_REPORT* iot_info = &p_data->iot_info;
+  tBTA_DM_SEC sec_event;
+  sec_event.iot_info.bd_addr = iot_info->bd_addr;
+  sec_event.iot_info.error_type = iot_info->error_type;
+  sec_event.iot_info.error_info = iot_info->error_info;
+  sec_event.iot_info.event_mask = iot_info->event_mask;
+  sec_event.iot_info.event_power_level = iot_info->event_power_level;
+  sec_event.iot_info.event_rssi = iot_info->event_rssi;
+  sec_event.iot_info.event_link_quality = iot_info->event_link_quality;
+
+  APPL_TRACE_DEBUG("bta_dm_process_iot_report %s", iot_info,
+                        iot_info->bd_addr.ToString().c_str());
+
+  if( bta_dm_cb.p_sec_cback )
+    bta_dm_cb.p_sec_cback(BTA_DM_IOT_INFO_EVT, (tBTA_DM_SEC *)&sec_event);
+}
 /*******************************************************************************
  *
  * Function         bta_dm_disable_conn_down_timer_cback

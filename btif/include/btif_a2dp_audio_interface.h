@@ -29,8 +29,9 @@
 //#include "audio_a2dp_hw.h"
 #include "bta_av_api.h"
 
-/*Default LDAC bitrate  */
-#define DEFAULT_LDAC_BITRATE 660000
+/*Default LDAC bitrate */
+#define DEFAULT_LDAC_BITRATE_48KHZ 660000
+#define DEFAULT_LDAC_BITRATE_441KHZ 606000
 
 typedef enum {
   A2DP_CTRL_GET_CODEC_CONFIG = 15,
@@ -41,7 +42,6 @@ typedef enum {
 
 typedef enum {
   A2DP_CTRL_ACK_PENDING = 9,
-  A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS
 }tA2DP_CTRL_ACK_EXT;
 
 void btif_a2dp_audio_on_started(tBTA_AV_STATUS status);

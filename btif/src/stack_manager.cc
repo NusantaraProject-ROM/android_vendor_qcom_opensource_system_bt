@@ -53,6 +53,7 @@ static void event_clean_up_stack(void* context);
 static void event_signal_stack_up(void* context);
 static void event_signal_stack_down(void* context);
 
+extern void btif_vendor_cleanup_iot_broadcast_timer(void);
 extern void start_bt_logger(void);
 extern void init_vnd_Logger(void);
 extern void clean_vnd_logger(void);
@@ -215,6 +216,7 @@ static void event_clean_up_stack(void* context) {
   LOG_INFO(LOG_TAG, "%s is cleaning up the stack", __func__);
   stack_is_initialized = false;
 
+  btif_vendor_cleanup_iot_broadcast_timer();
   btif_cleanup_bluetooth();
   module_clean_up(get_module(BTIF_CONFIG_MODULE));
   module_clean_up(get_module(BT_UTILS_MODULE));

@@ -698,6 +698,7 @@ void btm_acl_encrypt_change(uint16_t handle, uint8_t status,
   tACL_CONN* p;
   uint8_t xx;
   tBTM_SEC_DEV_REC* p_dev_rec;
+  RawAddress btm_role_chg_data_bda  = RawAddress::kEmpty;
 
   BTM_TRACE_DEBUG("btm_acl_encrypt_change handle=%d status=%d encr_enabl=%d",
                   handle, status, encr_enable);
@@ -723,6 +724,10 @@ void btm_acl_encrypt_change(uint16_t handle, uint8_t status,
 #if (BTM_DISC_DURING_RS == TRUE)
     p_dev_rec = btm_find_dev(p->remote_addr);
     if (p_dev_rec != NULL) p_dev_rec->rs_disc_pending = BTM_SEC_RS_PENDING;
+    btm_cb.devcb.switch_role_ref_data.remote_bd_addr = p->remote_addr;
+    btm_cb.devcb.switch_role_ref_data.role = (!p->link_role);
+    /* initialized to an error code */
+    btm_cb.devcb.switch_role_ref_data.hci_status = HCI_ERR_UNSUPPORTED_VALUE;
 #endif
 
   }
@@ -730,6 +735,12 @@ void btm_acl_encrypt_change(uint16_t handle, uint8_t status,
   else if (p->switch_role_state == BTM_ACL_SWKEY_STATE_ENCRYPTION_ON) {
     p->switch_role_state = BTM_ACL_SWKEY_STATE_IDLE;
     p->encrypt_state = BTM_ACL_ENCRYPT_STATE_IDLE;
+
+    if(btm_cb.devcb.switch_role_ref_data.remote_bd_addr == p->remote_addr)
+    {
+      BTM_TRACE_DEBUG ("btm_acl_encrypt_change storing role change bdaddr");
+      btm_role_chg_data_bda =  btm_cb.devcb.switch_role_ref_data.remote_bd_addr;
+    }
     btm_acl_report_role_change(btm_cb.devcb.switch_role_ref_data.hci_status,
                                &p->remote_addr);
 
@@ -738,7 +749,7 @@ void btm_acl_encrypt_change(uint16_t handle, uint8_t status,
       tBTM_BL_ROLE_CHG_DATA evt;
       evt.event = BTM_BL_ROLE_CHG_EVT;
       evt.new_role = btm_cb.devcb.switch_role_ref_data.role;
-      evt.p_bda = &btm_cb.devcb.switch_role_ref_data.remote_bd_addr;
+      evt.p_bda = &btm_role_chg_data_bda;
       evt.hci_status = btm_cb.devcb.switch_role_ref_data.hci_status;
       tBTM_BL_EVENT_DATA btm_bl_event_data;
       btm_bl_event_data.role_chg = evt;

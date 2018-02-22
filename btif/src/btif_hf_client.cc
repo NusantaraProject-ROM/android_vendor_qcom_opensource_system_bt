@@ -71,7 +71,7 @@
 #define BTIF_HF_CLIENT_SECURITY (BTA_SEC_AUTHENTICATE | BTA_SEC_ENCRYPT)
 #endif
 
-#if (BTM_WBS_INCLUDED == TRUE)
+#if (BTIF_HF_CLIENT_WBS_INCLUDED == TRUE)
 #ifndef BTIF_HF_CLIENT_FEATURES
 #define BTIF_HF_CLIENT_FEATURES                                                \
   (BTA_HF_CLIENT_FEAT_ECNR | BTA_HF_CLIENT_FEAT_3WAY |                         \

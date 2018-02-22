@@ -925,4 +925,34 @@ typedef uint8_t tBT_DEVICE_TYPE;
 /* Define a function for logging */
 typedef void(BT_LOG_FUNC)(int trace_type, const char* fmt_str, ...);
 
+enum {
+  /*Error originated from SoC*/
+  BT_SOC_CONNECTION_FAIL = 1,
+  BT_SOC_DISCONNECTION,
+  BT_SOC_A2DP_GLITCH,
+  BT_SOC_VOICE_BREAK,
+
+  /*Error originated from Stack*/
+  BT_HOST_CONNECTION_FAIL = 8,
+  BT_HOST_DISCONNECTION,
+  BT_HOST_A2DP_GLITCH,
+};
+
+typedef uint16_t tBT_ERROR_TYPE;
+
+enum {
+  /*A2DP ERRORS*/
+  SOC_A2DP_TRANSMISSION_DELAY = 1,
+  HOST_MEDIA_BUFFER_OVERFLOW = 2,
+  HOST_CREDIT_UNAVAILABLE = 4,
+  HOST_MEDIA_TIMER_DELAY = 8,
+
+  /*CONNECTION ERRORS*/
+  SOC_PAGE_TIMEOUT = 32,
+  SOC_HALF_LSTO = 64,
+
+  SOC_SCO_MISSES = 128,
+};
+typedef uint16_t tBT_ERROR_INFO;
+
 #endif

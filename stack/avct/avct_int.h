@@ -166,6 +166,7 @@ extern void avct_lcb_dealloc(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);
 extern tAVCT_LCB* avct_lcb_by_lcid(uint16_t lcid);
 extern tAVCT_CCB* avct_lcb_has_pid(tAVCT_LCB* p_lcb, uint16_t pid);
 extern bool avct_lcb_last_ccb(tAVCT_LCB* p_lcb, tAVCT_CCB* p_ccb_last);
+extern bool avct_lcb_is_state_open(tAVCT_LCB* p_lcb);
 
 /* LCB action functions */
 extern void avct_lcb_chnl_open(tAVCT_LCB* p_lcb, tAVCT_LCB_EVT* p_data);

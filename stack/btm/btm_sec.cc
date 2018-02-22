@@ -2924,6 +2924,7 @@ static tBTM_STATUS btm_sec_dd_create_conn(tBTM_SEC_DEV_REC* p_dev_rec) {
                 p_lcb->link_state == LST_CONNECTING)) {
     BTM_TRACE_WARNING("%s Connection already exists", __func__);
     btm_sec_change_pairing_state(BTM_PAIR_STATE_WAIT_PIN_REQ);
+    btm_cb.pairing_flags |= BTM_PAIR_FLAGS_DISC_WHEN_DONE;
     return BTM_CMD_STARTED;
   }
 
@@ -5052,8 +5053,16 @@ void btm_sec_pin_code_request(const RawAddress& p_bda) {
 
   p_dev_rec = btm_find_or_alloc_dev(p_bda);
   /* received PIN code request. must be non-sm4 */
-  p_dev_rec->sm4 = BTM_SM4_KNOWN;
+  p_dev_rec->sm4 |= BTM_SM4_KNOWN;
 
+  if ((btm_cb.pairing_state == BTM_PAIR_STATE_WAIT_PIN_REQ) &&
+     (btm_cb.pairing_flags & BTM_PAIR_FLAGS_WE_STARTED_DD) &&
+     (p_dev_rec->sm4 & BTM_SM4_CONN_PEND)) {
+    BTM_TRACE_WARNING("btm_sec_pin_code_request() pairing collision treat as incoming pairing- flags:0x%x",
+                       btm_cb.pairing_flags);
+    btm_cb.pairing_flags &= ~BTM_PAIR_FLAGS_WE_STARTED_DD;
+    btm_cb.pairing_flags |= BTM_PAIR_FLAGS_PEER_STARTED_DD;
+  }
   if (btm_cb.pairing_state == BTM_PAIR_STATE_IDLE) {
     btm_cb.pairing_bda = p_bda;
 

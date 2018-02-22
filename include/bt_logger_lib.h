@@ -51,9 +51,10 @@ typedef enum  {
 ** property value should be (HCI_SNOOP_LOG_FULL|DYNAMIC_LOGCAT_CAPTURE) = 3
 */
 typedef enum {
-    HCI_SNOOP_LOG_LITE = 0,     // Always enabled, hci snoop logs sans media packets
-    HCI_SNOOP_LOG_FULL = 1,     // Complete hci snoop logs with media packets
-    DYNAMIC_LOGCAT_CAPTURE = 2,  // Level 6 logcat logs over logger socket
+    HCI_SNOOP_LOG_FULL = 1,     // Complete HCI snoop logs with media packets
+    DYNAMIC_LOGCAT_CAPTURE = 2, // Level 6 logcat logs over logger socket
+    HCI_SNOOP_LOG_LITE = 4,     // Always enabled, HCI snoop logs sans media packets
+    HCI_SNOOP_ONLY_HEADER = 8,  //  HCI snoop logs with only ACL Header packets
 } LoggingFlags;
 
 void init_vnd_Logger(void);

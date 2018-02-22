@@ -397,3 +397,7 @@ bool avct_lcb_last_ccb(tAVCT_LCB* p_lcb, tAVCT_CCB* p_ccb_last) {
   }
   return true;
 }
+
+bool avct_lcb_is_state_open(tAVCT_LCB* p_lcb) {
+  return (p_lcb)?(p_lcb->state == AVCT_LCB_OPEN_ST):false;
+}

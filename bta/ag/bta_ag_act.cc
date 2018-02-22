@@ -257,6 +257,7 @@ void bta_ag_disc_int_res(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
 
   /* free discovery db */
   bta_ag_free_db(p_scb, p_data);
+  APPL_TRACE_DEBUG(" %s: event %d ", __func__,event);
 
   /* if service not found check if we should search for other service */
   if ((event == BTA_AG_DISC_FAIL_EVT) &&
@@ -424,6 +425,12 @@ void bta_ag_rfc_close(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
 
   /* if not deregistering (deallocating) reopen registered servers */
   if (p_scb->dealloc == false) {
+    /* Cancel SDP if it had been started. */
+    if (p_scb->p_disc_db) {
+      APPL_TRACE_DEBUG(" %s CancelSDP ",__func__);
+      (void)SDP_CancelServiceSearch(p_scb->p_disc_db);
+      bta_ag_free_db(p_scb, NULL);
+    }
     /* Clear peer bd_addr so instance can be reused */
     p_scb->peer_addr = RawAddress::kEmpty;
 

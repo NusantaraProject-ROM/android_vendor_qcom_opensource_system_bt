@@ -17,77 +17,10 @@
  ******************************************************************************/
 
 #pragma once
-#ifdef BT_LOGGER_LIB // gghai
-#include "internal_include/bt_logger_lib.h" // gghai, add file
+#include "include/bt_logger_lib.h" // gghai, add file
 
 extern bt_logger_interface_t *logger_interface;
 extern bool bt_logger_enabled;
-
-#else
-#include <stdio.h>
-#include <sys/types.h>
-/**
- * Commands
- */
-typedef enum  {
-    VENDOR_LOGGER_LOGS = 201, // Signifies Packet containing Logger Log
-    GENERATE_VND_LOG_SIGNAL, // Signifies command to generate logs
-    START_SNOOP_SIGNAL,
-    STOP_SNOOP_SIGNAL,
-    STOP_LOGGING_SIGNAL,
-} CommandTypes;
-
-/*
-** Set property: "persist.bt_logger.log_mask" by ORing these features
-
-** Example: To enable Full snoop logging and Dynamic logcat logs capture,
-** property value should be (HCI_SNOOP_LOG_FULL|DYNAMIC_LOGCAT_CAPTURE) = 3
-*/
-typedef enum {
-    HCI_SNOOP_LOG_LITE = 0,     // Always enabled, hci snoop logs sans media packets
-    HCI_SNOOP_LOG_FULL = 1,     // Complete hci snoop logs with media packets
-    DYNAMIC_LOGCAT_CAPTURE = 2,  // Level 6 logcat logs over logger socket
-} LoggingFlags;
-
-void init_vnd_Logger(void);
-void clean_vnd_logger(void);
-
-typedef struct {
-    /** Set to sizeof(bt_vndor_interface_t) */
-    size_t          size;
-
-    /*
-     * Functions need to be implemented in Logger libray (libbt-logClient.so).
-     */
-
-    /*
-     *  Initialize logging by conneting client socket
-     *  to Logger process
-     */
-    int   (*init)(void);
-
-    /**  Sending Logs of Logger process */
-    void (*send_log_msg)(const char *tag, const char *fmt_str, va_list ap);
-    void (*send_log_data)(const char *tag, const char *fmt_str, ...);
-
-    /**  Sending Logs of Logger process */
-    void (*send_event)(char evt);
-
-    /** Closes the socket connection to logger process */
-    int  (*cleanup)(void);
-
-} bt_logger_interface_t;
-
-extern uint16_t vendor_logging_level;
-
-#define GENERATE_VND_LOGS() if(logger_interface)logger_interface->send_event(GENERATE_VND_LOG_SIGNAL)
-#define START_SNOOP_LOGGING() if(logger_interface)logger_interface->send_event(START_SNOOP_SIGNAL)
-#define STOP_SNOOP_LOGGING() if(logger_interface)logger_interface->send_event(STOP_SNOOP_SIGNAL)
-
-extern bt_logger_interface_t *logger_interface;
-extern bool bt_logger_enabled;
-
-#endif
 
 /*
  * TODO(armansito): Work-around until we figure out a way to generate logs in a

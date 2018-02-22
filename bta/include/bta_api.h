@@ -396,6 +396,7 @@ typedef uint8_t tBTA_SIG_STRENGTH_MASK;
 #define BTA_DM_SOC_LOGGING_EVT 31 /* SOC LOGGING event. */
 #define BTA_DM_PKT_TYPE_CHG_EVT 30 /* PACKET TYPE Change event. */
 #define BTA_DM_REM_NAME_EVT 32 /* Remote name event */
+#define BTA_DM_IOT_INFO_EVT 33 /* IOT device info */
 typedef uint8_t tBTA_DM_SEC_EVT;
 
 /* Structure associated with BTA_DM_ENABLE_EVT */
@@ -659,6 +660,17 @@ typedef struct {
   tBTA_AUTH_REQ rmt_io_caps;  /* IO Capabilities of remote device */
 } tBTA_DM_SP_CFM_REQ;
 
+/* Structure associated with BTA_DM_IOT_INFO_EVT */
+typedef struct {
+  RawAddress bd_addr; /* BD address peer device. */
+  uint16_t error_type;
+  uint16_t error_info;
+  uint32_t event_mask;
+  uint8_t event_power_level;
+  uint8_t event_rssi;
+  uint8_t event_link_quality;
+} tBTA_DM_IOT_INFO_DATA;
+
 enum {
   BTA_SP_KEY_STARTED, /* passkey entry started */
   BTA_SP_KEY_ENTERED, /* passkey digit entered */
@@ -721,6 +733,7 @@ typedef union {
   tBTA_DM_BLE_SEC_REQ ble_req;        /* BLE SMP related request */
   tBTA_DM_BLE_KEY ble_key;            /* BLE SMP keys used when pairing */
   tBTA_BLE_LOCAL_ID_KEYS ble_id_keys; /* IR event */
+  tBTA_DM_IOT_INFO_DATA iot_info;
   BT_OCTET16 ble_er;                  /* ER event data */
 } tBTA_DM_SEC;
 

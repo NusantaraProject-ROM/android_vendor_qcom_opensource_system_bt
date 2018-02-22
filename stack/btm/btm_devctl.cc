@@ -785,6 +785,19 @@ tBTM_STATUS BTM_RegisterForVSEvents(tBTM_VS_EVT_CB* p_cb, bool is_register) {
 }
 
 /*******************************************************************************
+**
+** Function         btm_register_iot_info_cback
+**
+** Description      Register callback to process iot info report
+**
+** Returns          void
+**
+*******************************************************************************/
+void btm_register_iot_info_cback (tBTM_VS_EVT_CB *p_cb) {
+    btm_cb.devcb.p_vnd_iot_info_cb = p_cb;
+}
+
+/*******************************************************************************
  *
  * Function         btm_vendor_specific_evt
  *
@@ -798,6 +811,19 @@ tBTM_STATUS BTM_RegisterForVSEvents(tBTM_VS_EVT_CB* p_cb, bool is_register) {
  ******************************************************************************/
 void btm_vendor_specific_evt(uint8_t* p, uint8_t evt_len) {
   uint8_t i;
+  uint8_t *pp = p;
+  uint8_t vse_subcode;
+
+  STREAM_TO_UINT8 (vse_subcode, pp);
+
+  if(HCI_VSE_INFO_REPORT == vse_subcode) {
+    BTM_TRACE_DEBUG ("BTM Event: Vendor Specific iot info report event");
+    if (btm_cb.devcb.p_vnd_iot_info_cb) {
+      BTM_TRACE_DEBUG ("Calling bta_dm_vnd_info_report_cback");
+      (*btm_cb.devcb.p_vnd_iot_info_cb)(evt_len, pp);
+      return;
+    }
+  }
 
   BTM_TRACE_DEBUG("BTM Event: Vendor Specific event from controller");
 

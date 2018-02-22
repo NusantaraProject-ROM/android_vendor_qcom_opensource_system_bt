@@ -110,13 +110,12 @@ void send_soc_log_command(bool value) {
     BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE, 2, param_cherokee, NULL);
   }
 }
-#ifndef QLOGKIT_USERDEBUG
+
 static bool is_soc_logging_enabled() {
   char btsnoop_enabled[PROPERTY_VALUE_MAX] = {0};
   osi_property_get(BTSNOOP_ENABLE_PROPERTY, btsnoop_enabled, "false");
   return strncmp(btsnoop_enabled, "true", 4) == 0;
 }
-#endif
 
 static future_t* start_up(void) {
   BT_HDR* response;
@@ -139,14 +138,10 @@ static future_t* start_up(void) {
 
   packet_parser->parse_generic_command_complete(response);
 
-  #ifdef QLOGKIT_USERDEBUG
+  if (is_soc_logging_enabled()) {
+    LOG_INFO(LOG_TAG, "%s Send command to enable soc logging ", __func__);
     send_soc_log_command(true);
-  #else
-    if (is_soc_logging_enabled()) {
-      LOG_INFO(LOG_TAG, "%s for non-userdebug api ", __func__);
-      send_soc_log_command(true);
-    }
-  #endif
+  }
 
   // Read the local version info off the controller next, including
   // information such as manufacturer and supported HCI version

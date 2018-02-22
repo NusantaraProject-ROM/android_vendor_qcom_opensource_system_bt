@@ -115,6 +115,9 @@ typedef enum {
   // disable AAC for those headsets so that it switch to SBC
   INTEROP_DISABLE_AAC_CODEC,
 
+  // Enable AAC only for whitelist of devices
+  INTEROP_ENABLE_AAC_CODEC,
+
   // Disable role switch for headsets/car-kits
   // Some car kits initiate a role switch but won't initiate encryption
   // after role switch complete

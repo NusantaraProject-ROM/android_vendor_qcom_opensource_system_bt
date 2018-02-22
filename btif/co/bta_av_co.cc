@@ -46,6 +46,8 @@
 #include "device/include/interop.h"
 #include "device/include/controller.h"
 
+bool isDevUiReq = false;
+
 /*****************************************************************************
  **  Constants
  *****************************************************************************/
@@ -861,6 +863,22 @@ static bool bta_av_co_audio_protect_has_scmst(uint8_t num_protect,
   return false;
 }
 
+bool bta_av_co_audio_is_aac_enabled(RawAddress *remote_bdaddr) {
+
+  int retval;
+  bool res = FALSE;
+  char is_whitelist_by_default[255] = "false";
+  retval = property_get("persist.bt.a2dp.aac_whitelist", is_whitelist_by_default, "false");
+  BTIF_TRACE_DEBUG("%s: property_get: bt.a2dp.aac_whitelist: %s, retval: %d",
+                                  __func__, is_whitelist_by_default, retval);
+  if (!strncmp(is_whitelist_by_default, "true", 4)) {
+      if (interop_match_addr(INTEROP_ENABLE_AAC_CODEC, remote_bdaddr))
+          res = TRUE;
+    }
+
+    return res;
+}
+
 /*******************************************************************************
  **
  ** Function         bta_av_co_audio_sink_supports_cp
@@ -933,6 +951,11 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
     {
       APPL_TRACE_DEBUG("AAC is not supported for this remote device");
     }
+    else if (bt_split_a2dp_enabled && (!strcmp(iter->name().c_str(),"AAC")) && bta_av_co_audio_is_aac_enabled(&p_peer->addr))
+    {
+      APPL_TRACE_DEBUG("AAC is supported for this remote device");
+      p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
+    }
     else
     {
      p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
@@ -995,6 +1018,18 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_codec_selected(
                      codec_config.name().c_str());
     return NULL;
   }
+
+  /*
+  ** In case of acceptor or remote initiated connection need to update enocder with codec config
+  ** details as sent by remote during set config
+  */
+  if (p_peer->acp == true && isDevUiReq != true) {
+      /* check if sample rate or channel mode is zero */
+      if (( codec_config.ota_codec_peer_config_[9] != 0) && ( codec_config.ota_codec_peer_config_[10] != 0)) {
+        memcpy(codec_config.ota_codec_config_, codec_config.ota_codec_peer_config_, AVDT_CODEC_SIZE);
+    }
+  }
+
   p_peer->p_sink = p_sink;
 
   bta_av_co_save_new_codec_config(p_peer, new_codec_config, p_sink->num_protect,
@@ -1202,6 +1237,10 @@ bool bta_av_co_set_codec_user_config(
       goto done;
     }
 
+    if (isDevUiReq) {
+      p_peer->acp = false;
+      isDevUiReq = false;
+    }
     APPL_TRACE_DEBUG("%s: call BTA_AvReconfig(x%x)", __func__, p_peer->handle);
     BTA_AvReconfig(p_peer->handle, true, p_sink->sep_info_idx,
                    p_peer->codec_config, num_protect, bta_av_co_cp_scmst);

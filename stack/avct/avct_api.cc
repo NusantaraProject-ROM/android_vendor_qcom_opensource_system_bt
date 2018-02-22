@@ -441,6 +441,11 @@ uint16_t AVCT_MsgReq(uint8_t handle, uint8_t label, uint8_t cr, BT_HDR* p_msg) {
       tAVCT_LCB_EVT avct_lcb_evt;
       avct_lcb_evt.ul_msg = ul_msg;
       avct_lcb_event(p_ccb->p_lcb, AVCT_LCB_UL_MSG_EVT, &avct_lcb_evt);
+      if (!avct_lcb_is_state_open(p_ccb->p_lcb))
+      {
+        result = AVCT_NOT_OPEN;
+        AVCT_TRACE_ERROR("%s: AVCT state not open drop msg",__func__);
+      }
     }
   }
   return result;

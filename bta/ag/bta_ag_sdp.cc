@@ -389,6 +389,7 @@ void bta_ag_do_disc(tBTA_AG_SCB* p_scb, tBTA_SERVICE_MASK service) {
   uint8_t num_attr;
   bool db_inited = false;
 
+  APPL_TRACE_DEBUG(" %s: ", __func__);
   /* HFP initiator; get proto list and features */
   if (service & BTA_HFP_SERVICE_MASK && p_scb->role == BTA_AG_INT) {
     attr_list[0] = ATTR_ID_SERVICE_CLASS_ID_LIST;
@@ -468,5 +469,6 @@ void bta_ag_do_disc(tBTA_AG_SCB* p_scb, tBTA_SERVICE_MASK service) {
  *
  ******************************************************************************/
 void bta_ag_free_db(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
+  APPL_TRACE_DEBUG(" %s: ", __func__);
   osi_free_and_reset((void**)&p_scb->p_disc_db);
 }

@@ -122,6 +122,9 @@ class A2dpCodecConfig {
   // Returns true if |codec_config| is empty, otherwise false.
   static bool isCodecConfigEmpty(const btav_a2dp_codec_config_t& codec_config);
 
+  uint8_t ota_codec_config_[AVDT_CODEC_SIZE];
+  uint8_t ota_codec_peer_config_[AVDT_CODEC_SIZE];
+
  protected:
   // Sets the current priority of the codec to |codec_priority|.
   // If |codec_priority| is BTAV_A2DP_CODEC_PRIORITY_DEFAULT, the priority is
@@ -257,9 +260,7 @@ class A2dpCodecConfig {
   // The selected audio feeding configuration.
   btav_a2dp_codec_config_t codec_audio_config_;
 
-  uint8_t ota_codec_config_[AVDT_CODEC_SIZE];
   uint8_t ota_codec_peer_capability_[AVDT_CODEC_SIZE];
-  uint8_t ota_codec_peer_config_[AVDT_CODEC_SIZE];
 };
 
 class A2dpCodecs {

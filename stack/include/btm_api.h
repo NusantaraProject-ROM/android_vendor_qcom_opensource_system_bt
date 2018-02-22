@@ -185,6 +185,17 @@ extern tBTM_STATUS BTM_RegisterForVSEvents(tBTM_VS_EVT_CB* p_cb,
                                            bool is_register);
 
 /*******************************************************************************
+**
+** Function         btm_register_iot_info_cback
+**
+** Description      Register callback to process IOT info report
+**
+** Returns          void
+**
+*******************************************************************************/
+void btm_register_iot_info_cback (tBTM_VS_EVT_CB *p_cb);
+
+/*******************************************************************************
  *
  * Function         BTM_VendorSpecificCommand
  *

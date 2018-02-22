@@ -794,12 +794,13 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
    * to get the ACK for any pending command in such cases.
    */
   tA2DP_CTRL_CMD pending_cmd = btif_a2dp_get_pending_command();
-  if (send_ack) {
-    btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
-  } else if (pending_cmd == A2DP_CTRL_CMD_SUSPEND ||
-             pending_cmd == A2DP_CTRL_CMD_STOP) {
+  if (send_ack && (pending_cmd == A2DP_CTRL_CMD_SUSPEND ||
+          pending_cmd == A2DP_CTRL_CMD_STOP)) {
     APPL_TRACE_DEBUG("%s, Ack for pending Stop/Suspend", __func__);
     btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+  } else if (pending_cmd == A2DP_CTRL_CMD_START) {
+    BTIF_TRACE_ERROR("Ack Pending Start while Disconnect in Progress");
+    btif_a2dp_command_ack(A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS);
   } else {
     BTIF_TRACE_ERROR("Invalid cmd pending for ack");
   }

@@ -1996,6 +1996,13 @@ void bta_av_getcap_results(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   tAVDT_SEP_INFO* p_info = &p_scb->sep_info[p_scb->sep_info_idx];
   uint16_t uuid_int; /* UUID for which connection was initiatied */
 
+  if (p_scb != NULL && p_scb->p_cap == NULL)
+  {
+    APPL_TRACE_ERROR("bta_av_getcap_results: p_scb->p_cap is NULL");
+    bta_av_ssm_execute(p_scb, BTA_AV_STR_GETCAP_FAIL_EVT, p_data);
+    return;
+  }
+
   memcpy(&cfg, &p_scb->cfg, sizeof(tAVDT_CFG));
   cfg.num_codec = 1;
   cfg.num_protect = p_scb->p_cap->num_protect;

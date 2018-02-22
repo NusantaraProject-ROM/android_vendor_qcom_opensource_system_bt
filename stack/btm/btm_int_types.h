@@ -194,6 +194,7 @@ typedef struct {
   bool secure_connections_only; /* Rejects service level 0 connections if */
                                 /* itself or peer device doesn't support */
                                 /* secure connections */
+  tBTM_VS_EVT_CB *p_vnd_iot_info_cb;
 } tBTM_DEVCB;
 
 /* Define the structures and constants used for inquiry

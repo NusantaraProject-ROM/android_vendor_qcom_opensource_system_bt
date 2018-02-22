@@ -339,6 +339,15 @@ static void bnep_disconnect_ind(uint16_t l2cap_cid, bool ack_needed) {
 
   BNEP_TRACE_EVENT("BNEP - Rcvd L2CAP disc, CID: 0x%x", l2cap_cid);
 
+  if (bnep_cb.p_tx_data_flow_cb &&
+      (p_bcb->con_flags & BNEP_FLAGS_L2CAP_CONGESTED))
+  {
+     p_bcb->con_flags &= ~BNEP_FLAGS_L2CAP_CONGESTED;
+     BNEP_TRACE_WARNING ("BNEP - Rcvd L2CAP disc, CID: 0x%x, clearing the congestion",
+          l2cap_cid);
+     bnep_cb.p_tx_data_flow_cb(p_bcb->handle, BNEP_TX_FLOW_ON);
+  }
+
   /* Tell the user if he has a callback */
   if (p_bcb->con_state == BNEP_STATE_CONNECTED) {
     if (bnep_cb.p_conn_state_cb)

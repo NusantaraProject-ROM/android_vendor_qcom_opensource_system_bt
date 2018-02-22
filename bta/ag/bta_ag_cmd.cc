@@ -882,6 +882,7 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
 
   switch (cmd) {
     case BTA_AG_AT_A_EVT:
+      alarm_cancel(p_scb->ring_timer);
     case BTA_AG_SPK_EVT:
     case BTA_AG_MIC_EVT:
     case BTA_AG_AT_CHUP_EVT:
@@ -1252,6 +1253,14 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
         event = 0;
         bta_ag_send_error(p_scb, BTA_AG_ERR_OP_NOT_SUPPORTED);
       }
+
+      // if SLC didn't happen yet, just send OK
+      if (!p_scb->svc_conn) {
+        event = 0;
+        APPL_TRACE_WARNING("%s: sending OK from stack for CLCC before SLC ",
+                            __func__);
+        bta_ag_send_ok(p_scb);
+      }
       break;
 
     case BTA_AG_AT_BAC_EVT:
@@ -1482,7 +1491,16 @@ void bta_ag_hfp_result(tBTA_AG_SCB* p_scb, tBTA_AG_API_RESULT* p_result) {
   switch (p_result->result) {
     case BTA_AG_SPK_RES:
     case BTA_AG_MIC_RES:
+      bta_sys_busy(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
       bta_ag_send_result(p_scb, p_result->result, NULL, p_result->data.num);
+      if ((p_scb->sco_idx != BTM_INVALID_SCO_INDEX) &&
+           bta_ag_sco_is_open(p_scb)) {
+          APPL_TRACE_IMP("%s change link policy for SCO", __func__);
+          bta_sys_sco_open(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
+      } else {
+          APPL_TRACE_IMP("%s: resetting idle timer", __func__);
+          bta_sys_idle(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
+      }
       break;
 
     case BTA_AG_IN_CALL_RES:

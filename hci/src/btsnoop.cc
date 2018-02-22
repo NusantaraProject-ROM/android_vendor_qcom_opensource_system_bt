@@ -49,6 +49,9 @@
 // The size can be dynamically configured by seting the relevant system
 // property
 #define DEFAULT_BTSNOOP_SIZE 0xffff
+#define HANDLE_MASK 0x0FFF
+#define START_PACKET_BOUNDARY 2
+#define GET_BOUNDARY_FLAG(handle) (((handle) >> 12) & 0x0003)
 
 #define BTSNOOP_ENABLE_PROPERTY "persist.bluetooth.btsnoopenable"
 #define BTSNOOP_PATH_PROPERTY "persist.bluetooth.btsnooppath"
@@ -65,7 +68,6 @@ typedef enum {
 // Epoch in microseconds since 01/01/0000.
 static const uint64_t BTSNOOP_EPOCH_DELTA = 0x00dcddb30f2f8000ULL;
 
-static bool media_capture = true;
 static int logfile_fd = INVALID_FD;
 static std::mutex btsnoop_mutex;
 static std::mutex btSnoopFd_mutex;
@@ -75,7 +77,7 @@ static int32_t packet_counter;
 static bool sock_snoop_active = false;
 
 extern bt_logger_interface_t *logger_interface;
-static long int gmt_offset;
+int64_t gmt_offset;
 
 // TODO(zachoverflow): merge btsnoop and btsnoop_net together
 void btsnoop_net_open();
@@ -110,8 +112,7 @@ static future_t* start_up(void) {
     btsnoop_net_open();
     START_SNOOP_LOGGING();
   }
-  //media_capture = vendor_logging_level&HCI_SNOOP_LOG_FULL; // gghai
-  LOG_ERROR(LOG_TAG, "%s: A2DP media snoop-capture status: %d", __func__, media_capture);
+  LOG_DEBUG(LOG_TAG, "%s: vendor_logging_level values is %d ", __func__, vendor_logging_level);
 
   return NULL;
 }
@@ -146,7 +147,7 @@ static void capture(const BT_HDR* buffer, bool is_received) {
 
   std::lock_guard<std::mutex> lock(btsnoop_mutex);
   uint64_t timestamp_us = time_gettimeofday_us();
-  timestamp_us += gmt_offset*1000000;
+  timestamp_us += gmt_offset*1000000LL;
   btsnoop_mem_capture(buffer, timestamp_us);
 
   if (logfile_fd == INVALID_FD) return;
@@ -157,8 +158,7 @@ static void capture(const BT_HDR* buffer, bool is_received) {
       break;
     case MSG_HC_TO_STACK_HCI_ACL:
     case MSG_STACK_TO_HC_HCI_ACL:
-      if(media_capture || (!is_avdt_media_packet(p, is_received)))
-        btsnoop_write_packet(kAclPacket, p, is_received, timestamp_us);
+      btsnoop_write_packet(kAclPacket, p, is_received, timestamp_us);
       break;
     case MSG_HC_TO_STACK_HCI_SCO:
     case MSG_STACK_TO_HC_HCI_SCO:
@@ -259,6 +259,45 @@ static uint64_t htonll(uint64_t ll) {
   return ll;
 }
 
+static void calculate_acl_packet_length(uint32_t *length, uint8_t* packet, bool is_received) {
+  uint32_t def_len = (packet[3] << 8) + packet[2] + 5;
+  static const size_t HCI_ACL_HEADER_SIZE = 4;
+  static const size_t MAX_HCI_ACL_LEN = 14;
+  static const size_t L2CAP_CID_OFFSET = (HCI_ACL_HEADER_SIZE + 2);
+  static const uint16_t L2CAP_SIGNALING_CID = 0x0001;
+  // Assigning to zero
+  *length = 0;
+
+  if (vendor_logging_level & HCI_SNOOP_LOG_FULL) {
+    *length = def_len;
+  } else if (vendor_logging_level & HCI_SNOOP_ONLY_HEADER) {
+    uint8_t* stream = packet;
+    uint16_t handle;
+
+    STREAM_TO_UINT16(handle, stream);
+    uint8_t boundary_flag = GET_BOUNDARY_FLAG(handle);
+    handle = handle & HANDLE_MASK;
+
+    if (boundary_flag == START_PACKET_BOUNDARY) {
+      uint16_t l2cap_cid =
+         stream[L2CAP_CID_OFFSET] | (stream[L2CAP_CID_OFFSET + 1] << 8);
+      if (l2cap_cid == L2CAP_SIGNALING_CID || handle == 0x0edc) {
+        *length = def_len;
+      } else {
+        if(def_len < MAX_HCI_ACL_LEN) {
+          *length = def_len;
+        } else {
+          // Otherwise, return as much as we reasonably can
+          *length = MAX_HCI_ACL_LEN;
+        }
+      }
+    }
+  } else if (vendor_logging_level & HCI_SNOOP_LOG_LITE) {
+     if(!is_avdt_media_packet(packet, is_received))
+       *length = def_len;
+  }
+}
+
 static void btsnoop_write_packet(packet_type_t type, uint8_t* packet,
                                  bool is_received, uint64_t timestamp_us) {
   uint32_t length_he = 0;
@@ -270,7 +309,7 @@ static void btsnoop_write_packet(packet_type_t type, uint8_t* packet,
       flags = 2;
       break;
     case kAclPacket:
-      length_he = (packet[3] << 8) + packet[2] + 5;
+      calculate_acl_packet_length(&length_he, packet, is_received);
       flags = is_received;
       break;
     case kScoPacket:
@@ -282,6 +321,9 @@ static void btsnoop_write_packet(packet_type_t type, uint8_t* packet,
       flags = 3;
       break;
   }
+
+  if (!length_he)
+    return;
 
   btsnoop_header_t header;
   header.length_original = htonl(length_he);

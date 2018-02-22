@@ -411,10 +411,12 @@ static int btif_max_rc_clients = 1;
  *  Externs
  *****************************************************************************/
 extern bool btif_hf_call_terminated_recently();
+extern bool btif_hf_is_call_vr_idle();
 extern bool check_cod(const RawAddress* remote_bdaddr, uint32_t cod);
 extern bool btif_av_is_split_a2dp_enabled();
 extern int btif_av_idx_by_bdaddr(RawAddress *bd_addr);
 extern bool btif_av_check_flag_remote_suspend(int index);
+extern bt_status_t btif_hf_check_if_sco_connected();
 extern void btif_av_update_current_playing_device(int index);
 extern fixed_queue_t* btu_general_alarm_queue;
 
@@ -921,6 +923,11 @@ void handle_rc_passthrough_cmd(tBTA_AV_REMOTE_CMD* p_remote_cmd) {
 
   if (p_remote_cmd == NULL) {
     BTIF_TRACE_ERROR("%s: No remote command!", __func__);
+    return;
+  }
+
+  if ((!bluetooth::headset::btif_hf_is_call_vr_idle()) && (p_remote_cmd->rc_id == BTA_AV_RC_PLAY)) {
+    BTIF_TRACE_ERROR("Ignore passthrough commands as call is present.");
     return;
   }
 

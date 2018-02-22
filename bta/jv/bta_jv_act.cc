@@ -957,7 +957,7 @@ static void bta_jv_l2cap_client_cback(uint16_t gap_handle, uint16_t event) {
       break;
 
     case GAP_EVT_CONN_CLOSED:
-      p_cb->state = BTA_JV_ST_NONE;
+     // p_cb->state = BTA_JV_ST_NONE;
       bta_jv_free_sec_id(&p_cb->sec_id);
       evt_data.l2c_close.async = true;
       p_cb->p_cback(BTA_JV_L2CAP_CLOSE_EVT, &evt_data, p_cb->l2cap_socket_id);
@@ -1413,12 +1413,16 @@ static int bta_jv_port_data_co_cback(uint16_t port_handle, uint8_t* buf,
                                      uint16_t len, int type) {
   tBTA_JV_RFC_CB* p_cb = bta_jv_rfc_port_to_cb(port_handle);
   tBTA_JV_PCB* p_pcb = bta_jv_rfc_port_to_pcb(port_handle);
+  int ret = 0;
   APPL_TRACE_DEBUG("%s, p_cb:%p, p_pcb:%p, len:%d, type:%d", __func__, p_cb,
                    p_pcb, len, type);
   if (p_pcb != NULL) {
     switch (type) {
       case DATA_CO_CALLBACK_TYPE_INCOMING:
-        return bta_co_rfc_data_incoming(p_pcb->rfcomm_slot_id, (BT_HDR*)buf);
+        bta_jv_pm_conn_busy(p_pcb->p_pm_cb);
+        ret = bta_co_rfc_data_incoming(p_pcb->rfcomm_slot_id, (BT_HDR*)buf);
+        bta_jv_pm_conn_idle(p_pcb->p_pm_cb);
+        return ret;
       case DATA_CO_CALLBACK_TYPE_OUTGOING_SIZE:
         return bta_co_rfc_data_outgoing_size(p_pcb->rfcomm_slot_id, (int*)buf);
       case DATA_CO_CALLBACK_TYPE_OUTGOING:

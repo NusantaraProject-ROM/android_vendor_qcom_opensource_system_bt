@@ -34,6 +34,7 @@
 #include <stdint.h>
 
 #include <hardware/bt_av.h>
+#include <cutils/properties.h>
 
 /*****************************************************************************
  *  Constants & Macros
@@ -98,6 +99,8 @@ typedef enum {
   A2DP_CTRL_ACK_SUCCESS,
   A2DP_CTRL_ACK_FAILURE,
   A2DP_CTRL_ACK_INCALL_FAILURE, /* Failure when in Call*/
+  A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS,
+  A2DP_CTRL_ACK_PREVIOUS_COMMAND_PENDING,
   A2DP_CTRL_ACK_UNSUPPORTED
 } tA2DP_CTRL_ACK;
 
