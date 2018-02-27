@@ -135,6 +135,16 @@ static int hf_idx = BTIF_HF_INVALID_IDX;
     }                                                                 \
   } while (0)
 
+#define HAL_HF_CBACK(P_CB, P_CBACK, ...)                \
+  do {                                                  \
+    if (P_CB != NULL ) {                                \
+      BTIF_TRACE_ERROR("HAL %s->%s", #P_CB, #P_CBACK);  \
+      (P_CB)->P_CBACK(__VA_ARGS__);                     \
+    } else {                                            \
+      ASSERTC(0, "Callback is NULL", 0);                \
+    }                                                   \
+  } while (0)
+
 /* BTIF-HF control block to map bdaddr to BTA handle */
 typedef struct _btif_hf_cb {
   uint16_t handle;
@@ -534,7 +544,7 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       }
       if (ignore_rfc_fail != true)
       {
-        bt_hf_callbacks->ConnectionStateCallback(btif_hf_cb[idx].state,
+        HAL_HF_CBACK(bt_hf_callbacks, ConnectionStateCallback, btif_hf_cb[idx].state,
               &btif_hf_cb[idx].connected_bda);
       }
       if (btif_hf_cb[idx].state == BTHF_CONNECTION_STATE_DISCONNECTED)
@@ -559,7 +569,7 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
          due to collision */
       if (!((btif_max_hf_clients > 1) && (is_connected(&btif_hf_cb[idx].connected_bda))))
       {
-        bt_hf_callbacks->ConnectionStateCallback(btif_hf_cb[idx].state,
+        HAL_HF_CBACK(bt_hf_callbacks, ConnectionStateCallback, btif_hf_cb[idx].state,
                   &btif_hf_cb[idx].connected_bda);
       }
       btif_hf_cb[idx].connected_bda = RawAddress::kAny;
@@ -580,7 +590,7 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       btif_hf_cb[idx].state = BTHF_CONNECTION_STATE_SLC_CONNECTED;
       hf_idx = btif_hf_latest_connected_idx();
 
-      bt_hf_callbacks->ConnectionStateCallback(btif_hf_cb[idx].state,
+      HAL_HF_CBACK(bt_hf_callbacks, ConnectionStateCallback, btif_hf_cb[idx].state,
                 &btif_hf_cb[idx].connected_bda);
       btif_queue_advance();
       break;
@@ -589,21 +599,21 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       hf_idx = idx;
       BTIF_TRACE_DEBUG("%s: Moving the audio_state to CONNECTED", __FUNCTION__);
       btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_CONNECTED;
-      bt_hf_callbacks->AudioStateCallback(BTHF_AUDIO_STATE_CONNECTED,
+      HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_CONNECTED,
                 &btif_hf_cb[idx].connected_bda);
       break;
 
     case BTA_AG_AUDIO_CLOSE_EVT:
       BTIF_TRACE_DEBUG("%s: Moving the audio_state to DISCONNECTED", __FUNCTION__);
       btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_DISCONNECTED;
-      bt_hf_callbacks->AudioStateCallback(BTHF_AUDIO_STATE_DISCONNECTED,
+      HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_DISCONNECTED,
                 &btif_hf_cb[idx].connected_bda);
       break;
 
     /* BTA auto-responds, silently discard */
     case BTA_AG_SPK_EVT:
     case BTA_AG_MIC_EVT:
-      bt_hf_callbacks->VolumeControlCallback(
+      HAL_HF_CBACK(bt_hf_callbacks, VolumeControlCallback,
                 (event == BTA_AG_SPK_EVT) ? BTHF_VOLUME_TYPE_SPK
                                           : BTHF_VOLUME_TYPE_MIC,
                 p_data->val.num, &btif_hf_cb[idx].connected_bda);
@@ -615,7 +625,7 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       else
         BTIF_TRACE_DEBUG("Donot set hf_idx for ATA since already in a call");
 
-      bt_hf_callbacks->AnswerCallCallback(&btif_hf_cb[idx].connected_bda);
+      HAL_HF_CBACK(bt_hf_callbacks, AnswerCallCallback, &btif_hf_cb[idx].connected_bda);
       break;
 
     /* Java needs to send OK/ERROR for these commands */
@@ -626,26 +636,26 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       else
         BTIF_TRACE_DEBUG("Donot set hf_idx for BLDN/D since already in a call");
 
-      bt_hf_callbacks->DialCallCallback(
+      HAL_HF_CBACK(bt_hf_callbacks, DialCallCallback,
                 (event == BTA_AG_AT_D_EVT) ? p_data->val.str : NULL,
                 &btif_hf_cb[idx].connected_bda);
       break;
 
     case BTA_AG_AT_CHUP_EVT:
-      bt_hf_callbacks->HangupCallCallback(&btif_hf_cb[idx].connected_bda);
+      HAL_HF_CBACK(bt_hf_callbacks, HangupCallCallback, &btif_hf_cb[idx].connected_bda);
       break;
 
     case BTA_AG_AT_CIND_EVT:
-      bt_hf_callbacks->AtCindCallback(&btif_hf_cb[idx].connected_bda);
+      HAL_HF_CBACK(bt_hf_callbacks, AtCindCallback, &btif_hf_cb[idx].connected_bda);
       break;
 
     case BTA_AG_AT_VTS_EVT:
-      bt_hf_callbacks->DtmfCmdCallback(p_data->val.str[0],
+      HAL_HF_CBACK(bt_hf_callbacks, DtmfCmdCallback, p_data->val.str[0],
                 &btif_hf_cb[idx].connected_bda);
       break;
 
     case BTA_AG_AT_BVRA_EVT:
-      bt_hf_callbacks->VoiceRecognitionCallback(
+      HAL_HF_CBACK(bt_hf_callbacks, VoiceRecognitionCallback,
                 (p_data->val.num == 1) ? BTHF_VR_STATE_STARTED
                                        : BTHF_VR_STATE_STOPPED,
                 &btif_hf_cb[idx].connected_bda);
@@ -654,7 +664,7 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       break;
 
     case BTA_AG_AT_NREC_EVT:
-      bt_hf_callbacks->NoiseReductionCallback(
+      HAL_HF_CBACK(bt_hf_callbacks, NoiseReductionCallback,
                 (p_data->val.num == 1) ? BTHF_NREC_START : BTHF_NREC_STOP,
                 &btif_hf_cb[idx].connected_bda);
       break;
@@ -664,7 +674,7 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       break;
 
     case BTA_AG_AT_CKPD_EVT:
-      bt_hf_callbacks->KeyPressedCallback(&btif_hf_cb[idx].connected_bda);
+      HAL_HF_CBACK(bt_hf_callbacks, KeyPressedCallback, &btif_hf_cb[idx].connected_bda);
       break;
 
     case BTA_AG_WBS_EVT:
@@ -672,39 +682,39 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
           "BTA_AG_WBS_EVT Set codec status %d codec %d 1=CVSD 2=MSBC",
           p_data->val.hdr.status, p_data->val.num);
       if (p_data->val.num == BTA_AG_CODEC_CVSD) {
-        bt_hf_callbacks->WbsCallback(BTHF_WBS_NO,
+        HAL_HF_CBACK(bt_hf_callbacks, WbsCallback, BTHF_WBS_NO,
                   &btif_hf_cb[idx].connected_bda);
       } else if (p_data->val.num == BTA_AG_CODEC_MSBC) {
-        bt_hf_callbacks->WbsCallback(BTHF_WBS_YES,
+        HAL_HF_CBACK(bt_hf_callbacks, WbsCallback, BTHF_WBS_YES,
                   &btif_hf_cb[idx].connected_bda);
       } else {
-        bt_hf_callbacks->WbsCallback(BTHF_WBS_NONE,
+        HAL_HF_CBACK(bt_hf_callbacks, WbsCallback, BTHF_WBS_NONE,
                   &btif_hf_cb[idx].connected_bda);
       }
       break;
 
     /* Java needs to send OK/ERROR for these commands */
     case BTA_AG_AT_CHLD_EVT:
-      bt_hf_callbacks->AtChldCallback(
+      HAL_HF_CBACK(bt_hf_callbacks, AtChldCallback,
                 (bthf_chld_type_t)atoi(p_data->val.str),
                 &btif_hf_cb[idx].connected_bda);
       break;
 
     case BTA_AG_AT_CLCC_EVT:
-      bt_hf_callbacks->AtClccCallback(&btif_hf_cb[idx].connected_bda);
+      HAL_HF_CBACK(bt_hf_callbacks, AtClccCallback, &btif_hf_cb[idx].connected_bda);
       break;
 
     case BTA_AG_AT_COPS_EVT:
-      bt_hf_callbacks->AtCopsCallback(&btif_hf_cb[idx].connected_bda);
+      HAL_HF_CBACK(bt_hf_callbacks, AtCopsCallback, &btif_hf_cb[idx].connected_bda);
       break;
 
     case BTA_AG_AT_UNAT_EVT:
-      bt_hf_callbacks->UnknownAtCallback(p_data->val.str,
+      HAL_HF_CBACK(bt_hf_callbacks, UnknownAtCallback, p_data->val.str,
                 &btif_hf_cb[idx].connected_bda);
       break;
 
     case BTA_AG_AT_CNUM_EVT:
-      bt_hf_callbacks->AtCnumCallback(&btif_hf_cb[idx].connected_bda);
+      HAL_HF_CBACK(bt_hf_callbacks, AtCnumCallback, &btif_hf_cb[idx].connected_bda);
       break;
 
     /* TODO: Some of these commands may need to be sent to app. For now respond
@@ -736,21 +746,21 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
                        __func__, p_data->val.num);
       /* No BTHF_WBS_NONE case, because HF1.6 supported device can send BCS */
       /* Only CVSD is considered narrow band speech */
-      bt_hf_callbacks->WbsCallback(
+      HAL_HF_CBACK(bt_hf_callbacks, WbsCallback,
               (p_data->val.num == BTA_AG_CODEC_CVSD) ? BTHF_WBS_NO : BTHF_WBS_YES,
               &btif_hf_cb[idx].connected_bda);
       break;
 
     case BTA_AG_AT_BIND_EVT:
       if (p_data->val.hdr.status == BTA_AG_SUCCESS) {
-        bt_hf_callbacks->AtBindCallback(p_data->val.str,
+        HAL_HF_CBACK(bt_hf_callbacks, AtBindCallback, p_data->val.str,
                 &btif_hf_cb[idx].connected_bda);
       }
       break;
 
     case BTA_AG_AT_BIEV_EVT:
       if (p_data->val.hdr.status == BTA_AG_SUCCESS) {
-        bt_hf_callbacks->AtBievCallback((bthf_hf_ind_type_t)p_data->val.lidx,
+        HAL_HF_CBACK(bt_hf_callbacks, AtBievCallback, (bthf_hf_ind_type_t)p_data->val.lidx,
                 (int)p_data->val.num, &btif_hf_cb[idx].connected_bda);
       }
       break;
@@ -822,7 +832,7 @@ static void btif_in_hf_generic_evt(uint16_t event, char* p_param) {
     case BTIF_HFP_CB_AUDIO_CONNECTING: {
       BTIF_TRACE_DEBUG("%s: Moving the audio_state to CONNECTING", __FUNCTION__);
       btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_CONNECTING;
-      bt_hf_callbacks->AudioStateCallback(BTHF_AUDIO_STATE_CONNECTING,
+      HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_CONNECTING,
               &btif_hf_cb[idx].connected_bda);
     } break;
     default: {
