@@ -73,7 +73,9 @@ typedef struct {
 } waiting_command_t;
 
 // Using a define here, because it can be stringified for the property lookup
-#define DEFAULT_STARTUP_TIMEOUT_MS 8000
+// Reducing startup timeout to less than 3sec to ensure that wakelock is aquired
+// during initialization
+#define DEFAULT_STARTUP_TIMEOUT_MS 2900
 #define STRING_VALUE_OF(x) #x
 
 // RT priority for HCI thread
