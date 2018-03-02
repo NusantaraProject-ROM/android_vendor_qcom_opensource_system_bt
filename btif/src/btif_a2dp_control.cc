@@ -71,7 +71,7 @@ void btif_a2dp_control_init(void) {
   a2dp_cmd_pending = A2DP_CTRL_CMD_NONE;
   a2dp_cmd_queued = A2DP_CTRL_CMD_NONE;
   UIPC_Init(NULL);
-  UIPC_Open(UIPC_CH_ID_AV_CTRL, btif_a2dp_ctrl_cb);
+  UIPC_Open(UIPC_CH_ID_AV_CTRL, btif_a2dp_ctrl_cb, A2DP_CTRL_PATH);
 }
 
 void btif_a2dp_control_cleanup(void) {
@@ -398,14 +398,14 @@ static void btif_a2dp_recv_ctrl_data(void) {
             if (hdl >= 0)
               btif_a2dp_source_setup_codec(hdl);
           }
-          UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb);
+          UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb, A2DP_DATA_PATH);
           btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
           APPL_TRACE_WARNING("%s: A2DP command %s while AV stream is alreday started",
                   __func__, audio_a2dp_hw_dump_ctrl_event(cmd));
           break;
         } else if (btif_av_stream_ready()) {
           /* Setup audio data channel listener */
-          UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb);
+          UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb, A2DP_DATA_PATH);
           /*
            * Post start event and wait for audio path to open.
            * If we are the source, the ACK will be sent after the start
@@ -420,7 +420,7 @@ static void btif_a2dp_recv_ctrl_data(void) {
           }
         } else if (btif_av_is_handoff_set() && !(is_block_hal_start)) {
           APPL_TRACE_DEBUG("%s: Entertain Audio Start after stream open", __func__);
-          UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb);
+          UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb, A2DP_DATA_PATH);
           btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
           if (btif_av_get_peer_sep() == AVDT_TSEP_SRC)
             btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
@@ -704,14 +704,14 @@ void btif_a2dp_snd_ctrl_cmd(tA2DP_CTRL_CMD cmd) {
           if (hdl >= 0)
             btif_a2dp_source_setup_codec(hdl);
         }
-        UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb);
+        UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb, A2DP_DATA_PATH);
         btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
         APPL_TRACE_WARNING("%s: A2DP command %s while AV stream is alreday started",
                 __func__, audio_a2dp_hw_dump_ctrl_event(cmd));
         break;
       } else if (btif_av_stream_ready()) {
         /* Setup audio data channel listener */
-        UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb);
+        UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb, A2DP_DATA_PATH);
         /*
          * Post start event and wait for audio path to open.
          * If we are the source, the ACK will be sent after the start
@@ -726,7 +726,7 @@ void btif_a2dp_snd_ctrl_cmd(tA2DP_CTRL_CMD cmd) {
         }
       } else if (btif_av_is_handoff_set() && !(is_block_hal_start)) {
         APPL_TRACE_DEBUG("%s: Entertain Audio Start after stream open", __func__);
-        UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb);
+        UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb, A2DP_DATA_PATH);
         btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
         if (btif_av_get_peer_sep() == AVDT_TSEP_SRC)
           btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
@@ -820,7 +820,7 @@ static void btif_a2dp_ctrl_cb(UNUSED_ATTR tUIPC_CH_ID ch_id,
     case UIPC_CLOSE_EVT:
       /* restart ctrl server unless we are shutting down */
       if (btif_a2dp_source_media_task_is_running())
-        UIPC_Open(UIPC_CH_ID_AV_CTRL, btif_a2dp_ctrl_cb);
+        UIPC_Open(UIPC_CH_ID_AV_CTRL, btif_a2dp_ctrl_cb, A2DP_CTRL_PATH);
       break;
 
     case UIPC_RX_DATA_READY_EVT:
