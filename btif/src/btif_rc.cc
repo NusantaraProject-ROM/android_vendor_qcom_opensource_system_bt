@@ -2889,6 +2889,12 @@ static bt_status_t register_notification_rsp( // gghai
     btrc_event_id_t event_id, btrc_notification_type_t type,
     btrc_register_notification_t* p_param) {
   RawAddress *addr = NULL;
+  btif_rc_device_cb_t *p_dev = get_connected_device(0);
+  if(p_dev != NULL && (p_dev->rc_connected == TRUE))
+    addr = &p_dev->rc_addr;
+  else
+    return BT_STATUS_UNHANDLED;
+
   return register_notification_rsp(event_id, type, p_param, addr);
 }
 
@@ -3635,6 +3641,12 @@ static bt_status_t set_volume(uint8_t volume, RawAddress*bd_addr) {
 
 static bt_status_t set_volume(uint8_t volume) { // gghai
   RawAddress *addr = NULL;
+  btif_rc_device_cb_t *p_dev = get_connected_device(0);
+  if(p_dev != NULL && (p_dev->rc_connected == TRUE))
+    addr = &p_dev->rc_addr;
+  else
+    return BT_STATUS_UNHANDLED;
+
   return set_volume(volume, addr);
 }
 
