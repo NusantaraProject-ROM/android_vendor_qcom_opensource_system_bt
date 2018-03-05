@@ -29,6 +29,7 @@
 
 #include <string.h>
 #include "avdt_api.h"
+#include "btif_av_co.h"
 #include "avdt_int.h"
 #include "avdtc_api.h"
 #include "bt_common.h"
@@ -207,21 +208,28 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
       break;
     if ((p_scb->allocated) && (!p_scb->in_use)) {
        effective_num_seps++;
-       if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC &&
-           interop_match_addr(INTEROP_DISABLE_AAC_CODEC, &p_ccb->peer_addr)) {
-          AVDT_TRACE_EVENT("%s: skipping AAC advertise\n", __func__);
-          continue;
-      }
-      /* copy sep info */
-      sep_info[p_data->msg.discover_rsp.num_seps].in_use = p_scb->in_use;
-      sep_info[p_data->msg.discover_rsp.num_seps].seid = i + 1;
-      sep_info[p_data->msg.discover_rsp.num_seps].media_type = p_scb->cs.media_type;
-      sep_info[p_data->msg.discover_rsp.num_seps].tsep = p_scb->cs.tsep;
+       if (bta_av_co_audio_is_aac_wl_enabled(&p_ccb->peer_addr)) {
+         if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC &&
+             !interop_match_addr(INTEROP_ENABLE_AAC_CODEC, &p_ccb->peer_addr)) {
+           AVDT_TRACE_EVENT("%s: skipping AAC advertise\n", __func__);
+           continue;
+         }
+       } else {
+           if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC &&
+               interop_match_addr(INTEROP_DISABLE_AAC_CODEC, &p_ccb->peer_addr)) {
+             AVDT_TRACE_EVENT("%s: skipping AAC advertise\n", __func__);
+             continue;
+           }
+       }
+       /* copy sep info */
+       sep_info[p_data->msg.discover_rsp.num_seps].in_use = p_scb->in_use;
+       sep_info[p_data->msg.discover_rsp.num_seps].seid = i + 1;
+       sep_info[p_data->msg.discover_rsp.num_seps].media_type = p_scb->cs.media_type;
+       sep_info[p_data->msg.discover_rsp.num_seps].tsep = p_scb->cs.tsep;
 
-      p_data->msg.discover_rsp.num_seps++;
+       p_data->msg.discover_rsp.num_seps++;
     }
   }
-
   AVDT_TRACE_WARNING("%s: effective number of endpoints: %d", __func__, effective_num_seps);
   /* send response */
   avdt_ccb_event(p_ccb, AVDT_CCB_API_DISCOVER_RSP_EVT, p_data);
