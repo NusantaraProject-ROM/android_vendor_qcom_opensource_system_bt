@@ -373,8 +373,8 @@ void bta_gattc_clear_notif_reg_on_disc(tBTA_GATTC_RCB *p_clreg, RawAddress bda) 
     uint8_t i;
     for (i = 0; i < BTA_GATTC_NOTIF_REG_MAX; i++) {
         if (p_clreg->notif_reg[i].in_use &&
-                !(p_clreg->notif_reg[i].remote_bda == bda)) {
-            memset(&p_clreg->notif_reg[i], 0, sizeof(tBTA_GATTC_NOTIF_REG));
+            p_clreg->notif_reg[i].remote_bda == bda) {
+          memset(&p_clreg->notif_reg[i], 0, sizeof(tBTA_GATTC_NOTIF_REG));
         }
     }
 }
