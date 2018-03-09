@@ -984,7 +984,7 @@ typedef union {
 
 #define AVRC_IS_VALID_MEDIA_ATTRIBUTE(a)            \
   (((a) >= AVRC_MEDIA_ATTR_ID_TITLE) &&             \
-           ((a) <= AVRC_MEDIA_ATTR_ID_PLAYING_TIME) \
+           ((a) <= AVRC_MEDIA_ATTR_ID_COVER_ART) \
        ? true                                       \
        : false)
 
