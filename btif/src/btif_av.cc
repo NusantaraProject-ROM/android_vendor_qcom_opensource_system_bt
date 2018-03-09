@@ -2930,11 +2930,11 @@ static bt_status_t init_src(
 
 static bt_status_t init_src( // gghai
     btav_source_callbacks_t* callbacks,
+    int max_connected_audio_devices,
     std::vector<btav_a2dp_codec_config_t> codec_priorities) {
-  int max_a2dp_connections = 1;
   int a2dp_multicast_state = 0;
 
-  return init_src(callbacks, codec_priorities, max_a2dp_connections, a2dp_multicast_state);
+  return init_src(callbacks, codec_priorities, max_connected_audio_devices, a2dp_multicast_state);
 }
 
 
