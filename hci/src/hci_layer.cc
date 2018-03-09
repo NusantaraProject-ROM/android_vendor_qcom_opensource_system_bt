@@ -693,15 +693,12 @@ static waiting_command_t* get_waiting_command(command_opcode_t opcode) {
 
     if (wait_entry && (wait_entry->opcode != opcode) &&
         (((wait_entry->opcode & HCI_GRP_VENDOR_SPECIFIC) == HCI_GRP_VENDOR_SPECIFIC) &&
-        ((opcode & HCI_GRP_VENDOR_SPECIFIC) == HCI_GRP_VENDOR_SPECIFIC))) {
-        LOG_DEBUG(LOG_TAG,"%s VS event found treat it as valid 0x%x", __func__, opcode);
-    } else if ((wait_entry->opcode == VS_RX_BURST_COMMANDS) && (opcode == 0)) {
-        LOG_DEBUG(LOG_TAG,"%s VS event found with no opcode for" \
-        "TEST_RX_BURST_CONFIG command, treat it as valid 0x%x",
-        __func__, opcode);
-    }
-    else {
-        continue;
+         (((opcode & HCI_GRP_VENDOR_SPECIFIC) == HCI_GRP_VENDOR_SPECIFIC) ||
+            opcode == 0))) {
+      LOG_DEBUG(LOG_TAG,"%s Treat it as valid, wait_entry opcode 0x%x opcode 0x%x",
+                __func__, wait_entry->opcode, opcode);
+    } else {
+      continue;
     }
 
     list_remove(commands_pending_response, wait_entry);

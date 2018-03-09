@@ -77,8 +77,12 @@ class BluetoothHciCallbacks : public IBluetoothHciCallbacks {
   }
 
   Return<void> initializationComplete(Status status) {
-    CHECK(status == Status::SUCCESS);
-    initialization_complete();
+
+    if(status == Status::SUCCESS) {
+      initialization_complete();
+    } else {
+      LOG_ERROR(LOG_TAG, "%s: HCI Init failed ", __func__);
+    }
     return Void();
   }
 

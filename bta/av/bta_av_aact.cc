@@ -2142,7 +2142,7 @@ void bta_av_conn_failed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
  ******************************************************************************/
 void bta_av_do_start(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   uint8_t policy = HCI_ENABLE_SNIFF_MODE;
-  uint8_t cur_role;
+  uint8_t cur_role = BTM_ROLE_UNDEFINED;
 
   APPL_TRACE_DEBUG("%s: sco_occupied:%d, role:x%x, started:%d", __func__,
                    bta_av_cb.sco_occupied, p_scb->role, p_scb->started);
@@ -2154,15 +2154,16 @@ void bta_av_do_start(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   /* disallow role switch during streaming, only if we are the master role
    * i.e. allow role switch, if we are slave.
    * It would not hurt us, if the peer device wants us to be master */
-  if ((BTM_GetRole(p_scb->peer_addr, &cur_role) == BTM_SUCCESS)) {
-    if (cur_role == BTM_ROLE_MASTER) {
-      policy |= HCI_ENABLE_MASTER_SLAVE_SWITCH;
-    } else {
-      BTM_SetA2dpStreamQoS(p_scb->peer_addr, NULL);
-    }
+  if ((BTM_GetRole(p_scb->peer_addr, &cur_role) == BTM_SUCCESS) &&
+      (cur_role == BTM_ROLE_MASTER)) {
+    policy |= HCI_ENABLE_MASTER_SLAVE_SWITCH;
   }
 
   bta_sys_clear_policy(BTA_ID_AV, policy, p_scb->peer_addr);
+
+  if (cur_role == BTM_ROLE_SLAVE) {
+    BTM_SetA2dpStreamQoS(p_scb->peer_addr, NULL);
+  }
 
   if ((p_scb->started == false) &&
       ((p_scb->role & BTA_AV_ROLE_START_INT) == 0)) {

@@ -3549,3 +3549,27 @@ void l2cu_check_channel_congestion(tL2C_CCB* p_ccb) {
  *
  ******************************************************************************/
 bool l2cu_is_ccb_active(tL2C_CCB* p_ccb) { return (p_ccb && p_ccb->in_use); }
+
+/*******************************************************************************
+ *
+ * Function         l2cu_is_active_ccb_connected
+ *
+ * Description      Check if any Channel Control Block is in connected state
+ *
+ * Returns          bool    - true if any Channel Control Block is connected
+ *                            false if lcb is null or no channels in connected state.
+ *
+ ******************************************************************************/
+bool l2cu_is_active_ccb_connected(const RawAddress& p_bd_addr) {
+  tL2C_LCB *p_lcb = l2cu_find_lcb_by_bd_addr (p_bd_addr, BT_TRANSPORT_BR_EDR);
+
+  if (p_lcb == NULL) return false;
+
+  for (tL2C_CCB* p_ccb  = p_lcb->ccb_queue.p_first_ccb; p_ccb; ) {
+    if (p_ccb->chnl_state == CST_OPEN) {
+      return true;
+    }
+    p_ccb = p_ccb->p_next_ccb;
+  }
+  return false;
+}

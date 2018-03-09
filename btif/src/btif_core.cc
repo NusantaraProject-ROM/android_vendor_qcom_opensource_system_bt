@@ -1201,6 +1201,22 @@ bt_status_t btif_enable_service(tBTA_SERVICE_ID service_id) {
 
   return BT_STATUS_SUCCESS;
 }
+
+
+/*******************************************************************************
+ *
+ * Function         btif_reset_service
+ *
+ * Description      Reset the service mask for the given service id
+ *
+ * Returns          bt_status_t
+ *
+ ******************************************************************************/
+bt_status_t btif_reset_service(tBTA_SERVICE_ID service_id) {
+
+  btif_enabled_services &= (tBTA_SERVICE_MASK)(~(1 << service_id));
+  return BT_STATUS_SUCCESS;
+}
 /*******************************************************************************
  *
  * Function         btif_disable_service
@@ -1212,6 +1228,7 @@ bt_status_t btif_enable_service(tBTA_SERVICE_ID service_id) {
  * Returns          bt_status_t
  *
  ******************************************************************************/
+
 bt_status_t btif_disable_service(tBTA_SERVICE_ID service_id) {
   tBTA_SERVICE_ID* p_id = &service_id;
 

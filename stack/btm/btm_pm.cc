@@ -253,7 +253,12 @@ tBTM_STATUS BTM_ReadPowerMode(const RawAddress& remote_bda,
   acl_ind = btm_pm_find_acl_ind(remote_bda);
   if (acl_ind == MAX_L2CAP_LINKS) return (BTM_UNKNOWN_ADDR);
 
-  *p_mode = btm_cb.pm_mode_db[acl_ind].state;
+  if (btm_cb.pm_mode_db[acl_ind].state & BTM_PM_STORED_MASK) {
+      *p_mode = btm_cb.pm_mode_db[acl_ind].state & (~BTM_PM_STORED_MASK);
+  } else {
+      *p_mode = btm_cb.pm_mode_db[acl_ind].state;
+  }
+  BTM_TRACE_DEBUG("BTM_ReadPowerMode mode:0x%x,",*p_mode);
   return BTM_SUCCESS;
 }
 
@@ -284,7 +289,13 @@ tBTM_STATUS btm_read_power_mode_state(const RawAddress& remote_bda,
 
   if (acl_ind == MAX_L2CAP_LINKS) return (BTM_UNKNOWN_ADDR);
 
-  *pmState = btm_cb.pm_mode_db[acl_ind].state;
+  if (btm_cb.pm_mode_db[acl_ind].state & BTM_PM_STORED_MASK) {
+      *pmState = btm_cb.pm_mode_db[acl_ind].state & (~BTM_PM_STORED_MASK);
+  } else {
+      *pmState = btm_cb.pm_mode_db[acl_ind].state;
+  }
+  BTM_TRACE_DEBUG("btm_read_power_mode_state pmstate:0x%x,",*pmState);
+
   return BTM_SUCCESS;
 }
 

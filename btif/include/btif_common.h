@@ -220,4 +220,6 @@ bt_status_t btif_transfer_context(tBTIF_CBACK* p_cback, uint16_t event,
 
 void btif_init_ok(UNUSED_ATTR uint16_t event, UNUSED_ATTR char* p_param);
 
+bt_status_t btif_reset_service(tBTA_SERVICE_ID service_id);
+
 #endif /* BTIF_COMMON_H */

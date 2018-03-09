@@ -613,6 +613,31 @@ void sdp_disconnect(tCONN_CB* p_ccb, uint16_t reason) {
         (*p_ccb->p_cb2)(p_ccb->disconnect_reason, p_ccb->user_data);
       sdpu_release_ccb(p_ccb);
       return;
+    } else if (SDP_CANCEL == p_ccb->disconnect_reason &&
+       (p_ccb->con_state == SDP_STATE_CONN_SETUP)) {
+      SDP_TRACE_EVENT("SDP - disconnect link not up or remote sdp conn rsp pending CID: 0x%x", p_ccb->connection_id);
+
+      L2CA_DisconnectReq (p_ccb->connection_id);
+      sdpu_process_pend_ccb(p_ccb->connection_id, false);
+
+      /* Tell the user if he has a callback */
+      if (p_ccb->p_cb)
+        (*p_ccb->p_cb)(p_ccb->disconnect_reason);
+      else if (p_ccb->p_cb2)
+        (*p_ccb->p_cb2)(p_ccb->disconnect_reason, p_ccb->user_data);
+      sdpu_release_ccb(p_ccb);
+      return;
+
+    } else if (SDP_CANCEL == p_ccb->disconnect_reason &&
+       (p_ccb->con_state == SDP_STATE_CONN_PEND)) {
+      SDP_TRACE_EVENT("SDP - disconnect sdp cancel in pending state CID: 0x%x", p_ccb->connection_id);
+
+      /* Tell the user if he has a callback */
+      if (p_ccb->p_cb)
+        (*p_ccb->p_cb)(p_ccb->disconnect_reason);
+      else if (p_ccb->p_cb2)
+        (*p_ccb->p_cb2)(p_ccb->disconnect_reason, p_ccb->user_data);
+      sdpu_release_ccb(p_ccb);
     } else {
       L2CA_DisconnectReq (p_ccb->connection_id);
     }
