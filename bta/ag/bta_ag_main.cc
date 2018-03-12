@@ -34,14 +34,10 @@
 /*****************************************************************************
  * Constants and types
  ****************************************************************************/
-#ifndef BTA_AG_DEBUG
-#define BTA_AG_DEBUG FALSE
-#endif
 
-#if (BTA_AG_DEBUG == TRUE)
-static char* bta_ag_evt_str(uint16_t event, tBTA_AG_RES result);
-static char* bta_ag_state_str(uint8_t state);
-#endif
+static const char* bta_ag_evt_str(uint16_t event);
+static const char* bta_ag_state_str(uint8_t state);
+static const char* bta_ag_res_str(tBTA_AG_RES result);
 
 /* state machine states */
 enum { BTA_AG_INIT_ST, BTA_AG_OPENING_ST, BTA_AG_OPEN_ST, BTA_AG_CLOSING_ST };
@@ -252,7 +248,7 @@ static tBTA_AG_SCB* bta_ag_scb_alloc(void) {
   tBTA_AG_SCB* p_scb = &bta_ag_cb.scb[0];
   int i;
 
-  for (i = 0; i < BTA_AG_NUM_SCB; i++, p_scb++) {
+  for (i = 0; i < BTA_AG_MAX_NUM_CLIENTS; i++, p_scb++) {
     if (!p_scb->in_use) {
       /* initialize variables */
       p_scb->in_use = true;
@@ -273,7 +269,7 @@ static tBTA_AG_SCB* bta_ag_scb_alloc(void) {
     }
   }
 
-  if (i == BTA_AG_NUM_SCB) {
+  if (i == BTA_AG_MAX_NUM_CLIENTS) {
     /* out of scbs */
     p_scb = NULL;
     APPL_TRACE_WARNING("%s: Out of scbs", __func__);
@@ -308,7 +304,7 @@ void bta_ag_scb_dealloc(tBTA_AG_SCB* p_scb) {
 
   /* If all scbs are deallocated, callback with disable event */
   if (!bta_sys_is_register(BTA_ID_AG)) {
-    for (idx = 0; idx < BTA_AG_NUM_SCB; idx++) {
+    for (idx = 0; idx < BTA_AG_MAX_NUM_CLIENTS; idx++) {
       if (bta_ag_cb.scb[idx].in_use) {
         allocated = true;
         break;
@@ -350,7 +346,7 @@ tBTA_AG_SCB* bta_ag_scb_by_idx(uint16_t idx) {
   tBTA_AG_SCB* p_scb;
 
   /* verify index */
-  if (idx > 0 && idx <= BTA_AG_NUM_SCB) {
+  if (idx > 0 && idx <= BTA_AG_MAX_NUM_CLIENTS) {
     p_scb = &bta_ag_cb.scb[idx - 1];
     if (!p_scb->in_use) {
       p_scb = NULL;
@@ -396,7 +392,7 @@ uint16_t bta_ag_idx_by_bdaddr(const RawAddress* peer_addr) {
   uint16_t i;
 
   if (peer_addr != NULL) {
-    for (i = 0; i < BTA_AG_NUM_SCB; i++, p_scb++) {
+    for (i = 0; i < BTA_AG_MAX_NUM_CLIENTS; i++, p_scb++) {
       if (p_scb->in_use && *peer_addr == p_scb->peer_addr) {
         return (i + 1);
       }
@@ -422,7 +418,7 @@ bool bta_ag_other_scb_open(tBTA_AG_SCB* p_curr_scb) {
   tBTA_AG_SCB* p_scb = &bta_ag_cb.scb[0];
   int i;
 
-  for (i = 0; i < BTA_AG_NUM_SCB; i++, p_scb++) {
+  for (i = 0; i < BTA_AG_MAX_NUM_CLIENTS; i++, p_scb++) {
     if (p_scb->in_use && p_scb != p_curr_scb &&
         p_scb->state == BTA_AG_OPEN_ST) {
       return true;
@@ -466,7 +462,7 @@ tBTA_AG_SCB* bta_ag_get_other_idle_scb(tBTA_AG_SCB* p_curr_scb) {
   tBTA_AG_SCB* p_scb = &bta_ag_cb.scb[0];
   uint8_t xx;
 
-  for (xx = 0; xx < BTA_AG_NUM_SCB; xx++, p_scb++) {
+  for (xx = 0; xx < BTA_AG_MAX_NUM_CLIENTS; xx++, p_scb++) {
     if (p_scb->in_use && (p_scb != p_curr_scb) &&
         (p_scb->state == BTA_AG_INIT_ST)) {
       return p_scb;
@@ -511,36 +507,37 @@ static void bta_ag_collision_timer_cback(void* data) {
 void bta_ag_collision_cback(UNUSED_ATTR tBTA_SYS_CONN_STATUS status, uint8_t id,
                             UNUSED_ATTR uint8_t app_id,
                             const RawAddress* peer_addr) {
-  uint16_t handle;
-  tBTA_AG_SCB* p_scb;
-
   /* Check if we have opening scb for the peer device. */
-  handle = bta_ag_idx_by_bdaddr(peer_addr);
-  p_scb = bta_ag_scb_by_idx(handle);
+  uint16_t handle = bta_ag_idx_by_bdaddr(peer_addr);
+  tBTA_AG_SCB* p_scb = bta_ag_scb_by_idx(handle);
 
   if (p_scb && (p_scb->state == BTA_AG_OPENING_ST)) {
     if (id == BTA_ID_SYS) /* ACL collision */
     {
-      APPL_TRACE_WARNING("AG found collision (ACL) ...");
+      LOG(WARNING) << __func__ << "AG found collision (ACL) for handle "
+                   << unsigned(handle) << " device " << peer_addr;
     } else if (id == BTA_ID_AG) /* RFCOMM collision */
     {
-      APPL_TRACE_WARNING("AG found collision (RFCOMM) ...");
+      LOG(WARNING) << __func__ << "AG found collision (RFCOMM) for handle "
+                   << unsigned(handle) << " device " << peer_addr;
     } else {
-      APPL_TRACE_WARNING("AG found collision (\?\?\?) ...");
+      LOG(WARNING) << __func__ << "AG found collision (UNKNOWN) for handle "
+                   << unsigned(handle) << " device " << peer_addr;
     }
 
     p_scb->state = BTA_AG_INIT_ST;
 
     /* Cancel SDP if it had been started. */
     if (p_scb->p_disc_db) {
-      (void)SDP_CancelServiceSearch(p_scb->p_disc_db);
+      SDP_CancelServiceSearch(p_scb->p_disc_db);
       bta_ag_free_db(p_scb, NULL);
     }
 
     /* reopen registered servers */
     /* Collision may be detected before or after we close servers. */
-    if (bta_ag_is_server_closed(p_scb))
+    if (bta_ag_is_server_closed(p_scb)) {
       bta_ag_start_servers(p_scb, p_scb->reg_services);
+    }
 
     /* Start timer to han */
     alarm_set_on_mloop(p_scb->collision_timer, BTA_AG_COLLISION_TIMEOUT_MS,
@@ -560,16 +557,20 @@ void bta_ag_collision_cback(UNUSED_ATTR tBTA_SYS_CONN_STATUS status, uint8_t id,
  ******************************************************************************/
 void bta_ag_resume_open(tBTA_AG_SCB* p_scb) {
   if (p_scb) {
-    APPL_TRACE_DEBUG("bta_ag_resume_open, Handle(%d)",
-                     bta_ag_scb_to_idx(p_scb));
+    APPL_TRACE_DEBUG("%s: handle=%d, bd_addr=%s", __func__,
+                     bta_ag_scb_to_idx(p_scb),
+                     p_scb->peer_addr.ToString().c_str());
 
     /* resume opening process.  */
     if (p_scb->state == BTA_AG_INIT_ST) {
+      LOG(WARNING) << __func__
+                   << ": handle=" << unsigned(bta_ag_scb_to_idx(p_scb))
+                   << ", bd_addr=" << p_scb->peer_addr;
       p_scb->state = BTA_AG_OPENING_ST;
       bta_ag_start_open(p_scb, NULL);
     }
   } else {
-    APPL_TRACE_ERROR("bta_ag_resume_open, Null p_scb");
+    LOG(ERROR) << __func__ << ": null p_scb";
   }
 }
 
@@ -585,7 +586,7 @@ void bta_ag_resume_open(tBTA_AG_SCB* p_scb) {
  ******************************************************************************/
 static void bta_ag_api_enable(tBTA_AG_DATA* p_data) {
   /* initialize control block */
-  for (size_t i = 0; i < BTA_AG_NUM_SCB; i++) {
+  for (size_t i = 0; i < BTA_AG_MAX_NUM_CLIENTS; i++) {
     alarm_free(bta_ag_cb.scb[i].ring_timer);
     alarm_free(bta_ag_cb.scb[i].codec_negotiation_timer);
     alarm_free(bta_ag_cb.scb[i].collision_timer);
@@ -629,7 +630,7 @@ static void bta_ag_api_disable(tBTA_AG_DATA* p_data) {
   /* De-register with BTA system manager */
   bta_sys_deregister(BTA_ID_AG);
 
-  for (i = 0; i < BTA_AG_NUM_SCB; i++, p_scb++) {
+  for (i = 0; i < BTA_AG_MAX_NUM_CLIENTS; i++, p_scb++) {
     if (p_scb->in_use) {
       bta_ag_sm_execute(p_scb, BTA_AG_API_DEREGISTER_EVT, p_data);
       do_dereg = true;
@@ -690,7 +691,8 @@ static void bta_ag_api_result(tBTA_AG_DATA* p_data) {
       bta_ag_sm_execute(p_scb, BTA_AG_API_RESULT_EVT, p_data);
     }
   } else {
-    for (i = 0, p_scb = &bta_ag_cb.scb[0]; i < BTA_AG_NUM_SCB; i++, p_scb++) {
+    for (i = 0, p_scb = &bta_ag_cb.scb[0]; i < BTA_AG_MAX_NUM_CLIENTS;
+         i++, p_scb++) {
       if (p_scb->in_use && p_scb->svc_conn) {
         APPL_TRACE_DEBUG("bta_ag_api_result p_scb 0x%08x ", p_scb);
         bta_ag_sm_execute(p_scb, BTA_AG_API_RESULT_EVT, p_data);
@@ -714,26 +716,14 @@ void bta_ag_sm_execute(tBTA_AG_SCB* p_scb, uint16_t event,
   tBTA_AG_ST_TBL state_table;
   uint8_t action;
   int i;
-#if (BTA_AG_DEBUG == TRUE)
   uint16_t previous_event = event;
   uint8_t previous_state = p_scb->state;
-
-  /* Ignore displaying of AT results when not connected (Ignored in state
-   * machine) */
-  if ((previous_event != BTA_AG_API_RESULT_EVT ||
-       p_scb->state == BTA_AG_OPEN_ST) &&
-      event != BTA_AG_CI_SCO_DATA_EVT) {
-    APPL_TRACE_IMP("%s: Handle 0x%04x, State %d (%s), Event 0x%04x (%s)",
-                     __func__, bta_ag_scb_to_idx(p_scb), p_scb->state,
-                     bta_ag_state_str(p_scb->state), event,
-                     bta_ag_evt_str(event, p_data->api_result.result));
-  }
-#else
-  if (event != BTA_AG_CI_SCO_DATA_EVT) {
-    APPL_TRACE_EVENT("%s: Handle 0x%04x, State %d, Event 0x%04x", __func__,
-                     bta_ag_scb_to_idx(p_scb), p_scb->state, event);
-  }
-#endif
+  APPL_TRACE_EVENT(
+      "%s: handle=0x%04x, bd_addr=%s, state=%s(0x%02x), "
+      "event=%s(0x%04x), result=%s(0x%02x)",
+      __func__, bta_ag_scb_to_idx(p_scb), p_scb->peer_addr.ToString().c_str(),
+      bta_ag_state_str(p_scb->state), p_scb->state, bta_ag_evt_str(event),
+      event, bta_ag_res_str(p_data->api_result.result), p_data->api_result.result);
 
   event &= 0x00FF;
   if (event >= (BTA_AG_MAX_EVT & 0x00FF)) {
@@ -756,14 +746,16 @@ void bta_ag_sm_execute(tBTA_AG_SCB* p_scb, uint16_t event,
       break;
     }
   }
-#if (BTA_AG_DEBUG == TRUE)
   if (p_scb->state != previous_state) {
-    APPL_TRACE_EVENT("%s: State Change: [%s] -> [%s] after Event [%s]",
-                     __func__, bta_ag_state_str(previous_state),
-                     bta_ag_state_str(p_scb->state),
-                     bta_ag_evt_str(previous_event, p_data->api_result.result));
+    APPL_TRACE_EVENT(
+        "%s: handle=0x%04x, bd_addr=%s, state_change[%s(0x%02x)]->[%s(0x%02x)],"
+        " event[%s(0x%04x)], result[%s(0x%02x)]",
+        __func__, bta_ag_scb_to_idx(p_scb), p_scb->peer_addr.ToString().c_str(),
+        bta_ag_state_str(previous_state), previous_state,
+        bta_ag_state_str(p_scb->state), p_scb->state,
+        bta_ag_evt_str(previous_event), previous_event,
+        bta_ag_res_str(p_data->api_result.result), p_data->api_result.result);
   }
-#endif
 }
 
 /*******************************************************************************
@@ -801,6 +793,10 @@ bool bta_ag_hdl_event(BT_HDR* p_msg) {
       bta_ag_set_sco_allowed((tBTA_AG_DATA*)p_msg);
       break;
 
+    case BTA_AG_API_SET_ACTIVE_DEVICE_EVT:
+      bta_ag_api_set_active_device((tBTA_AG_DATA*)p_msg);
+      break;
+
     /* all others reference scb by handle */
     default:
       p_scb = bta_ag_scb_by_idx(p_msg->layer_specific);
@@ -813,120 +809,74 @@ bool bta_ag_hdl_event(BT_HDR* p_msg) {
   return true;
 }
 
-#if (BTA_AG_DEBUG == TRUE)
-static char* bta_ag_evt_str(uint16_t event, tBTA_AG_RES result) {
+#define CASE_RETURN_STR(const) \
+  case const:                  \
+    return #const;
+
+static const char* bta_ag_res_str(tBTA_AG_RES result) {
+  switch (result) {
+    CASE_RETURN_STR(BTA_AG_SPK_RES)
+    CASE_RETURN_STR(BTA_AG_MIC_RES)
+    CASE_RETURN_STR(BTA_AG_INBAND_RING_RES)
+    CASE_RETURN_STR(BTA_AG_CIND_RES)
+    CASE_RETURN_STR(BTA_AG_BINP_RES)
+    CASE_RETURN_STR(BTA_AG_IND_RES)
+    CASE_RETURN_STR(BTA_AG_BVRA_RES)
+    CASE_RETURN_STR(BTA_AG_CNUM_RES)
+    CASE_RETURN_STR(BTA_AG_BTRH_RES)
+    CASE_RETURN_STR(BTA_AG_CLCC_RES)
+    CASE_RETURN_STR(BTA_AG_COPS_RES)
+    CASE_RETURN_STR(BTA_AG_IN_CALL_RES)
+    CASE_RETURN_STR(BTA_AG_IN_CALL_CONN_RES)
+    CASE_RETURN_STR(BTA_AG_CALL_WAIT_RES)
+    CASE_RETURN_STR(BTA_AG_OUT_CALL_ORIG_RES)
+    CASE_RETURN_STR(BTA_AG_OUT_CALL_ALERT_RES)
+    CASE_RETURN_STR(BTA_AG_OUT_CALL_CONN_RES)
+    CASE_RETURN_STR(BTA_AG_CALL_CANCEL_RES)
+    CASE_RETURN_STR(BTA_AG_END_CALL_RES)
+    CASE_RETURN_STR(BTA_AG_IN_CALL_HELD_RES)
+    CASE_RETURN_STR(BTA_AG_UNAT_RES)
+    CASE_RETURN_STR(BTA_AG_MULTI_CALL_RES)
+    CASE_RETURN_STR(BTA_AG_BIND_RES)
+    CASE_RETURN_STR(BTA_AG_IND_RES_ON_DEMAND)
+    default:
+      return "Unknown AG Result";
+  }
+}
+static const char* bta_ag_evt_str(uint16_t event) {
   switch (event) {
-    case BTA_AG_API_REGISTER_EVT:
-      return "Register Request";
-    case BTA_AG_API_DEREGISTER_EVT:
-      return "Deregister Request";
-    case BTA_AG_API_OPEN_EVT:
-      return "Open SLC Request";
-    case BTA_AG_API_CLOSE_EVT:
-      return "Close SLC Request";
-    case BTA_AG_API_AUDIO_OPEN_EVT:
-      return "Open Audio Request";
-    case BTA_AG_API_AUDIO_CLOSE_EVT:
-      return "Close Audio Request";
-    case BTA_AG_API_RESULT_EVT:
-      switch (result) {
-        case BTA_AG_SPK_RES:
-          return ("AT Result  BTA_AG_SPK_RES");
-        case BTA_AG_MIC_RES:
-          return ("AT Result  BTA_AG_MIC_RES");
-        case BTA_AG_INBAND_RING_RES:
-          return ("AT Result  BTA_AG_INBAND_RING_RES");
-        case BTA_AG_CIND_RES:
-          return ("AT Result  BTA_AG_CIND_RES");
-        case BTA_AG_BINP_RES:
-          return ("AT Result  BTA_AG_BINP_RES");
-        case BTA_AG_IND_RES:
-          return ("AT Result  BTA_AG_IND_RES");
-        case BTA_AG_BVRA_RES:
-          return ("AT Result  BTA_AG_BVRA_RES");
-        case BTA_AG_CNUM_RES:
-          return ("AT Result  BTA_AG_CNUM_RES");
-        case BTA_AG_BTRH_RES:
-          return ("AT Result  BTA_AG_BTRH_RES");
-        case BTA_AG_CLCC_RES:
-          return ("AT Result  BTA_AG_CLCC_RES");
-        case BTA_AG_COPS_RES:
-          return ("AT Result  BTA_AG_COPS_RES");
-        case BTA_AG_IN_CALL_RES:
-          return ("AT Result  BTA_AG_IN_CALL_RES");
-        case BTA_AG_IN_CALL_CONN_RES:
-          return ("AT Result  BTA_AG_IN_CALL_CONN_RES");
-        case BTA_AG_CALL_WAIT_RES:
-          return ("AT Result  BTA_AG_CALL_WAIT_RES");
-        case BTA_AG_OUT_CALL_ORIG_RES:
-          return ("AT Result  BTA_AG_OUT_CALL_ORIG_RES");
-        case BTA_AG_OUT_CALL_ALERT_RES:
-          return ("AT Result  BTA_AG_OUT_CALL_ALERT_RES");
-        case BTA_AG_OUT_CALL_CONN_RES:
-          return ("AT Result  BTA_AG_OUT_CALL_CONN_RES");
-        case BTA_AG_CALL_CANCEL_RES:
-          return ("AT Result  BTA_AG_CALL_CANCEL_RES");
-        case BTA_AG_END_CALL_RES:
-          return ("AT Result  BTA_AG_END_CALL_RES");
-        case BTA_AG_UNAT_RES:
-          return ("AT Result  BTA_AG_UNAT_RES");
-        default:
-          return ("Unknown AG Result");
-      }
-    case BTA_AG_API_SETCODEC_EVT:
-      return "Set Codec Request";
-    case BTA_AG_RFC_OPEN_EVT:
-      return "RFC Opened";
-    case BTA_AG_RFC_CLOSE_EVT:
-      return "RFC Closed";
-    case BTA_AG_RFC_SRV_CLOSE_EVT:
-      return "RFC SRV Closed";
-    case BTA_AG_RFC_DATA_EVT:
-      return "RFC Data";
-    case BTA_AG_SCO_OPEN_EVT:
-      return "Audio Opened";
-    case BTA_AG_SCO_CLOSE_EVT:
-      return "Audio Closed";
-    case BTA_AG_DISC_ACP_RES_EVT:
-      return "Discovery ACP Result";
-    case BTA_AG_DISC_INT_RES_EVT:
-      return "Discovery INT Result";
-    case BTA_AG_DISC_OK_EVT:
-      return "Discovery OK";
-    case BTA_AG_DISC_FAIL_EVT:
-      return "Discovery Failed";
-    case BTA_AG_CI_RX_WRITE_EVT:
-      return "CI RX Write";
-    case BTA_AG_RING_TIMEOUT_EVT:
-      return "Ring Timeout";
-    case BTA_AG_SVC_TIMEOUT_EVT:
-      return "Service Timeout";
-    case BTA_AG_API_ENABLE_EVT:
-      return "Enable AG";
-    case BTA_AG_API_DISABLE_EVT:
-      return "Disable AG";
-    case BTA_AG_CI_SCO_DATA_EVT:
-      return "SCO data Callin";
-    case BTA_AG_CI_SLC_READY_EVT:
-      return "SLC Ready Callin";
+    CASE_RETURN_STR(BTA_AG_API_REGISTER_EVT)
+    CASE_RETURN_STR(BTA_AG_API_DEREGISTER_EVT)
+    CASE_RETURN_STR(BTA_AG_API_OPEN_EVT)
+    CASE_RETURN_STR(BTA_AG_API_CLOSE_EVT)
+    CASE_RETURN_STR(BTA_AG_API_AUDIO_OPEN_EVT)
+    CASE_RETURN_STR(BTA_AG_API_AUDIO_CLOSE_EVT)
+    CASE_RETURN_STR(BTA_AG_API_RESULT_EVT)
+    CASE_RETURN_STR(BTA_AG_API_SETCODEC_EVT)
+    CASE_RETURN_STR(BTA_AG_RFC_OPEN_EVT)
+    CASE_RETURN_STR(BTA_AG_RFC_CLOSE_EVT)
+    CASE_RETURN_STR(BTA_AG_RFC_SRV_CLOSE_EVT)
+    CASE_RETURN_STR(BTA_AG_RFC_DATA_EVT)
+    CASE_RETURN_STR(BTA_AG_SCO_OPEN_EVT)
+    CASE_RETURN_STR(BTA_AG_SCO_CLOSE_EVT)
+    CASE_RETURN_STR(BTA_AG_DISC_ACP_RES_EVT)
+    CASE_RETURN_STR(BTA_AG_DISC_INT_RES_EVT)
+    CASE_RETURN_STR(BTA_AG_DISC_OK_EVT)
+    CASE_RETURN_STR(BTA_AG_DISC_FAIL_EVT)
+    CASE_RETURN_STR(BTA_AG_RING_TIMEOUT_EVT)
+    CASE_RETURN_STR(BTA_AG_SVC_TIMEOUT_EVT)
     default:
       return "Unknown AG Event";
   }
 }
 
-static char* bta_ag_state_str(uint8_t state) {
+static const char* bta_ag_state_str(uint8_t state) {
   switch (state) {
-    case BTA_AG_INIT_ST:
-      return "Initial";
-    case BTA_AG_OPENING_ST:
-      return "Opening";
-    case BTA_AG_OPEN_ST:
-      return "Open";
-    case BTA_AG_CLOSING_ST:
-      return "Closing";
+    CASE_RETURN_STR(BTA_AG_INIT_ST)
+    CASE_RETURN_STR(BTA_AG_OPENING_ST)
+    CASE_RETURN_STR(BTA_AG_OPEN_ST)
+    CASE_RETURN_STR(BTA_AG_CLOSING_ST)
     default:
       return "Unknown AG State";
   }
 }
-
-#endif

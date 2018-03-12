@@ -420,6 +420,10 @@ void bta_ag_rfc_close(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
   /* call close call-out */
   bta_ag_co_data_close(close.hdr.handle);
 
+  if (bta_ag_get_active_device() == p_scb->peer_addr) {
+    bta_clear_active_device();
+  }
+
   /* call close cback */
   (*bta_ag_cb.p_cback)(BTA_AG_CLOSE_EVT, (tBTA_AG*)&close);
 
@@ -448,7 +452,7 @@ void bta_ag_rfc_close(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
     bta_ag_sco_shutdown(p_scb, NULL);
 
     /* Check if all the SLCs are down */
-    for (i = 0; i < BTA_AG_NUM_SCB; i++) {
+    for (i = 0; i < BTA_AG_MAX_NUM_CLIENTS; i++) {
       if (bta_ag_cb.scb[i].in_use && bta_ag_cb.scb[i].svc_conn)
         num_active_conn++;
     }
@@ -543,7 +547,8 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
   }
 
   /* Collision Handling */
-  for (i = 0, ag_scb = &bta_ag_cb.scb[0]; i < BTA_AG_NUM_SCB; i++, ag_scb++) {
+  for (i = 0, ag_scb = &bta_ag_cb.scb[0]; i < BTA_AG_MAX_NUM_CLIENTS;
+       i++, ag_scb++) {
     if (ag_scb->in_use && alarm_is_scheduled(ag_scb->collision_timer)) {
       alarm_cancel(ag_scb->collision_timer);
 
@@ -811,7 +816,11 @@ void bta_ag_svc_conn_open(tBTA_AG_SCB* p_scb,
         (p_scb->callsetup_ind != BTA_AG_CALLSETUP_NONE)) {
       bta_sys_sco_use(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
     }
-
+    if (bta_ag_get_active_device().IsEmpty()) {
+      tBTA_AG_DATA data = {};
+      data.api_set_active_device.active_device_addr = p_scb->peer_addr;
+      bta_ag_api_set_active_device(&data);
+    }
     (*bta_ag_cb.p_cback)(BTA_AG_CONN_EVT, (tBTA_AG*)&evt);
   }
 }
