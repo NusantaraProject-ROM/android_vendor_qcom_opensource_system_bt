@@ -48,7 +48,7 @@ class AdvertiseDataParser {
     size_t position = 0;
 
     size_t ad_len = ad.size();
-    while (position != ad_len) {
+    while (position < ad_len) {
       uint8_t len = ad[position];
 
       // A field length of 0 would be invalid as it should at least contain the
@@ -81,7 +81,7 @@ class AdvertiseDataParser {
     size_t position = 0;
 
     size_t ad_len = ad.size();
-    while (position != ad_len) {
+    while (position < ad_len) {
       uint8_t len = ad[position];
 
       // A field length of 0 would be invalid as it should at least contain the
@@ -116,7 +116,7 @@ class AdvertiseDataParser {
                                        uint8_t type, uint8_t* p_length) {
     size_t position = 0;
 
-    while (position != ad_len) {
+    while (position < ad_len) {
       uint8_t len = ad[position];
 
       if (len == 0) break;
