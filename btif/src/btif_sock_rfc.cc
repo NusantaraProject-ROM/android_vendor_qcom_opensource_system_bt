@@ -54,6 +54,7 @@
 #include "osi/include/osi.h"
 #include "port_api.h"
 #include "sdp_api.h"
+#include <hardware/vendor_socket.h>
 
 /* The JV interface can have only one user, hence we need to call a few
  * L2CAP functions from this file. */
@@ -925,7 +926,6 @@ int bta_co_rfc_data_outgoing(uint32_t id, uint8_t* buf, uint16_t size) {
   return true;
 }
 
-#ifdef RFC_SOCKOPT_FEATURE
 static rfc_slot_t* find_rfc_slot_by_scn(int scn)
 {
     int i;
@@ -1037,4 +1037,3 @@ bt_status_t btsock_rfc_set_sockopt(int channel, btsock_option_type_t option_name
 
     return status;
 }
-#endif
