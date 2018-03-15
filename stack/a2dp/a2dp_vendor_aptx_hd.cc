@@ -556,6 +556,7 @@ static bool select_audio_sample_rate(
     case BTAV_A2DP_CODEC_SAMPLE_RATE_176400:
     case BTAV_A2DP_CODEC_SAMPLE_RATE_192000:
     case BTAV_A2DP_CODEC_SAMPLE_RATE_NONE:
+    default:
       break;
   }
   return false;
@@ -711,6 +712,8 @@ bool A2dpCodecConfigAptxHd::setCodecConfig(const uint8_t* p_peer_codec_info,
     case BTAV_A2DP_CODEC_SAMPLE_RATE_NONE:
       codec_capability_.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_NONE;
       codec_config_.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_NONE;
+      break;
+    default:
       break;
   }
 

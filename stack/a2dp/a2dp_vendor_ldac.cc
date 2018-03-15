@@ -687,6 +687,8 @@ static bool select_audio_sample_rate(
       break;
     case BTAV_A2DP_CODEC_SAMPLE_RATE_NONE:
       break;
+    default:
+      break;
   }
   return false;
 }
@@ -945,6 +947,8 @@ bool A2dpCodecConfigLdac::setCodecConfig(const uint8_t* p_peer_codec_info,
     case BTAV_A2DP_CODEC_SAMPLE_RATE_NONE:
       codec_capability_.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_NONE;
       codec_config_.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_NONE;
+      break;
+    default:
       break;
   }
 
