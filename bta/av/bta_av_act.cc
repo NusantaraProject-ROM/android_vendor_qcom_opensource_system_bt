@@ -1688,6 +1688,9 @@ uint16_t bta_get_dut_avrcp_version() {
     if (!strncmp(AVRCP_1_6_STRING, avrcp_version,
                  sizeof(AVRCP_1_6_STRING))) {
       profile_version = AVRC_REV_1_6;
+    } else if (!strncmp(AVRCP_1_5_STRING, avrcp_version,
+                        sizeof(AVRCP_1_5_STRING))) {
+      profile_version = AVRC_REV_1_5;
     } else {
       profile_version = AVRC_REV_1_4;
     }
