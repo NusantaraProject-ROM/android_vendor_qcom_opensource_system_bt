@@ -38,6 +38,7 @@
 #include "osi/include/osi.h"
 #include "utl.h"
 #include "osi/include/properties.h"
+#include "device/include/interop.h"
 
 #ifndef BTA_AG_SCO_DEBUG
 #define BTA_AG_SCO_DEBUG FALSE
@@ -47,7 +48,7 @@ bool sco_init_rmt_xfer = false;
 
 /* Codec negotiation timeout */
 #ifndef BTA_AG_CODEC_NEGOTIATION_TIMEOUT_MS
-#define BTA_AG_CODEC_NEGOTIATION_TIMEOUT_MS (5 * 1000) /* 3 seconds */
+#define BTA_AG_CODEC_NEGOTIATION_TIMEOUT_MS (5 * 1000) /* 5 seconds */
 #endif
 
 static char value[PROPERTY_VALUE_MAX];
@@ -567,10 +568,22 @@ static void bta_ag_create_pending_sco(tBTA_AG_SCB* p_scb, bool is_local) {
 static void bta_ag_codec_negotiation_timer_cback(void* data) {
   APPL_TRACE_DEBUG("%s", __func__);
   tBTA_AG_SCB* p_scb = (tBTA_AG_SCB*)data;
-
+  bool is_blacklisted = interop_match_addr(INTEROP_DISABLE_CODEC_NEGOTIATION,
+                                           &p_scb->peer_addr);
   /* Announce that codec negotiation failed. */
   bta_ag_sco_codec_nego(p_scb, false);
 
+  // add the device to blacklisting to disable codec negotiation
+  if (is_blacklisted == false) {
+     APPL_TRACE_IMP("%s: blacklisting device %s for codec negotiation",
+                    __func__, p_scb->peer_addr.ToString().c_str());
+
+     interop_database_add(INTEROP_DISABLE_CODEC_NEGOTIATION,
+                        &p_scb->peer_addr, 3);
+  } else {
+     APPL_TRACE_IMP("%s: dev %s is already blacklisted for codec negotiation",
+                    __func__, p_scb->peer_addr.ToString().c_str());
+  }
   /* call app callback */
   bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
 }

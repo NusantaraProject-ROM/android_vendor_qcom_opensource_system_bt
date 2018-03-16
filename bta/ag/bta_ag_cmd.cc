@@ -1097,18 +1097,6 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
 
       tBTA_AG_FEAT features = p_scb->features & BTA_AG_BSRF_FEAT_SPEC;
 
-      if (interop_match_addr(INTEROP_DISABLE_HF_INDICATOR,
-          &p_scb->peer_addr))
-      {
-         if ((p_scb->peer_version < HFP_VERSION_1_7) &&
-              (p_scb->peer_features & BTA_AG_PEER_FEAT_HF_IND))
-         {
-            APPL_TRACE_WARNING("hf indicator needs hfp 1.7 support,"
-                               "thus remove remote device HF indicator bit");
-            p_scb->peer_features = p_scb->peer_features &(~BTA_AG_PEER_FEAT_HF_IND);
-         }
-      }
-
       if ((p_scb->peer_version < HFP_VERSION_1_7) &&
            (!(p_scb->peer_features & BTA_AG_PEER_FEAT_HF_IND))) {
         /* For PTS keep flags as is */
@@ -1151,7 +1139,7 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
           (const char *)bdname.name)))
       {
           APPL_TRACE_IMP("%s disable codec negotiation for phone, remote" \
-                                  "for blacklisted device", __func__);
+                                  " for blacklisted device", __func__);
           features = features & ~(BTA_AG_FEAT_CODEC);
           p_scb->peer_features = p_scb->peer_features & ~(BTA_AG_PEER_FEAT_CODEC);
       }
