@@ -82,6 +82,9 @@ cc_library_static {
         "src/time.cc",
         "src/wakelock.cc",
     ],
+    include_dirs: [
+        "vendor/qcom/opensource/bluetooth_ext/vhal/include/",
+    ],
     shared_libs: [
         "liblog",
     ],
