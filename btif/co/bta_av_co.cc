@@ -684,7 +684,8 @@ void bta_av_co_audio_open(tBTA_AV_HNDL hndl, uint16_t mtu) {
 void bta_av_co_audio_close(tBTA_AV_HNDL hndl) {
   tBTA_AV_CO_PEER* p_peer;
 
-  APPL_TRACE_DEBUG("%s", __func__);
+  APPL_TRACE_DEBUG("%s hndl = 0x%x", __func__, hndl);
+  btif_av_reset_audio_delay();
 
   /* Retrieve the peer info */
   p_peer = bta_av_co_get_peer(hndl);
@@ -806,6 +807,7 @@ void bta_av_co_audio_drop(tBTA_AV_HNDL hndl) {
  ******************************************************************************/
 void bta_av_co_audio_delay(tBTA_AV_HNDL hndl, uint16_t delay) {
   APPL_TRACE_ERROR("%s: handle: x%x, delay:0x%x", __func__, hndl, delay);
+  btif_av_set_audio_delay(delay);
 }
 
 void bta_av_co_audio_update_mtu(tBTA_AV_HNDL hndl, uint16_t mtu) {

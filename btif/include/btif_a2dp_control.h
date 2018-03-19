@@ -35,4 +35,21 @@ void btif_a2dp_control_cleanup(void);
 void btif_a2dp_command_ack(tA2DP_CTRL_ACK status);
 
 tA2DP_CTRL_CMD  btif_a2dp_get_pending_command();
+
+// Increment the total number audio data bytes that have been encoded since
+// last encoding attempt.
+// |bytes_read| is the number of bytes to increment by.
+void btif_a2dp_control_log_bytes_read(uint32_t bytes_read);
+
+// Set the audio delay reported to the audio HAL in uints of 1/10ms.
+// |delay| is the audio delay to set.
+void btif_a2dp_control_set_audio_delay(uint16_t delay);
+
+// Reset the remote audio device's delay value and reset the counter that keeps
+// track of the number of audio bytes sent
+void btif_a2dp_control_reset_audio_delay(void);
+
+// Get the audio delay reported to the audio HAL in uints of 1/10ms.
+// |delay| is the audio delay to send to Audio
+uint16_t btif_a2dp_control_get_audio_delay(void);
 #endif /* BTIF_A2DP_CONTROL_H */

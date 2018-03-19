@@ -430,4 +430,25 @@ void btif_av_peer_config_dump();
 ********************************************************************************/
 int btif_av_get_current_playing_dev_idx();
 
+/**
+ * Set the audio delay for the stream.
+ *
+ * @param delay the delay to set in units of 1/10ms
+ */
+void btif_av_set_audio_delay(uint16_t delay);
+
+/**
+ * Reset the audio delay and count of audio bytes sent to zero.
+ */
+void btif_av_reset_audio_delay(void);
+
+/**
+ * Function         btif_av_set_audio_delay
+ *
+ * Description      Get the audio delay for the stream.
+ *
+ * Returns          uint16_t
+ */
+uint16_t btif_av_get_audio_delay(void);
+
 #endif /* BTIF_AV_H */

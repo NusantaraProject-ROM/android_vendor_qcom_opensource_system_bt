@@ -3617,7 +3617,7 @@ bt_status_t btif_av_execute_service(bool b_enable) {
   tBTA_AV_FEAT feat_delay_rpt = 0;
   BTIF_TRACE_DEBUG("%s(): enable: %d", __func__, b_enable);
   if (b_enable) {
-    osi_property_get("persist.bt.a2dp.delay_report", value, "false");
+    osi_property_get("persist.bluetooth.enabledelayreports", value, "false");
     delay_report_enabled = (strcmp(value, "true") == 0);
     if (delay_report_enabled)
       feat_delay_rpt = BTA_AV_FEAT_DELAY_RPT;
@@ -4477,3 +4477,11 @@ void btif_av_reinit_audio_interface() {
   btif_a2dp_audio_interface_init();
 }
 /*SPLITA2DP*/
+
+void btif_av_set_audio_delay(uint16_t delay) {
+  btif_a2dp_control_set_audio_delay(delay);
+}
+
+void btif_av_reset_audio_delay(void) { btif_a2dp_control_reset_audio_delay(); }
+
+uint16_t btif_av_get_audio_delay(void) { return btif_a2dp_control_get_audio_delay(); }

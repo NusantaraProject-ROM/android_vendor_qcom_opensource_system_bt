@@ -42,6 +42,12 @@
 
 #define A2DP_DATA_READ_POLL_MS 10
 
+struct {
+  uint64_t total_bytes_read = 0;
+  uint16_t audio_delay = 0;
+  struct timespec timestamp = {};
+} delay_report_stats;
+
 extern int btif_av_get_latest_device_idx_to_start();
 extern int btif_get_is_remote_started_idx();
 extern tBTA_AV_HNDL btif_av_get_av_hdl_from_idx(int idx);
@@ -585,6 +591,23 @@ static void btif_a2dp_recv_ctrl_data(void) {
         btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
         break;
 
+      case A2DP_CTRL_GET_PRESENTATION_POSITION: {
+        btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+
+        UIPC_Send(UIPC_CH_ID_AV_CTRL, 0,
+                  (uint8_t*)&(delay_report_stats.total_bytes_read),
+                  sizeof(uint64_t));
+        UIPC_Send(UIPC_CH_ID_AV_CTRL, 0,
+                  (uint8_t*)&(delay_report_stats.audio_delay), sizeof(uint16_t));
+
+        uint32_t seconds = delay_report_stats.timestamp.tv_sec;
+        UIPC_Send(UIPC_CH_ID_AV_CTRL, 0, (uint8_t*)&seconds, sizeof(seconds));
+
+        uint32_t nsec = delay_report_stats.timestamp.tv_nsec;
+        UIPC_Send(UIPC_CH_ID_AV_CTRL, 0, (uint8_t*)&nsec, sizeof(nsec));
+        break;
+      }
+
       default:
         APPL_TRACE_ERROR("%s: UNSUPPORTED CMD (%d)", __func__, cmd);
         btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
@@ -900,4 +923,26 @@ void btif_a2dp_command_ack(tA2DP_CTRL_ACK status) {
 }
 tA2DP_CTRL_CMD btif_a2dp_get_pending_command() {
   return a2dp_cmd_pending;
+}
+
+void btif_a2dp_control_log_bytes_read(uint32_t bytes_read) {
+  delay_report_stats.total_bytes_read += bytes_read;
+  clock_gettime(CLOCK_MONOTONIC, &delay_report_stats.timestamp);
+}
+
+void btif_a2dp_control_set_audio_delay(uint16_t delay) {
+  APPL_TRACE_DEBUG("%s: DELAY: %.1f ms", __func__, (float)delay / 10);
+  delay_report_stats.audio_delay = delay;
+}
+
+void btif_a2dp_control_reset_audio_delay(void) {
+  APPL_TRACE_DEBUG("%s", __func__);
+  delay_report_stats.audio_delay = 0;
+  delay_report_stats.total_bytes_read = 0;
+  delay_report_stats.timestamp = {};
+}
+
+// For Split-A2DP
+uint16_t btif_a2dp_control_get_audio_delay(void) {
+  return (delay_report_stats.audio_delay > 0) ? delay_report_stats.audio_delay : 0;
 }
