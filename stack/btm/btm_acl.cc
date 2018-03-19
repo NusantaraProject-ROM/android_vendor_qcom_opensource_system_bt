@@ -50,6 +50,9 @@
 #include "l2c_int.h"
 #include "osi/include/osi.h"
 #include "device/include/interop_config.h"
+#include "btif_av_co.h"
+#include "btif_av.h"
+#include <hardware/bt_av.h>
 
 static void btm_read_remote_features(uint16_t handle);
 static void btm_read_remote_ext_features(uint16_t handle, uint8_t page_number);
@@ -548,6 +551,39 @@ tBTM_STATUS BTM_GetRole(const RawAddress& remote_bd_addr, uint8_t* p_role) {
 
 /*******************************************************************************
  *
+ * Function         IsHighQualityCodecSelected
+ *
+ * Description      This function is called to check whether high quality
+ *                  codec selected(Aptx-HD, LDAC)
+ *
+ * Returns          true if Aptx-HD or LDAC codec selected.
+ *                  false if any other codec selcted.
+ *
+ ******************************************************************************/
+bool IsHighQualityCodecSelected(const RawAddress& remote_bd_addr) {
+  BTM_TRACE_DEBUG("%s: RemBdAddr: %s", __func__, remote_bd_addr.ToString().c_str());
+
+  if (btif_av_is_device_connected(remote_bd_addr)) {
+    A2dpCodecConfig* current_codec = bta_av_get_a2dp_current_codec();
+    btav_a2dp_codec_config_t codec_config;
+    codec_config = current_codec->getCodecConfig();
+
+    //get the current codec config, so that we can get the codec type.
+    BTM_TRACE_DEBUG("%s: codec_config.codec_type:%d", __func__, codec_config.codec_type);
+    if ((codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC) ||
+        (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD)) {
+      BTM_TRACE_DEBUG("%s: LDAC or APTX-HD codec selcted:", __func__);
+      return true;
+    } else {
+      return false;
+    }
+  } else {
+      return false;
+  }
+}
+
+/*******************************************************************************
+ *
  * Function         BTM_SwitchRole
  *
  * Description      This function is called to switch role between master and
@@ -602,7 +638,8 @@ tBTM_STATUS BTM_SwitchRole(const RawAddress& remote_bd_addr, uint8_t new_role,
     if ((p->link_role == new_role) ||
         (interop_database_match_addr(
                 INTEROP_DISABLE_ROLE_SWITCH, &remote_bd_addr)) ||
-                (!btm_cb.is_wifi_connected && (btm_get_bredr_acl_count() <= 1)))
+                (!btm_cb.is_wifi_connected && (btm_get_bredr_acl_count() <= 1) &&
+                (!IsHighQualityCodecSelected(remote_bd_addr))))
       return(BTM_SUCCESS);
 
   /* Ignore role switch request if the previous request was not completed */
