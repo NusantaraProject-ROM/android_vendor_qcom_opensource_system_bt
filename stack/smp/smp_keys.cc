@@ -377,6 +377,8 @@ void smp_gen_p1_4_confirm(tSMP_CB* p_cb, tBLE_ADDR_TYPE remote_bd_addr_type,
     /* pres : Pairing Response (local) command */
     smp_concatenate_local(p_cb, &p, SMP_OPCODE_PAIRING_RSP);
   }
+  SMP_TRACE_DEBUG("local addr type:%d", p_cb->addr_type);
+  SMP_TRACE_DEBUG("peer addr type:%d", remote_bd_addr_type);
   smp_debug_print_nbyte_little_endian((uint8_t*)p1,
                                       "p1 = iat' || rat' || preq || pres", 16);
 }
@@ -410,6 +412,12 @@ void smp_gen_p2_4_confirm(tSMP_CB* p_cb, const RawAddress& remote_bda,
     /* ia : Initiator's (remote) address */
     BDADDR_TO_STREAM(p, remote_bda);
   }
+  SMP_TRACE_DEBUG("local ble addr:: %02x:%02x:%02x:%02x:%02x:%02x",
+      p_cb->local_bda.address[0], p_cb->local_bda.address[1], p_cb->local_bda.address[2],
+      p_cb->local_bda.address[3], p_cb->local_bda.address[4], p_cb->local_bda.address[5]);
+  SMP_TRACE_DEBUG("peer ble addr:: %02x:%02x:%02x:%02x:%02x:%02x",
+      remote_bda.address[0], remote_bda.address[1], remote_bda.address[2],
+      remote_bda.address[3], remote_bda.address[4], remote_bda.address[5]);
   smp_debug_print_nbyte_little_endian(p2, "p2 = ra || ia || padding", 16);
 }
 
@@ -1483,6 +1491,10 @@ void smp_calculate_local_dhkey_check(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
 
   smp_collect_local_ble_address(a, p_cb);
   smp_collect_peer_ble_address(b, p_cb);
+  SMP_TRACE_DEBUG("local ble addr:: %02x:%02x:%02x:%02x:%02x:%02x, addr type:%d",
+                  a[0], a[1], a[2], a[3], a[4], a[5], a[6]);
+  SMP_TRACE_DEBUG("peer ble addr:: %02x:%02x:%02x:%02x:%02x:%02x, addr type:%d",
+                    b[0], b[1], b[2], b[3], b[4], b[5], b[6]);
   smp_calculate_f6(p_cb->mac_key, p_cb->rand, p_cb->rrand, p_cb->peer_random,
                    iocap, a, b, p_cb->dhkey_check);
 
@@ -1511,6 +1523,10 @@ void smp_calculate_peer_dhkey_check(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
 
   smp_collect_local_ble_address(a, p_cb);
   smp_collect_peer_ble_address(b, p_cb);
+  SMP_TRACE_DEBUG("local ble addr:: %02x:%02x:%02x:%02x:%02x:%02x, addr type:%d",
+                   a[0], a[1], a[2], a[3], a[4], a[5], a[6]);
+  SMP_TRACE_DEBUG("peer ble addr:: %02x:%02x:%02x:%02x:%02x:%02x, addr type:%d",
+                   b[0], b[1], b[2], b[3], b[4], b[5], b[6]);
   ret = smp_calculate_f6(p_cb->mac_key, p_cb->rrand, p_cb->rand,
                          p_cb->local_random, iocap, b, a, param_buf);
 
