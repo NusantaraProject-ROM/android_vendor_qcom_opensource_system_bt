@@ -4311,7 +4311,7 @@ void btm_sec_connected(const RawAddress& bda, uint16_t handle, uint8_t status,
   tACL_CONN* p_acl_cb;
   uint8_t bit_shift = 0;
 
-  btm_acl_resubmit_page();
+  btm_acl_resubmit_page(bda, status == HCI_SUCCESS);
 
   if (p_dev_rec) {
     VLOG(2) << __func__ << "Security Manager: in state: "

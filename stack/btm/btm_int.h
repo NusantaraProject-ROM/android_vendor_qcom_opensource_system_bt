@@ -289,6 +289,7 @@ extern tINQ_DB_ENT* btm_inq_db_new(const RawAddress& p_bda);
 extern void btm_rem_oob_req(uint8_t* p);
 extern void btm_read_local_oob_complete(uint8_t* p);
 
+extern void btm_acl_resubmit_page(const RawAddress& target_bda, bool skip_connect_page);
 extern void btm_acl_resubmit_page(void);
 extern void btm_acl_reset_paging(void);
 extern void btm_acl_paging(BT_HDR* p, const RawAddress& dest);
