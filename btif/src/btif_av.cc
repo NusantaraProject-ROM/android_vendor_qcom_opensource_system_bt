@@ -2934,6 +2934,12 @@ static bt_status_t init_src( // gghai
     std::vector<btav_a2dp_codec_config_t> codec_priorities) {
   int a2dp_multicast_state = 0;
 
+  if(max_connected_audio_devices > BTIF_AV_NUM_CB) {
+    BTIF_TRACE_ERROR("%s: App setting maximum allowable connections(%d) to more than limit(%d)",
+            __func__, max_connected_audio_devices, BTIF_AV_NUM_CB);
+    max_connected_audio_devices = BTIF_AV_NUM_CB;
+  }
+
   return init_src(callbacks, codec_priorities, max_connected_audio_devices, a2dp_multicast_state);
 }
 
