@@ -2453,6 +2453,12 @@ static void bta_dm_remname_cback(tBTM_REMOTE_DEV_NAME* p_remote_name) {
   APPL_TRACE_DEBUG("bta_dm_remname_cback len = %d name=<%s>",
                    p_remote_name->length, p_remote_name->remote_bd_name);
 
+  if ( p_remote_name->bd_addr != bta_dm_search_cb.peer_bdaddr) {
+    VLOG(1) << "bta_dm_remname_cback ,rnr complete for diff device,return"
+    << " search_cb.peer_dbaddr:" << bta_dm_search_cb.peer_bdaddr
+    << " p_remote_name_bda=" << p_remote_name->bd_addr;
+    return;
+  }
   /* remote name discovery is done but it could be failed */
   bta_dm_search_cb.name_discover_done = true;
   strlcpy((char*)bta_dm_search_cb.peer_name,
