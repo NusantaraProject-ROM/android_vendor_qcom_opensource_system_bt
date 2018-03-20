@@ -511,7 +511,8 @@ static void btif_av_collission_timer_timeout(UNUSED_ATTR void *data) {
     if (bt_av_src_callbacks != NULL) {
       BTIF_TRACE_DEBUG("%s Starting A2dp connection", __FUNCTION__);
       conn_retry_count++;
-      btif_queue_connect(UUID_SERVCLASS_AUDIO_SOURCE, *target_bda, connect_int);
+      btif_queue_connect(UUID_SERVCLASS_AUDIO_SOURCE, *target_bda, connect_int,
+                    btif_max_av_clients);
     } else {
       BTIF_TRACE_DEBUG("%s Aborting A2dp connection retry", __FUNCTION__);
     }
@@ -3184,14 +3185,16 @@ static bt_status_t src_connect_sink(const RawAddress& bd_addr) {
   BTIF_TRACE_EVENT("%s", __func__);
   CHECK_BTAV_INIT();
 
-  return btif_queue_connect(UUID_SERVCLASS_AUDIO_SOURCE, bd_addr, connect_int);
+  return btif_queue_connect(UUID_SERVCLASS_AUDIO_SOURCE, bd_addr, connect_int,
+                    btif_max_av_clients);
 }
 
 static bt_status_t sink_connect_src(const RawAddress& bd_addr) {
   BTIF_TRACE_EVENT("%s", __func__);
   CHECK_BTAV_INIT();
 
-  return btif_queue_connect(UUID_SERVCLASS_AUDIO_SINK, bd_addr, connect_int);
+  return btif_queue_connect(UUID_SERVCLASS_AUDIO_SINK, bd_addr, connect_int,
+                    btif_max_av_clients);
 }
 
 /*******************************************************************************

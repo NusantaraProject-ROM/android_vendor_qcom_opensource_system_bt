@@ -26,7 +26,7 @@ bool get_stack_is_running(void) { return sStackRunning; }
 
 bt_status_t btif_test_queue_connect(uint16_t uuid, const RawAddress* bda,
                                btif_connect_cb_t connect_cb) {
-  return btif_queue_connect(uuid, *bda, connect_cb);
+  return btif_queue_connect(uuid, *bda, connect_cb, 1);
 }
 
 static stack_manager_t sStackManager = {nullptr, nullptr, nullptr, nullptr,

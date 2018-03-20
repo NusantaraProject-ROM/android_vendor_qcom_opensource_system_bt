@@ -50,15 +50,11 @@ typedef enum {
 typedef struct {
   RawAddress bda;
   uint16_t uuid;
+  uint16_t max_connections;
   bool busy;
   btif_connect_cb_t connect_cb;
 } connect_node_t;
 
-//FIX me. Linker Error
-//extern int btif_max_av_clients;
-//extern int btif_max_hf_clients;
-int btif_max_av_clients_1 = 1;
-int btif_max_hf_clients_1 = 1;
 
 /*******************************************************************************
  *  Static variables
@@ -99,8 +95,9 @@ static void queue_int_add(connect_node_t* p_param) {
       return;
     }
   }
-  if ((counter >= btif_max_av_clients_1 && p_param->uuid == UUID_SERVCLASS_AUDIO_SOURCE) ||
-      (counter >= btif_max_hf_clients_1 && p_param->uuid == UUID_SERVCLASS_AG_HANDSFREE)) {
+  uint16_t max_conn = p_param->max_connections;
+  if ((counter >= max_conn && p_param->uuid == UUID_SERVCLASS_AUDIO_SOURCE) ||
+      (counter >= max_conn && p_param->uuid == UUID_SERVCLASS_AG_HANDSFREE)) {
           LOG_INFO(LOG_TAG, "%s connect request exceeded max supported connection: %04x",
                __func__, p_param->uuid);
           return;
@@ -177,11 +174,12 @@ static void queue_int_handle_evt(uint16_t event, char* p_param) {
  *
  ******************************************************************************/
 bt_status_t btif_queue_connect(uint16_t uuid, const RawAddress& bda,
-                               btif_connect_cb_t connect_cb) {
+                               btif_connect_cb_t connect_cb, uint16_t max_conn) {
   connect_node_t node;
   memset(&node, 0, sizeof(connect_node_t));
   node.bda = bda;
   node.uuid = uuid;
+  node.max_connections = max_conn;
   node.connect_cb = connect_cb;
 
   return btif_transfer_context(queue_int_handle_evt, BTIF_QUEUE_CONNECT_EVT,

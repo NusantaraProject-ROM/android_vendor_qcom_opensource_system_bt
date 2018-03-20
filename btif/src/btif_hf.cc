@@ -947,7 +947,8 @@ static void UpdateCallStates(btif_hf_cb_t* control_block, int num_active,
 
 bt_status_t HeadsetInterface::Connect(RawAddress* bd_addr) {
   CHECK_BTHF_INIT();
-  return btif_queue_connect(UUID_SERVCLASS_AG_HANDSFREE, *bd_addr, connect_int);
+  return btif_queue_connect(UUID_SERVCLASS_AG_HANDSFREE, *bd_addr, connect_int,
+                                  btif_max_hf_clients);
 }
 
 /*******************************************************************************
