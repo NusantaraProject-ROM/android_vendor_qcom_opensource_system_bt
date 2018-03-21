@@ -581,7 +581,6 @@ static void btif_av_check_and_start_collission_timer(int index) {
  ******************************************************************************/
 
 static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int index) {
-  int i;
   char a2dp_role[255] = "false";
   BTIF_TRACE_IMP("%s event:%s flags %x on index %x", __func__,
                    dump_av_sm_event_name((btif_av_sm_event_t)event),
@@ -622,7 +621,6 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       } else {
         //There is another AV connection, update current playin
         BTIF_TRACE_EVENT("reset A2dp states in IDLE ");
-        btif_av_update_current_playing_device(index);
       }
       if (!btif_av_is_playing_on_other_idx(index) &&
            btif_av_is_split_a2dp_enabled()) {
@@ -797,24 +795,6 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
          * and update multicast state
          */
         btif_av_update_multicast_state(index);
-
-        btif_av_cb[index].current_playing = TRUE;
-        if (enable_multicast == FALSE)
-        {
-          for (i = 0; i < btif_max_av_clients; i++)
-          {
-            if (i != index)
-            {
-              btif_av_cb[i].current_playing = FALSE;
-            }
-          }
-          if (btif_av_is_playing())
-          {
-              BTIF_TRACE_DEBUG("Trigger Dual A2dp Handoff on %d", index);
-              btif_av_trigger_dual_handoff(TRUE, btif_av_cb[index].peer_bda.address);
-          }
-        }
-
         if (btif_av_cb[index].peer_sep == AVDT_TSEP_SNK) {
           /* if queued PLAY command,  send it now */
           btif_rc_check_handle_pending_play(p_bta_data->open.bd_addr,
@@ -875,7 +855,6 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
 
 static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
                                           int index) {
-  int i;
   RawAddress* bt_addr = nullptr;
   BTIF_TRACE_IMP("%s event:%s flags %x on index %x", __func__,
                    dump_av_sm_event_name((btif_av_sm_event_t)event),
@@ -977,23 +956,6 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
          * and update multicast state
          */
         btif_av_update_multicast_state(index);
-
-        /*This device should be now ready for all next playbacks*/
-        btif_av_cb[index].current_playing = true;
-        if (enable_multicast == false) {
-          for (i = 0; i < btif_max_av_clients; i++)
-            /* Other device is not current playing */
-            if (i != index)
-              btif_av_cb[i].current_playing = false;
-
-          /* In A2dp Multicast, stack will take care of starting
-           * the stream on newly connected A2dp device. If Handoff
-           * is supported, trigger Handoff here. */
-          if (btif_av_is_playing()) {
-            BTIF_TRACE_DEBUG("Trigger Dual A2dp Handoff on %d", index);
-            btif_av_trigger_dual_handoff(true, btif_av_cb[index].peer_bda);
-          }
-        }
         if (btif_av_cb[index].peer_sep == AVDT_TSEP_SNK)
           /* if queued PLAY command,  send it now */
           btif_rc_check_handle_pending_play(p_bta_data->open.bd_addr,
@@ -1438,10 +1400,13 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
         if (codec_cfg_change) {
           codec_cfg_change = false;
           reconfig_a2dp = TRUE;
-#ifdef BT_AV_SHO_FEATURE // gghai
-          HAL_CBACK(bt_av_src_callbacks, reconfig_a2dp_trigger_cb, 1,
-                                       &(btif_av_cb[index].peer_bda));
-#endif
+          btav_a2dp_codec_config_t codec_config;
+          std::vector<btav_a2dp_codec_config_t> codecs_local_capabilities;
+          std::vector<btav_a2dp_codec_config_t> codecs_selectable_capabilities;
+          codec_config.codec_type = BTAV_A2DP_CODEC_INDEX_SOURCE_MAX;
+          HAL_CBACK(bt_av_src_callbacks, audio_config_cb,
+                  (btif_av_cb[index].peer_bda), codec_config,
+                  codecs_local_capabilities, codecs_selectable_capabilities);
         }
       }
     } break;
@@ -1483,10 +1448,13 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
             if (idx != INVALID_INDEX) {
               if ((btif_av_cb[idx].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING) == 0) {
                 reconfig_a2dp = true;
-#ifdef BT_AV_SHO_FEATURE
-                HAL_CBACK(bt_av_src_callbacks, reconfig_a2dp_trigger_cb, 1,
-                                              &(btif_av_cb[idx].peer_bda));
-#endif
+                btav_a2dp_codec_config_t codec_config;
+                std::vector<btav_a2dp_codec_config_t> codecs_local_capabilities;
+                std::vector<btav_a2dp_codec_config_t> codecs_selectable_capabilities;
+                codec_config.codec_type = BTAV_A2DP_CODEC_INDEX_SOURCE_MAX;
+                HAL_CBACK(bt_av_src_callbacks, audio_config_cb,
+                        (btif_av_cb[idx].peer_bda), codec_config,
+                        codecs_local_capabilities, codecs_selectable_capabilities);
               }
             }
           } else {
@@ -1680,14 +1648,9 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
                     (!(btif_av_cb[index].remote_started))) {
         for(i = 0; i < btif_max_av_clients; i++) {
           btif_av_cb[i].dual_handoff = false;
-          // Other device is not current playing
-          if (i != index)
-            btif_av_cb[i].current_playing = false;
         }
         BTIF_TRACE_IMP("%s Setting device as current playing for index = %d",
                                         __func__, index);
-        // This is latest device to play now
-        btif_av_cb[index].current_playing = true;
       } else {
           BTIF_TRACE_IMP("%s Remote Start, Not updating current playing for index = %d",
                                           __func__, index);
@@ -1711,14 +1674,6 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
             btif_a2dp_on_started(NULL, true, btif_av_cb[index].bta_handle);
             btif_report_audio_state(BTAV_AUDIO_STATE_STARTED, &(btif_av_cb[index].peer_bda));
             btif_av_cb[index].is_device_playing = true;
-            for (i = 0; i < btif_max_av_clients; i++)
-            {
-              //Other device is not current playing
-              if (i != index)
-                btif_av_cb[i].current_playing = false;
-            }
-            //This is latest device to play now
-            btif_av_cb[index].current_playing = true;
           } else {
             BTIF_TRACE_ERROR("## AV Disconnect## status : %x",status);
             BTA_AvDisconnect(btif_av_cb[index].peer_bda.address);
@@ -1748,17 +1703,19 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
           codec_cfg_change = false;
           reconfig_a2dp = TRUE;
           if (isBitRateChange || isBitsPerSampleChange) {
-#ifdef BT_AV_SHO_FEATURE // c_ramban              
+#ifdef BT_AV_SHO_FEATURE
             HAL_CBACK(bt_av_src_callbacks, reconfig_a2dp_trigger_cb, RECONFIG_A2DP_PARAM,
-                                       &(btif_av_cb[index].peer_bda), reconfig_a2dp_param_id, reconfig_a2dp_param_val);
+                    &(btif_av_cb[index].peer_bda), reconfig_a2dp_param_id, reconfig_a2dp_param_val);
 #endif
             isBitRateChange = false;
             isBitsPerSampleChange = false;
           } else {
-#ifdef BT_AV_SHO_FEATURE
-            HAL_CBACK(bt_av_src_callbacks, reconfig_a2dp_trigger_cb, 1,
-                                          &(btif_av_cb[index].peer_bda));
-#endif
+            btav_a2dp_codec_config_t codec_config;
+            std::vector<btav_a2dp_codec_config_t> codecs_local_capabilities;
+            std::vector<btav_a2dp_codec_config_t> codecs_selectable_capabilities;
+            codec_config.codec_type = BTAV_A2DP_CODEC_INDEX_SOURCE_MAX;
+            HAL_CBACK(bt_av_src_callbacks, audio_config_cb, (btif_av_cb[index].peer_bda),
+                    codec_config, codecs_local_capabilities, codecs_selectable_capabilities);
           }
         }
       }
@@ -1814,9 +1771,6 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
 
     case BTIF_AV_DISCONNECT_REQ_EVT:
       // Now it is not the current playing
-      btif_av_cb[index].current_playing = false;
-      btif_av_update_current_playing_device(index);
-      btif_rc_clear_priority(btif_av_cb[index].peer_bda);
       // request avdtp to close
       BTA_AvClose(btif_av_cb[index].bta_handle);
       if (btif_av_cb[index].peer_sep == AVDT_TSEP_SRC)
@@ -1845,11 +1799,13 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
          * Array 'btif_av_cb' of size 2 may use index value(s) -1 */
         if (idx != INVALID_INDEX) {
           reconfig_a2dp = TRUE;
-#ifdef BT_AV_SHO_FEATURE
-          HAL_CBACK(bt_av_src_callbacks, reconfig_a2dp_trigger_cb, 1,
-                                          &(btif_av_cb[idx].peer_bda));
-#endif
-          }
+          btav_a2dp_codec_config_t codec_config;
+          std::vector<btav_a2dp_codec_config_t> codecs_local_capabilities;
+          std::vector<btav_a2dp_codec_config_t> codecs_selectable_capabilities;
+          codec_config.codec_type = BTAV_A2DP_CODEC_INDEX_SOURCE_MAX;
+          HAL_CBACK(bt_av_src_callbacks, audio_config_cb, (btif_av_cb[index].peer_bda),
+                  codec_config, codecs_local_capabilities, codecs_selectable_capabilities);
+        }
       }
       break;
 
@@ -1972,8 +1928,6 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       {
         BTIF_TRACE_IMP("%s Don't update audio state change to app for idx =%d", __func__, index);
         btif_av_cb[index].is_device_playing = false;
-        btif_av_cb[index].current_playing = false;
-        btif_av_update_current_playing_device(index);
       } else if (!enable_multicast && remote_start_cancelled) {
           BTIF_TRACE_IMP("%s Don't update audio state as remote started and suspended", __func__);
           if (btif_av_cb[index].flags & BTIF_AV_FLAG_REMOTE_SUSPEND)
@@ -2012,8 +1966,6 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
 
     case BTA_AV_STOP_EVT:
       btif_av_cb[index].flags |= BTIF_AV_FLAG_PENDING_STOP;
-      if (!btif_av_cb[index].reconfig_pending)
-        btif_av_cb[index].current_playing = false;
       BTIF_TRACE_DEBUG("Stop the AV Data channel");
       btif_a2dp_on_stopped(&p_av->suspend);
       btif_av_cb[index].is_device_playing = false;
@@ -2022,8 +1974,6 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
           && (btif_av_is_playing_on_other_idx(index))) {
         BTIF_TRACE_IMP("%s Do not update audio state change to app for index =%d", __FUNCTION__, index);
         btif_av_cb[index].is_device_playing = FALSE;
-        btif_av_cb[index].current_playing = FALSE;
-        btif_av_update_current_playing_device(index);
       } else {
         btif_report_audio_state(BTAV_AUDIO_STATE_STOPPED, &(btif_av_cb[index].peer_bda));
       }
@@ -2043,10 +1993,12 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
          * Array 'btif_av_cb' of size 2 may use index value(s) -1 */
         if (idx != INVALID_INDEX) {
           reconfig_a2dp = true;
-#ifdef BT_AV_SHO_FEATURE
-          HAL_CBACK(bt_av_src_callbacks, reconfig_a2dp_trigger_cb, 1,
-                                          &(btif_av_cb[idx].peer_bda));
-#endif
+          btav_a2dp_codec_config_t codec_config;
+          std::vector<btav_a2dp_codec_config_t> codecs_local_capabilities;
+          std::vector<btav_a2dp_codec_config_t> codecs_selectable_capabilities;
+          codec_config.codec_type = BTAV_A2DP_CODEC_INDEX_SOURCE_MAX;
+          HAL_CBACK(bt_av_src_callbacks, audio_config_cb, (btif_av_cb[index].peer_bda),
+                  codec_config, codecs_local_capabilities, codecs_selectable_capabilities);
         }
       }
       break;
@@ -2104,11 +2056,7 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
 
       for(i = 0; i < btif_max_av_clients; i++) {
         btif_av_cb[i].dual_handoff = false;
-        // Other device is not current playing
-        if (i != index)
-          btif_av_cb[i].current_playing = false;
       }
-      btif_av_cb[index].current_playing = true;
       break;
 
     case BTIF_AV_SETUP_CODEC_REQ_EVT: {
@@ -2231,7 +2179,6 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
 
         /*  RC play state is to be cleared to make sure the same when retained
          *  does not impact UI initiated play*/
-        btif_rc_clear_playing_state(FALSE);
         btif_av_trigger_dual_handoff(TRUE, btif_av_cb[index].peer_bda.address);
       }
       else
@@ -2299,14 +2246,6 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
         btif_report_audio_state(BTAV_AUDIO_STATE_STARTED, &(btif_av_cb[index].peer_bda));
       }
       btif_av_cb[index].is_device_playing = true;
-      for (int i = 0; i < btif_max_av_clients; i++)
-      {
-          //Other device is not current playing
-          if (i != index)
-            btif_av_cb[i].current_playing = false;
-      }
-        //This is latest device to play now
-      btif_av_cb[index].current_playing = true;
     case BTIF_AV_RESET_REMOTE_STARTED_FLAG_EVT:
       btif_av_reset_remote_started_flag();
       return;
@@ -2531,35 +2470,7 @@ bool btif_av_is_current_device(RawAddress address) {
  *
  ******************************************************************************/
 int btif_av_get_latest_device_idx_to_start() {
-  int i, j;
-  RawAddress playing_address = RawAddress::kEmpty;
-
-  /* Get the device which sent PLAY command
-   * If found, START on that index.
-   */
-  btif_rc_get_playing_device(&playing_address);
-  BTIF_TRACE_DEBUG("%s:playing device address: %s", __func__,
-                                 playing_address.ToString().c_str());
-  if (!(playing_address.IsEmpty())) {
-    /* Got some valid Playing device.
-     * Get the AV index for this device.
-     */
-    i = btif_av_idx_by_bdaddr(&playing_address);
-    BTIF_TRACE_DEBUG("%s: index i = %d", __func__, i);
-    if (i == btif_max_av_clients)
-      return btif_max_av_clients;
-    BTIF_TRACE_EVENT("Got some valid Playing device; %d", i);
-    btif_av_cb[i].current_playing = true;
-    // Clear the Current playing device
-    for (j = 0; j < btif_max_av_clients; j++) {
-      if (j != i)
-        btif_av_cb[j].current_playing = false;
-    }
-    // Clear the Play command in RC
-    btif_rc_clear_playing_state(false);
-    return i;
-  }
-
+  int i;
   // No playing device, get the latest
   for (i = 0; i < btif_max_av_clients; i++)
     if (btif_av_cb[i].current_playing)
@@ -2933,7 +2844,12 @@ static bt_status_t init_src(
   else {
     if (a2dp_multicast_state && !bt_split_a2dp_enabled)
       is_multicast_supported = true;
-    btif_max_av_clients = max_a2dp_connections;
+    if (max_a2dp_connections > 1)
+      btif_max_av_clients = 2;
+    else
+      btif_max_av_clients = max_a2dp_connections;
+    BTIF_TRACE_EVENT("%s() with max conn changed to = %d", __func__, btif_max_av_clients);
+
     for (int i = 0; i < btif_max_av_clients; i++)
       btif_av_cb[i].codec_priorities = codec_priorities;
     if (codec_config_update_enabled != false) {
@@ -3099,10 +3015,12 @@ void btif_av_trigger_dual_handoff(bool handoff, RawAddress address) {
     Array 'btif_av_cb' of size 2 may use index value(s) -1 */
     if (next_idx != INVALID_INDEX && next_idx != btif_max_av_clients) {
       reconfig_a2dp = true;
-#ifdef BT_AV_SHO_FEATURE
-      HAL_CBACK(bt_av_src_callbacks, reconfig_a2dp_trigger_cb, 1,
-                              &(btif_av_cb[next_idx].peer_bda));
-#endif
+      btav_a2dp_codec_config_t codec_config;
+      std::vector<btav_a2dp_codec_config_t> codecs_local_capabilities;
+      std::vector<btav_a2dp_codec_config_t> codecs_selectable_capabilities;
+      codec_config.codec_type = BTAV_A2DP_CODEC_INDEX_SOURCE_MAX;
+      HAL_CBACK(bt_av_src_callbacks, audio_config_cb, (btif_av_cb[index].peer_bda),
+              codec_config, codecs_local_capabilities, codecs_selectable_capabilities);
     }
   }
 }
@@ -3697,7 +3615,6 @@ bt_status_t btif_av_execute_service(bool b_enable) {
   bool delay_report_enabled = false;
   char value[PROPERTY_VALUE_MAX] = {'\0'};
   tBTA_AV_FEAT feat_delay_rpt = 0;
-
   BTIF_TRACE_DEBUG("%s(): enable: %d", __func__, b_enable);
   if (b_enable) {
     osi_property_get("persist.bt.a2dp.delay_report", value, "false");

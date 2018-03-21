@@ -93,7 +93,7 @@
 #define MAX_LABEL 16
 #define MAX_TRANSACTIONS_PER_SESSION 16
 #define PLAY_STATUS_PLAYING 1
-#define BTIF_RC_NUM_CONN BT_RC_NUM_APP
+#define BTIF_RC_NUM_CONN 1
 #define ERR_PLAYER_NOT_ADDRESED 0x13
 #define BTIF_RC_HANDLE_NONE 0xFF
 
@@ -950,7 +950,6 @@ void handle_rc_passthrough_cmd(tBTA_AV_REMOTE_CMD* p_remote_cmd) {
     return;
   }
 
-  bool ignore_play_processed = false;
   /* Trigger DUAL Handoff when support single streaming */
   if (btif_av_is_playing() &&
       (btif_av_get_multicast_state() == false)) {
@@ -959,33 +958,18 @@ void handle_rc_passthrough_cmd(tBTA_AV_REMOTE_CMD* p_remote_cmd) {
     btif_get_latest_playing_device(&address);
     if (p_dev->rc_addr == address) {
       APPL_TRACE_WARNING("Passthrough on the playing device");
-      if ((p_remote_cmd->rc_id == BTA_AV_RC_PLAY) &&
-          (p_remote_cmd->key_state == AVRC_STATE_PRESS)) {
-        APPL_TRACE_WARNING("Play again");
-        ignore_play_processed = true;
-      }
     } else {
       BTIF_TRACE_DEBUG("Passthrough command on other device");
-      if (p_remote_cmd->rc_id == BTA_AV_RC_PLAY) {
         if (btif_av_is_device_connected(p_dev->rc_addr)) {
           /* Trigger suspend on currently playing device
            * Allow the Play to be sent to Music player to
            * address Play during Pause(Local/DUT initiated)
            * but SUSPEND not triggered by Audio module.
            */
-          if (p_remote_cmd->key_state == AVRC_STATE_PRESS) {
-            BTIF_TRACE_DEBUG("Trigger dual handoff for this play command");
-            p_dev->rc_play_processed = true;
-            btif_av_trigger_dual_handoff(true, p_dev->rc_addr);
-          }
         } else {
           APPL_TRACE_WARNING("%s(): Command Invalid on", __func__);
           return;
         }
-      } else {
-        APPL_TRACE_WARNING("%s():Ignore all Passthrough on", __func__);
-        return;
-      }
     }
   }
 
@@ -1024,11 +1008,6 @@ void handle_rc_passthrough_cmd(tBTA_AV_REMOTE_CMD* p_remote_cmd) {
   }
 
   /* Update the device on which PLAY is issued */
-  if (p_remote_cmd->rc_id == BTA_AV_RC_PLAY) {
-    BTIF_TRACE_DEBUG("PLAY command on RC handle: = %d", p_dev->rc_handle);
-    if (p_remote_cmd->key_state == AVRC_STATE_PRESS && !ignore_play_processed)
-      p_dev->rc_play_processed = TRUE;
-  }
   int pressed = (p_remote_cmd->key_state == AVRC_STATE_PRESS) ? 1 : 0;
 
   /* pass all commands up */
@@ -1395,7 +1374,7 @@ bool btif_rc_get_connected_peer(RawAddress* peer_addr) {
   rc_addr = peer_addr;
   btif_rc_device_cb_t* p_dev = NULL;
 
-  for (int idx = 0; idx < BTIF_RC_NUM_CONN; idx++) {
+  for (int idx = 0; idx < btif_max_rc_clients; idx++) {
     p_dev = get_connected_device(idx);
     if (p_dev != NULL && (p_dev->rc_connected == TRUE)) {
       *peer_addr = p_dev->rc_addr;
@@ -2092,26 +2071,6 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
         /* This command will trigger playback or
          * dual a2dp handoff.. Let it play on this device.
          */
-        p_dev->rc_play_processed = TRUE;
-        /* Trigger DUAL Handoff when support single streaming */
-        if (btif_av_is_playing() &&
-            (btif_av_get_multicast_state() == false)) {
-          /* compare the bd addr of current playing dev and this dev */
-          RawAddress address;
-          btif_get_latest_playing_device(&address);
-          if (p_dev->rc_addr == address) {
-            APPL_TRACE_WARNING("Play item on the playing device");
-          } else {
-            BTIF_TRACE_DEBUG("Play item on other device");
-            if (btif_av_is_device_connected(p_dev->rc_addr)) {
-              /* Trigger suspend on currently playing device */
-              BTIF_TRACE_DEBUG("Trigger dual handoff for this play Item command");
-              p_dev->rc_play_processed = true;
-              btif_av_trigger_dual_handoff(true, p_dev->rc_addr);
-            } else
-              APPL_TRACE_WARNING("%s:Play item Invalid", __func__);
-          }
-        }
       }
     } break;
 
@@ -2209,7 +2168,7 @@ static void btif_rc_upstreams_rsp_evt(uint16_t event,
  *
  ******************************************************************************/
 static bt_status_t init(btrc_callbacks_t* callbacks, int max_connections) {
-  BTIF_TRACE_EVENT("%s:  max_connections = %d", __func__, max_connections);
+  BTIF_TRACE_EVENT("%s:  max_connections = %d BTIF_RC_NUM_CONN = %d", __func__, max_connections, BTIF_RC_NUM_CONN);
 
   bt_status_t result = BT_STATUS_SUCCESS;
 
@@ -2222,7 +2181,7 @@ static bt_status_t init(btrc_callbacks_t* callbacks, int max_connections) {
      btif_max_rc_clients = max_connections;
   } else {
      BTIF_TRACE_DEBUG("%s: SHO and/or Multicast dis-abled", __func__);
-     btif_max_rc_clients = BTIF_RC_NUM_CONN;
+     btif_max_rc_clients = 1;
   }
 
   if (btif_rc_cb.rc_multi_cb != NULL) {
@@ -2247,6 +2206,14 @@ static bt_status_t init(btrc_callbacks_t* callbacks, int max_connections) {
 
 static bt_status_t init(btrc_callbacks_t* callbacks) { // gghai
   int max_connections = 1;
+  char prop_connected_devices[PROPERTY_VALUE_MAX];
+  property_get("persist.bluetooth.maxconnectedaudiodevices", prop_connected_devices, "1");
+  BTIF_TRACE_DEBUG("%s: max_connections from apps = %d", __func__, atoi(prop_connected_devices));
+  if (atoi(prop_connected_devices) > 1)
+    max_connections = 2;
+  else
+    max_connections = atoi(prop_connected_devices);
+  BTIF_TRACE_DEBUG("%s: max_connections changed to = %d", __func__, max_connections);
   bt_status_t ret = init(callbacks, max_connections);
   return ret;
 }
@@ -2649,127 +2616,6 @@ static bt_status_t get_element_attr_rsp(RawAddress* bd_addr, uint8_t num_attr,
   return BT_STATUS_SUCCESS;
 }
 
-/***************************************************************************
- *
- * Function         register_notification_rsp_sho_mcast
- *
- * Description      Response to the register notification request if
- *                  soft handoff and/or multicast is enabled. In this case,
- *                  only specific AVRCP device must be sent the
- *                  notification. This is different from the dual RC
- *                  support in stock OS, where all connected AVRCP devices
- *                  receive the notification from the TG.
- *
- * Returns          bt_status_t
- *
- **************************************************************************/
-static bt_status_t register_notification_rsp_sho_mcast(
-    btrc_event_id_t event_id, btrc_notification_type_t type,
-    btrc_register_notification_t* p_param,
-    RawAddress *bd_addr) {
-  tAVRC_RESPONSE avrc_rsp;
-  BTIF_TRACE_EVENT("%s: event_id: %s", __func__,
-                   dump_rc_notification_event_id(event_id));
-  std::unique_lock<std::mutex> lock(btif_rc_cb.lock);
-
-  btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
-  if (p_dev == NULL) {
-    BTIF_TRACE_ERROR("%s: p_dev is NULL", __func__);
-    return BT_STATUS_FAIL;
-  }
-
-  int idx = btif_rc_get_idx_by_bda(bd_addr);
-  if (idx == -1) {
-    BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
-    return BT_STATUS_FAIL;
-  }
-  int av_index = btif_av_idx_by_bdaddr(bd_addr);
-
-  memset(&(avrc_rsp.reg_notif), 0, sizeof(tAVRC_REG_NOTIF_RSP));
-
-  avrc_rsp.reg_notif.event_id = event_id;
-  avrc_rsp.reg_notif.pdu = AVRC_PDU_REGISTER_NOTIFICATION;
-  avrc_rsp.reg_notif.opcode = opcode_from_pdu(AVRC_PDU_REGISTER_NOTIFICATION);
-  avrc_rsp.get_play_status.status = AVRC_STS_NO_ERROR;
-
-  memset(&(avrc_rsp.reg_notif.param), 0, sizeof(tAVRC_NOTIF_RSP_PARAM));
-
-  if (!(p_dev->rc_connected)) {
-    BTIF_TRACE_ERROR("%s: Avrcp device is not connected, handle: 0x%x",
-                     __func__, p_dev->rc_handle);
-    return BT_STATUS_NOT_READY;
-  }
-
-  if (p_dev->rc_notif[event_id - 1].bNotify == false) {
-    BTIF_TRACE_WARNING(
-        "%s: Avrcp Event id is not registered: event_id: %x, handle: 0x%x",
-        __func__, event_id, p_dev->rc_handle);
-    return BT_STATUS_NOT_READY;
-  }
-
-  BTIF_TRACE_DEBUG(
-      "%s: Avrcp Event id is registered: event_id: %x handle: 0x%x", __func__,
-      event_id, p_dev->rc_handle);
-
-  switch (event_id) {
-    case BTRC_EVT_PLAY_STATUS_CHANGED:
-      avrc_rsp.reg_notif.param.play_status = p_param->play_status;
-      /* Clear remote suspend flag, as remote device issues
-       * suspend within 3s after pause, and DUT within 3s
-       * initiates Play
-      */
-      BTIF_TRACE_DEBUG("%s: play_status: %d",__FUNCTION__,
-                            avrc_rsp.reg_notif.param.play_status);
-      if ((avrc_rsp.reg_notif.param.play_status == PLAY_STATUS_PLAYING) &&
-          (btif_av_check_flag_remote_suspend(av_index))) {
-          BTIF_TRACE_ERROR("%s: clear remote suspend flag: %d",__FUNCTION__,av_index );
-          btif_av_clear_remote_suspend_flag();
-          btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-      }
-      break;
-    case BTRC_EVT_TRACK_CHANGE:
-      memcpy(&(avrc_rsp.reg_notif.param.track), &(p_param->track),
-             sizeof(btrc_uid_t));
-      break;
-    case BTRC_EVT_PLAY_POS_CHANGED:
-      avrc_rsp.reg_notif.param.play_pos = p_param->song_pos;
-      break;
-    case BTRC_EVT_AVAL_PLAYER_CHANGE:
-      break;
-    case BTRC_EVT_ADDR_PLAYER_CHANGE:
-      avrc_rsp.reg_notif.param.addr_player.player_id =
-          p_param->addr_player_changed.player_id;
-      avrc_rsp.reg_notif.param.addr_player.uid_counter =
-          p_param->addr_player_changed.uid_counter;
-      break;
-    case BTRC_EVT_UIDS_CHANGED:
-      avrc_rsp.reg_notif.param.uid_counter =
-          p_param->uids_changed.uid_counter;
-      break;
-    case BTRC_EVT_NOW_PLAYING_CONTENT_CHANGED:
-      break;
-    case BTRC_EVT_APP_SETTINGS_CHANGED:
-      avrc_rsp.reg_notif.param.player_setting.num_attr = p_param->player_setting.num_attr;
-      memcpy(&avrc_rsp.reg_notif.param.player_setting.attr_id,
-                                 p_param->player_setting.attr_ids, 2);
-      memcpy(&avrc_rsp.reg_notif.param.player_setting.attr_value,
-                                 p_param->player_setting.attr_values, 2);
-      break;
-
-    default:
-      BTIF_TRACE_WARNING("%s: Unhandled event ID: 0x%x", __func__, event_id);
-      return BT_STATUS_UNHANDLED;
-  }
-
-  /* Send the response. */
-  send_metamsg_rsp(
-    p_dev, -1, p_dev->rc_notif[event_id - 1].label,
-    ((type == BTRC_NOTIFICATION_TYPE_INTERIM) ? AVRC_CMD_NOTIF
-                                              : AVRC_RSP_CHANGED),
-    &avrc_rsp);
-
-  return BT_STATUS_SUCCESS;
-}
 
 /***************************************************************************
  *
@@ -2785,11 +2631,11 @@ static bt_status_t register_notification_rsp(
     btrc_register_notification_t* p_param,
     RawAddress *bd_addr) {
   tAVRC_RESPONSE avrc_rsp;
+
+  BTIF_TRACE_IMP("%s: isShoMcastEnabled: %d", __func__, isShoMcastEnabled);
+
   if (isShoMcastEnabled == true) {
-    return(register_notification_rsp_sho_mcast(event_id,
-                                               type,
-                                               p_param,
-                                               bd_addr));
+    BTIF_TRACE_DEBUG("%s: SHO is enabled, lets take aosp path and update both devices", __func__);
   }
   BTIF_TRACE_IMP("%s: event_id: %s", __func__,
                    dump_rc_notification_event_id(event_id));
@@ -3473,87 +3319,6 @@ static bt_status_t get_total_num_of_items_rsp(RawAddress* bd_addr,
   return BT_STATUS_SUCCESS;
 }
 
-/***************************************************************************
- *
- * Function         set_volume_sho_mcast
- *
- * Description      Send current volume setting to remote side.
- *                  Support limited to SetAbsoluteVolume
- *                  This can be enhanced to support Relative Volume (AVRCP 1.0).
- *                  With RelateVolume, we will send VOLUME_UP/VOLUME_DOWN
- *                  as opposed to absolute volume level
- * volume: Should be in the range 0-127. bit7 is reseved and cannot be set
- *
- * Returns          bt_status_t
- *
- **************************************************************************/
-static bt_status_t set_volume_sho_mcast(uint8_t volume, RawAddress* bd_addr) {
-  BTIF_TRACE_DEBUG("%s: volume: %d", __func__, volume);
-  tAVRC_STS status = BT_STATUS_UNSUPPORTED;
-  rc_transaction_t* p_transaction = NULL;
-
-  int idx = btif_rc_get_idx_by_bda(bd_addr);
-  if (idx == -1) {
-    BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
-    return (bt_status_t)BT_STATUS_FAIL;
-  }
-
-  if (btif_rc_cb.rc_multi_cb[idx].rc_volume == volume) {
-    status = BT_STATUS_DONE;
-    BTIF_TRACE_ERROR("%s: volume value already set earlier: 0x%02x", __func__,
-                     volume);
-    return (bt_status_t)status;
-  }
-
-  if (btif_rc_cb.rc_multi_cb[idx].rc_state != BTRC_CONNECTION_STATE_CONNECTED) {
-    status = BT_STATUS_NOT_READY;
-    BTIF_TRACE_ERROR("%s: RC not connected: 0x%02x", __func__, volume);
-    return (bt_status_t)status;
-  }
-
-  if (((btif_rc_cb.rc_multi_cb[idx].rc_features & BTA_AV_FEAT_RCTG) == 0) ||
-      ((btif_rc_cb.rc_multi_cb[idx].rc_features & BTA_AV_FEAT_ADV_CTRL) == 0)) {
-    status = BT_STATUS_UNSUPPORTED;
-    BTIF_TRACE_ERROR("%s: Abs Vol not supported: 0x%02x", __func__, volume);
-    return (bt_status_t)status;
-  }
-
-  BTIF_TRACE_DEBUG("%s: Peer supports absolute volume. newVolume: %d",
-          __func__, volume);
-
-  status = BT_STATUS_FAIL;
-  tAVRC_COMMAND avrc_cmd = {0};
-  BT_HDR* p_msg = NULL;
-  avrc_cmd.volume.opcode = AVRC_OP_VENDOR;
-  avrc_cmd.volume.pdu = AVRC_PDU_SET_ABSOLUTE_VOLUME;
-  avrc_cmd.volume.status = AVRC_STS_NO_ERROR;
-  avrc_cmd.volume.volume = volume;
-
-  if (AVRC_BldCommand(&avrc_cmd, &p_msg) == AVRC_STS_NO_ERROR) {
-    bt_status_t tran_status = get_transaction(&p_transaction);
-
-    if (BT_STATUS_SUCCESS == tran_status && NULL != p_transaction) {
-      BTIF_TRACE_DEBUG("%s: msgreq being sent out with label: %d",
-                       __func__, p_transaction->lbl);
-      BTA_AvMetaCmd(btif_rc_cb.rc_multi_cb[idx].rc_handle,
-                    p_transaction->lbl, AVRC_CMD_CTRL, p_msg);
-      status = BT_STATUS_SUCCESS;
-    } else {
-      osi_free_and_reset((void**)&p_msg);
-      BTIF_TRACE_ERROR(
-          "%s: failed to obtain transaction details. status: 0x%02x",
-          __func__, tran_status);
-      status = BT_STATUS_FAIL;
-    }
-  } else {
-    BTIF_TRACE_ERROR(
-        "%s: failed to build absolute volume command. status: 0x%02x",
-        __func__, status);
-    status = BT_STATUS_FAIL;
-  }
-
-  return (bt_status_t)status;
-}
 
 /***************************************************************************
  *
@@ -3570,10 +3335,10 @@ static bt_status_t set_volume_sho_mcast(uint8_t volume, RawAddress* bd_addr) {
  *
  **************************************************************************/
 static bt_status_t set_volume(uint8_t volume, RawAddress*bd_addr) {
-  BTIF_TRACE_DEBUG("%s: volume is: %d", __func__, volume);
+  BTIF_TRACE_DEBUG("%s: volume is: %d isShoMcastEnabled : %d", __func__, volume, isShoMcastEnabled);
 
   if (isShoMcastEnabled == true) {
-    return(set_volume_sho_mcast(volume, bd_addr));
+    BTIF_TRACE_DEBUG("%s: SHO is enabled, lets take aosp path and update both devices", __func__);
   }
 
   tAVRC_STS status = BT_STATUS_UNSUPPORTED;
@@ -6341,18 +6106,10 @@ static bt_status_t is_device_active_in_handoff(RawAddress *bd_addr) {
     /* No Playing device, find the next playing device
      * Play initiated from remote
      */
-    if (p_dev->rc_play_processed == TRUE)
-      return BT_STATUS_SUCCESS;
-    else if (btif_av_is_current_device(*bd_addr) == TRUE) {
+    if (btif_av_is_current_device(*bd_addr) == TRUE) {
       /* Play initiated locally. check the current device and
        * make sure play is not initiated from other remote
        */
-      RawAddress dummy_address = RawAddress::kEmpty;
-      btif_rc_get_playing_device(&dummy_address);
-      if (!(bd_addr->IsEmpty())) {
-        /* some other playing device */
-        return BT_STATUS_FAIL;
-      }
       return BT_STATUS_SUCCESS;
     } else {
       BTIF_TRACE_ERROR("%s no playing or current device ", __func__);
