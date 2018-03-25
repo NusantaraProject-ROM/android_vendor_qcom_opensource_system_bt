@@ -971,11 +971,6 @@ class BleAdvertisingManagerImpl
     for (AdvertisingInstance& inst : adv_inst) {
       if (!inst.in_use || !inst.enable_status) continue;
 
-#ifdef WIPOWER_SUPPORTED
-      if (is_wipower_adv && (inst.inst_id == wipower_inst_id))
-        return;
-#endif
-
       if (inst.duration || inst.maxExtAdvEvents)
         RecomputeTimeout(&inst, TimeTicks::Now());
 
@@ -989,10 +984,6 @@ class BleAdvertisingManagerImpl
     std::vector<SetEnableData> sets;
 
     for (const AdvertisingInstance& inst : adv_inst) {
-#ifdef WIPOWER_SUPPORTED
-      if (is_wipower_adv && (inst.inst_id == wipower_inst_id))
-        return;
-#endif
       if (inst.in_use && inst.enable_status) {
         sets.emplace_back(SetEnableData{
             .handle = inst.inst_id,
