@@ -79,7 +79,6 @@ static char a2dp_hal_imp[PROPERTY_VALUE_MAX] = "false";
  *****************************************************************************/
 
 #define CTRL_CHAN_RETRY_COUNT 3
-#define CTRL_CHAN_RETRY_COUNT_2 1
 #define USEC_PER_SEC 1000000L
 #define SOCK_SEND_TIMEOUT_MS 2000 /* Timeout for sending */
 #define SOCK_RECV_TIMEOUT_MS 5000 /* Timeout for receiving */
@@ -420,35 +419,35 @@ static int a2dp_ctrl_receive(struct a2dp_stream_common* common, void* buffer,
                              size_t length) {
   ssize_t ret;
   int i;
-  int ctrl_chan_retry_count = CTRL_CHAN_RETRY_COUNT;
 
   if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
           !strcmp(a2dp_hal_imp, "true")) {
-    ctrl_chan_retry_count = CTRL_CHAN_RETRY_COUNT_2;
-  }
-
-  for (i = 0;; i++) {
     OSI_NO_INTR(ret = recv(common->ctrl_fd, buffer, length, MSG_NOSIGNAL));
-    ERROR("a2dp_ctrl_receive: ret=%d, error(%s)", (int)ret, strerror(errno));
-    if (ret > 0) {
-      break;
+    ERROR("a2dp_ctrl_receive: ret=%d", (int)ret);
+  } else {
+    for (i = 0;; i++) {
+      OSI_NO_INTR(ret = recv(common->ctrl_fd, buffer, length, MSG_NOSIGNAL));
+      ERROR("a2dp_ctrl_receive: ret=%d, error(%s)", (int)ret, strerror(errno));
+      if (ret > 0) {
+        break;
+      }
+      if (ret == 0) {
+        ERROR("a2dp_ctrl_receive: receive control data failed: peer closed");
+        break;
+      }
+      if (errno != EWOULDBLOCK && errno != EAGAIN) {
+        ERROR("a2dp_ctrl_receive: receive control data failed: error(%s)", strerror(errno));
+        break;
+      }
+      if (i == (CTRL_CHAN_RETRY_COUNT - 1)) {
+        ERROR("a2dp_ctrl_receive: receive control data failed: max retry count");
+        break;
+      }
+      INFO("a2dp_ctrl_receive: receive control data failed (%s), retrying", strerror(errno));
     }
-    if (ret == 0) {
-      ERROR("a2dp_ctrl_receive: receive control data failed: peer closed");
-      break;
-    }
-    if (errno != EWOULDBLOCK && errno != EAGAIN) {
-      ERROR("a2dp_ctrl_receive: receive control data failed: error(%s)", strerror(errno));
-      break;
-    }
-    if (i == (ctrl_chan_retry_count - 1)) {
-      ERROR("a2dp_ctrl_receive: receive control data failed: max retry count");
-      break;
-    }
-    INFO("a2dp_ctrl_receive: receive control data failed (%s), retrying", strerror(errno));
   }
   if (ret <= 0) {
-    ERROR("a2dp_ctrl_receive: disconnect control socket");
+    ERROR("a2dp_ctrl_receive: ret=%d, error(%s)", (int)ret, strerror(errno));
     skt_disconnect(common->ctrl_fd);
     common->ctrl_fd = AUDIO_SKT_DISCONNECTED;
   }
@@ -463,12 +462,6 @@ static int a2dp_ctrl_send(struct a2dp_stream_common* common, const void* buffer,
   ssize_t sent;
   size_t remaining = length;
   int i;
-  int ctrl_chan_retry_count = CTRL_CHAN_RETRY_COUNT;
-
-  if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
-          !strcmp(a2dp_hal_imp, "true")) {
-    ctrl_chan_retry_count = CTRL_CHAN_RETRY_COUNT_2;
-  }
 
   if (length == 0) return 0;  // Nothing to do
 
@@ -490,7 +483,7 @@ static int a2dp_ctrl_send(struct a2dp_stream_common* common, const void* buffer,
       }
       INFO("send control data failed (%s), retrying", strerror(errno));
     }
-    if (i >= (ctrl_chan_retry_count - 1)) {
+    if (i >= (CTRL_CHAN_RETRY_COUNT - 1)) {
       ERROR("send control data failed: max retry count");
       break;
     }
@@ -876,17 +869,11 @@ static void a2dp_open_ctrl_path(struct a2dp_stream_common* common) {
   int i;
   ssize_t ret;
   char ack;
-  int ctrl_chan_retry_count = CTRL_CHAN_RETRY_COUNT;
-
-  if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
-          !strcmp(a2dp_hal_imp, "true")) {
-    ctrl_chan_retry_count = CTRL_CHAN_RETRY_COUNT_2;
-  }
 
   if (common->ctrl_fd != AUDIO_SKT_DISCONNECTED) return;  // already connected
 
   /* retry logic to catch any timing variations on control channel */
-  for (i = 0; i < ctrl_chan_retry_count; i++) {
+  for (i = 0; i < CTRL_CHAN_RETRY_COUNT; i++) {
     /* connect control channel if not already connected */
     if ((common->ctrl_fd = skt_connect(
              A2DP_CTRL_PATH, AUDIO_STREAM_CONTROL_OUTPUT_BUFFER_SZ)) >= 0) {
@@ -896,10 +883,6 @@ static void a2dp_open_ctrl_path(struct a2dp_stream_common* common) {
         if (ret > 0)
         {
           ERROR("a2dp_open_ctrl_path: flush stale ACK byte");
-        }
-        else
-        {
-          ERROR("a2dp_open_ctrl_path: No stale ACK byte");
         }
       }
 
@@ -995,8 +978,9 @@ static int start_audio_datapath(struct a2dp_stream_common* common) {
                 || (a2dp_status < 0))
           goto error;
         else
-          ERROR("Ignore Audiopath start failure");
+          INFO("Ignore Audiopath start failure");
       } else {
+        ERROR("Audiopath start failed - error opening data socket");
         goto error;
       }
     }
@@ -1026,26 +1010,15 @@ static int stop_audio_datapath(struct a2dp_stream_common* common) {
     ERROR("audiopath stop failed");
     common->state = (a2dp_state_t)oldstate;
     return -1;
-  } else if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
-          !strcmp(a2dp_hal_imp, "true") &&
-          (ret > 0)) {
+  } else if (ret > 0) {
     ERROR("audiopath stop completed with non zero error code");
   }
 
   common->state = (a2dp_state_t)AUDIO_A2DP_STATE_STOPPED;
 
-  if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
-            !strcmp(a2dp_hal_imp, "true")) {
-    if (ret == 0) {
-      /* disconnect audio path */
-      skt_disconnect(common->audio_fd);
-      common->audio_fd = AUDIO_SKT_DISCONNECTED;
-    }
-  } else {
-    /* disconnect audio path */
-    skt_disconnect(common->audio_fd);
-    common->audio_fd = AUDIO_SKT_DISCONNECTED;
-  }
+  /* disconnect audio path */
+  skt_disconnect(common->audio_fd);
+  common->audio_fd = AUDIO_SKT_DISCONNECTED;
 
   return 0;
 }
@@ -1061,9 +1034,7 @@ static int suspend_audio_datapath(struct a2dp_stream_common* common,
   if (ret < 0) {
     ERROR("audiopath suspend failed");
     return -1;
-  } else if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
-          !strcmp(a2dp_hal_imp, "true") &&
-          (ret > 0)) {
+  } else if (ret > 0) {
     ERROR("audio path suspend completed with non zero error code");
   }
 
@@ -1072,20 +1043,10 @@ static int suspend_audio_datapath(struct a2dp_stream_common* common,
   else
     common->state = AUDIO_A2DP_STATE_SUSPENDED;
 
-  if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
-          !strcmp(a2dp_hal_imp, "true")) {
-    if (ret == 0) {
-      /* disconnect audio path */
-      skt_disconnect(common->audio_fd);
+  /* disconnect audio path */
+  skt_disconnect(common->audio_fd);
 
-      common->audio_fd = AUDIO_SKT_DISCONNECTED;
-    }
-  } else {
-    /* disconnect audio path */
-    skt_disconnect(common->audio_fd);
-
-    common->audio_fd = AUDIO_SKT_DISCONNECTED;
-  }
+  common->audio_fd = AUDIO_SKT_DISCONNECTED;
   return 0;
 }
 
