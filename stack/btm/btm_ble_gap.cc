@@ -41,6 +41,7 @@
 #include "device/include/controller.h"
 #include "gap_api.h"
 #include "hcimsgs.h"
+#include "stack_config.h"
 #include "osi/include/osi.h"
 #include "osi/include/time.h"
 
@@ -802,6 +803,7 @@ static uint8_t btm_set_conn_mode_adv_init_addr(
   tBTM_SEC_DEV_REC* p_dev_rec;
 #endif
 
+  BTM_TRACE_EVENT ("%s connectable mode=0x%0x scan_rsp=0x%x", __FUNCTION__, p_cb->connectable_mode, p_cb->scan_rsp);
   evt_type =
       (p_cb->connectable_mode == BTM_BLE_NON_CONNECTABLE)
           ? ((p_cb->scan_rsp) ? BTM_BLE_DISCOVER_EVT : BTM_BLE_NON_CONNECT_EVT)
@@ -1277,8 +1279,11 @@ tBTM_STATUS btm_ble_set_connectability(uint16_t combined_mode) {
   evt_type = btm_set_conn_mode_adv_init_addr(p_cb, address, &peer_addr_type,
                                              &own_addr_type);
 
-  if (mode == BTM_BLE_NON_CONNECTABLE &&
-      p_cb->discoverable_mode == BTM_BLE_NON_DISCOVERABLE)
+  if (stack_config_get_interface()->get_pts_le_nonconn_adv_enabled()) {
+    if (combined_mode == BTM_BLE_ADV_STOP && p_cb->discoverable_mode == BTM_BLE_NON_DISCOVERABLE)
+        new_mode = BTM_BLE_ADV_DISABLE;
+  }
+  else if (mode == BTM_BLE_NON_CONNECTABLE && p_cb->discoverable_mode == BTM_BLE_NON_DISCOVERABLE)
     new_mode = BTM_BLE_ADV_DISABLE;
 
   btm_ble_select_adv_interval(p_cb, evt_type, &adv_int_min, &adv_int_max);
