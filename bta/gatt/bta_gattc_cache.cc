@@ -587,7 +587,7 @@ static void bta_gattc_char_dscpt_disc_cmpl(uint16_t conn_id,
                                            tBTA_GATTC_SERV* p_srvc_cb) {
   tBTA_GATTC_ATTR_REC* p_rec = NULL;
 
-  if (--p_srvc_cb->total_char > 0) {
+  if((p_srvc_cb->total_char != 0) && (-- p_srvc_cb->total_char > 0)) {
     p_rec = p_srvc_cb->p_srvc_list + (++p_srvc_cb->cur_char_idx);
     /* add the next characteristic into cache */
     bta_gattc_add_char_to_cache(p_srvc_cb, p_rec->char_decl_handle,
