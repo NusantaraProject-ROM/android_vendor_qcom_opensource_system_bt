@@ -491,6 +491,8 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       break;
 
     case BTA_AG_OPEN_EVT:
+      BTIF_TRACE_DEBUG("%s:p_data->open.status:%d,btif_hf_cb[idx].state:%d,btif_max_hf_clients:%d",
+                         __func__, p_data->open.status, btif_hf_cb[idx].state, btif_max_hf_clients);
       if (p_data->open.status == BTA_AG_SUCCESS) {
         btif_hf_cb[idx].connected_bda = p_data->open.bd_addr;
         btif_hf_cb[idx].state = BTHF_CONNECTION_STATE_CONNECTED;
@@ -522,6 +524,7 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       }
       if (ignore_rfc_fail != true)
       {
+        VLOG(1) << __func__ << "btif_hf_cb[idx].connected_bda:" << btif_hf_cb[idx].connected_bda;
         HAL_HF_CBACK(bt_hf_callbacks, ConnectionStateCallback, btif_hf_cb[idx].state,
               &btif_hf_cb[idx].connected_bda);
       }

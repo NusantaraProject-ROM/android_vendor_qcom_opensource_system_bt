@@ -84,6 +84,7 @@ static void bta_ag_cback_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data,
   open.hdr.app_id = p_scb->app_id;
   open.status = status;
   open.service_id = bta_ag_svc_id[p_scb->conn_service];
+  VLOG(1) << __func__ << "p_scb addr:" << p_scb->peer_addr;
   if (p_data) {
     /* if p_data is provided then we need to pick the bd address from the open
      * api structure */
@@ -91,7 +92,7 @@ static void bta_ag_cback_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data,
   } else {
     open.bd_addr = p_scb->peer_addr;
   }
-
+    VLOG(1) << __func__ << "open.bd_addr:" << open.bd_addr;
   (*bta_ag_cb.p_cback)(BTA_AG_OPEN_EVT, (tBTA_AG*)&open);
 }
 
@@ -205,7 +206,6 @@ void bta_ag_start_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
              p_scb, p_scb->peer_addr.ToString().c_str());
         // send ourselves close event for clean up
         bta_ag_cback_open(p_scb, NULL, BTA_AG_FAIL_RFCOMM);
-        p_scb->peer_addr = RawAddress::kEmpty;
         return;
       }
     }
@@ -487,7 +487,9 @@ void bta_ag_rfc_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
   p_scb->cmee_enabled = false;
   p_scb->inband_enabled =
       ((p_scb->features & BTA_AG_FEAT_INBAND) == BTA_AG_FEAT_INBAND);
-
+  APPL_TRACE_DEBUG("%s: p_scb->inband_enabled: %d p_scb->conn_service: %d", __func__,
+                        p_scb->inband_enabled, p_scb->conn_service);
+  VLOG(1) << __func__ << " p_scb addr:" << p_scb->peer_addr;
   /* set up AT command interpreter */
   p_scb->at_cb.p_at_tbl = (tBTA_AG_AT_CMD*)bta_ag_at_tbl[p_scb->conn_service];
   p_scb->at_cb.p_cmd_cback =
@@ -552,6 +554,7 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
     if (ag_scb->in_use && alarm_is_scheduled(ag_scb->collision_timer)) {
       alarm_cancel(ag_scb->collision_timer);
 
+      VLOG(1) << __func__ << "ag_scb addr:" << ag_scb->peer_addr;
       if (dev_addr == ag_scb->peer_addr) {
         char value[PROPERTY_VALUE_MAX];
         /* Read the property if multi hf is enabled */
@@ -569,16 +572,16 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
           }
           // send ourselves close event for clean up
           bta_ag_cback_open(ag_scb, NULL, BTA_AG_FAIL_RFCOMM);
-          ag_scb->peer_addr = RawAddress::kEmpty;
         }
       } else {
         /* Resume outgoing connection. */
+        APPL_TRACE_DEBUG("%s: Resume Outgoing connection", __func__);
         other_scb = bta_ag_get_other_idle_scb(p_scb);
         if (other_scb) {
           other_scb->peer_addr = ag_scb->peer_addr;
           other_scb->open_services = ag_scb->open_services;
           other_scb->cli_sec_mask = ag_scb->cli_sec_mask;
-
+          APPL_TRACE_DEBUG("%s: Calling Ag resume open API", __func__);
           bta_ag_resume_open(other_scb);
         }
       }
@@ -588,6 +591,7 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
   }
 
   p_scb->peer_addr = dev_addr;
+  VLOG(1) << __func__ << " p_scb addr:" << p_scb->peer_addr;
 
   /* determine connected service from port handle */
   for (i = 0; i < BTA_AG_NUM_IDX; i++) {
