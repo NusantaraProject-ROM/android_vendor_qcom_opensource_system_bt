@@ -518,6 +518,7 @@ void rfc_port_sm_disc_wait_ua(tPORT* p_port, uint16_t event, void* p_data) {
     case RFC_EVENT_TIMEOUT:
       RFCOMM_TRACE_ERROR("%s, RFC_EVENT_TIMEOUT, index=%d", __func__,
                          p_port->inx);
+      p_port->rfc.p_mcb->is_disc_initiator = true;
       rfc_port_closed(p_port);
       return;
   }
