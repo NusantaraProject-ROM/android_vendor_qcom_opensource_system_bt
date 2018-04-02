@@ -1472,7 +1472,7 @@ bool bta_av_co_is_scrambling_enabled() {
   uint8_t no_of_freqs = 0;
   uint8_t *freqs = NULL;
   char value[PROPERTY_VALUE_MAX] = {'\0'};
-  osi_property_get("persist.vendor.bt.splita2dp.44_1_war", value, "false");
+  osi_property_get("persist.vendor.bt.splita2dp.44_1_war", value, "true");
 
   if(strcmp(value, "true")) {
     return false;

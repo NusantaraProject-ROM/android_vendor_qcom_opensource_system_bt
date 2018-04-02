@@ -3959,7 +3959,7 @@ bool btif_av_is_scrambling_enabled() {
   A2dpCodecs* a2dp_codecs = bta_av_get_a2dp_codecs();
   if (a2dp_codecs == nullptr) return false;
 
-  osi_property_get("persist.vendor.bt.splita2dp.44_1_war", value, "false");
+  osi_property_get("persist.vendor.bt.splita2dp.44_1_war", value, "true");
 
   if(strcmp(value, "true")) {
     BTIF_TRACE_WARNING(
