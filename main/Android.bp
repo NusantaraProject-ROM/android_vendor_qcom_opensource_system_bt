@@ -67,6 +67,7 @@ cc_library_shared {
         "libbtdevice_qti",
         "libbt-bta-ext",
         "libbtdevice_ext",
+        "libbt-stack_ext",
         "libbtif_qti",
         "libbtif_ext",
         "libbt-hci_qti",

@@ -144,7 +144,9 @@
 #define AVRC_CO_GOOGLE 0x00DAA119
 #define AVRC_CO_METADATA \
   0x00001958 /* Unique COMPANY ID for Metadata messages */
-
+//#ifdef TWS_ENABLED
+#define AVRC_CO_QTI 0x00025B
+//#endif
 /* State flag for Passthrough commands
 */
 #define AVRC_STATE_PRESS 0
@@ -222,7 +224,11 @@
 #define AVRC_PKT_CONTINUE 2
 #define AVRC_PKT_END 3
 #define AVRC_PKT_TYPE_MASK 3
-
+//#ifdef TWS_ENABLED
+#define AVRC_PDU_TWS_STATE 0x30
+#define AVRC_PDU_TWS_ROLE 0x31
+#define AVRC_PDU_TWS_REPLACE 0x32
+//#endif
 /* Define the PDUs carried in the vendor dependant data
 */
 #define AVRC_PDU_GET_CAPABILITIES 0x10

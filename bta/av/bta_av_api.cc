@@ -1,6 +1,35 @@
 /******************************************************************************
- * Copyright (C) 2017, The Linux Foundation. All rights reserved.
- * Not a Contribution.
+ *  Copyright (C) 2017, The Linux Foundation. All rights reserved.
+ *  Not a Contribution.
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted (subject to the limitations in the
+ *  disclaimer below) provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+    * Neither the name of The Linux Foundation nor the names of its
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+
+ *  NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ *  GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ *  HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ *  IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ *  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ *  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ *  GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ *  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ *  IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ *  OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
 /******************************************************************************
  *
@@ -316,6 +345,31 @@ void BTA_AvEnableMultiCast(bool state, tBTA_AV_HNDL handle)
   }
 }
 
+#if (TWS_ENABLED == TRUE)
+void BTA_AVSetEarbudRole(uint8_t role, tBTA_AV_HNDL handle)
+{
+  APPL_TRACE_DEBUG("%s",__func__);
+  tBTA_AV_TWS_SET_EARBUD_ROLE *p_buf;
+
+  if ((p_buf = (tBTA_AV_TWS_SET_EARBUD_ROLE *)osi_malloc(sizeof(tBTA_AV_TWS_SET_EARBUD_ROLE))) != NULL) {
+    p_buf->hdr.event = BTA_AV_SET_EARBUD_ROLE_EVT;
+    p_buf->hdr.layer_specific = handle;
+    p_buf->chn_mode = role;
+    bta_sys_sendmsg(p_buf);
+  }
+}
+void BTA_AvUpdateTWSDevice(bool state, tBTA_AV_HNDL handle)
+{
+  tBTA_AV_SET_TWS_DEVICE *p_buf;
+
+  if ((p_buf = (tBTA_AV_SET_TWS_DEVICE *)osi_malloc(sizeof(tBTA_AV_SET_TWS_DEVICE))) != NULL) {
+    p_buf->hdr.event = BTA_AV_SET_TWS_DEVICE_EVT;
+    p_buf->hdr.layer_specific = handle;
+    p_buf->is_tws_device = state;
+    bta_sys_sendmsg(p_buf);
+  }
+}
+#endif
 /*******************************************************************************
  *
  * Function         BTA_AvUpdateMaxAVClient

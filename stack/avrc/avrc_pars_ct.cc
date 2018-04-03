@@ -91,6 +91,10 @@ static tAVRC_STS avrc_pars_vendor_rsp(tAVRC_MSG_VENDOR* p_msg,
         p_result->reg_notif.status = p_msg->hdr.ctype;
         p_result->reg_notif.event_id = eventid;
         BE_STREAM_TO_UINT8(p_result->reg_notif.param.volume, p);
+      } else {
+        AVRC_TRACE_DEBUG("%s:unsupported eventid = %d",__func__, eventid);
+        status = AVRC_STS_BAD_CMD;
+        break;
       }
       AVRC_TRACE_DEBUG("%s PDU reg notif response:event %x, volume %x",
                        __func__, eventid, p_result->reg_notif.param.volume);

@@ -39,6 +39,7 @@ cc_library_static {
         "vendor/qcom/opensource/system/bt/bta/sys",
         "vendor/qcom/opensource/system/bt/utils/include",
         "vendor/qcom/opensource/bluetooth_ext/system_bt_ext",
+        "vendor/qcom/opensource/bluetooth_ext/system_bt_ext/stack/include",
         "vendor/qcom/opensource/bluetooth_ext/vhal/include",
         "vendor/qcom/opensource/bluetooth_ext/system_bt_ext/stack/btm",
     ],
@@ -199,6 +200,7 @@ cc_test {
     include_dirs: [
         "vendor/qcom/opensource/system/bt",
         "vendor/qcom/opensource/system/bt/internal_include",
+        "vendor/qcom/opensource/bluetooth_ext/vhal/include",
     ],
     srcs: ["test/stack_a2dp_test.cc"],
     shared_libs: [
@@ -207,6 +209,7 @@ cc_test {
     ],
     static_libs: [
         "libbt-stack_qti",
+        "libbt-stack_ext",
         "libbt-sbc-encoder",
         "libFraunhoferAAC",
         "libosi_qti",

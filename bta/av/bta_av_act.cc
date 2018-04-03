@@ -1,6 +1,35 @@
 /******************************************************************************
- * Copyright (C) 2017, The Linux Foundation. All rights reserved.
- * Not a Contribution.
+ *  Copyright (C) 2017, The Linux Foundation. All rights reserved.
+ *  Not a Contribution.
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted (subject to the limitations in the
+ *  disclaimer below) provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+    * Neither the name of The Linux Foundation nor the names of its
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+
+ *  NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ *  GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ *  HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ *  IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ *  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ *  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ *  GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ *  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ *  IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ *  OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
 /******************************************************************************
  *
@@ -401,7 +430,29 @@ uint8_t bta_av_rc_create(tBTA_AV_CB* p_cb, uint8_t role, uint8_t shdl,
 
   return rc_handle;
 }
+#if (TWS_ENABLED == TRUE)
+/*******************************************************************************
+ *
+ * Function         bta_av_valid_twsplus_command
+ *
+ * Description      Check if it is TWS Pluse command
+ *
+ * Returns          BTA_AV_RSP_ACCEPT or BTA_AV_RSP_NOT_IMPL.
+ *
+ *****************************************************************************/
+static tBTA_AV_CODE bta_av_is_twsplus_command(uint8_t *p_data) {
+ tBTA_AV_CODE ret = BTA_AV_RSP_NOT_IMPL;
+  uint8_t* p_ptr = p_data;
+  uint32_t u32;
 
+  BTA_AV_BE_STREAM_TO_CO_ID(u32, p_ptr);
+  if (u32 == AVRC_CO_QTI) {
+    APPL_TRACE_IMP("%s: TWS passthrough cmd",__func__);
+    ret = BTA_AV_RSP_ACCEPT;
+  }
+  return ret;
+}
+#endif
 /*******************************************************************************
  *
  * Function         bta_av_valid_group_navi_msg
@@ -957,8 +1008,17 @@ void bta_av_rc_msg(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
                        "false");
       if (p_data->rc_msg.msg.pass.op_id == AVRC_ID_VENDOR) {
         p_data->rc_msg.msg.hdr.ctype = BTA_AV_RSP_NOT_IMPL;
+#if (TWS_ENABLED == TRUE)
+        p_data->rc_msg.msg.hdr.ctype = bta_av_is_twsplus_command(
+                                        p_data->rc_msg.msg.pass.p_pass_data);
+#endif
 #if (AVRC_METADATA_INCLUDED == TRUE)
-        if (p_cb->features & BTA_AV_FEAT_METADATA)
+        if (p_cb->features & BTA_AV_FEAT_METADATA
+#if (TWS_ENABLED == TRUE)
+          &&
+          p_data->rc_msg.msg.hdr.ctype == BTA_AV_RSP_NOT_IMPL
+#endif
+          )
           p_data->rc_msg.msg.hdr.ctype = bta_av_group_navi_supported(
               p_data->rc_msg.msg.pass.pass_len,
               p_data->rc_msg.msg.pass.p_pass_data, is_inquiry);
@@ -1181,7 +1241,8 @@ void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started) {
   uint8_t* p_streams;
   bool no_streams = false;
   tBTA_AV_SCB* p_scbi;
-
+  char splitEnabled[PROPERTY_VALUE_MAX] = {0};
+  osi_property_get("persist.vendor.enable.splita2dp", splitEnabled, "true");
   started_msk = BTA_AV_HNDL_TO_MSK(p_scb->hdi);
   APPL_TRACE_DEBUG("bta_av_stream_chg started:%d started_msk:x%x chnl:x%x",
                    started, started_msk, p_scb->chnl);
@@ -1192,7 +1253,9 @@ void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started) {
 
   if (started) {
     /* Let L2CAP know this channel is processed with high priority */
-    L2CA_SetAclPriority(p_scb->peer_addr, L2CAP_PRIORITY_HIGH);
+    if (!strcmp(splitEnabled, "false")) {
+      L2CA_SetAclPriority(p_scb->peer_addr, L2CAP_PRIORITY_HIGH);
+    }
     (*p_streams) |= started_msk;
   } else {
     (*p_streams) &= ~started_msk;
@@ -1222,7 +1285,8 @@ void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started) {
                      bta_av_cb.video_streams);
     if (no_streams) {
       /* Let L2CAP know this channel is processed with low priority */
-      L2CA_SetAclPriority(p_scb->peer_addr, L2CAP_PRIORITY_NORMAL);
+      if (!strcmp(splitEnabled, "false"))
+        L2CA_SetAclPriority(p_scb->peer_addr, L2CAP_PRIORITY_NORMAL);
     }
   }
 }
