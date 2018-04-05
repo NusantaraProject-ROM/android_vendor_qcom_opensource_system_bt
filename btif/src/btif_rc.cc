@@ -2207,7 +2207,7 @@ static bt_status_t init(btrc_callbacks_t* callbacks, int max_connections) {
 static bt_status_t init(btrc_callbacks_t* callbacks) { // gghai
   int max_connections = 1;
   char prop_connected_devices[PROPERTY_VALUE_MAX];
-  property_get("persist.bluetooth.maxconnectedaudiodevices", prop_connected_devices, "1");
+  property_get("persist.bluetooth.maxconnectedaudiodevices", prop_connected_devices, "5");
   BTIF_TRACE_DEBUG("%s: max_connections from apps = %d", __func__, atoi(prop_connected_devices));
   if (atoi(prop_connected_devices) > 1)
     max_connections = 2;
