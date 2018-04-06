@@ -99,6 +99,8 @@ enum {
   BTA_DM_API_HCI_RAW_COMMAND_EVT,
   BTA_DM_API_SET_WIFI_STATE_EVT,
   BTA_DM_API_IOT_REPORT_EVT,
+  BTA_DM_API_BREDR_CLEANUP_EVT,
+  BTA_DM_API_BREDR_STARTUP_EVT,
   BTA_DM_MAX_EVT
 };
 
@@ -339,6 +341,19 @@ typedef struct
   BT_HDR hdr;
   bool status;
 } tBTA_DM_API_SET_WIFI_STATE;
+
+/* data type for BTA_DM_API_BREDR_CLEANUP_EVT */
+typedef struct
+{
+  BT_HDR hdr;
+} tBTA_DM_API_BREDR_CLEANUP;
+
+/* data type for BTA_DM_API_BREDR_STARTUP_EVT */
+typedef struct
+{
+  BT_HDR hdr;
+} tBTA_DM_API_BREDR_STARTUP;
+
 /* data type for BTA_DM_API_EXECUTE_CBACK_EVT */
 typedef struct {
   BT_HDR hdr;
@@ -544,6 +559,8 @@ typedef union {
   tBTA_DM_API_RAW_COMMAND btc_command;
   tBTA_DM_API_SET_WIFI_STATE wifi_state;
   tBTA_DM_VND_IOT_REPORT iot_info;
+  tBTA_DM_API_BREDR_CLEANUP  bredr_cleanup;
+  tBTA_DM_API_BREDR_STARTUP  bredr_startup;
 } tBTA_DM_MSG;
 
 #define BTA_DM_NUM_PEER_DEVICE 7
@@ -853,6 +870,8 @@ extern void bta_dm_set_visibility(tBTA_DM_MSG* p_data);
 extern void bta_dm_set_scan_config(tBTA_DM_MSG* p_data);
 extern void bta_dm_vendor_spec_command(tBTA_DM_MSG* p_data);
 extern void bta_dm_set_wifi_state(tBTA_DM_MSG *p_data);
+extern void bta_dm_bredr_cleanup(tBTA_DM_MSG *p_data);
+extern void bta_dm_bredr_startup(tBTA_DM_MSG *p_data);
 extern void bta_dm_bond(tBTA_DM_MSG* p_data);
 extern void bta_dm_bond_cancel(tBTA_DM_MSG* p_data);
 extern void bta_dm_pin_reply(tBTA_DM_MSG* p_data);
