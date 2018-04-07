@@ -54,6 +54,7 @@
 #include "osi/include/osi.h"
 #include "osi/include/properties.h"
 #include "stack/sdp/sdpint.h"
+#include "btif_bat.h"
 #define RC_INVALID_TRACK_ID (0xFFFFFFFFFFFFFFFFULL)
 
 /*****************************************************************************
@@ -904,6 +905,16 @@ void handle_rc_disconnect(tBTA_AV_RC_CLOSE* p_rc_close) {
   if (bt_rc_callbacks) {
     HAL_CBACK(bt_rc_callbacks, connection_state_cb, false, false, &rc_addr);
   }
+}
+
+bool is_ba_transmitter_enabled()
+{
+    bool ret = false;
+    if (btif_ba_get_state() > BTIF_BA_STATE_IDLE_AUDIO_NS) {
+        ret =  true;
+    }
+    LOG_INFO(LOG_TAG,"%s: ret = %d",__func__, ret);
+    return ret;
 }
 
 /***************************************************************************

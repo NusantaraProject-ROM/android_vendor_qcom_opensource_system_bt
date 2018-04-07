@@ -95,7 +95,8 @@ typedef uint16_t tBTA_SYS_HW_MODULE;
 #define BTA_ID_GATTS 32         /* GATT Client */
 #define BTA_ID_SDP 33           /* SDP Client */
 #define BTA_ID_TWS_PLUS 34      /* TWS+ Interface */
-#define BTA_ID_BLUETOOTH_MAX 35 /* last BT profile */
+#define BTA_ID_BAT 35           /* Broadcast Audio Transmitter  */
+#define BTA_ID_BLUETOOTH_MAX 36 /* last BT profile */
 
 /* GENERIC */
 #define BTA_ID_PRM 38

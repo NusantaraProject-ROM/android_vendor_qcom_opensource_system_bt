@@ -45,6 +45,7 @@
 #include "device/include/controller.h"
 #include "hci_layer.h"
 #include "hcimsgs.h"
+#include "btm_csb.h"
 #include "l2c_int.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
@@ -366,6 +367,11 @@ void btu_hcif_process_event(UNUSED_ATTR uint8_t controller_id, BT_HDR* p_msg) {
     case HCI_VENDOR_SPECIFIC_EVT:
       btm_vendor_specific_evt(p, hci_evt_len);
       break;
+
+    case HCI_CSB_TIMEOUT_EVT:
+      btm_hci_csb_timeout_evt(p);
+      break;
+
   }
 #if HCI_RAW_CMD_INCLUDED == TRUE
   btm_hci_event (p, hci_evt_code , hci_evt_len);
@@ -997,6 +1003,22 @@ static void btu_hcif_hdl_command_complete(uint16_t opcode, uint8_t* p,
       btm_ble_test_command_complete(p);
       break;
 
+    case HCI_SET_RESERVED_LT_ADDR:
+      btm_hci_set_reserved_lt_addr_complete(p);
+      break;
+
+    case HCI_DELETE_RESERVED_LT_ADDR:
+      btm_hci_delete_reserved_lt_addr_complete(p);
+      break;
+
+    case HCI_WRITE_SYNC_TRAIN_PARAM:
+      btm_hci_write_sync_train_param_complete(p);
+      break;
+
+    case HCI_SET_CLB:
+      btm_hci_set_csb_complete(p);
+      break;
+
 #if (BLE_PRIVACY_SPT == TRUE)
     case HCI_BLE_ADD_DEV_RESOLVING_LIST:
       btm_ble_add_resolving_list_entry_complete(p, evt_len);
@@ -1095,7 +1117,9 @@ static void btu_hcif_hdl_command_status(uint16_t opcode, uint8_t status,
     case HCI_PARK_MODE:
       btm_pm_proc_cmd_status(status);
       break;
-
+    case HCI_START_SYNC_TRAIN:
+      btm_hci_start_sync_train_complete(&status);
+      break;
     default:
       /* If command failed to start, we may need to tell BTM */
       if (status != HCI_SUCCESS) {

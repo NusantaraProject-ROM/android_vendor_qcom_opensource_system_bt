@@ -50,6 +50,7 @@
 #endif
 #include <hardware/vendor.h>
 #include <hardware/vendor_socket.h>
+#include <hardware/bt_ba.h>
 
 #include "bt_utils.h"
 #include "bta/include/bta_hf_client_api.h"
@@ -125,6 +126,9 @@ extern btmcap_test_interface_t* stack_mcap_get_interface();
 extern btvendor_interface_t *btif_vendor_get_interface();
 /* vendor socket*/
 extern btvendor_interface_t *btif_vendor_socket_get_interface();
+/* broadcast transmitter */
+extern ba_transmitter_interface_t *btif_bat_get_interface();
+
 
 /*******************************************************************************
  *  Functions
@@ -397,6 +401,9 @@ static const void* get_profile_interface(const char* profile_id) {
 
   if (is_profile(profile_id, BT_TEST_INTERFACE_MCAP_ID))
     return stack_mcap_get_interface();
+
+  if (is_profile(profile_id, BT_PROFILE_BAT_ID))
+    return btif_bat_get_interface();
 
   return NULL;
 }

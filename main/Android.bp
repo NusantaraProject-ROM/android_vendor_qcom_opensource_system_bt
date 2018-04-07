@@ -75,6 +75,7 @@ cc_library_shared {
         "libbt-utils_qti",
         "libbtcore_qti",
         "libosi_qti",
+        "libbt-stack_ext",
         "libosi_ext",
     ],
     // Shared library link options.

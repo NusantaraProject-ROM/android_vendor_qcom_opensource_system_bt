@@ -451,4 +451,7 @@ void btif_av_reset_audio_delay(void);
  */
 uint16_t btif_av_get_audio_delay(void);
 
+void initialize_audio_hidl();
+void deinit_audio_hal();
+
 #endif /* BTIF_AV_H */

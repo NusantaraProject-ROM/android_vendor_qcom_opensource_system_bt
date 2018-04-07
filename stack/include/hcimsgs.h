@@ -908,4 +908,17 @@ extern void btsnd_hcic_write_authenticated_payload_tout(uint16_t handle,
 #define HCI__WRITE_AUTHENT_PAYLOAD_TOUT_HANDLE_OFF 0
 #define HCI__WRITE_AUTHENT_PAYLOAD_TOUT_TOUT_OFF 2
 
+/* Connectionless Broadcast */
+#define HCIC_PARAM_SIZE_SYNC_TRAIN 9
+#define HCIC_PARAM_SIZE_SET_CSB  11
+extern void btsnd_hcic_set_csb_data(uint8_t lt_addr, uint8_t fragment,
+                             uint8_t data_len, uint8_t* data);
+extern void btsnd_hcic_write_sync_train_param(uint16_t min_interval, uint16_t max_interval,
+                             uint32_t sync_train, uint8_t data);
+extern void btsnd_hcic_set_csb(uint8_t enable, uint8_t lt_addr, uint8_t lpo_allowed,
+                        uint16_t pkt_type, int16_t min_interval,
+                        uint16_t max_interval, uint16_t csb_supvisnto);
+extern void btsnd_hcic_start_synch_train();
+extern void btsnd_hcic_delete_reserved_lt_addr(uint8_t lt_addr);
+extern void btsnd_hcic_set_reserved_lt_addr(uint8_t lt_addr);
 #endif

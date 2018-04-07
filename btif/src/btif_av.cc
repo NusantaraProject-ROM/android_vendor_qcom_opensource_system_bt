@@ -50,6 +50,7 @@
 #include "btif/include/btif_a2dp_source.h"
 #include "device/include/interop.h"
 #include "device/include/controller.h"
+#include "btif_bat.h"
 
 extern bool isDevUiReq;
 bool isBitRateChange = false;
@@ -225,6 +226,8 @@ static void btif_av_check_rc_connection_priority(void *p_data);
 static bt_status_t connect_int(RawAddress* bd_addr, uint16_t uuid);
 int btif_get_is_remote_started_idx();
 static void btif_av_reset_remote_started_flag();
+
+bool isBATEnabled();
 
 #ifdef AVK_BACKPORT
 void btif_av_request_audio_focus(bool enable);
@@ -408,6 +411,13 @@ static void btif_report_connection_state(btav_connection_state_t state,
   }
 }
 
+void btif_report_connection_state_to_ba(btav_connection_state_t state) {
+  // send updates to BA as well
+  if (state == BTAV_CONNECTION_STATE_DISCONNECTED)
+  {
+      ba_send_message(BTIF_BA_BT_A2DP_DISC_EVT, 0, NULL, true);
+  }
+}
 /*******************************************************************************
  *
  * Function         btif_report_audio_state
@@ -430,6 +440,17 @@ static void btif_report_audio_state(btav_audio_state_t state,
   }
 }
 
+void btif_report_audio_state_to_ba(btav_audio_state_t state) {
+  if (state == BTAV_AUDIO_STATE_STARTED)
+  {
+      ba_send_message(BTIF_BA_BT_A2DP_STARTED_EVT, 0, NULL, true);
+  }
+  if ((state == BTAV_AUDIO_STATE_REMOTE_SUSPEND) ||
+      (state == BTAV_AUDIO_STATE_STOPPED))
+  {
+      ba_send_message(BTIF_BA_BT_A2DP_PAUSED_EVT, 0, NULL, true);
+  }
+}
 void btif_av_peer_config_dump()
 {
    int index = 0;
@@ -792,6 +813,7 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
         /* inform the application of the event */
         btif_report_connection_state(state, &(btif_av_cb[index].peer_bda));
         btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_OPENED);
+        btif_report_connection_state_to_ba(state);
         /* BTIF AV State updated, now check
          * and update multicast state
          */
@@ -951,6 +973,7 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
       btif_report_connection_state(state, &(btif_av_cb[index].peer_bda));
       /* change state to open/idle based on the status */
       btif_sm_change_state(btif_av_cb[index].sm_handle, av_state);
+      btif_report_connection_state_to_ba(state);
       /* Check if the other connected AV is playing. If YES, trigger DUAL Handoff */
       if (p_bta_data->open.status == BTA_AV_SUCCESS) {
         /* BTIF AV State updated, now check
@@ -1017,6 +1040,7 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
             target_bda.ToString().c_str());
         btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED,
                                      &target_bda);
+        btif_report_connection_state_to_ba(BTAV_CONNECTION_STATE_DISCONNECTED);
       }
       // Ignore all connection request if we are already opening
       btif_queue_advance();
@@ -1060,6 +1084,7 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
       btif_queue_advance();
       btif_av_check_and_start_collission_timer(index);
       btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_IDLE);
+      btif_report_connection_state_to_ba(BTAV_CONNECTION_STATE_DISCONNECTED);
       break;
 
     case BTIF_AV_DISCONNECT_REQ_EVT:
@@ -1068,6 +1093,7 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
        BTA_AvClose(btif_av_cb[index].bta_handle);
        btif_queue_advance();
        btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_IDLE);
+       btif_report_connection_state_to_ba(BTAV_CONNECTION_STATE_DISCONNECTED);
        break;
 
     case BTA_AV_RC_OPEN_EVT:
@@ -1192,6 +1218,7 @@ static bool btif_av_state_closing_handler(btif_sm_event_t event, void* p_data, i
                                    &(btif_av_cb[index].peer_bda));
 
       btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_IDLE);
+      btif_report_connection_state_to_ba(BTAV_CONNECTION_STATE_DISCONNECTED);
       break;
 
     /* Handle the RC_CLOSE event for the cleanup */
@@ -1275,6 +1302,7 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
         if (status == BT_STATUS_SUCCESS) {
           int idx = 0;
           BTA_AvStart(btif_av_cb[index].bta_handle);
+          ba_send_message(BTIF_BA_BT_A2DP_STARTING_EVT, 0, NULL, true);
           if (enable_multicast == true) {
             /* In A2dp Multicast, DUT initiated stream request
              * should be true for all connected A2dp devices
@@ -1427,8 +1455,10 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
 /* SPLITA2DP */
       if (!btif_av_is_connected_on_other_idx(index)) {
         if (btif_av_is_split_a2dp_enabled()) {
-          btif_a2dp_audio_if_init = false;
-          btif_a2dp_audio_interface_deinit();
+          if (!isBATEnabled()) {
+            btif_a2dp_audio_if_init = false;
+            btif_a2dp_audio_interface_deinit();
+          }
         }
       }
 /* SPLITA2DP */
@@ -1460,8 +1490,10 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
 /* SPLITA2DP */
         if (btif_av_is_split_a2dp_enabled()) {
           if (btif_a2dp_audio_if_init) {
-            btif_a2dp_audio_if_init = false;
-            btif_a2dp_audio_interface_deinit();
+            if (!isBATEnabled()) {
+              btif_a2dp_audio_if_init = false;
+              btif_a2dp_audio_interface_deinit();
+            }
           }
         }
 /* SPLITA2DP */
@@ -1481,6 +1513,7 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
       }
 
       btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_IDLE);
+      btif_report_connection_state_to_ba(BTAV_CONNECTION_STATE_DISCONNECTED);
     } break;
 
     case BTA_AV_RECONFIG_EVT: {
@@ -1488,6 +1521,7 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
           (p_av->reconfig.status == BTA_AV_SUCCESS)) {
         APPL_TRACE_WARNING("reconfig done BTA_AVstart()");
         BTA_AvStart(btif_av_cb[index].bta_handle);
+        ba_send_message(BTIF_BA_BT_A2DP_STARTING_EVT, 0, NULL, true);
       } else if (btif_av_cb[index].flags & BTIF_AV_FLAG_PENDING_START) {
         btif_av_cb[index].flags &= ~BTIF_AV_FLAG_PENDING_START;
         btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
@@ -1511,6 +1545,7 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
                                      &target_bda);
       }
       btif_queue_advance();
+      btif_report_connection_state_to_ba(BTAV_CONNECTION_STATE_DISCONNECTED);
     } break;
 
     case BTIF_AV_OFFLOAD_START_REQ_EVT: {
@@ -1625,6 +1660,7 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
         btif_report_audio_state(BTAV_AUDIO_STATE_STARTED, &(btif_av_cb[index].peer_bda));
       }
       btif_av_cb[index].is_device_playing = true;
+      btif_report_audio_state_to_ba(BTAV_AUDIO_STATE_STARTED);
 
 #ifdef AVK_BACKPORT
       if (btif_av_cb[index].peer_sep == AVDT_TSEP_SRC)
@@ -1763,8 +1799,10 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
         btif_av_cb[index].dual_handoff = true;
       } else {
         if (btif_a2dp_audio_if_init) {
-          btif_a2dp_audio_if_init = false;
-          btif_a2dp_audio_interface_deinit();
+          if (!isBATEnabled()) {
+            btif_a2dp_audio_if_init = false;
+            btif_a2dp_audio_interface_deinit();
+          }
         }
       }
       // inform the application that we are disconnecting
@@ -1924,6 +1962,7 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       btif_av_cb[index].is_suspend_for_remote_start = false;
       btif_av_cb[index].is_device_playing = false;
       btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_OPENED);
+      btif_report_audio_state_to_ba(BTAV_AUDIO_STATE_REMOTE_SUSPEND);
 
       // suspend completed and state changed, clear pending status
       btif_av_cb[index].flags &= ~BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING;
@@ -1947,6 +1986,7 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       if (p_av->suspend.status == BTA_AV_SUCCESS)
         btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_OPENED);
 
+      btif_report_audio_state_to_ba(BTAV_AUDIO_STATE_STOPPED);
       break;
 
     case BTA_AV_CLOSE_EVT:
@@ -1955,8 +1995,10 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
 /* SPLITA2DP */
       if (!btif_av_is_connected_on_other_idx(index)) {
         if (btif_av_is_split_a2dp_enabled()) {
-          btif_a2dp_audio_if_init = false;
-          btif_a2dp_audio_interface_deinit();
+          if (!isBATEnabled()) {
+            btif_a2dp_audio_if_init = false;
+            btif_a2dp_audio_interface_deinit();
+          }
         }
       }
 /* SPLITA2DP */
@@ -1968,6 +2010,7 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
                                    &(btif_av_cb[index].peer_bda));
 
       btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_IDLE);
+      btif_report_connection_state_to_ba(BTAV_CONNECTION_STATE_DISCONNECTED);
       break;
 
     case BTA_AV_RC_OPEN_EVT:
@@ -2147,6 +2190,18 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
        * In A2dp Multicast, the index selected can be any of the
        * connected device. Stack will ensure to START the steaming
        * on both the devices. */
+      if (isBATEnabled()) {
+          // if BA is enabled, don't process this start.
+          BTIF_TRACE_DEBUG(" BA enabled and we received START_REQ ");
+          if (btif_a2dp_audio_interface_get_pending_cmd() ==
+                                           A2DP_CTRL_CMD_START) {
+              BTIF_TRACE_DEBUG(" Audio Waiting for Start ");
+              // in this case, send start req to BA and let BA
+              // ack back audio once BA starts it.
+              ba_send_message(BTIF_BA_AUDIO_START_REQ_EVT, 0, NULL, true);
+          }
+          return;
+      }
       index = btif_av_get_latest_device_idx_to_start();
       break;
     case BTIF_AV_STOP_STREAM_REQ_EVT:
@@ -3706,6 +3761,45 @@ bool btif_av_is_connected(void) {
   return status;
 }
 
+bool isBATEnabled()
+{
+    LOG_INFO(LOG_TAG,"%s:",__func__);
+    if (btif_ba_get_state() > BTIF_BA_STATE_IDLE_AUDIO_NS)
+        return true;
+    else
+        return false;
+}
+
+void initialize_audio_hidl() {
+  BTIF_TRACE_DEBUG(" %s if_init = %d ",__func__, btif_a2dp_audio_if_init);
+  if (btif_a2dp_audio_if_init == false) {
+    if (btif_av_is_split_a2dp_enabled()) {
+      BTIF_TRACE_DEBUG("%s initializing ", __func__);
+      btif_a2dp_audio_if_init = true;
+      btif_a2dp_audio_interface_init();
+    } else {
+      BTIF_TRACE_DEBUG("%s cannot initialize, split not enabled ",__func__);
+    }
+  } else {
+    BTIF_TRACE_DEBUG("%s already initialized ", __func__);
+  }
+}
+
+void deinit_audio_hal() {
+    BTIF_TRACE_DEBUG(" %s if_init = %d ",__func__, btif_a2dp_audio_if_init);
+    BTIF_TRACE_DEBUG(" %s split_enabled = %d av_connected = %d",__func__,
+                    btif_av_is_split_a2dp_enabled(), btif_av_is_connected());
+    if (btif_a2dp_audio_if_init == false)
+      return;
+    if (!btif_av_is_split_a2dp_enabled())
+      return;
+    // if av is connected, it would need interface active
+    if (btif_av_is_connected())
+      return;
+    btif_a2dp_audio_if_init =  false;
+    btif_a2dp_audio_interface_deinit();
+}
+
 /*******************************************************************************
 **
 ** Function         btif_av_is_connected_on_other_idx
@@ -4053,6 +4147,7 @@ void btif_av_move_idle(RawAddress bd_addr) {
     btif_av_check_and_start_collission_timer(index);
     btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_IDLE);
     btif_queue_advance();
+    btif_report_connection_state_to_ba(BTAV_CONNECTION_STATE_DISCONNECTED);
   }
 }
 
