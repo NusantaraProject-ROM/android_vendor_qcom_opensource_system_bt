@@ -318,4 +318,6 @@ extern bool sdp_dev_blacklisted_for_avrcp15 (RawAddress addr);
 extern void sdp_disc_connected(tCONN_CB* p_ccb);
 extern void sdp_disc_server_rsp(tCONN_CB* p_ccb, BT_HDR* p_msg);
 
+extern void update_pce_entry_after_cancelling_bonding(RawAddress remote_addr);
+extern void check_and_store_pce_profile_version(tSDP_DISC_REC* p_sdp_rec);
 #endif

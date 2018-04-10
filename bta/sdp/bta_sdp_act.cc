@@ -43,10 +43,13 @@
  ****************************************************************************/
 
 static const Uuid UUID_OBEX_OBJECT_PUSH = Uuid::From16Bit(0x1105);
+static const Uuid UUID_PBAP_PCE = Uuid::From16Bit(0x112E);
 static const Uuid UUID_PBAP_PSE = Uuid::From16Bit(0x112F);
 static const Uuid UUID_MAP_MAS = Uuid::From16Bit(0x1132);
 static const Uuid UUID_MAP_MNS = Uuid::From16Bit(0x1133);
 static const Uuid UUID_SAP = Uuid::From16Bit(0x112D);
+
+extern void check_and_store_pce_profile_version(tSDP_DISC_REC* p_sdp_rec);
 
 static void bta_create_mns_sdp_record(bluetooth_sdp_record* record,
                                       tSDP_DISC_REC* p_rec) {
@@ -373,6 +376,12 @@ static void bta_sdp_search_cback(uint16_t result, void* user_data) {
       } else if (uuid == UUID_SAP) {
         APPL_TRACE_DEBUG("%s() - found SAP uuid", __func__);
         bta_create_sap_sdp_record(&evt_data.records[count], p_rec);
+      } else if (uuid == UUID_PBAP_PCE) {
+        APPL_TRACE_DEBUG("%s() - found PBAP (PCE) uuid", __func__);
+        if (p_rec != NULL)
+            check_and_store_pce_profile_version(p_rec);
+        else
+            APPL_TRACE_DEBUG("%s() - PCE Record is null", __func__);
       } else {
         /* we do not have specific structure for this */
         APPL_TRACE_DEBUG("%s() - profile not identified. using raw data",

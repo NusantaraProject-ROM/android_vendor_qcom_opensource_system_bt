@@ -593,11 +593,6 @@ static int add_pbaps_sdp(const bluetooth_sdp_pse_record* rec) {
                              UINT_DESC_TYPE, (uint32_t)1,
                              (uint8_t*)&rec->supported_repositories);
 
-  /* Add supported feature 4 bytes*/
-  UINT32_TO_BE_STREAM(p_temp, rec->supported_features);
-  status &= SDP_AddAttribute(sdp_handle, ATTR_ID_PBAP_SUPPORTED_FEATURES,
-                             UINT_DESC_TYPE, (uint32_t)4, temp);
-
   /* Add the L2CAP PSM if present */
   if (rec->hdr.l2cap_psm != -1) {
     p_temp = temp;  // The macro modifies p_temp, hence rewind.

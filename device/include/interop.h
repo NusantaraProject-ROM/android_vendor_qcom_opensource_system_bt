@@ -201,6 +201,11 @@ typedef enum {
   // is not requested explictly for those devices.
   INTEROP_DISABLE_LE_CONN_UPDATES,
 
+  // Devices requiring this workaround do not handle Bluetooth PBAP 1.1 version correctly,
+  // leading them to go in bad state. So for better interoperability respond with PBAP 1.2
+  // as supported version.
+  INTEROP_ADV_PBAP_VER_1_2,
+
 
   END_OF_INTEROP_LIST
 } interop_feature_t;

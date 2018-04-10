@@ -73,6 +73,7 @@
 #include "osi/include/properties.h"
 #include "stack/btm/btm_int.h"
 #include "stack_config.h"
+#include "stack/sdp/sdpint.h"
 
 using bluetooth::Uuid;
 /******************************************************************************
@@ -592,6 +593,10 @@ static void bond_state_changed(bt_status_t status, const RawAddress& bd_addr,
       memset(&pairing_cb, 0, sizeof(pairing_cb));
     else
       BTIF_TRACE_DEBUG("%s: BR-EDR service discovery active", __func__);
+  }
+  if (state == BT_BOND_STATE_NONE) {
+    // Update Pbap 1.2 entry, set rebonded to true
+    update_pce_entry_after_cancelling_bonding(bd_addr);
   }
 }
 

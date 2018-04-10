@@ -48,6 +48,7 @@
 #include "sdp_api.h"
 #include "utl.h"
 #include "device/include/interop_config.h"
+#include "stack/sdp/sdpint.h"
 
 #if (GAP_INCLUDED == TRUE)
 #include "gap_api.h"
@@ -1590,6 +1591,12 @@ void bta_dm_sdp_result(tBTA_DM_MSG* p_data) {
             bta_service_id_to_uuid_lkup_tbl[bta_dm_search_cb.service_index - 1];
         p_sdp_rec =
             SDP_FindServiceInDb(bta_dm_search_cb.p_sdp_db, service, p_sdp_rec);
+        // for PBAP PCE UUID, check remote PBAP PCE Profile Version
+        if (service == UUID_SERVCLASS_PBAP_PCE) {
+          APPL_TRACE_DEBUG("%s: remote PBAP PCE reord", __func__);
+          if (p_sdp_rec != NULL)
+            check_and_store_pce_profile_version(p_sdp_rec);
+        }
       }
       /* finished with BR/EDR services, now we check the result for GATT based
        * service UUID */
