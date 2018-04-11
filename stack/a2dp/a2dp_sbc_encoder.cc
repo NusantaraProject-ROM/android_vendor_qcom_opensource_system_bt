@@ -620,7 +620,7 @@ static void a2dp_sbc_encode_frames(uint8_t nb_frame) {
       uint8_t done_nb_frame = remain_nb_frame - nb_frame;
       remain_nb_frame = nb_frame;
       if (!a2dp_sbc_encoder_cb.enqueue_callback(p_buf, done_nb_frame,
-                                                bytes_read)) 
+                                                bytes_read))
         return;
     } else {
       a2dp_sbc_encoder_cb.stats.media_read_total_dropped_packets++;

@@ -470,8 +470,10 @@ static void avdt_msg_bld_discover_rsp(uint8_t** p, tAVDT_MSG* p_msg) {
  ******************************************************************************/
 static void avdt_msg_bld_svccap(uint8_t** p, tAVDT_MSG* p_msg) {
   tAVDT_CFG cfg;
-
+  AVDT_TRACE_DEBUG("avdt_msg_bld_svccap");
+  /* make sure the delay report category is not reported */
   memcpy(&cfg, p_msg->svccap.p_cfg, sizeof(tAVDT_CFG));
+  cfg.psc_mask &= ~AVDT_PSC_DELAY_RPT;
   avdt_msg_bld_cfg(p, &cfg);
 }
 
@@ -487,6 +489,7 @@ static void avdt_msg_bld_svccap(uint8_t** p, tAVDT_MSG* p_msg) {
  *
  ******************************************************************************/
 static void avdt_msg_bld_all_svccap(uint8_t** p, tAVDT_MSG* p_msg) {
+  AVDT_TRACE_DEBUG("avdt_msg_bld_all_svccap");
   avdt_msg_bld_cfg(p, p_msg->svccap.p_cfg);
 }
 

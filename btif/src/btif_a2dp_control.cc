@@ -578,6 +578,8 @@ static void btif_a2dp_recv_ctrl_data(void) {
       case A2DP_CTRL_GET_PRESENTATION_POSITION: {
         btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
 
+        APPL_TRACE_DEBUG("Delay Rpt: total bytes read = %d", delay_report_stats.total_bytes_read);
+        APPL_TRACE_DEBUG("Delay Rpt: delay = %d", delay_report_stats.audio_delay);
         UIPC_Send(UIPC_CH_ID_AV_CTRL, 0,
                   (uint8_t*)&(delay_report_stats.total_bytes_read),
                   sizeof(uint64_t));
@@ -589,6 +591,7 @@ static void btif_a2dp_recv_ctrl_data(void) {
 
         uint32_t nsec = delay_report_stats.timestamp.tv_nsec;
         UIPC_Send(UIPC_CH_ID_AV_CTRL, 0, (uint8_t*)&nsec, sizeof(nsec));
+        APPL_TRACE_DEBUG("Delay Rpt: seconds = %d, nsec = %d" ,seconds, nsec);
         break;
       }
 
@@ -926,5 +929,6 @@ void btif_a2dp_control_reset_audio_delay(void) {
 
 // For Split-A2DP
 uint16_t btif_a2dp_control_get_audio_delay(void) {
+  APPL_TRACE_DEBUG("%s: DELAY: %d ms", __func__, delay_report_stats.audio_delay);
   return (delay_report_stats.audio_delay > 0) ? delay_report_stats.audio_delay : 0;
 }

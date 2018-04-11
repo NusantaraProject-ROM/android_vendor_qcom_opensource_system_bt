@@ -610,8 +610,8 @@ void btif_a2dp_audio_send_connection_status()
 }
 void btif_a2dp_audio_send_sink_latency()
 {
-  LOG_INFO(LOG_TAG,"send_sink_latency");
   uint16_t sink_latency = btif_av_get_audio_delay();
+  LOG_INFO(LOG_TAG,"send_sink_latency = %d", sink_latency);
   if (btAudio != nullptr) {
     auto ret = btAudio->a2dp_on_get_sink_latency(sink_latency);
     if (!ret.isOk()) LOG_ERROR(LOG_TAG,"server died");
