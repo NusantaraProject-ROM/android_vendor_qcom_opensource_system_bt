@@ -165,6 +165,7 @@ static bool enable_multicast = false;
 static bool is_multicast_supported = false;
 static bool multicast_disabled = false;
 static RawAddress retry_bda;
+static RawAddress codec_bda = {};
 static int conn_retry_count = 1;
 static alarm_t *av_coll_detected_timer = NULL;
 static bool isA2dpSink = false;
@@ -2130,13 +2131,20 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
       break;
 
     case BTIF_AV_SOURCE_CONFIG_REQ_EVT:
-      //if (btif_av_get_num_connected_devices() > 1) {
         BTIF_TRACE_DEBUG("BTIF_AV_SOURCE_CONFIG_REQ_EVT more than one device connected");
-        if (btif_av_stream_started_ready())
-          index = btif_av_get_latest_playing_device_idx();
-        else
-          index = btif_av_get_latest_device_idx_to_start();
-      //}
+        index = btif_max_av_clients;
+        if (!codec_bda.IsEmpty())
+          index = btif_av_idx_by_bdaddr(&codec_bda);
+
+        if (index == btif_max_av_clients)
+        {
+          if (btif_av_stream_started_ready())
+            index = btif_av_get_latest_playing_device_idx();
+          else
+            index = btif_av_get_latest_device_idx_to_start();
+        }
+        BTIF_TRACE_IMP("BTIF_AV_SOURCE_CONFIG_REQ_EVT on idx = %d", index);
+        codec_bda = {};
       break;
     case BTIF_AV_SOURCE_CONFIG_UPDATED_EVT:
       if (codec_config_update_enabled == false)
@@ -2444,9 +2452,6 @@ int btif_av_idx_by_bdaddr(RawAddress *bd_addr) {
   for (i = 0; i < btif_max_av_clients; i++)
     if (*bd_addr == btif_av_cb[i].peer_bda)
       return i;
-#ifndef BT_AV_SHO_FEATURE
-    return 0;
-#endif
   return i;
 }
 
@@ -3160,7 +3165,7 @@ static bt_status_t set_active_device(const RawAddress& bd_addr) {
                                (char *)&bd_addr, sizeof(RawAddress), NULL);
 }
 
-static bt_status_t codec_config_src(
+static bt_status_t codec_config_src(const RawAddress& bd_addr,
     std::vector<btav_a2dp_codec_config_t> codec_preferences) {
   BTIF_TRACE_EVENT("%s", __func__);
   CHECK_BTAV_INIT();
@@ -3238,12 +3243,7 @@ static bt_status_t codec_config_src(
           }
 
           if (!btif_av_allow_codec_config_change(cp.codec_type,cp.sample_rate)) {
-            int idx;
-            if (btif_av_stream_started_ready())
-              idx = btif_av_get_latest_playing_device_idx();
-            else
-              idx = btif_av_get_latest_device_idx_to_start();
-            std::string addrstr = btif_av_cb[idx].peer_bda.ToString();
+            std::string addrstr = bd_addr.ToString();
             const char* bt_addr = addrstr.c_str();
             btif_transfer_context(btif_av_handle_event, BTIF_AV_SOURCE_CONFIG_UPDATED_EVT,
                                   (char *)bt_addr,sizeof(RawAddress), NULL);
@@ -3253,18 +3253,16 @@ static bt_status_t codec_config_src(
             codec_cfg_change = true;
         }
     isDevUiReq = true;
+    if (!codec_bda.IsEmpty())
+      BTIF_TRACE_DEBUG("%s: previous codec_bda: %s", __func__, codec_bda.ToString().c_str());
+
+    codec_bda = bd_addr;
+    BTIF_TRACE_DEBUG("%s: current codec_bda: %s", __func__, codec_bda.ToString().c_str());
     btif_transfer_context(btif_av_handle_event, BTIF_AV_SOURCE_CONFIG_REQ_EVT,
                           reinterpret_cast<char*>(&cp), sizeof(cp), NULL);
   }
 
   return BT_STATUS_SUCCESS;
-}
-
-// gghai: for JNI HAL compatibility
-static bt_status_t codec_config_src(
-    const RawAddress& bd_addr,
-    std::vector<btav_a2dp_codec_config_t> codec_preferences) {
-  return codec_config_src(codec_preferences);
 }
 
 
