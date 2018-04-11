@@ -266,7 +266,10 @@ void btm_acl_created(const RawAddress& bda, DEV_CLASS dc, BD_NAME bdn,
 
       if (dc) memcpy(p->remote_dc, dc, DEV_CLASS_LEN);
 
-      if (bdn) memcpy(p->remote_name, bdn, BTM_MAX_REM_BD_NAME_LEN);
+      if (bdn) {
+           memcpy(p->remote_name, bdn, BTM_MAX_REM_BD_NAME_LEN);
+           p->remote_name[BTM_MAX_REM_BD_NAME_LEN] = '\0';
+      }
 
       /* if BR/EDR do something more */
       if (transport == BT_TRANSPORT_BR_EDR) {

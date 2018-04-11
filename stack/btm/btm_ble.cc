@@ -95,7 +95,7 @@ bool BTM_SecAddBleDevice(const RawAddress& bd_addr, BD_NAME bd_name,
   if (bd_name && bd_name[0]) {
     p_dev_rec->sec_flags |= BTM_SEC_NAME_KNOWN;
     strlcpy((char*)p_dev_rec->sec_bd_name, (char*)bd_name,
-            BTM_MAX_REM_BD_NAME_LEN);
+            BTM_MAX_REM_BD_NAME_LEN + 1);
   }
   p_dev_rec->device_type |= dev_type;
   p_dev_rec->ble.ble_addr_type = addr_type;
@@ -134,7 +134,7 @@ bool BTM_GetRemoteDeviceName(const RawAddress& bd_addr, BD_NAME bd_name)
   if (btif_storage_get_remote_device_property(
       &bd_addr, &prop_name) == BT_STATUS_SUCCESS) {
     APPL_TRACE_DEBUG("%s, NV name = %s", __func__, bdname.name);
-    strlcpy((char*) bd_name, (char*) bdname.name, BD_NAME_LEN);
+    strlcpy((char*) bd_name, (char*) bdname.name, BD_NAME_LEN + 1);
     ret = TRUE;
   }
   return ret;
