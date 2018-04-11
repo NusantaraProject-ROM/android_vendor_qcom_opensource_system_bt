@@ -660,7 +660,6 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
         /* Stop the link connect timer if sent before L2CAP connection is up */
         if (p_lcb->w4_info_rsp) {
           alarm_cancel(p_lcb->info_resp_timer);
-          p_lcb->w4_info_rsp = false;
         }
 
         STREAM_TO_UINT16(info_type, p);
@@ -699,11 +698,14 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
         }
 #endif
 
-        ci.status = HCI_SUCCESS;
-        ci.bd_addr = p_lcb->remote_bd_addr;
-        for (p_ccb = p_lcb->ccb_queue.p_first_ccb; p_ccb;
-             p_ccb = p_ccb->p_next_ccb) {
-          l2c_csm_execute(p_ccb, L2CEVT_L2CAP_INFO_RSP, &ci);
+        if (p_lcb->w4_info_rsp) {
+          p_lcb->w4_info_rsp = false;
+          ci.status = HCI_SUCCESS;
+          ci.bd_addr = p_lcb->remote_bd_addr;
+          for (p_ccb = p_lcb->ccb_queue.p_first_ccb; p_ccb;
+               p_ccb = p_ccb->p_next_ccb) {
+            l2c_csm_execute(p_ccb, L2CEVT_L2CAP_INFO_RSP, &ci);
+          }
         }
         break;
 

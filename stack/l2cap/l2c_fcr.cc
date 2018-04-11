@@ -2250,9 +2250,6 @@ uint8_t l2c_fcr_process_peer_cfg_req(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg) {
   uint16_t max_retrans_size;
   uint8_t fcr_ok = L2CAP_PEER_CFG_OK;
 
-  p_ccb->p_lcb->w4_info_rsp =
-      false; /* Handles T61x SonyEricsson Bug in Info Request */
-
   L2CAP_TRACE_EVENT(
       "l2c_fcr_process_peer_cfg_req() CFG fcr_present:%d fcr.mode:%d CCB FCR "
       "mode:%d preferred: %u allowed:%u",
