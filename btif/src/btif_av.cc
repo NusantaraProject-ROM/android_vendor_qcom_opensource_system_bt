@@ -218,8 +218,6 @@ static bt_status_t connect_int(RawAddress *bd_addr, uint16_t uuid);
 void btif_av_update_current_playing_device(int index);
 static void btif_av_check_rc_connection_priority(void *p_data);
 static bt_status_t connect_int(RawAddress* bd_addr, uint16_t uuid);
-static bool btif_av_allow_codec_config_change(btav_a2dp_codec_index_t codec_type,
-                                        btav_a2dp_codec_sample_rate_t sample_rate);
 int btif_get_is_remote_started_idx();
 static void btif_av_reset_remote_started_flag();
 
@@ -3242,15 +3240,7 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
             }
           }
 
-          if (!btif_av_allow_codec_config_change(cp.codec_type,cp.sample_rate)) {
-            std::string addrstr = bd_addr.ToString();
-            const char* bt_addr = addrstr.c_str();
-            btif_transfer_context(btif_av_handle_event, BTIF_AV_SOURCE_CONFIG_UPDATED_EVT,
-                                  (char *)bt_addr,sizeof(RawAddress), NULL);
-            return BT_STATUS_SUCCESS;
-          }
-          else
-            codec_cfg_change = true;
+          codec_cfg_change = true;
         }
     isDevUiReq = true;
     if (!codec_bda.IsEmpty())
@@ -4414,24 +4404,6 @@ void btif_av_reset_reconfig_flag() {
   }
 }
 
-bool btif_av_allow_codec_config_change(btav_a2dp_codec_index_t codec_type,
-          btav_a2dp_codec_sample_rate_t sample_rate) {
-  BTIF_TRACE_DEBUG("%s",__func__);
-  /* Only 48khz sampling rate is supported in Split A2dp mode for other codecs, disregard
-   * codec switch request for sample rate change.
-   * LDAC Supports all sampling rates and switch request will be honored
-  */
-
-  if (codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC) {
-      return true;
-  }
-  if (sample_rate > 0 && sample_rate != BTAV_A2DP_CODEC_SAMPLE_RATE_48000) {
-      BTIF_TRACE_DEBUG("config not supported codec_type = %d, sample_rate = %d",
-                        codec_type, sample_rate)
-      return false; //Only 48k is supported in split mode
-  }
-  return true;
-}
 
 /******************************************************************************
 **
