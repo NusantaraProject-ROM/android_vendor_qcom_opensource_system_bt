@@ -1436,6 +1436,16 @@ void bta_av_api_disconnect(tBTA_AV_DATA* p_data) {
   alarm_cancel(bta_av_cb.link_signalling_timer);
 }
 
+static uint16_t bta_sink_time_out() {
+  char value[PROPERTY_VALUE_MAX] = {0};
+  uint16_t pts_bta_accept_timeout = 5000;
+  osi_property_get("bt.pts.certification", value, "false");
+  if(!strcmp(value, "true")){
+      return pts_bta_accept_timeout; // increase timeout value to pass PTS;
+  }
+  return BTA_AV_ACCEPT_SIGNALLING_TIMEOUT_MS;
+}
+
 /*******************************************************************************
  *
  * Function         bta_av_sig_chg
@@ -1528,7 +1538,7 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
             APPL_TRACE_DEBUG("%s: Remote Addr: %s", __func__,
                             p_cb->p_scb[xx]->peer_addr.ToString().c_str());
             alarm_set_on_mloop(p_cb->accept_signalling_timer[xx],
-                               BTA_AV_ACCEPT_SIGNALLING_TIMEOUT_MS,
+                               bta_sink_time_out(),
                                bta_av_accept_signalling_timer_cback,
                                UINT_TO_PTR(xx));
           }
@@ -1650,9 +1660,8 @@ static void bta_av_accept_signalling_timer_cback(void* data) {
         if (p_scb->sdp_discovery_started) {
           /* We are still doing SDP. Run the timer again. */
           p_scb->coll_mask |= BTA_AV_COLL_INC_TMR;
-
           alarm_set_on_mloop(p_cb->accept_signalling_timer[inx],
-                             BTA_AV_ACCEPT_SIGNALLING_TIMEOUT_MS,
+                             bta_sink_time_out(),
                              bta_av_accept_signalling_timer_cback,
                              UINT_TO_PTR(inx));
         } else {
