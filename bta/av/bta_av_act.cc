@@ -2834,9 +2834,7 @@ void bta_av_dereg_comp(tBTA_AV_DATA* p_data) {
       bta_sys_remove_uuid(UUID_SERVCLASS_VIDEO_SOURCE);
     }
 
-    /* make sure that the timer is not active */
-    alarm_cancel(p_scb->avrc_ct_timer);
-    osi_free_and_reset((void**)&p_cb->p_scb[p_scb->hdi]);
+    bta_av_free_scb(p_scb);
   }
 
   APPL_TRACE_DEBUG("audio 0x%x, video: 0x%x, disable:%d", p_cb->reg_audio,
