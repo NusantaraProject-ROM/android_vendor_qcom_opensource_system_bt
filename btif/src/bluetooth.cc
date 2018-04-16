@@ -42,7 +42,7 @@
 #include <hardware/bt_hl.h>
 #include <hardware/bt_mce.h>
 #include <hardware/bt_pan.h>
-#include <hardware/bt_rc.h>
+#include <hardware/bt_rc_ext.h>
 #include <hardware/bt_sdp.h>
 #include <hardware/bt_sock.h>
 #ifdef WIPOWER_SUPPORTED
