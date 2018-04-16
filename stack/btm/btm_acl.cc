@@ -2180,7 +2180,7 @@ void btm_flow_spec_complete(uint8_t status, uint16_t handle,
  *
  ******************************************************************************/
 tBTM_STATUS BTM_ReadRSSI(const RawAddress& remote_bda, tBTM_CMPL_CB* p_cb) {
-  tACL_CONN* p;
+  tACL_CONN* p = NULL;
   tBT_TRANSPORT transport = BT_TRANSPORT_BR_EDR;
   tBT_DEVICE_TYPE dev_type;
   tBLE_ADDR_TYPE addr_type;
@@ -2189,9 +2189,25 @@ tBTM_STATUS BTM_ReadRSSI(const RawAddress& remote_bda, tBTM_CMPL_CB* p_cb) {
   if (btm_cb.devcb.p_rssi_cmpl_cb) return (BTM_BUSY);
 
   BTM_ReadDevInfo(remote_bda, &dev_type, &addr_type);
-  if (dev_type == BT_DEVICE_TYPE_BLE) transport = BT_TRANSPORT_LE;
+  BTM_TRACE_DEBUG("BTM_ReadRSSI dev type: %d", dev_type);
 
-  p = btm_bda_to_acl(remote_bda, transport);
+  if (dev_type == BT_DEVICE_TYPE_DUMO) {
+    p = btm_bda_to_acl(remote_bda, transport);
+
+    /* If there is no BR EDR link found for Dual mode device, then set transport to BLE */
+    if (p == NULL)
+    {
+      BTM_TRACE_WARNING("BTM_ReadRSSI BR/EDR link is not found");
+      transport = BT_TRANSPORT_LE;
+    }
+  } else if (dev_type == BT_DEVICE_TYPE_BLE) {
+    transport = BT_TRANSPORT_LE;
+  }
+
+  if (p == NULL) {
+    p = btm_bda_to_acl(remote_bda, transport);
+  }
+
   if (p != (tACL_CONN*)NULL) {
     btm_cb.devcb.p_rssi_cmpl_cb = p_cb;
     alarm_set_on_mloop(btm_cb.devcb.read_rssi_timer, BTM_DEV_REPLY_TIMEOUT_MS,
