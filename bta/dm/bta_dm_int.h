@@ -471,6 +471,8 @@ typedef struct {
   uint16_t max_int;
   uint16_t latency;
   uint16_t timeout;
+  uint16_t min_ce_len;
+  uint16_t max_ce_len;
 } tBTA_DM_API_UPDATE_CONN_PARAM;
 
 /* union of all data types */
