@@ -1653,7 +1653,7 @@ void check_and_store_pce_profile_version(tSDP_DISC_REC* p_sdp_rec) {
     fclose(fp);
   }
   // Store PCE PBAP version
-  if (has_entry == FALSE)
+  if (has_entry == FALSE && peer_pce_version >= PBAP_1_2)
   {
     fp = fopen(PCE_PEER_VERSION_CONF_FILE, "ab");
     if (!fp)
