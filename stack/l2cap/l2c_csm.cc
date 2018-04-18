@@ -540,20 +540,12 @@ static void l2c_csm_w4_l2cap_connect_rsp(tL2C_CCB* p_ccb, uint16_t event,
 
   switch (event) {
     case L2CEVT_LP_DISCONNECT_IND: /* Link was disconnected */
-      /* Send disc indication unless peer to peer race condition AND normal
-       * disconnect */
-      /* *((uint8_t *)p_data) != HCI_ERR_PEER_USER happens when peer device try
-       * to disconnect for normal reason */
       p_ccb->chnl_state = CST_CLOSED;
-      if ((p_ccb->flags & CCB_FLAG_NO_RETRY) || !p_data ||
-          (*((uint8_t*)p_data) != HCI_ERR_PEER_USER)) {
-        L2CAP_TRACE_API(
-            "L2CAP - Calling Disconnect_Ind_Cb(), CID: 0x%04x  No Conf Needed",
-            p_ccb->local_cid);
-        l2cu_release_ccb(p_ccb);
-        (*disconnect_ind)(local_cid, false);
-      }
-      p_ccb->flags |= CCB_FLAG_NO_RETRY;
+      L2CAP_TRACE_API(
+          "L2CAP - Calling Disconnect_Ind_Cb(), CID: 0x%04x  No Conf Needed",
+          p_ccb->local_cid);
+      l2cu_release_ccb(p_ccb);
+      (*disconnect_ind)(local_cid, false);
       break;
 
     case L2CEVT_L2CAP_CONNECT_RSP: /* Got peer connect confirm */
