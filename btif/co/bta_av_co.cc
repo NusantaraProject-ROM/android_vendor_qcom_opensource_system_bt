@@ -1166,9 +1166,10 @@ const tA2DP_ENCODER_INTERFACE* bta_av_co_get_encoder_interface(void) {
 }
 
 bool bta_av_co_set_codec_user_config(
-    const btav_a2dp_codec_config_t& codec_user_config) {
+    const btav_a2dp_codec_config_t& codec_user_config,
+    const RawAddress& bd_addr) {
   uint8_t result_codec_config[AVDT_CODEC_SIZE];
-  RawAddress bt_addr;
+  RawAddress bt_addr = bd_addr;
   const tBTA_AV_CO_SINK* p_sink = nullptr;
   bool restart_input = false;
   bool restart_output = false;
@@ -1182,7 +1183,7 @@ bool bta_av_co_set_codec_user_config(
   else {
     for (size_t i = 0; i < BTA_AV_CO_NUM_ELEMENTS(bta_av_co_cb.peers); i++) {
       tBTA_AV_CO_PEER* p_peer_tmp = &bta_av_co_cb.peers[i];
-      if (p_peer_tmp->opened) {
+      if (p_peer_tmp->addr == bd_addr) {
         p_peer = p_peer_tmp;
         break;
       }

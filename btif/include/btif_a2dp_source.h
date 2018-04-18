@@ -78,7 +78,7 @@ void btif_a2dp_source_stop_audio_req(void);
 // codec configuration.
 // |codec_user_config| contains the preferred codec user configuration.
 void btif_a2dp_source_encoder_user_config_update_req(
-    const btav_a2dp_codec_config_t& codec_user_config);
+    const btav_a2dp_codec_config_t& codec_user_config, const RawAddress& bd_addr);
 
 // Process a request to update the A2DP audio encoding with new audio
 // configuration feeding parameters stored in |codec_audio_config|.

@@ -45,7 +45,7 @@ const tA2DP_ENCODER_INTERFACE* bta_av_co_get_encoder_interface(void);
 // |codec_user_config| contains the preferred codec configuration.
 // Returns true on success, otherwise false.
 bool bta_av_co_set_codec_user_config(
-    const btav_a2dp_codec_config_t& codec_user_config);
+    const btav_a2dp_codec_config_t& codec_user_config, const RawAddress& bd_addr);
 
 // Sets the Audio HAL selected audio feeding parameters.
 // Those parameters are applied only to the currently selected codec.

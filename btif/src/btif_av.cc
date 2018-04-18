@@ -143,6 +143,11 @@ typedef struct {
   RawAddress peer_bd;
 } btif_av_sink_config_req_t;
 
+typedef struct {
+  RawAddress bd_addr;
+  btav_a2dp_codec_config_t codec_config;
+} btif_av_codec_config_req_t;
+
 /*****************************************************************************
  *  Static variables
  *****************************************************************************/
@@ -455,11 +460,8 @@ void btif_av_peer_config_dump()
 static void btif_update_source_codec(void* p_data) {
   BTIF_TRACE_DEBUG("%s", __func__);
 
-  // copy to avoid alignment problems
-  btav_a2dp_codec_config_t req;
-  memcpy(&req, p_data, sizeof(req));
-
-  btif_a2dp_source_encoder_user_config_update_req(req);
+  btif_av_codec_config_req_t *req = (btif_av_codec_config_req_t *)p_data;
+  btif_a2dp_source_encoder_user_config_update_req(req->codec_config, req->bd_addr);
 }
 
 static void btif_report_source_codec_state(UNUSED_ATTR void* p_data,
@@ -3168,6 +3170,7 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
   BTIF_TRACE_EVENT("%s", __func__);
   CHECK_BTAV_INIT();
 
+  btif_av_codec_config_req_t codec_req;
   isDevUiReq = false;
   for (auto cp : codec_preferences) {
     BTIF_TRACE_DEBUG(
@@ -3248,8 +3251,10 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
 
     codec_bda = bd_addr;
     BTIF_TRACE_DEBUG("%s: current codec_bda: %s", __func__, codec_bda.ToString().c_str());
+    memcpy(&codec_req.bd_addr, (uint8_t *)&bd_addr, sizeof(RawAddress));
+    memcpy(&codec_req.codec_config, (char*)(&cp), sizeof(btav_a2dp_codec_config_t));
     btif_transfer_context(btif_av_handle_event, BTIF_AV_SOURCE_CONFIG_REQ_EVT,
-                          reinterpret_cast<char*>(&cp), sizeof(cp), NULL);
+                            (char *)&codec_req, sizeof(codec_req), NULL);
   }
 
   return BT_STATUS_SUCCESS;

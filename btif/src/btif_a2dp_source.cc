@@ -91,6 +91,7 @@ typedef struct {
 /* tBTIF_A2DP_SOURCE_ENCODER_USER_CONFIG_UPDATE msg structure */
 typedef struct {
   BT_HDR hdr;
+  RawAddress bd_addr;
   btav_a2dp_codec_config_t user_config;
 } tBTIF_A2DP_SOURCE_ENCODER_USER_CONFIG_UPDATE;
 
@@ -625,13 +626,14 @@ static void btif_a2dp_source_encoder_init_event(BT_HDR* p_msg) {
 }
 
 void btif_a2dp_source_encoder_user_config_update_req(
-    const btav_a2dp_codec_config_t& codec_user_config) {
+    const btav_a2dp_codec_config_t& codec_user_config, const RawAddress& bd_addr) {
   tBTIF_A2DP_SOURCE_ENCODER_USER_CONFIG_UPDATE* p_buf =
       ( tBTIF_A2DP_SOURCE_ENCODER_USER_CONFIG_UPDATE*)osi_malloc(
           sizeof(tBTIF_A2DP_SOURCE_ENCODER_USER_CONFIG_UPDATE));
 
   p_buf->user_config = codec_user_config;
   p_buf->hdr.event = BTIF_MEDIA_SOURCE_ENCODER_USER_CONFIG_UPDATE;
+  p_buf->bd_addr = bd_addr;
   fixed_queue_enqueue(btif_a2dp_source_cb.cmd_msg_queue, p_buf);
 }
 
@@ -640,7 +642,7 @@ static void btif_a2dp_source_encoder_user_config_update_event(BT_HDR* p_msg) {
       (tBTIF_A2DP_SOURCE_ENCODER_USER_CONFIG_UPDATE*)p_msg;
 
   APPL_TRACE_DEBUG("%s", __func__);
-  if (!bta_av_co_set_codec_user_config(p_user_config->user_config)) {
+  if (!bta_av_co_set_codec_user_config(p_user_config->user_config, p_user_config->bd_addr)) {
     APPL_TRACE_ERROR("%s: cannot update codec user configuration", __func__);
   }
 }
