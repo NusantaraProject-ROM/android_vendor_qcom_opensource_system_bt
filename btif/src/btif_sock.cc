@@ -167,7 +167,7 @@ static bt_status_t btsock_connect(const RawAddress* bd_addr, btsock_type_t type,
   CHECK(sock_fd != NULL);
 
   bt_status_t status = BT_STATUS_FAIL;
-  if (sock_fd == NULL)
+  if (sock_fd == NULL || bd_addr == NULL)
     return status;
 
   *sock_fd = INVALID_FD;
