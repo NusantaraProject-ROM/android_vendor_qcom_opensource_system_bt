@@ -174,6 +174,7 @@ typedef struct {
   uint16_t rem_mtu_size;
   uint16_t connection_id;
   uint16_t list_len; /* length of the response in the GKI buffer */
+  uint16_t bl_update_len; /* length of the attributes to be updated fromfinal sdp response len */
   uint8_t* rsp_list; /* pointer to GKI buffer holding response */
 
   tSDP_DISCOVERY_DB* p_db; /* Database to save info into   */

@@ -61,8 +61,8 @@
 #define SDP_MAX_SERVATTR_RSPHDR_LEN 10
 #define SDP_MIN_ATTR_REQ_MAX_BYTE_COUNT 7
 #define SDP_MAX_ATTR_RSPHDR_LEN 10
-#define PBAP_SKIP_GOEP_L2CAP_PSM_LEN    0x06
-#define PBAP_SKIP_SUPP_FEA_LEN          0x08
+#define PBAP_GOEP_L2CAP_PSM_LEN    0x06
+#define PBAP_SUPP_FEA_LEN          0x08
 #define PROFILE_VERSION_POSITION 7
 #define SDP_PROFILE_DESC_LENGTH 8
 #define AVRCP_SUPPORTED_FEATURES_POSITION 1
@@ -85,8 +85,11 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
                                             uint16_t param_len, uint8_t* p_req,
                                             UNUSED_ATTR uint8_t* p_req_end);
 
-static bool is_pbap_record_blacklisted (tSDP_ATTRIBUTE attr, RawAddress remote_address,
+static bool is_device_blacklisted_for_pbap (RawAddress remote_address,
                                             bool check_for_1_2);
+
+static uint16_t sdp_update_pbap_blacklist_len(tCONN_CB* p_ccb, tSDP_ATTR_SEQ* attr_seq,
+                                            tSDP_UUID_SEQ* uid_seq);
 
 static tSDP_RECORD *sdp_upgrade_pse_record(tSDP_RECORD *p_rec,
                                       RawAddress remote_address);
@@ -979,7 +982,6 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
   uint8_t* p_seq_start = NULL;
   bool is_hfp_fallback = FALSE;
   uint16_t seq_len, attr_len;
-  uint16_t blacklist_skip_len = 0;
   bool is_avrcp_fallback = FALSE;
   bool is_avrcp_browse_bit_reset = FALSE;
   uint16_t dut_profile_version;
@@ -1067,31 +1069,6 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
     /* Store the actual record pointer which would be reused later */
     p_prev_rec = p_rec;
     p_rec = sdp_upgrade_pse_record(p_rec, p_ccb->device_address);
-    if (p_rec != p_prev_rec) {
-      /* Remote device is blacklisted for PBAP, calculate the reduction in length */
-      for (xx = p_ccb->cont_info.next_attr_index; xx < attr_seq_sav.num_attr; xx++) {
-        if (attr_seq_sav.attr_entry[xx].start == attr_seq_sav.attr_entry[xx].end) {
-          if (attr_seq_sav.attr_entry[xx].start == ATTR_ID_GOEP_L2CAP_PSM) {
-            blacklist_skip_len += PBAP_SKIP_GOEP_L2CAP_PSM_LEN;
-            SDP_TRACE_ERROR("%s: ATTR_ID_GOEP_L2CAP_PSM requested,"
-                " need to reduce length by %d", __func__,
-                blacklist_skip_len);
-          } else if (attr_seq_sav.attr_entry[xx].start ==
-            ATTR_ID_PBAP_SUPPORTED_FEATURES) {
-            blacklist_skip_len += PBAP_SKIP_SUPP_FEA_LEN;
-            SDP_TRACE_DEBUG("%s: ATTR_ID_PBAP_SUPPORTED_FEATURES requested,"
-                " need to reduce length by %d", __func__,
-                blacklist_skip_len);
-          }
-        } else {
-          blacklist_skip_len = PBAP_SKIP_GOEP_L2CAP_PSM_LEN +
-              PBAP_SKIP_SUPP_FEA_LEN;
-          SDP_TRACE_DEBUG("%s: All attributes requested"
-              " need to reduce length by %d", __func__,
-              blacklist_skip_len);
-        }
-      }
-    }
     /* Allow space for attribute sequence type and length */
     p_seq_start = p_rsp;
     if (p_ccb->cont_info.last_attr_seq_desc_sent == false) {
@@ -1323,25 +1300,23 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
   if (!is_cont) {
     /* Get the total list length for requested uid and attribute sequence */
     p_ccb->list_len = sdpu_get_list_len(&uid_seq, &attr_seq_sav) + 3;
-    if (blacklist_skip_len &&
-      p_ccb->list_len > blacklist_skip_len) {
-      p_ccb->list_len -= blacklist_skip_len;
-      SDP_TRACE_DEBUG("%s: reducing list_len by %d for blacklisted device",
-          __func__, blacklist_skip_len);
-      blacklist_skip_len = 0;
-    }
+    /* Get the length of blacklisted attributes to be updated if device is blacklisted */
+    p_ccb->bl_update_len = sdp_update_pbap_blacklist_len(p_ccb, &attr_seq_sav, &uid_seq);
+    SDP_TRACE_DEBUG("%s p_ccb->list_len = %d bl_update_len = %d",__func__,
+        p_ccb->list_len, p_ccb->bl_update_len);
+
     /* Put in the sequence header (2 or 3 bytes) */
     if (p_ccb->list_len > 255) {
       p_ccb->rsp_list[0] =
           (uint8_t)((DATA_ELE_SEQ_DESC_TYPE << 3) | SIZE_IN_NEXT_WORD);
-      p_ccb->rsp_list[1] = (uint8_t)((p_ccb->list_len - 3) >> 8);
-      p_ccb->rsp_list[2] = (uint8_t)(p_ccb->list_len - 3);
+      p_ccb->rsp_list[1] = (uint8_t)((p_ccb->list_len - 3 + p_ccb->bl_update_len) >> 8);
+      p_ccb->rsp_list[2] = (uint8_t)(p_ccb->list_len - 3 + p_ccb->bl_update_len);
     } else {
       cont_offset = 1;
 
       p_ccb->rsp_list[1] =
           (uint8_t)((DATA_ELE_SEQ_DESC_TYPE << 3) | SIZE_IN_NEXT_BYTE);
-      p_ccb->rsp_list[2] = (uint8_t)(p_ccb->list_len - 3);
+      p_ccb->rsp_list[2] = (uint8_t)(p_ccb->list_len - 3 + p_ccb->bl_update_len);
 
       p_ccb->list_len--;
       len_to_send--;
@@ -1370,22 +1345,20 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
 
   p_ccb->cont_offset += len_to_send;
 
-  if (blacklist_skip_len &&
-    p_ccb->list_len > blacklist_skip_len) {
-    p_ccb->list_len -= blacklist_skip_len;
-    SDP_TRACE_DEBUG("%s: reducing list_len by %d for blacklisted device",
-        __func__, blacklist_skip_len);
-    blacklist_skip_len = 0;
-  }
+  SDP_TRACE_DEBUG("%s: p_ccb->bl_update_len %d, cont_offset = %d, p_ccb->list_len = %d",
+      __func__, p_ccb->bl_update_len, p_ccb->cont_offset, p_ccb->list_len + p_ccb->bl_update_len);
 
   /* If anything left to send, continuation needed */
-  if (p_ccb->cont_offset < p_ccb->list_len) {
+  if ((p_ccb->cont_offset + p_ccb->bl_update_len) < p_ccb->list_len) {
     is_cont = true;
-
     UINT8_TO_BE_STREAM(p_rsp, SDP_CONTINUATION_LEN);
     UINT16_TO_BE_STREAM(p_rsp, p_ccb->cont_offset);
-  } else
+  } else {
     UINT8_TO_BE_STREAM(p_rsp, 0);
+    if (p_ccb->bl_update_len) {
+      p_ccb->bl_update_len = 0;
+    }
+  }
 
   /* Go back and put the parameter length into the buffer */
   rsp_param_len = p_rsp - p_rsp_param_len - 2;
@@ -1400,44 +1373,38 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
 
 /*************************************************************************************
 **
-** Function        is_pbap_record_blacklisted
+** Function        is_device_blacklisted_for_pbap
 **
 ** Description     Checks if given PBAP record is for PBAP PSE and blacklisted
 **
 ** Returns         BOOLEAN
 **
 ***************************************************************************************/
-static bool is_pbap_record_blacklisted (tSDP_ATTRIBUTE attr,
-                                      RawAddress remote_address, bool check_for_1_2)
+static bool is_device_blacklisted_for_pbap (RawAddress remote_address, bool check_for_1_2)
 {
-  if ((attr.id == ATTR_ID_SERVICE_CLASS_ID_LIST) &&
-      (((attr.value_ptr[1] << 8) | (attr.value_ptr[2])) ==
-      UUID_SERVCLASS_PBAP_PSE)) {
+  bt_property_t prop_name;
+  bt_bdname_t bdname;
 
-    bt_property_t prop_name;
-    bt_bdname_t bdname;
-
-    memset(&bdname, 0, sizeof(bt_bdname_t));
-    BTIF_STORAGE_FILL_PROPERTY(&prop_name, BT_PROPERTY_BDNAME,
-                           sizeof(bt_bdname_t), &bdname);
-    if (btif_storage_get_remote_device_property(&remote_address,
-                                          &prop_name) != BT_STATUS_SUCCESS) {
-      SDP_TRACE_DEBUG("%s: BT_PROPERTY_BDNAME failed", __func__);
-    }
-    if (!check_for_1_2 && (interop_match_addr(INTEROP_ADV_PBAP_VER_1_1, &remote_address) ||
-        (strlen((const char *)bdname.name) != 0 &&
-        interop_match_name(INTEROP_ADV_PBAP_VER_1_1,
-        (const char *)bdname.name)))) {
-      SDP_TRACE_DEBUG("%s: device is blacklisted for pbap version < 1.2 ", __func__);
-      return true;
-    }
-    if (check_for_1_2 && (interop_match_addr(INTEROP_ADV_PBAP_VER_1_2, &remote_address) ||
-        (strlen((const char *)bdname.name) != 0 &&
-        interop_match_name(INTEROP_ADV_PBAP_VER_1_2,
-        (const char *)bdname.name)))) {
-      SDP_TRACE_DEBUG("%s: device is blacklisted for pbap version 1.2 ", __func__);
-      return true;
-    }
+  memset(&bdname, 0, sizeof(bt_bdname_t));
+  BTIF_STORAGE_FILL_PROPERTY(&prop_name, BT_PROPERTY_BDNAME,
+                         sizeof(bt_bdname_t), &bdname);
+  if (btif_storage_get_remote_device_property(&remote_address,
+                                        &prop_name) != BT_STATUS_SUCCESS) {
+    SDP_TRACE_DEBUG("%s: BT_PROPERTY_BDNAME failed", __func__);
+  }
+  if (check_for_1_2 && (interop_match_addr(INTEROP_ADV_PBAP_VER_1_1, &remote_address) ||
+      (strlen((const char *)bdname.name) != 0 &&
+      interop_match_name(INTEROP_ADV_PBAP_VER_1_1,
+      (const char *)bdname.name)))) {
+    SDP_TRACE_DEBUG("%s: device is blacklisted for pbap version < 1.2 ", __func__);
+    return true;
+  }
+  if (!check_for_1_2 && (interop_match_addr(INTEROP_ADV_PBAP_VER_1_2, &remote_address) ||
+      (strlen((const char *)bdname.name) != 0 &&
+      interop_match_name(INTEROP_ADV_PBAP_VER_1_2,
+      (const char *)bdname.name)))) {
+    SDP_TRACE_DEBUG("%s: device is blacklisted for pbap version 1.2 ", __func__);
+    return true;
   }
   return false;
 }
@@ -1482,6 +1449,86 @@ static bool check_remote_pbap_version_102(RawAddress remote_addr) {
 
 /*************************************************************************************
 **
+** Function        sdp_update_pbap_blacklist_len
+**
+** Description     Updates the blacklist length to be updated from the SDP response
+**
+** Returns         void
+**
+***************************************************************************************/
+static uint16_t sdp_update_pbap_blacklist_len(tCONN_CB* p_ccb, tSDP_ATTR_SEQ* attr_seq,
+                                            tSDP_UUID_SEQ* uid_seq) {
+  if (!p_ccb || !attr_seq || !uid_seq) return 0;
+  tSDP_RECORD* p_rec;
+
+  p_ccb->bl_update_len = 0;
+
+  // Check to validate if 1.2 record is getting sent
+  bool is_pbap_102_supported = check_remote_pbap_version_102(p_ccb->device_address);
+  bool is_pbap_101_blacklisted = is_device_blacklisted_for_pbap(p_ccb->device_address, false);
+  bool is_pbap_102_blacklisted = is_device_blacklisted_for_pbap(p_ccb->device_address, true);
+  static bool running_pts = false;
+  char pts_property[6];
+  osi_property_get("bt.pbap.pts", pts_property, "false");
+  if (!strncmp("true", pts_property, 4)) {
+    SDP_TRACE_DEBUG("%s pts running= %d", __func__, pts_property);
+    running_pts = true;
+  }
+  SDP_TRACE_DEBUG("%s remote BD Addr : %s is_pbap_102_supported : %d "
+      "is_pbap_1_1__blacklisted = %d is_pbap_1_2__blacklisted = %d "
+      "running_pts = %d", __func__,
+      p_ccb->device_address.ToString().c_str(), is_pbap_102_supported,
+      is_pbap_101_blacklisted, is_pbap_102_blacklisted, running_pts);
+
+  if (is_pbap_102_blacklisted
+      || (!is_pbap_102_supported && !is_pbap_101_blacklisted && !running_pts)) {
+    // Send Length without any update
+    return p_ccb->bl_update_len;
+  }
+
+  int xx;
+  tSDP_ATTRIBUTE attr;
+  if (uid_seq) {
+    for (p_rec = sdp_db_service_search(NULL, uid_seq); p_rec;
+      p_rec = sdp_db_service_search(p_rec, uid_seq)) {
+      attr = p_rec->attribute[1];
+      if ((attr.id == ATTR_ID_SERVICE_CLASS_ID_LIST) &&
+          (((attr.value_ptr[1] << 8) | (attr.value_ptr[2])) == UUID_SERVCLASS_PBAP_PSE)) {
+        // PBAP PSE Record
+        SDP_TRACE_DEBUG("%s: response has PBAP PSE record for BL device", __func__);
+        for (xx = p_ccb->cont_info.next_attr_index; xx < attr_seq->num_attr; xx++) {
+          if (attr_seq->attr_entry[xx].start == attr_seq->attr_entry[xx].end) {
+            SDP_TRACE_DEBUG("%s start and end match for xx = %d", __func__, xx);
+            if (attr_seq->attr_entry[xx].start == ATTR_ID_GOEP_L2CAP_PSM) {
+              p_ccb->bl_update_len += PBAP_GOEP_L2CAP_PSM_LEN;
+              SDP_TRACE_ERROR("%s: ATTR_ID_GOEP_L2CAP_PSM requested,"
+                  " need to change length by %d", __func__,
+                  p_ccb->bl_update_len);
+            } else if (attr_seq->attr_entry[xx].start ==
+              ATTR_ID_PBAP_SUPPORTED_FEATURES) {
+              p_ccb->bl_update_len += PBAP_SUPP_FEA_LEN;
+              SDP_TRACE_DEBUG("%s: ATTR_ID_PBAP_SUPPORTED_FEATURES requested,"
+                  " need to change length by %d", __func__,
+                  p_ccb->bl_update_len);
+            }
+          } else {
+            p_ccb->bl_update_len = PBAP_GOEP_L2CAP_PSM_LEN +
+                PBAP_SUPP_FEA_LEN;
+            SDP_TRACE_DEBUG("%s: All attributes requested"
+                " need to change length by %d", __func__,
+                p_ccb->bl_update_len);
+          }
+        }
+      }
+    }
+  }
+  SDP_TRACE_DEBUG("%s: bl_update_len = %d", __func__, p_ccb->bl_update_len);
+  return p_ccb->bl_update_len;
+}
+
+
+/*************************************************************************************
+**
 ** Function        sdp_upgrade_pbap_pse_record
 **
 ** Description     updates pbap record to pbap 1.2 record if remote supports pbap 1.2
@@ -1501,8 +1548,8 @@ static tSDP_RECORD *sdp_upgrade_pse_record(tSDP_RECORD * p_rec,
 
   /* Check if remote supports PBAP 1.2 */
   is_pbap_102_supported = check_remote_pbap_version_102(remote_address);
-  static bool is_pbap_101_blacklisted = is_pbap_record_blacklisted(attr, remote_address, false);
-  static bool is_pbap_102_blacklisted = is_pbap_record_blacklisted(attr, remote_address, true);
+  static bool is_pbap_101_blacklisted = is_device_blacklisted_for_pbap(remote_address, false);
+  static bool is_pbap_102_blacklisted = is_device_blacklisted_for_pbap(remote_address, true);
   static bool running_pts = false;
   char pts_property[6];
   osi_property_get("bt.pbap.pts", pts_property, "false");
@@ -1544,8 +1591,8 @@ static tSDP_RECORD *sdp_upgrade_pse_record(tSDP_RECORD * p_rec,
           &pbap_102_sdp_rec, UUID_SERVCLASS_PHONE_ACCESS, pbap_0102);
 
   /* Add PBAP 1.2 supported features 4 */
-   UINT32_TO_BE_STREAM(p_temp, supported_features);
-   status &= SDP_AddAttributeToRecord(&pbap_102_sdp_rec, ATTR_ID_PBAP_SUPPORTED_FEATURES,
+  UINT32_TO_BE_STREAM(p_temp, supported_features);
+  status &= SDP_AddAttributeToRecord(&pbap_102_sdp_rec, ATTR_ID_PBAP_SUPPORTED_FEATURES,
                               UINT_DESC_TYPE, (uint32_t)4, temp);
 
   /* Add the L2CAP PSM */
@@ -1618,8 +1665,13 @@ void check_and_store_pce_profile_version(tSDP_DISC_REC* p_sdp_rec) {
 
   RawAddress remote_addr = p_sdp_rec->remote_bd_addr;
   SDP_FindProfileVersionInRec(p_sdp_rec, UUID_SERVCLASS_PHONE_ACCESS, &peer_pce_version);
-  APPL_TRACE_DEBUG("%s remote BD Addr: %s peer pce version: %d", __func__,
-                      remote_addr.ToString().c_str(), peer_pce_version);
+  bool is_pbap_102_blacklisted = is_device_blacklisted_for_pbap(remote_addr, true);
+  APPL_TRACE_DEBUG("%s remote BD Addr: %s peer pce version: %x is_pbap_102_blacklisted = %d",
+      __func__, remote_addr.ToString().c_str(), peer_pce_version, is_pbap_102_blacklisted);
+
+  if (is_pbap_102_blacklisted) {
+    return;
+  }
 
   fp = fopen(PCE_PEER_VERSION_CONF_FILE, "r+b");
   if (!fp)
