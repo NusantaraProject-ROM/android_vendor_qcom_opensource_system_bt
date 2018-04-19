@@ -1148,6 +1148,7 @@ static bool btif_av_state_closing_handler(btif_sm_event_t event, void* p_data, i
             //Flush and close media channel
             btif_a2dp_source_set_tx_flush(true);
             btif_a2dp_source_stop_audio_req();
+            btif_a2dp_on_stopped(NULL);
           }
         } else {
           /* immediately flush any pending tx frames while suspend is pending */
