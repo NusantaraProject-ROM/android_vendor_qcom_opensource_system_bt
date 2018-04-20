@@ -136,13 +136,14 @@ void hci_close() {
   }
 }
 
-void hci_transmit(BT_HDR* packet) {
+bool hci_transmit(BT_HDR* packet) {
   HciPacket data;
+  bool status = true;
   std::lock_guard<std::mutex> lock(bthci_mutex);
 
   if(btHci == nullptr) {
     LOG_INFO(LOG_TAG, "%s: Link with Bluetooth HIDL service is closed", __func__);
-    return;
+    return false;
   }
 
   data.setToExternal(packet->data + packet->offset, packet->len);
@@ -152,28 +153,36 @@ void hci_transmit(BT_HDR* packet) {
     case MSG_STACK_TO_HC_HCI_CMD:
     {
       auto hidl_daemon_status = btHci->sendHciCommand(data);
-      if(!hidl_daemon_status.isOk())
+      if(!hidl_daemon_status.isOk()) {
         LOG_ERROR(LOG_TAG, "%s: send Command failed, HIDL daemon is dead", __func__);
+        status = false;
+      }
       break;
     }
     case MSG_STACK_TO_HC_HCI_ACL:
     {
       auto hidl_daemon_status = btHci->sendAclData(data);
-      if(!hidl_daemon_status.isOk())
+      if(!hidl_daemon_status.isOk()) {
         LOG_ERROR(LOG_TAG, "%s: send acl packet failed, HIDL daemon is dead", __func__);
+        status = false;
+      }
       break;
     }
     case MSG_STACK_TO_HC_HCI_SCO:
     {
       auto hidl_daemon_status = btHci->sendScoData(data);
-      if(!hidl_daemon_status.isOk())
+      if(!hidl_daemon_status.isOk()) {
         LOG_ERROR(LOG_TAG, "%s: send sco data failed, HIDL daemon is dead", __func__);
+        status = false;
+      }
       break;
     }
     default:
+      status = false;
       LOG_ERROR(LOG_TAG, "Unknown packet type (%d)", event);
       break;
   }
+  return status;
 }
 
 int hci_open_firmware_log_file() {
