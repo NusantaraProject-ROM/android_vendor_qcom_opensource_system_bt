@@ -83,11 +83,8 @@ static const int BT_HCI_RT_PRIORITY = 1;
 
 // Abort if there is no response to an HCI command.
 static const uint32_t COMMAND_PENDING_TIMEOUT_MS = 2000;
-#ifdef BLUEDROID_DEBUG
-static const uint32_t COMMAND_TIMEOUT_RESTART_S = 12;
-#else
-static const uint32_t COMMAND_TIMEOUT_RESTART_MS = 500;
-#endif
+static const uint32_t COMMAND_TIMEOUT_RESTART_MS = 5000;
+
 
 // Our interface
 static bool interface_created;
@@ -105,6 +102,7 @@ static base::MessageLoop* message_loop_ = nullptr;
 static base::RunLoop* run_loop_ = nullptr;
 
 static alarm_t* startup_timer;
+static alarm_t *hci_timeout_abort_timer;
 
 // Outbound-related
 static int command_credits = 1;
@@ -296,6 +294,17 @@ static future_t* hci_module_shut_down() {
   thread_free(thread);
   thread = NULL;
 
+  // Clean up abort timer, if it exists.
+  if (hci_timeout_abort_timer != NULL) {
+    alarm_free(hci_timeout_abort_timer);
+    hci_timeout_abort_timer = NULL;
+  }
+
+  if (hci_firmware_log_fd != INVALID_FD) {
+    hci_close_firmware_log_file(hci_firmware_log_fd);
+    hci_firmware_log_fd = INVALID_FD;
+  }
+
   return NULL;
 }
 
@@ -476,6 +485,14 @@ static void fragmenter_transmit_finished(BT_HDR* packet,
   }
 }
 
+static void hci_timeout_abort(UNUSED_ATTR void *context) {
+  LOG_DEBUG(LOG_TAG,"%s", __func__);
+  hci_close_firmware_log_file(hci_firmware_log_fd);
+  alarm_free(hci_timeout_abort_timer);
+  hci_timeout_abort_timer = NULL;
+  kill(getpid(), SIGKILL);
+}
+
 // Print debugging information and quit. Don't dereference original_wait_entry.
 static void command_timed_out(void* original_wait_entry) {
   std::unique_lock<std::recursive_mutex> lock(commands_pending_response_mutex);
@@ -511,6 +528,11 @@ static void command_timed_out(void* original_wait_entry) {
   }
   lock.unlock();
 
+  // Don't request a firmware dump for multiple hci timeouts
+  if (hci_timeout_abort_timer != NULL || hci_firmware_log_fd != INVALID_FD) {
+    return;
+  }
+
   LOG_ERROR(LOG_TAG, "%s: requesting a firmware dump.", __func__);
 
   /* Allocate a buffer to hold the HCI command. */
@@ -533,21 +555,13 @@ static void command_timed_out(void* original_wait_entry) {
 
   osi_free(bt_hdr);
 
-#ifdef BLUEDROID_DEBUG
-  LOG_ERROR(LOG_TAG, "%s will restart the Bluetooth process after 0x%x seconds.",
-    __func__, COMMAND_TIMEOUT_RESTART_S);
-  sleep(COMMAND_TIMEOUT_RESTART_S);
-#else
-  LOG_ERROR(LOG_TAG, "%s will restart the Bluetooth process after 0x%x millisecond.",
-    __func__, COMMAND_TIMEOUT_RESTART_MS);
-  usleep(COMMAND_TIMEOUT_RESTART_MS * 1000);
-#endif
-
-  hci_close_firmware_log_file(hci_firmware_log_fd);
-
-  // We shouldn't try to recover the stack from this command timeout.
-  // If it's caused by a software bug, fix it. If it's a hardware bug, fix it.
-  exit(0);
+  hci_timeout_abort_timer = alarm_new("hci.hci_timeout_abort_timer");
+  if (!hci_timeout_abort_timer) {
+    LOG_ERROR(LOG_TAG, "%s unable to create hardware error timer.", __func__);
+    usleep(2000000);
+    kill(getpid(), SIGKILL);
+  }
+  alarm_set(hci_timeout_abort_timer, COMMAND_TIMEOUT_RESTART_MS, hci_timeout_abort, NULL);
 }
 
 // Event/packet receiving functions
