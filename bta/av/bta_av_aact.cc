@@ -95,7 +95,7 @@ static void bta_av_st_rc_timer(tBTA_AV_SCB* p_scb,
 
 static void bta_av_vendor_offload_select_codec(tBTA_AV_SCB* p_scb);
 
-static uint8_t bta_av_vendor_offload_convert_sample_rate(uint16_t sample_rate);
+//static uint8_t bta_av_vendor_offload_convert_sample_rate(uint16_t sample_rate);
 
 /* state machine states */
 enum {
@@ -3490,7 +3490,7 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
   }
 }
 
-static uint8_t bta_av_vendor_offload_convert_sample_rate(uint16_t sample_rate) {
+/* static uint8_t bta_av_vendor_offload_convert_sample_rate(uint16_t sample_rate) {
   uint8_t rate;
   switch (sample_rate) {
     case 44100:
@@ -3505,7 +3505,7 @@ static uint8_t bta_av_vendor_offload_convert_sample_rate(uint16_t sample_rate) {
       break;
   }
   return rate;
-}
+} */
 
 static void bta_av_vendor_offload_select_codec(tBTA_AV_SCB* p_scb)
 {
@@ -3545,6 +3545,7 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
 {
   uint8_t param[40];// codec_type;//index = 0;
   unsigned char status = 0;
+  uint16_t bitrate = 0;
   //uint16_t sample_rate;
   APPL_TRACE_DEBUG("%s: enc_update_in_progress = %d", __func__, enc_update_in_progress);
   APPL_TRACE_DEBUG("%s: Last cached VSC command: 0x0%x", __func__, last_sent_vsc_cmd);
@@ -3586,9 +3587,12 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
   if(p_scb->do_scrambling) {
     uint8_t *p_param = param;
     *p_param++ = VS_QHCI_SCRAMBLE_A2DP_MEDIA;
-    UINT8_TO_STREAM(p_param,
-        bta_av_vendor_offload_convert_sample_rate(offload_start.sample_rate));
-
+    bitrate = A2DP_GetTrackBitRate(p_scb->cfg.codec_info);
+    if (bitrate == 0) {
+      UINT8_TO_STREAM(p_param, 1);
+    } else {
+      UINT8_TO_STREAM(p_param, 2);
+    }
     UINT16_TO_STREAM(p_param,offload_start.acl_hdl);
 
     BTM_VendorSpecificCommand(HCI_VSQC_CONTROLLER_A2DP_OPCODE,4, param,

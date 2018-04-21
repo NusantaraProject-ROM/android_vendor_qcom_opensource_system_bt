@@ -586,6 +586,12 @@ bool A2DP_CodecEquals(const uint8_t* p_codec_info_a,
 // contains invalid codec information.
 int A2DP_GetTrackBitsPerSample(const uint8_t* p_codec_info);
 
+// Gets the bitrate for the track for A2dp codec.
+// |p_codec_info| is a pointer to the codec_info to decode.
+// Returns the track bit rate on success, or -1 if |p_codec_info|
+// contains invalid codec information.
+int A2DP_GetTrackBitRate(const uint8_t* p_codec_info);
+
 // Gets the track sample rate value for the A2DP codec.
 // |p_codec_info| is a pointer to the codec_info to decode.
 // Returns the track sample rate on success, or -1 if |p_codec_info|
