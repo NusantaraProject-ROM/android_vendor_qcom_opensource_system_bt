@@ -338,7 +338,9 @@ static void send_bvra_update(int index)
 static int btif_hf_idx_by_bdaddr(RawAddress* bd_addr) {
   int i;
   for (i = 0; i < btif_max_hf_clients; ++i) {
-    if (is_connected(bd_addr) && (*bd_addr == btif_hf_cb[i].connected_bda))
+    if ( (btif_hf_cb[i].state == BTHF_CONNECTION_STATE_CONNECTED ||
+          btif_hf_cb[i].state == BTHF_CONNECTION_STATE_SLC_CONNECTED) &&
+         (*bd_addr == btif_hf_cb[i].connected_bda))
       return i;
   }
   return BTIF_HF_INVALID_IDX;
@@ -535,11 +537,11 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
                    << unsigned(p_data->open.status);
         btif_hf_cb[idx].state = BTHF_CONNECTION_STATE_DISCONNECTED;
       } else {
-        BTIF_TRACE_WARNING(
-            "%s: AG open failed, but another device connected. status=%d "
-            "state=%d connected device=%s",
-            __func__, p_data->open.status, btif_hf_cb[idx].state,
-            btif_hf_cb[idx].connected_bda.ToString().c_str());
+        LOG(WARNING) << __func__ << ": AG open failed for "
+                     << p_data->open.bd_addr << ", error "
+                     << std::to_string(p_data->open.status)
+                     << ", local device is " << btif_hf_cb[idx].connected_bda
+                     << ". Ignoring as not expecting to open";
         break;
       }
       if (ignore_rfc_fail != true)

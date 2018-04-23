@@ -123,6 +123,7 @@ enum {
   BTA_AG_SVC_TIMEOUT_EVT,
   BTA_AG_CI_SCO_DATA_EVT,
   BTA_AG_CI_SLC_READY_EVT,
+  BTA_AG_COLLISION_EVT,
   BTA_AG_MAX_EVT,
 
   /* these events are handled outside of the state machine */
@@ -464,6 +465,7 @@ extern void bta_ag_set_sco_allowed(tBTA_AG_DATA* p_data);
 extern const RawAddress& bta_ag_get_active_device();
 extern void bta_clear_active_device();
 extern void bta_ag_api_set_active_device(tBTA_AG_DATA* p_data);
+extern void bta_ag_handle_collision(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data);
 
 extern void bta_ag_create_sco(tBTA_AG_SCB* p_scb, bool is_orig);
 extern bool bta_ag_remove_sco(tBTA_AG_SCB* p_scb, bool only_active);
