@@ -367,12 +367,7 @@ static void bta_ag_send_ind(tBTA_AG_SCB* p_scb, uint16_t id, uint16_t value,
     p += utl_itoa(id, p);
     *p++ = ',';
     utl_itoa(value, p);
-    if ((id == BTA_AG_IND_CALL) || (id == BTA_AG_IND_CALLHELD)  || (id == BTA_AG_IND_CALLSETUP))
-      bta_sys_busy(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
-
-      bta_ag_send_result(p_scb, BTA_AG_IND_RES, str, 0);
-    if ((id == BTA_AG_IND_CALL) || (id == BTA_AG_IND_CALLHELD)  || (id == BTA_AG_IND_CALLSETUP))
-      bta_sys_idle(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
+    bta_ag_send_result(p_scb, BTA_AG_IND_RES, str, 0);
   }
 }
 
