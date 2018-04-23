@@ -3531,7 +3531,7 @@ bt_status_t btif_av_execute_service(bool b_enable) {
   tBTA_AV_FEAT feat_delay_rpt = 0;
   BTIF_TRACE_DEBUG("%s(): enable: %d", __func__, b_enable);
   if (b_enable) {
-    osi_property_get("persist.bluetooth.enabledelayreports", value, "false");
+    osi_property_get("persist.bluetooth.enabledelayreports", value, "true");
     delay_report_enabled = (strcmp(value, "true") == 0);
     if (delay_report_enabled)
       feat_delay_rpt = BTA_AV_FEAT_DELAY_RPT;
