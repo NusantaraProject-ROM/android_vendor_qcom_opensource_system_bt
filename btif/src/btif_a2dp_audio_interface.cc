@@ -75,6 +75,7 @@ volatile bool server_died = false;
 static pthread_t audio_hal_monitor;
 typedef std::unique_lock<std::mutex> Lock;
 std::mutex mtx;
+std::mutex mtxBtAudio;
 std::condition_variable mCV;
 /*BTIF AV helper */
 extern bool btif_av_is_device_disconnecting();
@@ -216,15 +217,20 @@ Status mapToStatus(uint8_t resp)
 /* Thread to handle hal sever death receipt*/
 static void* server_thread(UNUSED_ATTR void* arg) {
   LOG_INFO(LOG_TAG,"%s",__func__);
-  Lock lk(mtx);
-  while (server_died == false) {
-    LOG_INFO(LOG_TAG,"waitin on condition");
-    mCV.wait(lk);
+  {
+    Lock lk(mtx);
+    while (server_died == false) {
+      LOG_INFO(LOG_TAG,"waitin on condition");
+      mCV.wait(lk);
+    }
   }
-  if (btAudio != nullptr) {
-    LOG_INFO(LOG_TAG,"%s:audio hal died",__func__);
-    server_died = false;
-    on_hidl_server_died();
+  {
+    Lock lock(mtxBtAudio);
+    if (btAudio != nullptr) {
+      LOG_INFO(LOG_TAG,"%s:audio hal died.",__func__);
+      server_died = false;
+      on_hidl_server_died();
+    }
   }
   LOG_INFO(LOG_TAG,"%s EXIT",__func__);
   return NULL;
@@ -232,6 +238,7 @@ static void* server_thread(UNUSED_ATTR void* arg) {
 
 void btif_a2dp_audio_interface_init() {
   LOG_INFO(LOG_TAG,"btif_a2dp_audio_interface_init");
+  Lock lock(mtxBtAudio);
   btAudio = IBluetoothAudio::getService();
   CHECK(btAudio != nullptr);
   LOG_INFO(LOG_TAG, "%s: IBluetoothAudio::getService() returned %p (%s)",
@@ -258,32 +265,34 @@ void btif_a2dp_audio_interface_init() {
 void btif_a2dp_audio_interface_deinit() {
   LOG_INFO(LOG_TAG,"btif_a2dp_audio_interface_deinit");
   deinit_pending = true;
-
-  if (btAudio != nullptr) {
-    tBTA_AV_STATUS status = A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS;
-    if (a2dp_cmd_pending == A2DP_CTRL_CMD_START) {
-      LOG_INFO(LOG_TAG,"calling method a2dp_on_started");
-      auto ret = btAudio->a2dp_on_started(mapToStatus(status));
-      if (!ret.isOk()) LOG_ERROR(LOG_TAG,"a2dp_on_started: server died");
-    } else if ((a2dp_cmd_pending == A2DP_CTRL_CMD_SUSPEND)
-        || (a2dp_cmd_pending == A2DP_CTRL_CMD_STOP)) {
-      LOG_INFO(LOG_TAG,"calling method a2dp_on_started");
-      auto ret = btAudio->a2dp_on_suspended(mapToStatus(status));
-      if (!ret.isOk()) LOG_ERROR(LOG_TAG,"a2dp_on_suspended: server died");
+  {
+    Lock lock(mtxBtAudio);
+    if (btAudio != nullptr) {
+      tBTA_AV_STATUS status = A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS;
+      if (a2dp_cmd_pending == A2DP_CTRL_CMD_START) {
+        LOG_INFO(LOG_TAG,"calling method a2dp_on_started");
+        auto ret = btAudio->a2dp_on_started(mapToStatus(status));
+        if (!ret.isOk()) LOG_ERROR(LOG_TAG,"a2dp_on_started: server died");
+      } else if ((a2dp_cmd_pending == A2DP_CTRL_CMD_SUSPEND)
+          || (a2dp_cmd_pending == A2DP_CTRL_CMD_STOP)) {
+        LOG_INFO(LOG_TAG,"calling method a2dp_on_started");
+        auto ret = btAudio->a2dp_on_suspended(mapToStatus(status));
+        if (!ret.isOk()) LOG_ERROR(LOG_TAG,"a2dp_on_suspended: server died");
+      }
+      a2dp_cmd_pending = A2DP_CTRL_CMD_NONE;
     }
-    a2dp_cmd_pending = A2DP_CTRL_CMD_NONE;
-  }
 
-  if (btAudio != nullptr) {
-    auto ret = btAudio->deinitialize_callbacks();
-    if (!ret.isOk()) {
-      LOG_ERROR(LOG_TAG,"hal server is dead");
+    if (btAudio != nullptr) {
+      auto ret = btAudio->deinitialize_callbacks();
+      if (!ret.isOk()) {
+        LOG_ERROR(LOG_TAG,"hal server is dead");
+      }
+      auto hidl_death_unlink = btAudio->unlinkToDeath(BTAudioHidlDeathRecipient);
+      if (!hidl_death_unlink.isOk()) LOG_ERROR(LOG_TAG,"hidl_death_unlink server died");
     }
-    auto hidl_death_unlink = btAudio->unlinkToDeath(BTAudioHidlDeathRecipient);
-    if (!hidl_death_unlink.isOk()) LOG_ERROR(LOG_TAG,"hidl_death_unlink server died");
+    deinit_pending = false;
+    btAudio = nullptr;
   }
-  deinit_pending = false;
-  btAudio = nullptr;
   Lock lk(mtx);
   server_died = true; //Exit thread
   mCV.notify_one();
@@ -294,7 +303,8 @@ void btif_a2dp_audio_on_started(tBTA_AV_STATUS status)
 {
   uint8_t ack = status;
 
-  LOG_INFO(LOG_TAG,"btif_a2dp_audio_on_started : status = %d", status);
+  LOG_INFO(LOG_TAG,"btif_a2dp_audio_on_started : status = %d",status);
+  Lock lock(mtxBtAudio);
   if (btAudio != nullptr){
     if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
             !strcmp(a2dp_hal_imp, "true")) {
@@ -362,6 +372,7 @@ void btif_a2dp_audio_on_suspended(tBTA_AV_STATUS status)
   uint8_t ack = status;
 
   LOG_INFO(LOG_TAG,"btif_a2dp_audio_on_suspended : status = %d", status);
+  Lock lock(mtxBtAudio);
   if (btAudio != nullptr){
     if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
             !strcmp(a2dp_hal_imp, "true")) {
@@ -431,6 +442,7 @@ void btif_a2dp_audio_on_stopped(tBTA_AV_STATUS status)
   LOG_INFO(LOG_TAG,"btif_a2dp_audio_on_stopped : status = %d",status);
   APPL_TRACE_IMP("%s tx_started: %d, tx_stop_initiated: %d",
          __func__, btif_a2dp_src_vsc.tx_started, btif_a2dp_src_vsc.tx_stop_initiated);
+  Lock lock(mtxBtAudio);
   if (btAudio != nullptr){
     if (btif_a2dp_src_vsc.tx_started && !btif_a2dp_src_vsc.tx_stop_initiated) {
       bta_av_vendor_offload_stop();
@@ -516,8 +528,9 @@ void btif_a2dp_audio_send_start_req()
 {
   uint8_t resp;
   resp = btif_a2dp_audio_process_request(A2DP_CTRL_CMD_START);
+  Lock lock(mtxBtAudio);
   if (btAudio != nullptr) {
-    auto ret =  btAudio->a2dp_on_started(mapToStatus(resp));
+      auto ret =  btAudio->a2dp_on_started(mapToStatus(resp));
     if (resp != A2DP_CTRL_ACK_PENDING) {
       /*
        * Reset pending command. This is to avoid returning unsolicited
@@ -534,6 +547,7 @@ void btif_a2dp_audio_send_suspend_req()
 {
   uint8_t resp;
   resp = btif_a2dp_audio_process_request(A2DP_CTRL_CMD_SUSPEND);
+  Lock lock(mtxBtAudio);
   if (btAudio != nullptr) {
     auto ret =  btAudio->a2dp_on_suspended(mapToStatus(resp));
     if (resp != A2DP_CTRL_ACK_PENDING) {
@@ -552,6 +566,7 @@ void btif_a2dp_audio_send_stop_req()
 {
   uint8_t resp;
   resp = btif_a2dp_audio_process_request(A2DP_CTRL_CMD_STOP);
+  Lock lock(mtxBtAudio);
   if (btAudio != nullptr) {
     auto ret =  btAudio->a2dp_on_stopped(mapToStatus(resp));
     if (!ret.isOk()) LOG_ERROR(LOG_TAG,"server died");
@@ -561,6 +576,7 @@ void btif_a2dp_audio_send_a2dp_ready_status()
 {
   uint8_t resp;
   resp = btif_a2dp_audio_process_request(A2DP_CTRL_CMD_CHECK_READY);
+  Lock lock(mtxBtAudio);
   if (btAudio != nullptr) {
     auto ret = btAudio->a2dp_on_check_ready(mapToStatus(resp));
     if (!ret.isOk()) LOG_ERROR(LOG_TAG,"server died");
@@ -574,6 +590,7 @@ void btif_a2dp_audio_send_codec_config()
   resp = btif_a2dp_audio_process_request(A2DP_CTRL_GET_CODEC_CONFIG);
   LOG_INFO(LOG_TAG,"resp  = %d",resp);
   data.setToExternal(codec_info,len);
+  Lock lock(mtxBtAudio);
   if (btAudio != nullptr) {
     auto ret = btAudio->a2dp_on_get_codec_config(mapToStatus(resp), data);
     if (!ret.isOk()) LOG_ERROR(LOG_TAG,"server died");
@@ -584,6 +601,7 @@ void btif_a2dp_audio_send_mcast_status()
   uint8_t mcast = 0;
   LOG_INFO(LOG_TAG,"btif_a2dp_audio_send_mcast_status:multicast");
   //Mulitcast not supported currently
+  Lock lock(mtxBtAudio);
   if (btAudio != nullptr) {
     auto ret = btAudio->a2dp_on_get_multicast_status(mcast);
     if (!ret.isOk()) LOG_ERROR(LOG_TAG,"server died");
@@ -593,6 +611,7 @@ void btif_a2dp_audio_send_num_connected_devices()
 {
   uint8_t num_dev = 1;
   LOG_INFO(LOG_TAG,"send_num_connected_devices");
+  Lock lock(mtxBtAudio);
   if (btAudio != nullptr) {
     auto ret = btAudio->a2dp_on_get_num_connected_devices(num_dev);
     if (!ret.isOk()) LOG_ERROR(LOG_TAG,"server died");
@@ -603,6 +622,7 @@ void btif_a2dp_audio_send_connection_status()
   uint8_t resp;
   LOG_INFO(LOG_TAG,"send_connection_status");
   resp = btif_a2dp_audio_process_request(A2DP_CTRL_GET_CONNECTION_STATUS);
+  Lock lock(mtxBtAudio);
   if (btAudio != nullptr) {
     auto ret = btAudio->a2dp_on_get_connection_status(mapToStatus(resp));
     if (!ret.isOk()) LOG_ERROR(LOG_TAG,"server died");
@@ -612,6 +632,7 @@ void btif_a2dp_audio_send_sink_latency()
 {
   uint16_t sink_latency = btif_av_get_audio_delay();
   LOG_INFO(LOG_TAG,"send_sink_latency = %d", sink_latency);
+  Lock lock(mtxBtAudio);
   if (btAudio != nullptr) {
     auto ret = btAudio->a2dp_on_get_sink_latency(sink_latency);
     if (!ret.isOk()) LOG_ERROR(LOG_TAG,"server died");
@@ -620,6 +641,7 @@ void btif_a2dp_audio_send_sink_latency()
 
 void on_hidl_server_died() {
   LOG_INFO(LOG_TAG,"on_hidl_server_died");
+  Lock lock(mtxBtAudio);
   if (btAudio != nullptr) {
     auto hidl_death_unlink = btAudio->unlinkToDeath(BTAudioHidlDeathRecipient);
     if (!hidl_death_unlink.isOk()) LOG_ERROR(LOG_TAG,"hidl_death_unlink server died");
