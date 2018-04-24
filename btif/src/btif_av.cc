@@ -1120,8 +1120,13 @@ static bool btif_av_state_closing_handler(btif_sm_event_t event, void* p_data, i
           if (btif_av_is_playing()) {
               APPL_TRACE_DEBUG("Keep playing on other device");
           } else {
-             APPL_TRACE_DEBUG("Not playing on other devie: Set Flush");
-             btif_a2dp_source_set_tx_flush(true);
+             if (btif_av_cb[index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING) {
+                 APPL_TRACE_DEBUG("Not playing on other device: Stop media task as local suspend pending");
+                 btif_a2dp_on_stopped(NULL);
+             } else {
+                APPL_TRACE_DEBUG("Not playing on other devie: Set Flush");
+                btif_a2dp_source_set_tx_flush(true);
+             }
           }
         } else {
           /* Single connections scenario:
@@ -1145,9 +1150,7 @@ static bool btif_av_state_closing_handler(btif_sm_event_t event, void* p_data, i
         if (btif_av_is_connected_on_other_idx(index)) {
           if (!btif_av_is_playing()) {
             APPL_TRACE_WARNING("Suspend the AV Data channel");
-            //Flush and close media channel
-            btif_a2dp_source_set_tx_flush(true);
-            btif_a2dp_source_stop_audio_req();
+            //Stop media task
             btif_a2dp_on_stopped(NULL);
           }
         } else {
