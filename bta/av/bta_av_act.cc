@@ -837,8 +837,13 @@ tBTA_AV_EVT bta_av_proc_meta_cmd(tAVRC_RESPONSE* p_rc_rsp,
                 is_dev_avrcpv_blacklisted = SDP_Dev_Blacklisted_For_Avrcp15(addr);
                 BTIF_TRACE_ERROR("Blacklist for AVRCP1.5 = %d", is_dev_avrcpv_blacklisted);
             }
-            BTIF_TRACE_DEBUG("Blacklist for AVRCP1.5 = %d", is_dev_avrcpv_blacklisted);
-            if (is_dev_avrcpv_blacklisted == TRUE)
+
+            char avrcp_version[PROPERTY_VALUE_MAX] = {0};
+            osi_property_get(AVRCP_VERSION_PROPERTY, avrcp_version, AVRCP_1_4_STRING);
+            BTIF_TRACE_DEBUG(LOG_TAG, "AVRCP version used for sdp: \"%s\"", avrcp_version);
+
+            if ((!strncmp(AVRCP_1_3_STRING, avrcp_version, sizeof(AVRCP_1_3_STRING))) ||
+                    (is_dev_avrcpv_blacklisted == TRUE))
             {
                 for (i = 0; i <= p_bta_av_cfg->num_evt_ids; ++i)
                 {
@@ -2034,23 +2039,6 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
        * some implementation uses 1.3 on CT ans 1.4 on TG */
       peer_features |=
           bta_av_check_peer_features(UUID_SERVCLASS_AV_REM_CTRL_TARGET);
-    }
-
-    /* Change our features if the remote AVRCP version is 1.3 or less */
-    tSDP_DISC_REC* p_rec = nullptr;
-    p_rec = SDP_FindServiceInDb(p_cb->p_disc_db,
-                                UUID_SERVCLASS_AV_REMOTE_CONTROL, p_rec);
-    if (p_rec != NULL &&
-        SDP_FindAttributeInRec(p_rec, ATTR_ID_BT_PROFILE_DESC_LIST) != NULL) {
-      /* get profile version (if failure, version parameter is not updated) */
-      uint16_t peer_rc_version = 0xFFFF;  // Don't change the AVRCP version
-      SDP_FindProfileVersionInRec(p_rec, UUID_SERVCLASS_AV_REMOTE_CONTROL,
-                                  &peer_rc_version);
-      if (peer_rc_version <= AVRC_REV_1_3) {
-        APPL_TRACE_DEBUG("%s Using AVRCP 1.3 Capabilities with remote device",
-                         __func__);
-        p_bta_av_cfg = (tBTA_AV_CFG*)&bta_av_cfg_compatibility;
-      }
     }
   }
 
