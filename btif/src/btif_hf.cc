@@ -1018,6 +1018,12 @@ bt_status_t HeadsetInterface::ConnectAudio(RawAddress* bd_addr) {
     return BT_STATUS_NOT_READY;
   }
 
+  if (!is_active_device(*bd_addr)) {
+    LOG(ERROR) << "HF: ConnectAudio is called for inactive device, returning"
+               << *bd_addr;
+    return BT_STATUS_FAIL;
+  }
+
   if (idx != BTIF_HF_INVALID_IDX) {
     BTA_AgAudioOpen(btif_hf_cb[idx].handle);
 
