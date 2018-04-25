@@ -738,6 +738,13 @@ static void btif_dm_cb_hid_remote_name(tBTM_REMOTE_DEV_NAME* p_remote_name) {
 static void btif_dm_cb_create_bond(const RawAddress& bd_addr,
                                    tBTA_TRANSPORT transport) {
   bool is_hid = check_cod(&bd_addr, COD_HID_POINTING);
+
+  if (btm_cb.pairing_state != BTM_PAIR_STATE_IDLE ) {
+    BTIF_TRACE_DEBUG("%s: btm_cb.pairing_state = %d, one pairing in progress ",
+                      __func__, btm_cb.pairing_state);
+    return;
+  }
+
   bond_state_changed(BT_STATUS_SUCCESS, bd_addr, BT_BOND_STATE_BONDING);
 
   int device_type;
