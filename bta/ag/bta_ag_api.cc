@@ -298,3 +298,7 @@ void BTA_AgSetActiveDevice(const RawAddress& active_device_addr) {
 
   bta_sys_sendmsg(p_buf);
 }
+
+void BTA_AgSetMaxHfClients(uint8_t value) {
+  bta_ag_cb.max_hf_clients = value;
+}

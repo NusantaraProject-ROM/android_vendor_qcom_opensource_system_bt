@@ -592,4 +592,6 @@ void BTA_AgSetScoAllowed(bool value);
 
 void BTA_AgSetActiveDevice(const RawAddress& active_device_addr);
 
+void BTA_AgSetMaxHfClients(uint8_t value);
+
 #endif /* BTA_AG_API_H */

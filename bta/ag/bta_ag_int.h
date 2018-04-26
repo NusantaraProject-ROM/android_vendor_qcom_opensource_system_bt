@@ -298,6 +298,7 @@ typedef struct {
   tBTA_AG_SCO_CB sco;                      /* SCO data */
   tBTA_AG_CBACK* p_cback;                  /* application callback */
   tBTA_AG_PARSE_MODE parse_mode;           /* parse/pass-through mode */
+  uint8_t max_hf_clients;                 /* max hf clients can be connected */
 } tBTA_AG_CB;
 
 /*****************************************************************************
