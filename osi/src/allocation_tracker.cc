@@ -24,9 +24,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <mutex>
+#include <pthread.h>
 #include <unordered_map>
+#include <sys/time.h>
+#include <sys/types.h>
 
 #include "osi/include/allocator.h"
+#include "osi/include/compat.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 
@@ -38,7 +42,8 @@ typedef struct {
 } allocation_t;
 
 static const size_t canary_size = 8;
-static char canary[canary_size];
+static char g_beginning_canary[canary_size];
+static char g_end_canary[canary_size];
 static std::unordered_map<void*, allocation_t*> allocations;
 static std::mutex tracker_lock;
 static bool enabled = false;
@@ -49,14 +54,43 @@ static size_t free_counter = 0;
 static size_t alloc_total_size = 0;
 static size_t free_total_size = 0;
 
+#define ALLOCATION_TRACK_MAX 16384
+#define ALLOCATION_TRACK_NUM_CALLERS 2
+
+typedef enum {
+  ALLOCATION_TRACK_EVENT_FREE = 0,
+  ALLOCATION_TRACK_EVENT_ALLOC = 1,
+} allocation_event_t;
+
+typedef struct {
+  struct allocation_track_t {
+    struct allocation_track_time_t {
+      int hh, mm, ss, usec;
+    } time;
+    pid_t tid;
+    allocation_event_t allocation_event;
+    void* ptr;
+    size_t size;
+    void *callers[ALLOCATION_TRACK_NUM_CALLERS];
+  } allocations_track[ALLOCATION_TRACK_MAX];
+  uint32_t allocations_track_index;
+} allocation_debug_t;
+
+allocation_debug_t allocation_debug;
+
 void allocation_tracker_init(void) {
   std::unique_lock<std::mutex> lock(tracker_lock);
   if (enabled) return;
 
   // randomize the canary contents
-  for (size_t i = 0; i < canary_size; i++) canary[i] = (char)osi_rand();
+  for (size_t i = 0; i < canary_size; i++)
+    g_beginning_canary[i] = (char)osi_rand();
+  for (size_t i = 0; i < canary_size; i++)
+    g_end_canary[i] = (char)osi_rand();
 
   LOG_DEBUG(LOG_TAG, "canary initialized");
+
+  allocation_debug.allocations_track_index = 0;
 
   enabled = true;
 }
@@ -75,6 +109,7 @@ void allocation_tracker_reset(void) {
   if (!enabled) return;
 
   allocations.clear();
+  allocation_debug.allocations_track_index=0;
 }
 
 size_t allocation_tracker_expect_no_allocations(void) {
@@ -125,14 +160,33 @@ void* allocation_tracker_notify_alloc(uint8_t allocator_id, void* ptr,
       allocation->freed = false;
       allocation->size = requested_size;
       allocation->ptr = return_ptr;
+
+      allocation_debug.allocations_track[allocation_debug.allocations_track_index].tid = gettid();
+      allocation_debug.allocations_track[allocation_debug.allocations_track_index].allocation_event = ALLOCATION_TRACK_EVENT_ALLOC;
+      allocation_debug.allocations_track[allocation_debug.allocations_track_index].size = requested_size;
+      allocation_debug.allocations_track[allocation_debug.allocations_track_index].callers[0] = __builtin_return_address(0);
+#if (ALLOCATION_TRACK_NUM_CALLERS>1)
+      allocation_debug.allocations_track[allocation_debug.allocations_track_index].callers[1] = __builtin_return_address(1);
+#endif
+      {
+        struct timeval tv;
+        struct timezone tz;
+        gettimeofday(&tv, &tz);
+        allocation_debug.allocations_track[allocation_debug.allocations_track_index].time.hh = tv.tv_sec/3600%24;
+        allocation_debug.allocations_track[allocation_debug.allocations_track_index].time.mm = (tv.tv_sec%3600)/60;
+        allocation_debug.allocations_track[allocation_debug.allocations_track_index].time.ss = tv.tv_sec%60;
+        allocation_debug.allocations_track[allocation_debug.allocations_track_index].time.usec = tv.tv_usec;
+      }
+      allocation_debug.allocations_track[allocation_debug.allocations_track_index].ptr = (void *)return_ptr;
+      allocation_debug.allocations_track_index = (allocation_debug.allocations_track_index+1) % ALLOCATION_TRACK_MAX;
     } else {
       LOG_ERROR(LOG_TAG, "%s Memory not allocated for allocation." ,__func__);
     }
   }
 
   // Add the canary on both sides
-  memcpy(return_ptr - canary_size, canary, canary_size);
-  memcpy(return_ptr + requested_size, canary, canary_size);
+  memcpy(return_ptr - canary_size, g_beginning_canary, canary_size);
+  memcpy(return_ptr + requested_size, g_end_canary, canary_size);
 
   return return_ptr;
 }
@@ -157,12 +211,31 @@ void* allocation_tracker_notify_free(UNUSED_ATTR uint8_t allocator_id,
 
   allocation->freed = true;
 
+  allocation_debug.allocations_track[allocation_debug.allocations_track_index].tid = gettid();
+  allocation_debug.allocations_track[allocation_debug.allocations_track_index].allocation_event = ALLOCATION_TRACK_EVENT_FREE;
+  allocation_debug.allocations_track[allocation_debug.allocations_track_index].size = 0;
+  allocation_debug.allocations_track[allocation_debug.allocations_track_index].callers[0] = __builtin_return_address(0);
+#if (ALLOCATION_TRACK_NUM_CALLERS>1)
+  allocation_debug.allocations_track[allocation_debug.allocations_track_index].callers[1] = __builtin_return_address(1);
+#endif
+  {
+    struct timeval tv;
+    struct timezone tz;
+    gettimeofday(&tv, &tz);
+    allocation_debug.allocations_track[allocation_debug.allocations_track_index].time.hh = tv.tv_sec/3600%24;
+    allocation_debug.allocations_track[allocation_debug.allocations_track_index].time.mm = (tv.tv_sec%3600)/60;
+    allocation_debug.allocations_track[allocation_debug.allocations_track_index].time.ss = tv.tv_sec%60;
+    allocation_debug.allocations_track[allocation_debug.allocations_track_index].time.usec = tv.tv_usec;
+  }
+  allocation_debug.allocations_track[allocation_debug.allocations_track_index].ptr = (void *)ptr;
+  allocation_debug.allocations_track_index = (allocation_debug.allocations_track_index+1) % ALLOCATION_TRACK_MAX;
+
   UNUSED_ATTR const char* beginning_canary = ((char*)ptr) - canary_size;
   UNUSED_ATTR const char* end_canary = ((char*)ptr) + allocation->size;
 
   for (size_t i = 0; i < canary_size; i++) {
-    CHECK(beginning_canary[i] == canary[i]);
-    CHECK(end_canary[i] == canary[i]);
+    CHECK(beginning_canary[i] == g_beginning_canary[i]);
+    CHECK(end_canary[i] == g_end_canary[i]);
   }
 
   // Free the hash map entry to avoid unlimited memory usage growth.
