@@ -342,6 +342,9 @@ void PORT_ParNegInd(tRFC_MCB* p_mcb, uint8_t dlci, uint16_t mtu, uint8_t cl,
     our_cl = RFCOMM_PN_CONV_LAYER_TYPE_1;
     our_k = 0;
   }
+  RFCOMM_TRACE_WARNING("PORT_ParNegCnf incoming conn on dlci:%d start timer ",
+                        dlci);
+  rfc_timer_start(p_mcb, RFC_MCB_INIT_INACT_TIMER);
   RFCOMM_ParNegRsp(p_mcb, dlci, p_port->mtu, our_cl, our_k);
 }
 
