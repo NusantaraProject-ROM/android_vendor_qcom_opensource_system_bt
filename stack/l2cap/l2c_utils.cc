@@ -148,11 +148,9 @@ void l2cu_release_lcb(tL2C_LCB* p_lcb) {
   p_lcb->in_use = false;
   p_lcb->is_bonding = false;
 
-  /* Stop and free timers */
-  alarm_free(p_lcb->l2c_lcb_timer);
-  p_lcb->l2c_lcb_timer = NULL;
-  alarm_free(p_lcb->info_resp_timer);
-  p_lcb->info_resp_timer = NULL;
+  /* Stop the timers */
+  alarm_cancel(p_lcb->l2c_lcb_timer);
+  alarm_cancel(p_lcb->info_resp_timer);
 
   /* Release any unfinished L2CAP packet on this link */
   osi_free_and_reset((void**)&p_lcb->p_hcit_rcv_acl);
