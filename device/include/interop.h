@@ -206,6 +206,10 @@ typedef enum {
   // as supported version.
   INTEROP_ADV_PBAP_VER_1_2,
 
+  //Few remote sends avrcp browsing request just after host sends avrcp browsing request leading
+  //collision which results in browsing channel open failure. For such devices, collision timer
+  //is used avoid collision.
+  INTEROP_AVRCP_BROWSE_OPEN_CHANNEL_COLLISION,
 
   END_OF_INTEROP_LIST
 } interop_feature_t;

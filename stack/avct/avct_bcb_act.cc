@@ -215,10 +215,15 @@ void avct_bcb_open_ind(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data) {
  ******************************************************************************/
 void avct_bcb_open_fail(tAVCT_BCB* p_bcb, UNUSED_ATTR tAVCT_LCB_EVT* p_data) {
   tAVCT_CCB* p_ccb = &avct_cb.ccb[0];
-
+  tAVCT_CTRL_CBACK* p_cback;
+  tAVCT_LCB* p_lcb = avct_lcb_by_bcb(p_bcb);
   for (int idx = 0; idx < AVCT_NUM_CONN; idx++, p_ccb++) {
     if (p_ccb->allocated && (p_ccb->p_bcb == p_bcb)) {
+      p_cback = p_ccb->cc.p_ctrl_cback;
       p_ccb->p_bcb = NULL;
+      (*p_ccb->cc.p_ctrl_cback)(avct_ccb_to_idx(p_ccb),
+                                  AVCT_BROWSE_CONN_IND_EVT, p_data->result,
+                                  &p_lcb->peer_addr);
     }
   }
 }
