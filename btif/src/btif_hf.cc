@@ -94,7 +94,7 @@ static uint32_t btif_hf_features = BTIF_HF_FEATURES;
 
 #define BTIF_HF_INVALID_IDX (-1)
 
-#define BTIF_HF_NUM_CB 2
+#define BTIF_HF_NUM_CB 3
 
 /* Assigned number for mSBC codec */
 #define BTA_AG_MSBC_CODEC 5
