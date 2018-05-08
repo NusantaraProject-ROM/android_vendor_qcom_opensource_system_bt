@@ -313,8 +313,9 @@ extern bool btif_av_get_ongoing_multicast();
 extern void btif_av_peer_config_dump();
 extern bool is_codec_config_dump;
 extern void btif_vendor_iot_device_broadcast_event(RawAddress* bd_addr,
-	            uint16_t error, uint16_t error_info, uint32_t event_mask,
-	            uint8_t power_level, uint8_t rssi, uint8_t link_quality);
+                uint16_t error, uint16_t error_info, uint32_t event_mask,
+                uint8_t power_level, int8_t rssi, uint8_t link_quality,
+                uint16_t glitch_count);
 /******************************************************************************
  *  Functions
  *****************************************************************************/
@@ -679,7 +680,8 @@ static void btif_update_remote_version_property(RawAddress* p_bd) {
   LOG_DEBUG(LOG_TAG, "remote version info [%s]: %x, %x, %x",
             p_bd->ToString().c_str(), lmp_ver, mfct_set, lmp_subver);
 
-  if (btm_status == BTM_SUCCESS) {
+  if (btm_status == BTM_SUCCESS &&
+      (lmp_ver || lmp_subver || mfct_set)) {
     // Always update cache to ensure we have availability whenever BTM API is
     // not populated
     info.manufacturer = mfct_set;
@@ -2226,7 +2228,8 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
       tBTA_DM_IOT_INFO_DATA iot_info = p_data->iot_info;
       BTIF_TRACE_WARNING("BTA_DM_IOT_INFO_EVT");
       btif_vendor_iot_device_broadcast_event(&iot_info.bd_addr, iot_info.error_type, iot_info.error_info,
-              iot_info.event_mask, iot_info.event_power_level, iot_info.event_rssi, iot_info.event_link_quality);
+              iot_info.event_mask, iot_info.event_power_level, iot_info.event_rssi, iot_info.event_link_quality,
+              iot_info.event_glitch_count);
       break;
     }
 

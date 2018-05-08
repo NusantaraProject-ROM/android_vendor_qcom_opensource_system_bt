@@ -927,6 +927,16 @@ typedef uint8_t tBT_DEVICE_TYPE;
 typedef void(BT_LOG_FUNC)(int trace_type, const char* fmt_str, ...);
 
 enum {
+  SOC_ERROR_PAGE_TIMEOUT = 1,
+  SOC_ERROR_HALF_LSTO,
+  SOC_ERROR_AUDIO_GLITCH,
+  SOC_ERROR_SCO_MISSES,
+  SOC_ERROR_LSTO,
+  SOC_ERROR_CONN_FAIL,
+};
+typedef uint16_t tSOC_ERROR_TYPE;
+
+enum {
   /*Error originated from SoC*/
   BT_SOC_CONNECTION_FAIL = 1,
   BT_SOC_DISCONNECTION,
@@ -943,16 +953,18 @@ typedef uint16_t tBT_ERROR_TYPE;
 
 enum {
   /*A2DP ERRORS*/
-  SOC_A2DP_TRANSMISSION_DELAY = 1,
-  HOST_MEDIA_BUFFER_OVERFLOW = 2,
-  HOST_CREDIT_UNAVAILABLE = 4,
-  HOST_MEDIA_TIMER_DELAY = 8,
+  SOC_A2DP_TRANSMISSION_DELAY = 1 << 0,
+  HOST_MEDIA_BUFFER_OVERFLOW  = 1 << 1,
+  HOST_CREDIT_UNAVAILABLE     = 1 << 2,
+  HOST_MEDIA_TIMER_DELAY      = 1 << 3,
 
   /*CONNECTION ERRORS*/
-  SOC_PAGE_TIMEOUT = 32,
-  SOC_HALF_LSTO = 64,
+  SOC_PAGE_TIMEOUT            = 1 << 5,
+  SOC_HALF_LSTO               = 1 << 6,
 
-  SOC_SCO_MISSES = 128,
+  SOC_SCO_MISSES              = 1 << 7,
+  SOC_LSTO                    = 1 << 8,
+  SOC_CONN_FAIL               = 1 << 9,
 };
 typedef uint16_t tBT_ERROR_INFO;
 

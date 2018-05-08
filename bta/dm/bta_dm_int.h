@@ -287,8 +287,9 @@ typedef struct {
   uint16_t error_info;
   uint32_t event_mask;
   uint8_t event_power_level;
-  uint8_t event_rssi;
+  int8_t event_rssi;
   uint8_t event_link_quality;
+  uint16_t event_glitch_count;
 } tBTA_DM_VND_IOT_REPORT;
 
 /* data type for BTA_DM_PM_BTM_STATUS_EVT */

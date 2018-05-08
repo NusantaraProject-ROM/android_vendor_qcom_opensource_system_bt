@@ -3011,26 +3011,59 @@ static void bta_dm_bl_change_cback(tBTM_BL_EVENT_DATA* p_data) {
 **
 ** Function         vnd_get_error_info
 **
-** Description      Returns error info mask based on error type sent by SoC
+** Description      Returns error info mask based on soc error type sent by SoC
 **
 **
 ** Returns          uint16_t
 **
 *******************************************************************************/
-uint16_t vnd_get_error_info(uint16_t error_type) {
-  switch(error_type) {
-    case BT_SOC_CONNECTION_FAIL:
+uint16_t vnd_get_error_info(uint16_t soc_error_type) {
+  switch(soc_error_type) {
+    case SOC_ERROR_PAGE_TIMEOUT:
       return SOC_PAGE_TIMEOUT;
-    case BT_SOC_DISCONNECTION:
+    case SOC_ERROR_HALF_LSTO:
       return SOC_HALF_LSTO;
-    case BT_SOC_A2DP_GLITCH:
-      return SOC_HALF_LSTO;
-    case BT_SOC_VOICE_BREAK:
+    case SOC_ERROR_AUDIO_GLITCH:
+      return SOC_A2DP_TRANSMISSION_DELAY;
+    case SOC_ERROR_SCO_MISSES:
       return SOC_SCO_MISSES;
+    case SOC_ERROR_LSTO:
+      return SOC_LSTO;
+    case SOC_ERROR_CONN_FAIL:
+      return SOC_CONN_FAIL;
     default:
       return 0;
   }
 }
+
+/*******************************************************************************
+**
+** Function         vnd_map_soc_error_type(uint16_t soc_error_type)
+**
+** Description      Map tSOC_ERROR_TYPE to tBT_ERROR_TYPE
+**
+**
+** Returns          uint16_t
+**
+*******************************************************************************/
+uint16_t vnd_map_soc_error_type(uint16_t soc_error_type) {
+  switch(soc_error_type) {
+    case SOC_ERROR_PAGE_TIMEOUT:
+    case SOC_ERROR_CONN_FAIL:
+      return BT_SOC_CONNECTION_FAIL;
+    case SOC_ERROR_HALF_LSTO:
+    case SOC_ERROR_LSTO:
+      return BT_SOC_DISCONNECTION;
+    case SOC_ERROR_AUDIO_GLITCH:
+      return BT_SOC_A2DP_GLITCH;
+    case SOC_ERROR_SCO_MISSES:
+      return BT_SOC_VOICE_BREAK;
+
+    default:
+      return -1;
+  }
+}
+
 
 /*******************************************************************************
 **
@@ -3044,21 +3077,35 @@ uint16_t vnd_get_error_info(uint16_t error_type) {
 *******************************************************************************/
 static void bta_dm_vnd_info_report_cback (uint8_t evt_len, uint8_t *p_data) {
   uint8_t iot_info_len;
+  uint8_t *p_iot_info;
+  uint16_t soc_error_type;
   APPL_TRACE_DEBUG("bta_dm_vnd_info_report_cback");
   tBTA_DM_VND_IOT_REPORT *p_msg =
-      (tBTA_DM_VND_IOT_REPORT *)osi_malloc(sizeof(tBTA_DM_VND_IOT_REPORT));
+      (tBTA_DM_VND_IOT_REPORT *)osi_calloc(sizeof(tBTA_DM_VND_IOT_REPORT));
 
   p_msg->hdr.event = BTA_DM_API_IOT_REPORT_EVT;
-  STREAM_TO_UINT16(p_msg->error_type, p_data);
+  STREAM_TO_UINT16(soc_error_type, p_data);
+  p_msg->error_type = vnd_map_soc_error_type(soc_error_type);
   STREAM_TO_UINT8(iot_info_len, p_data);
+  p_iot_info = p_data;
   STREAM_TO_BDADDR(p_msg->bd_addr, p_data);
   STREAM_SKIP_UINT16(p_data); // currently connection handle is not required.
   STREAM_TO_UINT32(p_msg->event_mask, p_data);
   STREAM_TO_UINT8(p_msg->event_power_level, p_data);
-  STREAM_TO_UINT8(p_msg->event_rssi, p_data);
-  if(p_msg->error_type == BT_SOC_A2DP_GLITCH)
-      STREAM_TO_UINT8(p_msg->event_link_quality, p_data);
-  p_msg->error_info = vnd_get_error_info(p_msg->error_type);
+  STREAM_TO_INT8(p_msg->event_rssi, p_data);
+  if (p_msg->error_type == BT_SOC_A2DP_GLITCH) {
+    STREAM_TO_UINT8(p_msg->event_link_quality, p_data);
+    STREAM_SKIP_UINT16(p_data); // currently overflow count is not required.
+  } else {
+    p_msg->event_link_quality = 0xFF;
+  }
+
+  if ((p_msg->error_type == BT_SOC_A2DP_GLITCH
+      || p_msg->error_type == BT_SOC_VOICE_BREAK)
+      && ((int)iot_info_len - (p_data - p_iot_info) >= 2)) {
+    STREAM_TO_UINT16(p_msg->event_glitch_count, p_data);
+  }
+  p_msg->error_info = vnd_get_error_info(soc_error_type);
 
   bta_sys_sendmsg(p_msg);
 }
@@ -3399,8 +3446,9 @@ void bta_dm_process_iot_report(tBTA_DM_MSG *p_data)
   sec_event.iot_info.event_power_level = iot_info->event_power_level;
   sec_event.iot_info.event_rssi = iot_info->event_rssi;
   sec_event.iot_info.event_link_quality = iot_info->event_link_quality;
+  sec_event.iot_info.event_glitch_count = iot_info->event_glitch_count;
 
-  APPL_TRACE_DEBUG("bta_dm_process_iot_report %s", iot_info,
+  APPL_TRACE_DEBUG("bta_dm_process_iot_report %s",
                         iot_info->bd_addr.ToString().c_str());
 
   if( bta_dm_cb.p_sec_cback )
