@@ -2194,6 +2194,7 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
   RawAddress *bt_addr = nullptr;
   uint8_t role;
   int uuid;
+  bool active_device_selected = false;
 
   switch (event) {
     case BTIF_AV_INIT_REQ_EVT:
@@ -2270,7 +2271,40 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
 
     case BTIF_AV_TRIGGER_HANDOFF_REQ_EVT:
       bt_addr = (RawAddress *)p_param;
+      BTIF_TRACE_WARNING("%s: device %s ",__func__, (*bt_addr).ToString().c_str());
+
+      /* 1. SetActive Device -> Null */
+      if (*bt_addr == RawAddress::kEmpty)
+      {
+        for(int i = 0; i < btif_max_av_clients; i++)
+        {
+          if (btif_av_cb[i].current_playing == TRUE)
+            btif_av_cb[i].current_playing = FALSE;
+        }
+        BTIF_TRACE_IMP("Reset all Current Playing for Device -> Null");
+        break;
+      }
+
+      /* 2. SetActive Null -> Device */
+      for(int i = 0; i < btif_max_av_clients; i++)
+        if (btif_av_cb[i].current_playing == TRUE)
+          active_device_selected = true;
+
       index = btif_av_idx_by_bdaddr(bt_addr);
+      if (active_device_selected == false)
+      {
+        BTIF_TRACE_IMP("For Null -> Device set current playing and don't trigger handoff");
+        btif_av_cb[index].current_playing = TRUE;
+        break;
+      }
+
+      /* 3. SetActive Device -> Device */
+      if (btif_av_cb[index].current_playing == TRUE)
+      {
+        BTIF_TRACE_IMP("Trigger handoff for same device %d discard it", index);
+        break;
+      }
+
       BTIF_TRACE_IMP("BTIF_AV_TRIGGER_HANDOFF_REQ_EVT on index %d", index);
 #if (TWS_ENABLED == TRUE)
       if (btif_av_cb[index].tws_device ||
@@ -2285,7 +2319,7 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
 #endif
       if (index >= 0 && index < btif_max_av_clients)
       {
-        for(int i = 0; i< btif_max_av_clients; i++)
+        for(int i = 0; i < btif_max_av_clients; i++)
         {
           if (i == index)
             btif_av_cb[i].current_playing = TRUE;
