@@ -24,10 +24,10 @@ cc_binary {
       "mcap_tool.cc",
     ],
     include_dirs: [
-      "vendor/qcom/opensource/system/bt",
-      "vendor/qcom/opensource/system/bt/internal_include",
-      "vendor/qcom/opensource/system/bt/stack/include",
-      "vendor/qcom/opensource/system/bt/btcore/include",
+      "vendor/qcom/opensource/commonsys/system/bt",
+      "vendor/qcom/opensource/commonsys/system/bt/internal_include",
+      "vendor/qcom/opensource/commonsys/system/bt/stack/include",
+      "vendor/qcom/opensource/commonsys/system/bt/btcore/include",
     ],
     tags: ["debug", "optional"],
     shared_libs: [

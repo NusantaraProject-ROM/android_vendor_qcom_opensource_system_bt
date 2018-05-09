@@ -4,7 +4,7 @@ cc_library_static {
     name: "libbtcore_qti",
     defaults: ["fluoride_defaults_qti"],
     local_include_dirs: ["include"],
-    include_dirs: ["vendor/qcom/opensource/system/bt"],
+    include_dirs: ["vendor/qcom/opensource/commonsys/system/bt"],
     srcs: [
         "src/device_class.cc",
         "src/hal_util.cc",
@@ -36,7 +36,7 @@ cc_test {
     test_suites: ["device-tests"],
     defaults: ["fluoride_defaults_qti"],
     local_include_dirs: ["include"],
-    include_dirs: ["vendor/qcom/opensource/system/bt"],
+    include_dirs: ["vendor/qcom/opensource/commonsys/system/bt"],
     srcs: [
         "test/device_class_test.cc",
         "test/property_test.cc",

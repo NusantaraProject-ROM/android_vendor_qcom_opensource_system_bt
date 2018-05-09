@@ -7,9 +7,9 @@ cc_library_static {
         "include",
     ],
     include_dirs: [
-        "vendor/qcom/opensource/system/bt",
-        "vendor/qcom/opensource/system/bt/btcore/include",
-        "vendor/qcom/opensource/system/bt/stack/include",
+        "vendor/qcom/opensource/commonsys/system/bt",
+        "vendor/qcom/opensource/commonsys/system/bt/btcore/include",
+        "vendor/qcom/opensource/commonsys/system/bt/stack/include",
     ],
     srcs: ["src/bt_utils.cc"],
 }

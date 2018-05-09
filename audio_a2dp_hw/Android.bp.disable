@@ -2,9 +2,9 @@ cc_defaults {
     name: "audio_a2dp_hw_defaults_qti",
     defaults: ["fluoride_defaults"],
     include_dirs: [
-        "vendor/qcom/opensource/system/bt",
+        "vendor/qcom/opensource/commonsys/system/bt",
         "system/bt/include",
-        "vendor/qcom/opensource/system/bt/audio_a2dp_hw/include",
+        "vendor/qcom/opensource/commonsys/system/bt/audio_a2dp_hw/include",
     ]
 }
 

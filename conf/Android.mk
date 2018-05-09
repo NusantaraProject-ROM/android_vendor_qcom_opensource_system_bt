@@ -25,7 +25,7 @@ LOCAL_PATH := $(call my-dir)
 # Bluetooth interop_database.conf config file
 # ========================================================
 include $(CLEAR_VARS)
-LOCAL_PATH := vendor/qcom/opensource/bluetooth_ext/system_bt_ext/conf/
+LOCAL_PATH := vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/conf/
 LOCAL_MODULE := interop_database.conf
 LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_PATH := $(TARGET_OUT)/etc/bluetooth
@@ -36,7 +36,7 @@ include $(BUILD_PREBUILT)
 # Bluetooth bt_profile.conf config file
 # ========================================================
 include $(CLEAR_VARS)
-LOCAL_PATH := vendor/qcom/opensource/bluetooth_ext/system_bt_ext/conf/
+LOCAL_PATH := vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/conf/
 LOCAL_MODULE := bt_profile.conf
 LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_PATH := $(TARGET_OUT)/etc/bluetooth
