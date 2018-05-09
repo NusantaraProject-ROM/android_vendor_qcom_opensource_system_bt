@@ -5035,7 +5035,7 @@ static void handle_app_attr_val_txt_response(
 static void handle_set_app_attr_val_response(tBTA_AV_META_MSG* pmeta_msg,
                                              tAVRC_RSP* p_rsp) {
   uint8_t accepted = 0;
-  if (pmeta_msg != NULL) {
+  if (pmeta_msg == NULL) {
     BTIF_TRACE_ERROR("%s: pmeta_msg NULL", __func__);
     return;
   }
