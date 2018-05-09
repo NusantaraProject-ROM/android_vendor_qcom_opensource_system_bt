@@ -2364,9 +2364,16 @@ void bta_av_reconfig(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
                      p_rcfg->suspend,
                      p_scb->recfg_sup,
                      p_scb->suspend_sup);
-  if ((p_scb->rcfg_idx == p_scb->sep_info_idx) && p_rcfg->suspend &&
-      p_scb->recfg_sup && p_scb->suspend_sup) {
+  btav_a2dp_codec_index_t curr_codec_index = A2DP_SourceCodecIndex(p_scb->cfg.codec_info);
+  btav_a2dp_codec_index_t rcfg_codec_index = A2DP_SourceCodecIndex(p_cfg->codec_info);
+  APPL_TRACE_DEBUG("curr_index: %d, rcfg_index: %d",curr_codec_index,rcfg_codec_index);
+  // p_scb->sep_info_idx > p_scb->num_seps condition satified for remote initiated SetConfig
+  if ((p_scb->rcfg_idx == p_scb->sep_info_idx ||
+      (p_scb->sep_info_idx > p_scb->num_seps &&
+      curr_codec_index == rcfg_codec_index)) &&
+      p_rcfg->suspend && p_scb->recfg_sup && p_scb->suspend_sup) {
       APPL_TRACE_DEBUG("p_scb->started:%d", p_scb->started);
+      if (p_scb->sep_info_idx > p_scb->num_seps) p_scb->sep_info_idx = p_scb->rcfg_idx;
     if (p_scb->started) {
       // Suspend->Reconfigure->Start
       stop.flush = false;
