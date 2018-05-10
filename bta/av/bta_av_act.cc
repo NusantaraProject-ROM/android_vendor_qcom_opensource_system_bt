@@ -59,6 +59,10 @@
 #define BTA_AV_SIGNALLING_TIMEOUT_MS (8 * 1000) /* 8 seconds */
 #endif
 
+#ifndef BTA_AV_BROWSINIG_CHANNEL_INT_TIMEOUT_MS
+#define BTA_AV_BROWSINIG_CHANNEL_INT_TIMEOUT_MS (1000) /* 1 second */
+#endif
+
 /* Time to wait for signalling from SNK when it is initiated from SNK. */
 /* If not, we will start signalling from SRC. */
 #ifndef BTA_AV_ACCEPT_SIGNALLING_TIMEOUT_MS
@@ -76,9 +80,9 @@ struct blacklist_entry
 };
 
 extern fixed_queue_t* btu_bta_alarm_queue;
-
+static void bta_av_browsing_channel_open_retry(uint8_t handle);
 static void bta_av_accept_signalling_timer_cback(void* data);
-
+static void bta_av_browsing_channel_open_timer_cback(void* data);
 #ifndef AVRC_MIN_META_CMD_LEN
 #define AVRC_MIN_META_CMD_LEN 20
 #endif
@@ -247,7 +251,13 @@ static void bta_av_rc_ctrl_cback(uint8_t handle, uint8_t event,
   } else if (event == AVRC_CLOSE_IND_EVT) {
     msg_event = BTA_AV_AVRC_CLOSE_EVT;
   } else if (event == AVRC_BROWSE_OPEN_IND_EVT) {
-    msg_event = BTA_AV_AVRC_BROWSE_OPEN_EVT;
+      if (result != 0) {
+        bta_av_browsing_channel_open_retry(handle);
+        return;
+      }
+      else {
+        msg_event = BTA_AV_AVRC_BROWSE_OPEN_EVT;
+      }
   } else if (event == AVRC_BROWSE_CLOSE_IND_EVT) {
     msg_event = BTA_AV_AVRC_BROWSE_CLOSE_EVT;
   }
@@ -600,8 +610,30 @@ void bta_av_rc_opened(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
       (rc_open.peer_features & BTA_AV_FEAT_BROWSE) &&
       ((p_cb->rcb[i].status & BTA_AV_RC_ROLE_MASK) == BTA_AV_RC_ROLE_INT)) {
     APPL_TRACE_DEBUG("%s opening AVRC Browse channel", __func__);
-    AVRC_OpenBrowse(p_data->rc_conn_chg.handle, AVCT_INT);
+
+    if (interop_match_addr(INTEROP_AVRCP_BROWSE_OPEN_CHANNEL_COLLISION, &p_data->rc_conn_chg.peer_addr)) {
+      alarm_set_on_mloop(p_cb->browsing_channel_open_timer,
+                                 BTA_AV_BROWSINIG_CHANNEL_INT_TIMEOUT_MS,
+                                 bta_av_browsing_channel_open_timer_cback,
+                                 UINT_TO_PTR(p_data->rc_conn_chg.handle));
+    }
+    else {
+      AVRC_OpenBrowse(p_data->rc_conn_chg.handle, AVCT_INT);
+    }
   }
+}
+/*******************************************************************************
+ *
+ * Function         bta_av_browsing_channel_open_timer_cback
+ *
+ * Description      Send AVRCP command to open browsing channel after timer expires.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void bta_av_browsing_channel_open_timer_cback(void* data) {
+  uint32_t handle = PTR_TO_UINT(data);
+  AVRC_OpenBrowse(handle, AVCT_INT);
 }
 
 /*******************************************************************************
@@ -1423,6 +1455,8 @@ void bta_av_disable(tBTA_AV_CB* p_cb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
     p_cb->accept_signalling_timer[xx] = NULL;
   }
 
+  alarm_free(p_cb->browsing_channel_open_timer);
+  p_cb->browsing_channel_open_timer = NULL;
   alarm_free(p_cb->link_signalling_timer);
   p_cb->link_signalling_timer = NULL;
 }
@@ -1439,6 +1473,7 @@ void bta_av_disable(tBTA_AV_CB* p_cb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
 void bta_av_api_disconnect(tBTA_AV_DATA* p_data) {
   AVDT_DisconnectReq(p_data->api_discnt.bd_addr, bta_av_conn_cback);
   alarm_cancel(bta_av_cb.link_signalling_timer);
+  alarm_cancel(bta_av_cb.browsing_channel_open_timer);
 }
 
 static uint16_t bta_sink_time_out() {
@@ -2414,4 +2449,17 @@ void bta_av_dereg_comp(tBTA_AV_DATA* p_data) {
     cod.service = BTM_COD_SERVICE_CAPTURING;
     utl_set_device_class(&cod, BTA_UTL_CLR_COD_SERVICE_CLASS);
   }
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_av_browsing_channel_open_retry
+ *
+ * Description      Retry to AVRCP command to open browsing channel.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void bta_av_browsing_channel_open_retry(uint8_t handle) {
+  AVRC_OpenBrowse(handle, AVCT_INT);
 }

@@ -232,6 +232,9 @@ static void bta_av_api_enable(tBTA_AV_DATA* p_data) {
     bta_av_cb.accept_signalling_timer[j] =
       alarm_new("bta_av.accept_signalling_timer");
   }
+
+  bta_av_cb.browsing_channel_open_timer =
+  alarm_new("bta_av.browsing_channel_open_timer");
   /* store parameters */
   bta_av_cb.p_cback = p_data->api_enable.p_cback;
   bta_av_cb.features = p_data->api_enable.features;
