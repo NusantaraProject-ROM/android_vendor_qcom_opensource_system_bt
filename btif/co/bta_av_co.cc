@@ -870,7 +870,7 @@ bool bta_av_co_audio_is_aac_wl_enabled(RawAddress *remote_bdaddr) {
   int retval;
   bool res = FALSE;
   char is_whitelist_by_default[255] = "false";
-  retval = property_get("persist.bt.a2dp.aac_whitelist", is_whitelist_by_default, "false");
+  retval = property_get("persist.bt.a2dp.aac_whitelist", is_whitelist_by_default, "true");
   BTIF_TRACE_DEBUG("%s: property_get: bt.a2dp.aac_whitelist: %s, retval: %d",
                                   __func__, is_whitelist_by_default, retval);
   if (!strncmp(is_whitelist_by_default, "true", 4)) {

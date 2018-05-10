@@ -90,7 +90,7 @@ typedef enum {
 #define BTIF_AV_FLAG_PENDING_STOP 0x8
 #define BTIF_AV_FLAG_PENDING_DISCONNECT 0x10
 #define BTIF_TIMEOUT_AV_COLL_DETECTED_MS (2 * 1000)
-#define BTIF_TIMEOUT_AV_COLL_DETECTED_MS_2 (5 * 1000)
+#define BTIF_TIMEOUT_AV_COLL_DETECTED_MS_2 (4 * 1000)
 #define BTIF_ERROR_SRV_AV_CP_NOT_SUPPORTED   705
 
 /* Host role definitions */
@@ -576,19 +576,11 @@ static void btif_av_check_and_start_collission_timer(int index) {
     alarm_cancel(av_coll_detected_timer);
     BTIF_TRACE_DEBUG("btif_av_check_and_start_collission_timer:Deleting previously queued timer");
   }
-  if (interop_match_addr(INTEROP_INCREASE_COLL_DETECT_TIMEOUT, &btif_av_cb[index].peer_bda))
-  {
-      /* Increase collision detected timeout */
-      alarm_set_on_mloop(av_coll_detected_timer,
-                 BTIF_TIMEOUT_AV_COLL_DETECTED_MS_2,
-                 btif_av_collission_timer_timeout,
-                 NULL);
-   } else {
-       alarm_set_on_mloop(av_coll_detected_timer,
-                 BTIF_TIMEOUT_AV_COLL_DETECTED_MS,
-                 btif_av_collission_timer_timeout,
-                 NULL);
-   }
+  /* Start collision detected timeout */
+  alarm_set_on_mloop(av_coll_detected_timer,
+             BTIF_TIMEOUT_AV_COLL_DETECTED_MS_2,
+             btif_av_collission_timer_timeout,
+             NULL);
 }
 
 
