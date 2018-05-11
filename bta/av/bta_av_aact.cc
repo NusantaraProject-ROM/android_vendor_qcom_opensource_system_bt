@@ -3719,8 +3719,9 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
   APPL_TRACE_DEBUG("%s: Last cached VSC command: 0x0%x", __func__, last_sent_vsc_cmd);
   APPL_TRACE_IMP("bta_av_vendor_offload_start: vsc flags:-"
     "vs_configs_exchanged:%u tx_started:%u tx_start_initiated:%u"
-    "tx_enc_update_initiated:%u", btif_a2dp_src_vsc.vs_configs_exchanged, btif_a2dp_src_vsc.tx_started,
-    btif_a2dp_src_vsc.tx_start_initiated, tx_enc_update_initiated);
+    "tx_enc_update_initiated:%u tx_stop_initiated: %u", btif_a2dp_src_vsc.vs_configs_exchanged,
+    btif_a2dp_src_vsc.tx_started, btif_a2dp_src_vsc.tx_start_initiated, tx_enc_update_initiated,
+    btif_a2dp_src_vsc.tx_stop_initiated);
   enc_update_in_progress = FALSE;
   if (btif_a2dp_src_vsc.multi_vsc_support) {
     unsigned char status = 0;
@@ -3738,6 +3739,12 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
         && (!btif_a2dp_src_vsc.tx_start_initiated || tx_enc_update_initiated)) {
       btif_a2dp_src_vsc.tx_start_initiated = TRUE;
       tx_enc_update_initiated = FALSE;
+      if (last_sent_vsc_cmd == VS_QHCI_START_A2DP_MEDIA) {
+        APPL_TRACE_DEBUG("%s: START VSC already exchanged.", __func__);
+        status = 0;
+        (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
+        return;
+      }
       if(btif_a2dp_src_vsc.vs_configs_exchanged) {
         param[0] = VS_QHCI_START_A2DP_MEDIA;
         param[1] = 0;
