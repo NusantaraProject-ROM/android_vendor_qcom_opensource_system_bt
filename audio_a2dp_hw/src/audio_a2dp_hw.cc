@@ -298,7 +298,7 @@ static int skt_connect(const char* path, size_t buffer_sz) {
   int len;
   int sock_recv_timeout_ms = SOCK_RECV_TIMEOUT_MS;
 
-  if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+  if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
           !strcmp(a2dp_hal_imp, "true")) {
     sock_recv_timeout_ms = SOCK_RECV_TIMEOUT_MS_2;
   }
@@ -420,7 +420,7 @@ static int a2dp_ctrl_receive(struct a2dp_stream_common* common, void* buffer,
   ssize_t ret;
   int i;
 
-  if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+  if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
           !strcmp(a2dp_hal_imp, "true")) {
     OSI_NO_INTR(ret = recv(common->ctrl_fd, buffer, length, MSG_NOSIGNAL));
     ERROR("a2dp_ctrl_receive: ret=%d", (int)ret);
@@ -523,7 +523,7 @@ static int a2dp_command(struct a2dp_stream_common* common, tA2DP_CTRL_CMD cmd) {
   /* wait for ack byte */
   if (a2dp_ctrl_receive(common, &ack, 1) < 0) {
     ERROR("A2DP COMMAND %s: no ACK", audio_a2dp_hw_dump_ctrl_event(cmd));
-    if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+    if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
             !strcmp(a2dp_hal_imp, "true")) {
       //On no ACK scenario also we need to fake as success
       return 0;
@@ -535,7 +535,7 @@ static int a2dp_command(struct a2dp_stream_common* common, tA2DP_CTRL_CMD cmd) {
   INFO("A2DP COMMAND %s DONE STATUS %d", audio_a2dp_hw_dump_ctrl_event(cmd),
         ack);
 
-  if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+  if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
           !strcmp(a2dp_hal_imp, "true")) {
     if ((ack == A2DP_CTRL_ACK_INCALL_FAILURE) || (ack == A2DP_CTRL_ACK_PREVIOUS_COMMAND_PENDING))
       return ack;
@@ -572,7 +572,7 @@ static int a2dp_read_input_audio_config(struct a2dp_stream_common* common) {
   tA2DP_SAMPLE_RATE sample_rate;
   tA2DP_CHANNEL_COUNT channel_count;
 
-  if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+  if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
           !strcmp(a2dp_hal_imp, "true")) {
     if (a2dp_command(common, A2DP_CTRL_GET_INPUT_AUDIO_CONFIG) != 0) {
       // Now >0 return value (prev command pending) should also be considered as error
@@ -628,7 +628,7 @@ static int a2dp_read_output_audio_config(
     btav_a2dp_codec_config_t* codec_capability, bool update_stream_config) {
   struct a2dp_config stream_config;
 
-  if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+  if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
           !strcmp(a2dp_hal_imp, "true")) {
     if (a2dp_command(common, A2DP_CTRL_GET_OUTPUT_AUDIO_CONFIG) != 0) {
       // Now >0 return value (prev command pending) should also be considered as error
@@ -877,7 +877,7 @@ static void a2dp_open_ctrl_path(struct a2dp_stream_common* common) {
     /* connect control channel if not already connected */
     if ((common->ctrl_fd = skt_connect(
              A2DP_CTRL_PATH, AUDIO_STREAM_CONTROL_OUTPUT_BUFFER_SZ)) >= 0) {
-      if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+      if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
               !strcmp(a2dp_hal_imp, "true")) {
         OSI_NO_INTR(ret = recv(common->ctrl_fd, &ack, 1, MSG_NOSIGNAL | MSG_DONTWAIT));
         if (ret > 0)
@@ -959,7 +959,7 @@ static int start_audio_datapath(struct a2dp_stream_common* common) {
   } else if (a2dp_status == A2DP_CTRL_ACK_INCALL_FAILURE) {
     ERROR("Audiopath start failed - in call, move to suspended");
     goto error;
-  } else if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+  } else if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
           !strcmp(a2dp_hal_imp, "true") &&
           a2dp_status == A2DP_CTRL_ACK_PREVIOUS_COMMAND_PENDING) {
     ERROR("start_audio_datapath: Audiopath start failed as previous\
@@ -972,7 +972,7 @@ static int start_audio_datapath(struct a2dp_stream_common* common) {
     common->audio_fd = skt_connect(A2DP_DATA_PATH, common->buffer_sz);
     if (common->audio_fd < 0) {
       ERROR("Audiopath start failed - error opening data socket");
-      if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+      if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
               !strcmp(a2dp_hal_imp, "true")) {
         if ((a2dp_status == A2DP_CTRL_ACK_INCALL_FAILURE)
                 || (a2dp_status < 0))
@@ -1124,7 +1124,7 @@ static ssize_t out_write(struct audio_stream_out* stream, const void* buffer,
   lock.lock();
 
   if (sent == -1) {
-    if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+    if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
             !strcmp(a2dp_hal_imp, "true")) {
       sent = bytes;
       ERROR("ignore data write failure");

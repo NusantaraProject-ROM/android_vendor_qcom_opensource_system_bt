@@ -345,7 +345,7 @@ void btif_a2dp_audio_on_started(tBTA_AV_STATUS status)
   LOG_INFO(LOG_TAG,"btif_a2dp_audio_on_started : status = %d",status);
   Lock lock(mtxBtAudio);
   if (btAudio != nullptr){
-    if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+    if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
             !strcmp(a2dp_hal_imp, "true")) {
       if (a2dp_cmd_pending == A2DP_CTRL_CMD_NONE)
       {
@@ -413,7 +413,7 @@ void btif_a2dp_audio_on_suspended(tBTA_AV_STATUS status)
   LOG_INFO(LOG_TAG,"btif_a2dp_audio_on_suspended : status = %d", status);
   Lock lock(mtxBtAudio);
   if (btAudio != nullptr){
-    if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+    if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
             !strcmp(a2dp_hal_imp, "true")) {
       if (a2dp_cmd_pending == A2DP_CTRL_CMD_NONE)
       {
@@ -487,7 +487,7 @@ void btif_a2dp_audio_on_stopped(tBTA_AV_STATUS status)
         btif_a2dp_src_vsc.multi_vsc_support) {//Is this handling required? If so in which scenario?
       bta_av_vendor_offload_stop(NULL);
     } else {
-      if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+      if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
               !strcmp(a2dp_hal_imp, "true")) {
         if (a2dp_cmd_pending == A2DP_CTRL_CMD_NONE)
         {
@@ -701,7 +701,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
 {
   APPL_TRACE_DEBUG(LOG_TAG,"btif_a2dp_audio_process_request %s", audio_a2dp_hw_dump_ctrl_event((tA2DP_CTRL_CMD)cmd));
   uint8_t status = A2DP_CTRL_ACK_FAILURE;
-  if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+  if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
           !strcmp(a2dp_hal_imp, "true")) {
     switch (cmd) {
       case A2DP_CTRL_CMD_CHECK_READY:

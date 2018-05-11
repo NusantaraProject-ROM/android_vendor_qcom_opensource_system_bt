@@ -188,9 +188,14 @@ static void init_soc_type() {
 
   soc_type = BT_SOC_DEFAULT;
   ret = property_get("qcom.bluetooth.soc", bt_soc_type, NULL);
+
+  if (ret == 0) {
+    ALOGI("qcom.bluetooth.soc prop not set");
+    ret = property_get("vendor.bluetooth.soc", bt_soc_type, NULL);
+  }
   if (ret != 0) {
     int i;
-    ALOGI("qcom.bluetooth.soc set to %s\n", bt_soc_type);
+    ALOGI("vendor.qcom.bluetooth.soc set to %s\n", bt_soc_type);
     for ( i = BT_SOC_AR3K ; i < BT_SOC_RESERVED ; i++ ) {
       char* soc_name = soc_type_entries[i].soc_name;
       if (!strcmp(bt_soc_type, soc_name)) {

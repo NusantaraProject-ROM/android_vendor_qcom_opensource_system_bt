@@ -674,7 +674,7 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
 #endif
       for (int i = 0; i < btif_max_av_clients; i++)
         btif_av_cb[i].dual_handoff = false;
-      osi_property_get("persist.service.bt.a2dp.sink", a2dp_role, "false");
+      osi_property_get("persist.vendor.service.bt.a2dp.sink", a2dp_role, "false");
       if (!strncmp("false", a2dp_role, 5)) {
         btif_av_cb[index].peer_sep = AVDT_TSEP_SNK;
         isA2dpSink = true;
@@ -2960,7 +2960,7 @@ static bt_status_t init_src(
   BTIF_TRACE_EVENT("%s() with max conn = %d", __func__, max_a2dp_connections);
   char value[PROPERTY_VALUE_MAX] = {'\0'};
 
-  osi_property_get("persist.vendor.bt.enable.splita2dp", value, "true");
+  osi_property_get("persist.vendor.btstack.enable.splita2dp", value, "true");
   BTIF_TRACE_ERROR("split_a2dp_status = %s",value);
   bt_split_a2dp_enabled = (strcmp(value, "true") == 0);
   BTIF_TRACE_ERROR("split_a2dp_status = %d",bt_split_a2dp_enabled);
@@ -4105,20 +4105,11 @@ tBTA_AV_LATENCY btif_av_get_sink_latency() {
 bool btif_av_is_scrambling_enabled() {
   uint8_t no_of_freqs = 0;
   uint8_t *freqs = NULL;
-  char value[PROPERTY_VALUE_MAX] = {'\0'};
   btav_a2dp_codec_config_t codec_config;
   std::vector<btav_a2dp_codec_config_t> codecs_local_capabilities;
   std::vector<btav_a2dp_codec_config_t> codecs_selectable_capabilities;
   A2dpCodecs* a2dp_codecs = bta_av_get_a2dp_codecs();
   if (a2dp_codecs == nullptr) return false;
-
-  osi_property_get("persist.vendor.bt.splita2dp.44_1_war", value, "true");
-
-  if(strcmp(value, "true")) {
-    BTIF_TRACE_WARNING(
-        "persist.vendor.bt.splita2dp.44_1_war is not set");
-    return false;
-  }
 
   if (!a2dp_codecs->getCodecConfigAndCapabilities(
           &codec_config, &codecs_local_capabilities,

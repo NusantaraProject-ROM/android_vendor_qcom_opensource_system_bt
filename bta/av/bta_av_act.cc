@@ -1543,7 +1543,7 @@ void bta_av_api_disconnect(tBTA_AV_DATA* p_data) {
 static uint16_t bta_sink_time_out() {
   char value[PROPERTY_VALUE_MAX] = {0};
   uint16_t pts_bta_accept_timeout = 5000;
-  osi_property_get("bt.pts.certification", value, "false");
+  osi_property_get("vendor.bt.pts.certification", value, "false");
   if(!strcmp(value, "true")){
       return pts_bta_accept_timeout; // increase timeout value to pass PTS;
   }

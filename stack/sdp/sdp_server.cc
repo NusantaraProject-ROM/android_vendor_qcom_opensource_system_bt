@@ -276,7 +276,7 @@ bool sdp_fallback_avrcp_version (tSDP_ATTRIBUTE *p_attr, RawAddress remote_addre
                          p_attr->value_ptr[PROFILE_VERSION_POSITION]);
                 return TRUE;
             }
-            property_get("persist.service.bt.a2dp.sink", a2dp_role, "false");
+            property_get("persist.vendor.service.bt.a2dp.sink", a2dp_role, "false");
             if (!strncmp("false", a2dp_role, 5)) {
                 ver = sdp_get_stored_avrc_tg_version (remote_address);
                 if (ver != AVRC_REV_INVALID)
@@ -413,7 +413,7 @@ bool sdp_change_hfp_version (tSDP_ATTRIBUTE *p_attr, RawAddress remote_address)
                            __func__, remote_address.ToString().c_str());
             /* For PTS we should show AG's HFP version as 1.7 */
             if (is_blacklisted ||
-                (property_get("bt.pts.certification", value, "false") &&
+                (property_get("vendor.bt.pts.certification", value, "false") &&
                 strcmp(value, "true") == 0))
             {
                 p_attr->value_ptr[PROFILE_VERSION_POSITION] = 0x07; // Update HFP version as 1.7

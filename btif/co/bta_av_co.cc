@@ -907,7 +907,7 @@ bool bta_av_co_audio_is_aac_wl_enabled(RawAddress *remote_bdaddr) {
   int retval;
   bool res = FALSE;
   char is_whitelist_by_default[255] = "false";
-  retval = property_get("persist.bt.a2dp.aac_whitelist", is_whitelist_by_default, "true");
+  retval = property_get("persist.vendor.bt.a2dp.aac_whitelist", is_whitelist_by_default, "true");
   BTIF_TRACE_DEBUG("%s: property_get: bt.a2dp.aac_whitelist: %s, retval: %d",
                                   __func__, is_whitelist_by_default, retval);
   if (!strncmp(is_whitelist_by_default, "true", 4)) {
@@ -1523,12 +1523,7 @@ bt_status_t bta_av_set_a2dp_current_codec(tBTA_AV_HNDL hndl) {
 bool bta_av_co_is_scrambling_enabled() {
   uint8_t no_of_freqs = 0;
   uint8_t *freqs = NULL;
-  char value[PROPERTY_VALUE_MAX] = {'\0'};
-  osi_property_get("persist.vendor.bt.splita2dp.44_1_war", value, "true");
 
-  if(strcmp(value, "true")) {
-    return false;
-  }
   freqs = controller_get_interface()->get_scrambling_supported_freqs(&no_of_freqs);
 
   if(no_of_freqs == 0) {
@@ -1558,7 +1553,7 @@ void bta_av_co_init(
 /* SPLITA2DP */
   bool a2dp_offload = btif_av_is_split_a2dp_enabled();
   bool isScramblingSupported = bta_av_co_is_scrambling_enabled();
-  osi_property_get("persist.vendor.bt.a2dp_offload_cap", value, "false");
+  osi_property_get("persist.vendor.btstack.a2dp_offload_cap", value, "false");
   A2DP_SetOffloadStatus(a2dp_offload, value, isScramblingSupported);
 /* SPLITA2DP */
   bool isMcastSupported = btif_av_is_multicast_supported();
