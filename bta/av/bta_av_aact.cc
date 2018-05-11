@@ -383,7 +383,8 @@ static void bta_av_update_flow_spec(tBTA_AV_SCB* p_scb) {
     flow_spec.peak_bandwidth = (660*1000)/8; /* bytes/second */
 
   } else if (strcmp(codec_name,"LDAC") == 0) {
-    flow_spec.peak_bandwidth = (660*1000)/8; /* bytes/second */
+    /* For ABR mode default peak bandwidth is 0 */
+    flow_spec.peak_bandwidth = 0; /* bytes/second */
 
   } else if (strcmp(codec_name,"AAC") == 0) {
     flow_spec.peak_bandwidth = (320*1000)/8; /* bytes/second */

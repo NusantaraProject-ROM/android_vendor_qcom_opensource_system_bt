@@ -208,6 +208,7 @@ extern bool is_block_hal_start;
     btif_rc_handler(e, d);         \
   } break;
 
+void btif_av_flow_spec_cmd(int index, int bitrate);
 static bool btif_av_state_idle_handler(btif_sm_event_t event, void* data, int idx);
 static bool btif_av_state_opening_handler(btif_sm_event_t event, void* data, int idx);
 static bool btif_av_state_opened_handler(btif_sm_event_t event, void* data, int idx);
@@ -1672,6 +1673,7 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
 
     case BTIF_AV_SOURCE_CONFIG_REQ_EVT:
       btif_av_cb[index].reconfig_pending = true;
+      btif_av_flow_spec_cmd(index, reconfig_a2dp_param_val);
       btif_update_source_codec(p_data);
       break;
 
@@ -3126,13 +3128,13 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
         cp.bits_per_sample, cp.channel_mode, cp.codec_specific_1,
         cp.codec_specific_2, cp.codec_specific_3, cp.codec_specific_4);
 
-        if (btif_av_is_split_a2dp_enabled()) {
           A2dpCodecConfig* current_codec = bta_av_get_a2dp_current_codec();
           if (current_codec != nullptr) {
             btav_a2dp_codec_config_t codec_config;
             codec_config = current_codec->getCodecConfig();
             isBitRateChange = false;
-            if (codec_config.codec_specific_1 != cp.codec_specific_1) {
+            if ((codec_config.codec_specific_1 != cp.codec_specific_1) &&
+                (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC)) {
               switch (cp.codec_specific_1)
               {
               case 1000:
@@ -3156,7 +3158,9 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
                 else
                   reconfig_a2dp_param_val = 330000;
                 break;
-              case 1003: break;
+              case 1003:
+                reconfig_a2dp_param_val = 0;
+                break;
               }
               if (codec_config.codec_specific_1 != 0) {
                 reconfig_a2dp_param_id = BITRATE_PARAM_ID;
@@ -3165,8 +3169,7 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
             }
           }
 
-          codec_cfg_change = true;
-        }
+    codec_cfg_change = true;
     isDevUiReq = true;
     if (!codec_bda.IsEmpty())
       BTIF_TRACE_DEBUG("%s: previous codec_bda: %s", __func__, codec_bda.ToString().c_str());
@@ -4375,6 +4378,19 @@ void btif_av_reset_codec_reconfig_flag() {
 void btif_av_reinit_audio_interface() {
   BTIF_TRACE_DEBUG(LOG_TAG,"btif_av_reint_audio_interface");
   btif_a2dp_audio_interface_init();
+}
+
+void btif_av_flow_spec_cmd(int index, int bitrate) {
+  tBT_FLOW_SPEC flow_spec;
+  memset(&flow_spec, 0x00, sizeof(flow_spec));
+  flow_spec.flow_direction = 0x00;     /* flow direction - out going */
+  flow_spec.service_type = 0x02;       /* Guaranteed */
+  flow_spec.token_rate = 0x00;         /* bytes/second - no token rate is specified*/
+  flow_spec.token_bucket_size = 0x00;  /* bytes - no token bucket is needed*/
+  flow_spec.latency = 0xFFFFFFFF;      /* microseconds - default value */
+  flow_spec.peak_bandwidth = bitrate/8;/*bytes per second */
+  BTM_FlowSpec (btif_av_cb[index].peer_bda, &flow_spec, NULL);
+  APPL_TRACE_DEBUG("%s peak_bandwidth %d",__func__, flow_spec.peak_bandwidth);
 }
 /*SPLITA2DP*/
 
