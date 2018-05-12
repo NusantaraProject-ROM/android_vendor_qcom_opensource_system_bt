@@ -223,15 +223,9 @@ static void* server_thread(UNUSED_ATTR void* arg) {
       LOG_INFO(LOG_TAG,"waitin on condition");
       mCV.wait(lk);
     }
+    server_died = false;
   }
-  {
-    Lock lock(mtxBtAudio);
-    if (btAudio != nullptr) {
-      LOG_INFO(LOG_TAG,"%s:audio hal died.",__func__);
-      server_died = false;
-      on_hidl_server_died();
-    }
-  }
+  on_hidl_server_died();
   LOG_INFO(LOG_TAG,"%s EXIT",__func__);
   return NULL;
 }
