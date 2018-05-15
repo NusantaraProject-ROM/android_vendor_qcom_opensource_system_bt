@@ -259,7 +259,7 @@ cleanup:
 
 static void safe_close_(int* fd) {
   CHECK(fd != NULL);
-  if (*fd != -1 && fd != NULL) {
+  if (fd != NULL && *fd != -1) {
     close(*fd);
     *fd = -1;
   }
