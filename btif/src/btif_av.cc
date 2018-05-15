@@ -2063,6 +2063,16 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       remote_start_cancelled = false;
       // if not successful, remain in current state
       if (p_av->suspend.status != BTA_AV_SUCCESS) {
+        if (btif_av_cb[index].is_suspend_for_remote_start) {
+          BTIF_TRACE_DEBUG("Suspend sent for remote start failed");
+          btif_av_cb[index].is_suspend_for_remote_start = false;
+          if (!btif_av_is_playing_on_other_idx(index) &&
+                  (index == btif_av_get_latest_device_idx_to_start())) {
+            BTIF_TRACE_DEBUG("other index not playing, setup codec");
+            btif_dispatch_sm_event(BTIF_AV_SETUP_CODEC_REQ_EVT, NULL, 0);
+          }
+        }
+
         btif_av_cb[index].flags &= ~BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING;
 
         if (btif_av_cb[index].peer_sep == AVDT_TSEP_SNK)
