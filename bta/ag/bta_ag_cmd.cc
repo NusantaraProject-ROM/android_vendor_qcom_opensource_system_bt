@@ -1,5 +1,37 @@
 /******************************************************************************
  *
+ *  Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *  Not a Contribution.
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted (subject to the limitations in the
+ *  disclaimer below) provided that the following conditions are met:
+ *
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ *  * Redistributions in binary form must reproduce the above
+ *    copyright notice, this list of conditions and the following
+ *    disclaimer in the documentation and/or other materials provided
+ *    with the distribution.
+ *
+ *  * Neither the name of The Linux Foundation nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  *  Copyright (C) 2004-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,6 +69,10 @@
 #include <cutils/properties.h>
 #include "device/include/interop.h"
 #include "btif/include/btif_storage.h"
+#if (TWS_AG_ENABLED == TRUE)
+#include "bta_ag_twsp.h"
+#include "bta_ag_twsp_dev.h"
+#endif
 
 /*****************************************************************************
  *  Constants
@@ -117,6 +153,14 @@ const tBTA_AG_AT_CMD bta_ag_hfp_cmd[] = {
      BTA_AG_AT_SET | BTA_AG_AT_READ | BTA_AG_AT_TEST, BTA_AG_AT_STR, 0, 0},
     {"+BIEV", BTA_AG_AT_BIEV_EVT, BTA_AG_AT_SET, BTA_AG_AT_STR, 0, 0},
     {"+BAC", BTA_AG_AT_BAC_EVT, BTA_AG_AT_SET, BTA_AG_AT_STR, 0, 0},
+#if (TWS_AG_ENABLED == TRUE)
+    {"%QMQ", BTA_AG_TWSP_AT_QMQ_EVT, BTA_AG_AT_SET, BTA_AG_AT_INT, TWSPLUS_MIN_MIC_QUALITY, TWSPLUS_MAX_MIC_QUALITY},
+    {"%QES", BTA_AG_TWSP_AT_QES_EVT, BTA_AG_AT_SET, BTA_AG_AT_INT, TWSPLUS_EB_STATE_OFF, TWSPLUS_EB_STATE_INEAR},
+    {"%QER", BTA_AG_TWSP_AT_QER_EVT, BTA_AG_AT_SET, BTA_AG_AT_INT, TWSPLUS_EB_ROLE_LEFT, TWSPLUS_EB_ROLE_MONO},
+    {"%QBC", BTA_AG_TWSP_AT_QBC_EVT, BTA_AG_AT_SET, BTA_AG_AT_INT, TWSPLUS_MIN_BATTERY_CHARGE, TWSPLUS_MAX_BATTERY_CHARGE},
+    {"%QMD", BTA_AG_TWSP_AT_QMD_EVT, BTA_AG_AT_SET, BTA_AG_AT_INT, TWSPLUS_MIN_MICPATH_DELAY, TWSPLUS_MAX_MICPATH_DELAY/2-1},
+    {"%QDSP", BTA_AG_TWSP_AT_QDSP_EVT, BTA_AG_AT_SET, BTA_AG_AT_INT, TWSPLUS_MIN_QDSP, TWSPLUS_MAX_QDSP},
+#endif
     /* End-of-table marker used to stop lookup iteration */
     {"", 0, 0, 0, 0, 0}};
 
@@ -169,6 +213,12 @@ const tBTA_AG_RESULT bta_ag_result_tbl[] = {
     {"+CME ERROR: ", BTA_AG_LOCAL_RES_CMEE, BTA_AG_RES_FMT_INT},
     {"+BCS: ", BTA_AG_LOCAL_RES_BCS, BTA_AG_RES_FMT_INT},
     {"+BIND: ", BTA_AG_BIND_RES, BTA_AG_RES_FMT_STR},
+#if (TWS_AG_ENABLED == TRUE)
+    {"%QMQ: ", BTA_AG_TWS_QMQ_RES, BTA_AG_RES_FMT_NONE},
+    {"%QES: ", BTA_AG_TWS_QES_RES, BTA_AG_RES_FMT_NONE},
+    {"%QBC: ", BTA_AG_TWS_QBC_RES, BTA_AG_RES_FMT_NONE},
+    {"%QDSP: ", BTA_AG_TWS_QDSP_RES, BTA_AG_RES_FMT_NONE},
+#endif
     {"", BTA_AG_UNAT_RES, BTA_AG_RES_FMT_STR}};
 
 static const tBTA_AG_RESULT* bta_ag_result_by_code(size_t code) {
@@ -215,7 +265,7 @@ static size_t bta_ag_indicator_by_result_code(size_t code) {
  * Returns          void
  *
  ******************************************************************************/
-static void bta_ag_send_result(tBTA_AG_SCB* p_scb, size_t code,
+void bta_ag_send_result(tBTA_AG_SCB* p_scb, size_t code,
                                const char* p_arg, int16_t int_arg) {
   const tBTA_AG_RESULT* result = bta_ag_result_by_code(code);
   if (result == 0) {
@@ -1314,7 +1364,13 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
       break;
     }
     case BTA_AG_LOCAL_EVT_BCC: {
-        if (!bta_ag_sco_is_active_device(p_scb->peer_addr)) {
+        if (
+#if (TWS_AG_ENABLED == TRUE)
+            /*Allow Incoming SCO requests from non-active devices if it is TWS+
+              device*/
+            !is_twsp_device(p_scb->peer_addr) &&
+#endif
+        !bta_ag_sco_is_active_device(p_scb->peer_addr)) {
           LOG(WARNING) << __func__ << ": AT+BCC rejected as " << p_scb->peer_addr
                        << " is not the active device";
           bta_ag_send_error(p_scb, BTA_AG_ERR_OP_NOT_ALLOWED);
@@ -1322,9 +1378,28 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
         }
         bta_ag_send_ok(p_scb);
         p_scb->codec_updated = TRUE;
-        bta_ag_sco_open(p_scb, NULL);
+#if (TWS_AG_ENABLED == TRUE)
+      p_scb->rmt_sco_req = TRUE;
+#endif
+      bta_ag_sco_open(p_scb, NULL);
       }
       break;
+#if (TWS_AG_ENABLED == TRUE)
+    case BTA_AG_TWSP_AT_QMQ_EVT:
+    case BTA_AG_TWSP_AT_QES_EVT:
+    case BTA_AG_TWSP_AT_QER_EVT:
+    case BTA_AG_TWSP_AT_QBC_EVT:
+    case BTA_AG_TWSP_AT_QMD_EVT:
+    case BTA_AG_TWSP_AT_QDSP_EVT:
+        if (is_twsp_device(p_scb->peer_addr)) {
+           bta_ag_send_ok(p_scb);
+           twsp_handle_vs_at_events(p_scb, cmd, int_arg);
+        } else {
+           APPL_TRACE_DEBUG("Not supported for non-twsp devices");
+           bta_ag_send_error(p_scb, BTA_AG_ERR_OP_NOT_SUPPORTED);
+        }
+        break;
+#endif
 
     default:
       bta_ag_send_error(p_scb, BTA_AG_ERR_OP_NOT_SUPPORTED);
@@ -1574,6 +1649,7 @@ void bta_ag_hfp_result(tBTA_AG_SCB* p_scb, tBTA_AG_API_RESULT* p_result) {
       bta_ag_send_call_inds(p_scb, p_result->result);
       if (p_result->data.audio_handle == bta_ag_scb_to_idx(p_scb) &&
           !(p_scb->features & BTA_AG_FEAT_NOSCO)) {
+        APPL_TRACE_DEBUG("%s:calling sco_open : %d",__func__, p_result->result);
         bta_ag_sco_open(p_scb, (tBTA_AG_DATA*)p_result);
       }
       break;
@@ -1581,8 +1657,11 @@ void bta_ag_hfp_result(tBTA_AG_SCB* p_scb, tBTA_AG_API_RESULT* p_result) {
     case BTA_AG_OUT_CALL_ALERT_RES:
       /* send indicators */
       bta_ag_send_call_inds(p_scb, p_result->result);
+      APPL_TRACE_DEBUG("p_result->data.audio_handle : %d", p_result->data.audio_handle);
+      APPL_TRACE_DEBUG(" bta_ag_scb_to_idx(p_scb) : %d",  bta_ag_scb_to_idx(p_scb));
       if (p_result->data.audio_handle == bta_ag_scb_to_idx(p_scb) &&
           !(p_scb->features & BTA_AG_FEAT_NOSCO)) {
+        APPL_TRACE_DEBUG("%s:calling sco_open : %d",__func__, p_result->result);
         bta_ag_sco_open(p_scb, (tBTA_AG_DATA*)p_result);
       }
       break;
@@ -1624,6 +1703,7 @@ void bta_ag_hfp_result(tBTA_AG_SCB* p_scb, tBTA_AG_API_RESULT* p_result) {
       if ((bta_ag_sco_is_open(p_scb) || bta_ag_sco_is_opening(p_scb)) &&
           !(p_scb->features & BTA_AG_FEAT_NOSCO)) {
         p_scb->post_sco = BTA_AG_POST_SCO_CALL_END;
+        APPL_TRACE_DEBUG("%s:calling sco_close : %d",__func__, p_result->result);
         bta_ag_sco_close(p_scb, (tBTA_AG_DATA*)p_result);
       } else if (p_scb->post_sco == BTA_AG_POST_SCO_CALL_END_INCALL) {
         /* sco closing for outgoing call because of incoming call */
@@ -1635,6 +1715,11 @@ void bta_ag_hfp_result(tBTA_AG_SCB* p_scb, tBTA_AG_API_RESULT* p_result) {
         /* if av got suspended by this call, let it resume. */
         bta_sys_sco_unuse(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
       }
+#if (TWS_AG_ENABLED == TRUE)
+      //if (is_twsp_connected()) {
+          twsp_clr_all_ring_sent();
+      //}
+#endif
       break;
 
     case BTA_AG_INBAND_RING_RES:
@@ -1767,6 +1852,12 @@ void bta_ag_hfp_result(tBTA_AG_SCB* p_scb, tBTA_AG_API_RESULT* p_result) {
     }
 
     default:
+#if (TWS_AG_ENABLED == TRUE)
+      //Call tws handling
+      if (is_twsp_device(p_scb->peer_addr)) {
+         bta_ag_twsp_hfp_result(p_scb, p_result);
+      }
+#endif
       break;
   }
 }
@@ -1844,15 +1935,37 @@ void bta_ag_send_ring(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
     APPL_TRACE_DEBUG("don't send the ring since there is no MT call setup");
     return;
   }
-  /* send RING */
-  bta_ag_send_result(p_scb, BTA_AG_LOCAL_RES_RING, NULL, 0);
+#if (TWS_AG_ENABLED == TRUE)
+  if (is_twsp_device(p_scb->peer_addr)) {
+      if (twsp_ring_needed(p_scb)) {
+         /* send RING */
+         bta_ag_send_result(p_scb, BTA_AG_LOCAL_RES_RING, NULL, 0);
 
-  /* if HFP and clip enabled and clip data send CLIP */
-  if (p_scb->conn_service == BTA_AG_HFP && p_scb->clip_enabled &&
-      p_scb->clip[0] != 0) {
-    bta_ag_send_result(p_scb, BTA_AG_LOCAL_RES_CLIP, p_scb->clip, 0);
-  }
+         /* if HFP and clip enabled and clip data send CLIP */
+         if (p_scb->conn_service == BTA_AG_HFP && p_scb->clip_enabled &&
+            p_scb->clip[0] != 0) {
+            bta_ag_send_result(p_scb, BTA_AG_LOCAL_RES_CLIP, p_scb->clip, 0);
+         }
 
-  bta_sys_start_timer(p_scb->ring_timer, BTA_AG_RING_TIMEOUT_MS,
+         bta_sys_start_timer(p_scb->ring_timer, BTA_AG_RING_TIMEOUT_MS,
                       BTA_AG_RING_TIMEOUT_EVT, bta_ag_scb_to_idx(p_scb));
+         twsp_set_ring_sent(p_scb, true);
+     }
+  } else {
+#endif
+      /* send RING */
+      bta_ag_send_result(p_scb, BTA_AG_LOCAL_RES_RING, NULL, 0);
+
+      /* if HFP and clip enabled and clip data send CLIP */
+      if (p_scb->conn_service == BTA_AG_HFP && p_scb->clip_enabled &&
+          p_scb->clip[0] != 0) {
+          bta_ag_send_result(p_scb, BTA_AG_LOCAL_RES_CLIP, p_scb->clip, 0);
+      }
+
+      bta_sys_start_timer(p_scb->ring_timer, BTA_AG_RING_TIMEOUT_MS,
+                      BTA_AG_RING_TIMEOUT_EVT, bta_ag_scb_to_idx(p_scb));
+
+#if (TWS_AG_ENABLED == TRUE)
+  }
+#endif
 }

@@ -1347,6 +1347,10 @@
 #define AVCT_NUM_CONN 3
 #endif
 
+#ifndef TWS_AG_ENABLED
+#define TWS_AG_ENABLED TRUE
+#endif
+
 /******************************************************************************
  *
  * AVRCP
