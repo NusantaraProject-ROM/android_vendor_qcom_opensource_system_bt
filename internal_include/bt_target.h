@@ -1,5 +1,5 @@
 /*****************************************************************************
- *  Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *   Mot a contribution
 
  *  Redistribution and use in source and binary forms, with or without

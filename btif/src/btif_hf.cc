@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017-2018, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  Redistribution and use in source and binary forms, with or without
 modification, are permitted (subject to the limitations in the
@@ -1559,6 +1559,12 @@ bt_status_t HeadsetInterface::PhoneStateChange(
                        bd_addr->ToString().c_str());
     return BT_STATUS_FAIL;
   }
+#if (TWS_AG_ENABLED == TRUE)
+  if (is_twsp_device_connected()) {
+      idx = get_idx_primary_eb(&btif_hf_cb[idx].connected_bda);
+   }
+#endif
+
   btif_hf_cb_t& control_block = btif_hf_cb[idx];
   if (!IsSlcConnected(bd_addr)) {
     LOG(WARNING) << ": SLC not connected for " << *bd_addr;
@@ -1579,12 +1585,6 @@ bt_status_t HeadsetInterface::PhoneStateChange(
   bool active_call_updated = false;
 
   memset(&ag_res, 0, sizeof(ag_res));
-
-#if (TWS_AG_ENABLED == TRUE)
-  if (is_twsp_device_connected()) {
-      idx = get_idx_primary_eb(&btif_hf_cb[idx].connected_bda);
-   }
-#endif
 
   BTIF_TRACE_IMP(
       "phone_state_change: num_active=%d [prev: %d]  num_held=%d[prev: %d]"
