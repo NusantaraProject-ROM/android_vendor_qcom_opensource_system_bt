@@ -834,6 +834,7 @@ void avdt_scb_hdl_delay_rpt_cmd(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
       if (p_scb->role == AVDT_CONF_INT) {
         /* initiate open after get initial delay report value*/
         single.seid = p_scb->peer_seid;
+        p_scb->role = AVDT_DELAY_RPT_OPEN_INT;
         avdt_scb_event(p_scb, AVDT_SCB_API_OPEN_REQ_EVT, (tAVDT_SCB_EVT*)&single);
       }
     } else {

@@ -71,6 +71,7 @@ enum {
 #define AVDT_OPEN_INT 3
 #define AVDT_CONF_ACP 4
 #define AVDT_CONF_INT 5
+#define AVDT_DELAY_RPT_OPEN_INT 6
 
 /* states for avdt_scb_verify */
 #define AVDT_VERIFY_OPEN 0
