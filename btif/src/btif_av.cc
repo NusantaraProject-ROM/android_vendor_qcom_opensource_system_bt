@@ -80,6 +80,7 @@
 #include "device/include/interop.h"
 #include "device/include/controller.h"
 #include "btif_bat.h"
+#include "bta/av/bta_av_int.h"
 
 extern bool isDevUiReq;
 bool isBitRateChange = false;
@@ -1647,9 +1648,14 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
     } break;
 
     case BTA_AV_OFFLOAD_START_RSP_EVT:
-      APPL_TRACE_WARNING("Offload Start Rsp is unsupported in opened state");
-      if (btif_av_cb[index].flags & BTIF_AV_FLAG_REMOTE_SUSPEND)
+      APPL_TRACE_WARNING("Offload Start Rsp is unsupported in opened state, status = %d", p_av->status);
+      if (btif_av_cb[index].flags & BTIF_AV_FLAG_REMOTE_SUSPEND) {
+        if (p_av->status == BTA_AV_SUCCESS) {
+          btif_a2dp_src_vsc.tx_started = TRUE;
+          bta_av_vendor_offload_stop(NULL);
+        }
         btif_a2dp_on_offload_started(BTA_AV_FAIL_UNSUPPORTED);
+      }
       break;
 
     case BTA_AV_RC_OPEN_EVT: {
