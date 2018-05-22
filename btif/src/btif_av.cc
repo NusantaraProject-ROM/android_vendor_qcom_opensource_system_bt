@@ -3324,6 +3324,7 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
             isBitRateChange = false;
             if ((codec_config.codec_specific_1 != cp.codec_specific_1) &&
                 (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC)) {
+              isBitRateChange = true;
               switch (cp.codec_specific_1)
               {
               case 1000:
@@ -3353,7 +3354,6 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
               }
               if (codec_config.codec_specific_1 != 0) {
                 reconfig_a2dp_param_id = BITRATE_PARAM_ID;
-                isBitRateChange = true;
               }
             }
           }
