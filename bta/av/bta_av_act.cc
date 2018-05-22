@@ -417,6 +417,7 @@ uint8_t bta_av_rc_create(tBTA_AV_CB* p_cb, uint8_t role, uint8_t shdl,
   p_rcb->shdl = shdl;
   p_rcb->lidx = lidx;
   p_rcb->peer_features = 0;
+  p_rcb->cover_art_psm = 0;
   if (lidx == (BTA_AV_NUM_LINKS + 1)) {
     /* this LIDX is reserved for the AVRCP ACP connection */
     p_cb->rc_acp_handle = p_rcb->handle;
@@ -635,6 +636,7 @@ void bta_av_rc_opened(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
 
   rc_open.peer_addr = p_data->rc_conn_chg.peer_addr;
   rc_open.peer_features = p_cb->rcb[i].peer_features;
+  rc_open.cover_art_psm = p_cb->rcb[i].cover_art_psm;
   rc_open.status = BTA_AV_SUCCESS;
   APPL_TRACE_DEBUG("%s local features:x%x peer_features:x%x", __func__,
                    p_cb->features, rc_open.peer_features);
@@ -2001,66 +2003,80 @@ tBTA_AV_FEAT bta_av_check_peer_features(uint16_t service_uuid) {
  * Returns          tBTA_AV_FEAT peer device feature mask
  *
  ******************************************************************************/
-tBTA_AV_FEAT bta_avk_check_peer_features(uint16_t service_uuid) {
+tBTA_AV_FEAT bta_avk_check_peer_features(uint16_t service_uuid, uint16_t *p_psm) {
   tBTA_AV_FEAT peer_features = 0;
   tBTA_AV_CB* p_cb = &bta_av_cb;
+  tSDP_DISC_REC *p_rec = NULL;
+  tSDP_DISC_ATTR *p_attr;
+  uint16_t peer_rc_version = 0;
+  uint16_t categories = 0;
+  bool val;
+
 
   APPL_TRACE_DEBUG("%s service_uuid:x%x", __func__, service_uuid);
+  /* get next record; if none found, we're done */
+  p_rec = SDP_FindServiceInDb(p_cb->p_disc_db, service_uuid, p_rec);
+  if (p_rec != NULL) {
+      APPL_TRACE_DEBUG("%s found Service record for x%x", __func__, service_uuid);
+      if (service_uuid == UUID_SERVCLASS_AV_REMOTE_CONTROL)
+          peer_features |= BTA_AV_FEAT_RCCT;
+      else if (service_uuid == UUID_SERVCLASS_AV_REM_CTRL_TARGET)
+          peer_features |= BTA_AV_FEAT_RCTG;
+      if ((SDP_FindAttributeInRec(p_rec, ATTR_ID_BT_PROFILE_DESC_LIST)) != NULL)
+      {
+          /* profile version (if failure, version parameter is not updated) */
+          val = SDP_FindProfileVersionInRec(p_rec,
+          UUID_SERVCLASS_AV_REMOTE_CONTROL, &peer_rc_version);
+          APPL_TRACE_DEBUG("%s rc_version for TG 0x%x, profile_found %d", __FUNCTION__,
+                                               peer_rc_version, val);
 
-  /* loop through all records we found */
-  tSDP_DISC_REC* p_rec =
-      SDP_FindServiceInDb(p_cb->p_disc_db, service_uuid, NULL);
-  while (p_rec) {
-    APPL_TRACE_DEBUG("%s found Service record for x%x", __func__, service_uuid);
+          if (peer_rc_version < AVRC_REV_1_3)
+              return peer_features;
 
-    if ((SDP_FindAttributeInRec(p_rec, ATTR_ID_SERVICE_CLASS_ID_LIST)) !=
-        NULL) {
-      /* find peer features */
-      if (SDP_FindServiceInDb(p_cb->p_disc_db, UUID_SERVCLASS_AV_REMOTE_CONTROL,
-                              NULL)) {
-        peer_features |= BTA_AV_FEAT_RCCT;
-      }
-      if (SDP_FindServiceInDb(p_cb->p_disc_db,
-                              UUID_SERVCLASS_AV_REM_CTRL_TARGET, NULL)) {
-        peer_features |= BTA_AV_FEAT_RCTG;
-      }
+          p_attr = SDP_FindAttributeInRec(p_rec, ATTR_ID_SUPPORTED_FEATURES);
+          if (p_attr == NULL)
+              return peer_features;
+
+          categories = p_attr->attr_value.v.u16;
+
+          if (service_uuid == UUID_SERVCLASS_AV_REM_CTRL_TARGET)
+          {
+              peer_features |= (BTA_AV_FEAT_VENDOR | BTA_AV_FEAT_METADATA);
+              /* get supported categories */
+              if (categories & AVRC_SUPF_CT_BROWSE)
+                  peer_features |= BTA_AV_FEAT_BROWSE;
+              if (categories & AVRC_SUPF_CT_APP_SETTINGS)
+                  peer_features |= BTA_AV_FEAT_APP_SETTING;
+              if ((peer_rc_version >= AVRC_REV_1_6) &&
+                    (categories & AVRC_SUPF_TG_PLAYER_COVER_ART))
+              {
+                  peer_features |= BTA_AV_FEAT_CA;
+                  if ((p_attr = SDP_FindAttributeInRec(p_rec,
+                          ATTR_ID_ADDITION_PROTO_DESC_LISTS)) != NULL)
+                  {
+                      if (SDP_FindAvrcpCoverArtPSM(p_attr, p_psm) != TRUE)
+                          *p_psm = 0;
+
+                      APPL_TRACE_DEBUG(" %s PSM for cover art obex l2cap channel 0x%04X",
+                            __FUNCTION__, *p_psm);
+                  }
+              }
+          }
+          /*
+           * Absolute Volume came after in 1.4 and above.
+           * but there are few devices in market which supports.
+           * absoluteVolume and they are still 1.3 To avoid inter-operatibility issuses with.
+           * those devices, we check for 1.3 as minimum version.
+           */
+          else if (service_uuid == UUID_SERVCLASS_AV_REMOTE_CONTROL)
+          {
+              if (categories & AVRC_SUPF_CT_CAT2)
+              {
+                  APPL_TRACE_DEBUG(" %s Remote supports ABS Vol", __FUNCTION__);
+                  peer_features |= BTA_AV_FEAT_ADV_CTRL;
+              }
+          }
     }
-
-    if ((SDP_FindAttributeInRec(p_rec, ATTR_ID_BT_PROFILE_DESC_LIST)) != NULL) {
-      /* get profile version (if failure, version parameter is not updated) */
-      uint16_t peer_rc_version = 0;
-      bool val = SDP_FindProfileVersionInRec(
-          p_rec, UUID_SERVCLASS_AV_REMOTE_CONTROL, &peer_rc_version);
-      APPL_TRACE_DEBUG("%s peer_rc_version for TG 0x%x, profile_found %d",
-                       __func__, peer_rc_version, val);
-
-      if (peer_rc_version >= AVRC_REV_1_3)
-        peer_features |= (BTA_AV_FEAT_VENDOR | BTA_AV_FEAT_METADATA);
-
-      /*
-       * Though Absolute Volume came after in 1.4 and above, but there are few
-       * devices
-       * in market which supports absolute Volume and they are still 1.3
-       * TO avoid IOT issuses with those devices, we check for 1.3 as minimum
-       * version
-       */
-      if (peer_rc_version >= AVRC_REV_1_3) {
-        /* get supported features */
-        tSDP_DISC_ATTR* p_attr =
-            SDP_FindAttributeInRec(p_rec, ATTR_ID_SUPPORTED_FEATURES);
-        if (p_attr != NULL) {
-          uint16_t categories = p_attr->attr_value.v.u16;
-          if (categories & AVRC_SUPF_CT_CAT2)
-            peer_features |= (BTA_AV_FEAT_ADV_CTRL);
-          if (categories & AVRC_SUPF_CT_APP_SETTINGS)
-            peer_features |= (BTA_AV_FEAT_APP_SETTING);
-          if (categories & AVRC_SUPF_CT_BROWSE)
-            peer_features |= (BTA_AV_FEAT_BROWSE);
-        }
-      }
-    }
-    /* get next record; if none found, we're done */
-    p_rec = SDP_FindServiceInDb(p_cb->p_disc_db, service_uuid, p_rec);
   }
   APPL_TRACE_DEBUG("%s peer_features:x%x", __func__, peer_features);
   return peer_features;
@@ -2082,6 +2098,7 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
   tBTA_AV_RC_OPEN rc_open;
   tBTA_AV_LCB* p_lcb;
   uint8_t rc_handle;
+  uint16_t cover_art_psm = 0;
   tBTA_AV_FEAT peer_features = 0; /* peer features mask */
 
   APPL_TRACE_DEBUG("%s bta_av_rc_disc_done disc:x%x", __func__, p_cb->disc);
@@ -2118,13 +2135,11 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
 #if (BTA_AV_SINK_INCLUDED == TRUE)
   if (p_cb->sdp_a2dp_snk_handle) {
     /* This is Sink + CT + TG(Abs Vol) */
-    peer_features =
-        bta_avk_check_peer_features(UUID_SERVCLASS_AV_REM_CTRL_TARGET);
-    APPL_TRACE_DEBUG("%s populating rem ctrl target features %d", __func__,
-                     peer_features);
-    if (BTA_AV_FEAT_ADV_CTRL &
-        bta_avk_check_peer_features(UUID_SERVCLASS_AV_REMOTE_CONTROL))
-      peer_features |= (BTA_AV_FEAT_ADV_CTRL | BTA_AV_FEAT_RCCT);
+      peer_features = bta_avk_check_peer_features(UUID_SERVCLASS_AV_REMOTE_CONTROL,
+                                                  &cover_art_psm);
+      peer_features |= bta_avk_check_peer_features(UUID_SERVCLASS_AV_REM_CTRL_TARGET,
+                                                  &cover_art_psm);
+      APPL_TRACE_DEBUG("final rc_features %x", peer_features);
   } else
 #endif
       if (p_cb->sdp_a2dp_handle) {
@@ -2161,6 +2176,7 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
                                        (uint8_t)(p_scb->hdi + 1), p_lcb->lidx);
           if ((rc_handle != BTA_AV_RC_HANDLE_NONE) && (rc_handle < BTA_AV_NUM_RCB)) {
             p_cb->rcb[rc_handle].peer_features = peer_features;
+            p_cb->rcb[rc_handle].cover_art_psm = cover_art_psm;
           } else {
             /* cannot create valid rc_handle for current device */
             APPL_TRACE_ERROR(" No link resources available");
@@ -2187,6 +2203,7 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
   } else {
     tBTA_AV_RC_FEAT rc_feat;
     p_cb->rcb[rc_handle].peer_features = peer_features;
+    rc_feat.cover_art_psm = cover_art_psm;
     rc_feat.rc_handle = rc_handle;
     rc_feat.peer_features = peer_features;
     if (p_scb == NULL) {
@@ -2373,6 +2390,8 @@ void bta_av_rc_disc(uint8_t disc) {
   tBTA_AV_CB* p_cb = &bta_av_cb;
   tAVRC_SDP_DB_PARAMS db_params;
   uint16_t attr_list[] = {ATTR_ID_SERVICE_CLASS_ID_LIST,
+                          ATTR_ID_PROTOCOL_DESC_LIST,
+                          ATTR_ID_ADDITION_PROTO_DESC_LISTS,
                           ATTR_ID_BT_PROFILE_DESC_LIST,
                           ATTR_ID_SUPPORTED_FEATURES};
   uint8_t hdi;
@@ -2406,7 +2425,7 @@ void bta_av_rc_disc(uint8_t disc) {
 
     /* set up parameters */
     db_params.db_len = BTA_AV_DISC_BUF_SIZE;
-    db_params.num_attr = 3;
+    db_params.num_attr = sizeof(attr_list) / sizeof(uint16_t);
     db_params.p_db = p_cb->p_disc_db;
     db_params.p_attrs = attr_list;
 

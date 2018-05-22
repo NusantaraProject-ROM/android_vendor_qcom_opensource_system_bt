@@ -734,6 +734,54 @@ bool SDP_FindAddProtoListsElemInRec(tSDP_DISC_REC* p_rec, uint16_t layer_uuid,
 
 /*******************************************************************************
  *
+ * Function         SDP_FindAvrcpCoverArtPSM
+ *
+ * Description      This function pulls the cover art protocol service mask from the additional
+ *                  protocol descriptor list attribute
+ *
+ * Returns          TRUE if found, FALSE if not
+ *                  If found, the psm will be filled in p_psm.
+ *
+ *******************************************************************************/
+bool SDP_FindAvrcpCoverArtPSM (tSDP_DISC_ATTR *p_attr, uint16_t *p_psm)
+{
+  tSDP_DISC_ATTR  *p_sattr;
+  tSDP_PROTOCOL_ELEM elem;
+  /* Check if it is additional protocol descriptor list attribute */
+  if ((p_attr->attr_id == ATTR_ID_ADDITION_PROTO_DESC_LISTS)
+       && (SDP_DISC_ATTR_TYPE(p_attr->attr_len_type) == DATA_ELE_SEQ_DESC_TYPE))
+  {
+     /* Pull the PSM first one by one. The last one should be the one for OBEX */
+    for (p_sattr = p_attr->attr_value.v.p_sub_attr; p_sattr; p_sattr = p_sattr->p_next_attr)
+    {
+      /* Safety check - each entry should itself be a sequence */
+      if (SDP_DISC_ATTR_TYPE(p_sattr->attr_len_type) == DATA_ELE_SEQ_DESC_TYPE)
+      {
+        sdp_fill_proto_elem(p_sattr, UUID_PROTOCOL_L2CAP, &elem);
+        *p_psm = elem.params[0];
+        SDP_TRACE_DEBUG(" %s  p_psm  %u ", __func__, *p_psm);
+      }
+    }
+    /* Now check if OBEX is present and then return result */
+    for (p_sattr = p_attr->attr_value.v.p_sub_attr; p_sattr; p_sattr = p_sattr->p_next_attr)
+    {
+      /* Safety check - each entry should itself be a sequence */
+      if (SDP_DISC_ATTR_TYPE(p_sattr->attr_len_type) == DATA_ELE_SEQ_DESC_TYPE)
+      {
+        if (sdp_fill_proto_elem(p_sattr, UUID_PROTOCOL_OBEX, &elem) == TRUE)
+        {
+          return TRUE;
+        }
+      }
+    }
+  }
+  /* If here, no match found */
+  return FALSE;
+}
+
+
+/*******************************************************************************
+ *
  * Function         SDP_FindProfileVersionInRec
  *
  * Description      This function looks at a specific discovery record for the

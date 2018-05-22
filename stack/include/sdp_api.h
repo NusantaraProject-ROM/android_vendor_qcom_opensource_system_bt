@@ -383,6 +383,19 @@ bool SDP_FindProtocolListElemInRec(tSDP_DISC_REC* p_rec, uint16_t layer_uuid,
 
 /*******************************************************************************
  *
+ * Function         SDP_FindAvrcpCoverArtPSM
+ *
+ * Description      This function pulls the cover art protocol service mask from the additional
+ *                  protocol descriptor list attribute
+ *
+ * Returns          TRUE if found, FALSE if not
+ *                  If found, the psm will be filled in p_psm.
+ *
+*******************************************************************************/
+bool SDP_FindAvrcpCoverArtPSM (tSDP_DISC_ATTR *p_attr, uint16_t *p_psm);
+
+/*******************************************************************************
+ *
  * Function         SDP_FindAddProtoListsElemInRec
  *
  * Description      This function looks at a specific discovery record for a

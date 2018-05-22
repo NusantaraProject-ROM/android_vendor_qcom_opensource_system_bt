@@ -367,6 +367,7 @@ typedef struct {
   tBTA_AV_FEAT peer_features;
   RawAddress peer_addr;
   tBTA_AV_STATUS status;
+  uint16_t cover_art_psm;  /* l2cap psm for cover art on remote */
 } tBTA_AV_RC_OPEN;
 
 /* data associated with BTA_AV_RC_CLOSE_EVT */
@@ -399,6 +400,7 @@ typedef struct {
   uint8_t rc_handle;
   tBTA_AV_FEAT peer_features;
   RawAddress peer_addr;
+  uint16_t cover_art_psm;  /* l2cap psm for cover art on remote */
 } tBTA_AV_RC_FEAT;
 
 /* data associated with BTA_AV_REMOTE_CMD_EVT */
