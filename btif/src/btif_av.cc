@@ -3352,7 +3352,7 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
                 reconfig_a2dp_param_val = 0;
                 break;
               }
-              if (codec_config.codec_specific_1 != 0) {
+              if (cp.codec_specific_1 != 0) {
                 reconfig_a2dp_param_id = BITRATE_PARAM_ID;
               }
             }
