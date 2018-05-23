@@ -1580,6 +1580,15 @@ bt_status_t HeadsetInterface::PhoneStateChange(
     LOG(WARNING) << ": SLC not connected for " << *bd_addr;
     return BT_STATUS_NOT_READY;
   }
+  if (call_setup_state == BTHF_CALL_STATE_DISCONNECTED) {
+    // HFP spec does not handle cases when a call is being disconnected.
+    // Since DISCONNECTED state must lead to IDLE state, ignoring it here.
+    LOG(WARNING) << __func__
+              << ": Ignore call state change to DISCONNECTED, idx=" << idx
+              << ", addr=" << *bd_addr << ", num_active=" << num_active
+              << ", num_held=" << num_held;
+    return BT_STATUS_SUCCESS;
+  }
   LOG(INFO) << __func__ << ": idx=" << idx << ", addr=" << *bd_addr
             << ", active_bda=" << active_bda << ", num_active=" << num_active
             << ", prev_num_active" << control_block.num_active
@@ -1747,9 +1756,6 @@ bt_status_t HeadsetInterface::PhoneStateChange(
         }
         res = BTA_AG_OUT_CALL_ALERT_RES;
         break;
-      case BTHF_CALL_STATE_DISCONNECTED:
-        res = 0;
-        break;
       default:
         BTIF_TRACE_ERROR("%s: Incorrect call state prev=%d, now=%d", __func__,
                          control_block.call_setup_state, call_setup_state);
@@ -1788,7 +1794,8 @@ bt_status_t HeadsetInterface::PhoneStateChange(
     BTIF_TRACE_IMP("%s: Active call states changed. old: %d new: %d",
                      __func__, control_block.num_active, num_active);
     send_indicator_update(control_block, BTA_AG_IND_CALL,
-                          ((num_active + num_held) > 0) ? 1 : 0);
+                          ((num_active + num_held) > 0) ? BTA_AG_CALL_ACTIVE
+                                                        : BTA_AG_CALL_INACTIVE);
   }
 
   /* Held Changed? */
