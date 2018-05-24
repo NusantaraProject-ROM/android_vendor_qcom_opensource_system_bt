@@ -969,14 +969,6 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           if (is_twsp_device(p_scb->peer_addr)) {
              p_sco->state = BTA_AG_SCO_SHUTDOWN_ST;
              APPL_TRACE_DEBUG("sco sm moved to shutdown state");
-             /*
-              * Bring down the other SCO only if it is active device
-              * so that sco will be brought back as part of making
-              * other device as active
-              */
-             if (bta_ag_sco_is_active_device(p_scb->peer_addr)) {
-                 dispatch_event_twsp_peer_device(p_scb, BTA_AG_SCO_CLOSE_E);
-             }
              bta_ag_cb.main_sm_scb = NULL;
           }
 #endif
@@ -1920,8 +1912,6 @@ void bta_ag_sco_conn_open(tBTA_AG_SCB* p_scb,
                           UNUSED_ATTR tBTA_AG_DATA* p_data) {
 
 
-  bool update_sco_state = true;
-  tBTA_AG_SCB* scb_tobe = p_scb;
 #if (TWS_AG_ENABLED == TRUE)
   if (is_twsp_device(p_scb->peer_addr)) {
      APPL_TRACE_DEBUG("%s: p_scb : %x sco.p_curr_scb: %x", __func__,
@@ -1935,47 +1925,26 @@ void bta_ag_sco_conn_open(tBTA_AG_SCB* p_scb,
         APPL_TRACE_ERROR("%s: ignored", __func__);
      }
 
-     tBTA_AG_SCB *other_scb = get_other_twsp_scb(p_scb->peer_addr);
-     if (other_scb != NULL && twsp_sco_active(other_scb)) {
-        update_sco_state = false;
-     }
-
-     //Always use primary SCB to notify upper layers
-     //for tws cases
-     if (other_scb != NULL) {
-         //scb_tobe = bta_ag_cb.main_sm_scb;
-         //Pick Active device for app notif
-         if (bta_ag_sco_is_active_device(p_scb->peer_addr)) {
-             scb_tobe = p_scb;
-         } else {
-             scb_tobe = other_scb;
-         }
-     }
   } else {
 #endif
       bta_ag_sco_event(p_scb, BTA_AG_SCO_CONN_OPEN_E);
 #if (TWS_AG_ENABLED == TRUE)
   }
 #endif
-
-  APPL_TRACE_DEBUG("%s: update_sco_state : %d", __func__, update_sco_state);
-  if (update_sco_state) {
-     bta_sys_sco_open(BTA_ID_AG, scb_tobe->app_id, scb_tobe->peer_addr);
+    bta_sys_sco_open(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
 
 #if (BTM_SCO_HCI_INCLUDED == TRUE)
       /* open SCO codec if SCO is routed through transport */
-      bta_dm_sco_co_open(bta_ag_scb_to_idx(scb_tobe), BTA_SCO_OUT_PKT_SIZE,
+    bta_dm_sco_co_open(bta_ag_scb_to_idx(p_scb), BTA_SCO_OUT_PKT_SIZE,
                      BTA_AG_CI_SCO_DATA_EVT);
 #endif
 
-      /* call app callback */
-      bta_ag_cback_sco(scb_tobe, BTA_AG_AUDIO_OPEN_EVT);
+    /* call app callback */
+    bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_OPEN_EVT);
 
-
-      /* reset to mSBC T2 settings as the preferred */
-      scb_tobe->codec_msbc_settings = BTA_AG_SCO_MSBC_SETTINGS_T2;
-   }
-}
+    /* reset to mSBC T2 settings as the preferred */
+    p_scb->codec_msbc_settings = BTA_AG_SCO_MSBC_SETTINGS_T2;
+ }
 
 /*******************************************************************************
  *
@@ -1989,8 +1958,7 @@ void bta_ag_sco_conn_open(tBTA_AG_SCB* p_scb,
  ******************************************************************************/
 void bta_ag_sco_conn_close(tBTA_AG_SCB* p_scb,
                            UNUSED_ATTR tBTA_AG_DATA* p_data) {
-   bool update_sco_state = true;
-   tBTA_AG_SCB* scb_tobe = p_scb;
+
 #if (TWS_AG_ENABLED == TRUE)
    if (is_twsp_connected()) {
        //Check if this is robust enough
@@ -2015,23 +1983,6 @@ void bta_ag_sco_conn_close(tBTA_AG_SCB* p_scb,
           bta_ag_twsp_sco_event(p_scb, BTA_AG_SCO_CONN_CLOSE_E);
        }
 
-       tBTA_AG_SCB *other_scb = get_other_twsp_scb(p_scb->peer_addr);
-       if (other_scb != NULL && !twsp_sco_not_active(other_scb)) {
-          //Dont update SCO state to system if
-          //other SCO is active
-          update_sco_state = false;
-       }
-       //Always use primary SCB to notify upper layers
-       //for tws cases
-       if (other_scb != NULL) {
-          //scb_tobe =  bta_ag_cb.main_sm_scb;
-         //Pick Active device for app notif
-         if (bta_ag_sco_is_active_device(p_scb->peer_addr)) {
-             scb_tobe = p_scb;
-         } else {
-             scb_tobe = other_scb;
-         }
-       }
     } else {
 #endif
        /* clear current scb */
@@ -2050,22 +2001,20 @@ void bta_ag_sco_conn_close(tBTA_AG_SCB* p_scb,
 #if (TWS_AG_ENABLED == TRUE)
     }
 #endif
-  APPL_TRACE_DEBUG("%s: update_sco_state : %d", __func__, update_sco_state);
-  if (update_sco_state) {
-     bta_sys_sco_close(BTA_ID_AG, scb_tobe->app_id, scb_tobe->peer_addr);
 
-       /* if av got suspended by this call, let it resume. */
-       /* In case call stays alive regardless of sco, av should not be affected. */
-       if (((scb_tobe->call_ind == BTA_AG_CALL_INACTIVE) &&
-            (scb_tobe->callsetup_ind == BTA_AG_CALLSETUP_NONE)) ||
-            (scb_tobe->post_sco == BTA_AG_POST_SCO_CALL_END)) {
-           bta_sys_sco_unuse(BTA_ID_AG, scb_tobe->app_id, scb_tobe->peer_addr);
-       }
+     bta_sys_sco_close(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
 
-       /* call app callback */
-       bta_ag_cback_sco(scb_tobe, BTA_AG_AUDIO_CLOSE_EVT);
-       scb_tobe->codec_msbc_settings = BTA_AG_SCO_MSBC_SETTINGS_T2;
-  }
+     /* if av got suspended by this call, let it resume. */
+     /* In case call stays alive regardless of sco, av should not be affected. */
+     if (((p_scb->call_ind == BTA_AG_CALL_INACTIVE) &&
+            (p_scb->callsetup_ind == BTA_AG_CALLSETUP_NONE)) ||
+            (p_scb->post_sco == BTA_AG_POST_SCO_CALL_END)) {
+           bta_sys_sco_unuse(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
+     }
+
+     /* call app callback */
+     bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
+     p_scb->codec_msbc_settings = BTA_AG_SCO_MSBC_SETTINGS_T2;
 }
 
 /*******************************************************************************
