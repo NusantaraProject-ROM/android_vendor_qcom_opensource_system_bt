@@ -44,6 +44,7 @@
 typedef enum {
   BTIF_QUEUE_CONNECT_EVT,
   BTIF_QUEUE_ADVANCE_EVT,
+  BTIF_QUEUE_ADVANCE_BY_UUID_EVT,
   BTIF_QUEUE_CLEANUP_EVT
 } btif_queue_event_t;
 
@@ -118,6 +119,45 @@ static void queue_int_advance() {
   }
 }
 
+static void queue_int_advance_by_uuid(connect_node_t* p_param) {
+
+  if (!connect_queue || list_is_empty(connect_queue)) return;
+
+  list_node_t* node = list_begin(connect_queue);
+  connect_node_t* p_head = (connect_node_t*)list_node(node);
+
+  if (p_head == NULL)
+    return;
+
+  if (((p_head->bda == p_param->bda) || (p_param->bda.IsEmpty()))
+       && (p_head->uuid == p_param->uuid)) {
+    LOG_WARN(LOG_TAG,"%s: queue advance UUID=%04X, bd_addr=%s",
+        __func__, p_head->uuid, p_head->bda.ToString().c_str());
+    btif_queue_advance();
+    return;
+  }
+
+  // move the node to next
+  node = list_next(node);
+
+  for (; node != list_end(connect_queue);) {
+    p_head = (connect_node_t*)list_node(node);
+    node = list_next(node);
+
+    if (((p_head->bda == p_param->bda) || (p_param->bda.IsEmpty()))
+        && (p_head->uuid == p_param->uuid)) {
+      LOG_WARN(LOG_TAG,"%s: deleting entry from queue UUID=%04X, bd_addr=%s",
+               __func__, p_head->uuid, p_head->bda.ToString().c_str());
+      list_remove(connect_queue,p_head);
+      return;
+    }
+  }
+
+  LOG_WARN(LOG_TAG,"%s: no entry found in queue UUID=%04X, bd_addr=%s",
+         __func__, p_param->uuid, p_param->bda.ToString().c_str());
+  return;
+}
+
 static void queue_int_cleanup(uint16_t* p_uuid) {
   if (!p_uuid) {
     LOG_ERROR(LOG_TAG, "%s: UUID is null", __func__);
@@ -152,6 +192,10 @@ static void queue_int_handle_evt(uint16_t event, char* p_param) {
 
     case BTIF_QUEUE_ADVANCE_EVT:
       queue_int_advance();
+      break;
+
+    case BTIF_QUEUE_ADVANCE_BY_UUID_EVT:
+      queue_int_advance_by_uuid((connect_node_t*)p_param);
       break;
 
     case BTIF_QUEUE_CLEANUP_EVT:
@@ -222,6 +266,28 @@ void btif_queue_advance() {
     }*/
     btif_transfer_context(queue_int_handle_evt, BTIF_QUEUE_ADVANCE_EVT,
                         NULL, 0, NULL);
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_queue_advance_by_uuid
+ *
+ * Description      remove the connected uuid entry from queue,
+ *                  adavance queue if entry found at head of the queue
+ *
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void btif_queue_advance_by_uuid(uint16_t uuid, const RawAddress* bda) {
+
+   connect_node_t* node = (connect_node_t*)osi_malloc(sizeof(connect_node_t));
+   memset(node, 0, sizeof(connect_node_t));
+   node->bda = *bda;
+   node->uuid = uuid;
+
+   btif_transfer_context(queue_int_handle_evt, BTIF_QUEUE_ADVANCE_BY_UUID_EVT,
+                               (char*)node, sizeof(connect_node_t), NULL);
 }
 
 // This function dispatches the next pending connect request. It is called from
