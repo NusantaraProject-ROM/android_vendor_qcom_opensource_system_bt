@@ -78,7 +78,6 @@
 #include "btm_int.h"
 #include "device/include/controller.h"
 #include "a2dp_sbc.h"
-#include "device/include/interop_config.h"
 #include "btif/include/btif_a2dp_source.h"
 #include "btif/include/btif_av.h"
 #include "btif/include/btif_hf.h"
@@ -1132,7 +1131,7 @@ void bta_av_do_disc_a2dp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
           BTM_GetRole(p_scbi->peer_addr, &role);
           APPL_TRACE_DEBUG("%s:Current role for idx %d is %d",__func__, p_scb->hdi, role);
           if (BTM_ROLE_MASTER != role) {
-            if (!interop_database_match_addr(INTEROP_DISABLE_ROLE_SWITCH,
+            if (!interop_match_addr_or_name(INTEROP_DISABLE_ROLE_SWITCH,
                                           &p_scbi->peer_addr)) {
               APPL_TRACE_DEBUG("%s:RS disabled, returning",__func__);
               return;
@@ -1691,7 +1690,7 @@ void bta_av_str_opened(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     if (p != NULL) {
       if (HCI_EDR_ACL_2MPS_SUPPORTED(p)) open.edr |= BTA_AV_EDR_2MBPS;
       if (HCI_EDR_ACL_3MPS_SUPPORTED(p)) {
-        if (!interop_match_addr(INTEROP_2MBPS_LINK_ONLY, &p_scb->peer_addr)) {
+        if (!interop_match_addr_or_name(INTEROP_2MBPS_LINK_ONLY, &p_scb->peer_addr)) {
           open.edr |= BTA_AV_EDR_3MBPS;
         }
       }
@@ -3282,16 +3281,11 @@ void bta_av_rcfg_cfm(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   // Disable AVDTP RECONFIGURE for blacklisted devices
   bool disable_avdtp_reconfigure = false;
   {
-    char remote_name[BTM_MAX_REM_BD_NAME_LEN] = "";
-    if (btif_storage_get_stored_remote_name(p_scb->peer_addr, remote_name)) {
-      if (interop_match_name(INTEROP_DISABLE_AVDTP_RECONFIGURE, remote_name) ||
-          interop_match_addr(INTEROP_DISABLE_AVDTP_RECONFIGURE,
-                             (const RawAddress*)&p_scb->peer_addr)) {
-        VLOG(1) << __func__ << ": disable AVDTP RECONFIGURE: interop matched "
-                               "name "
-                << remote_name << " address " << p_scb->peer_addr;
-        disable_avdtp_reconfigure = true;
-      }
+    if (interop_match_addr_or_name(INTEROP_DISABLE_AVDTP_RECONFIGURE,
+                           (const RawAddress*)&p_scb->peer_addr)) {
+      VLOG(1) << __func__ << ": disable AVDTP RECONFIGURE: interop matched address "
+                          << p_scb->peer_addr;
+      disable_avdtp_reconfigure = true;
     }
   }
 

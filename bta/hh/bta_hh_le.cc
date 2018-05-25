@@ -1533,7 +1533,7 @@ void read_pref_conn_params_cb(uint16_t conn_id, tGATT_STATUS status,
 
   tBTA_HH_DEV_CB* p_dev_cb = (tBTA_HH_DEV_CB*)data;
 
-  if (interop_match_addr(INTEROP_HID_PREF_CONN_SUP_TIMEOUT_3S,
+  if (interop_match_addr_or_name(INTEROP_HID_PREF_CONN_SUP_TIMEOUT_3S,
                          (RawAddress*)&p_dev_cb->addr) == true) {
     if (tout < 300) tout = 300;
   }

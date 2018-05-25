@@ -557,28 +557,12 @@ bool check_sdp_bl(const RawAddress* remote_bdaddr) {
     return false;
   }
 
-  if (interop_match_addr(INTEROP_DISABLE_SDP_AFTER_PAIRING, remote_bdaddr)) {
+  if (interop_match_addr_or_name(INTEROP_DISABLE_SDP_AFTER_PAIRING, remote_bdaddr)) {
     LOG_WARN(LOG_TAG, "%s: device is in blacklist for skipping sdp", __func__);
     return true;
   }
 
   bt_property_t prop_name;
-  bt_bdname_t bdname;
-  BTIF_STORAGE_FILL_PROPERTY(&prop_name, BT_PROPERTY_BDNAME,
-                             sizeof(bt_bdname_t), &bdname);
-  if (btif_storage_get_remote_device_property(
-          remote_bdaddr, &prop_name) != BT_STATUS_SUCCESS) {
-    LOG_WARN(LOG_TAG, "%s: BT_PROPERTY_BDNAME failed, returning false",
-             __func__);
-    return false;
-  }
-
-  if (strlen((const char*)bdname.name) != 0 &&
-      interop_match_name(INTEROP_DISABLE_SDP_AFTER_PAIRING,
-                         (const char*)bdname.name))
-    return true;
-
-  if (remote_bdaddr == NULL) return false;
 
   /* fetch additional info about remote device used in iop query */
   BTM_ReadRemoteVersion(*remote_bdaddr, &lmp_ver, &manufacturer, &lmp_subver);
@@ -1153,10 +1137,8 @@ static void btif_dm_pin_req_evt(tBTA_DM_PIN_REQ* p_pin_req) {
         check_cod(&bd_addr, COD_AV_HIFI_AUDIO) ||
         check_cod(&bd_addr, COD_HID_POINTING)) {
       /*  Check if this device can be auto paired  */
-      if (!interop_match_addr(INTEROP_DISABLE_AUTO_PAIRING, &bd_addr) &&
-          !interop_match_name(INTEROP_DISABLE_AUTO_PAIRING,
-                              (const char*)bd_name.name) &&
-          (pairing_cb.autopair_attempts == 0)) {
+      if (!interop_match_addr_or_name(INTEROP_DISABLE_AUTO_PAIRING, &bd_addr)
+          && (pairing_cb.autopair_attempts == 0)) {
         BTIF_TRACE_DEBUG("%s() Attempting auto pair", __func__);
         pin_code.pin[0] = 0x30;
         pin_code.pin[1] = 0x30;
@@ -1169,7 +1151,7 @@ static void btif_dm_pin_req_evt(tBTA_DM_PIN_REQ* p_pin_req) {
       }
     } else if (check_cod(&bd_addr, COD_HID_KEYBOARD) ||
                check_cod(&bd_addr, COD_HID_COMBO)) {
-      if ((interop_match_addr(INTEROP_KEYBOARD_REQUIRES_FIXED_PIN, &bd_addr) ==
+      if ((interop_match_addr_or_name(INTEROP_KEYBOARD_REQUIRES_FIXED_PIN, &bd_addr) ==
            true) &&
           (pairing_cb.autopair_attempts == 0)) {
         BTIF_TRACE_DEBUG("%s() Attempting auto pair", __func__);
@@ -1451,7 +1433,7 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
       case HCI_ERR_PAGE_TIMEOUT:
       case HCI_ERR_LMP_RESPONSE_TIMEOUT:
         if ((pairing_cb.timeout_retries == NUM_TIMEOUT_RETRIES) ||
-           (interop_match_addr(INTEROP_AUTO_RETRY_PAIRING, &bd_addr) &&
+           (interop_match_addr_or_name(INTEROP_AUTO_RETRY_PAIRING, &bd_addr) &&
             pairing_cb.timeout_retries)) {
           BTIF_TRACE_WARNING("%s() - Pairing timeout; retrying (%d) ...",
                              __func__, pairing_cb.timeout_retries);

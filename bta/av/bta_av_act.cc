@@ -674,7 +674,7 @@ void bta_av_rc_opened(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
       ((p_cb->rcb[i].status & BTA_AV_RC_ROLE_MASK) == BTA_AV_RC_ROLE_INT)) {
     APPL_TRACE_DEBUG("%s opening AVRC Browse channel", __func__);
 
-    if (interop_match_addr(INTEROP_AVRCP_BROWSE_OPEN_CHANNEL_COLLISION, &p_data->rc_conn_chg.peer_addr)) {
+    if (interop_match_addr_or_name(INTEROP_AVRCP_BROWSE_OPEN_CHANNEL_COLLISION, &p_data->rc_conn_chg.peer_addr)) {
       alarm_set_on_mloop(p_cb->browsing_channel_open_timer,
                                  BTA_AV_BROWSINIG_CHANNEL_INT_TIMEOUT_MS,
                                  bta_av_browsing_channel_open_timer_cback,
@@ -1962,14 +1962,14 @@ tBTA_AV_FEAT bta_av_check_peer_features(uint16_t service_uuid) {
       SDP_FindProfileVersionInRec(p_rec, UUID_SERVCLASS_AV_REMOTE_CONTROL,
                                   &peer_rc_version);
 
-      if (interop_match_addr(INTEROP_ADV_AVRCP_VER_1_3,
+      if (interop_match_addr_or_name(INTEROP_ADV_AVRCP_VER_1_3,
               &p_rec->remote_bd_addr))
       {
           peer_rc_version = AVRC_REV_1_3;
           APPL_TRACE_DEBUG("changing peer_rc_version as part of blacklisting to 0x%x",
                   peer_rc_version);
       }
-      else if (interop_match_addr(INTEROP_STORE_REMOTE_AVRCP_VERSION_1_4,
+      else if (interop_match_addr_or_name(INTEROP_STORE_REMOTE_AVRCP_VERSION_1_4,
               &p_rec->remote_bd_addr))
       {
           peer_rc_version = AVRC_REV_1_4;

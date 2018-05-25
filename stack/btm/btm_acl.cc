@@ -743,7 +743,7 @@ tBTM_STATUS BTM_SwitchRole(const RawAddress& remote_bd_addr, uint8_t new_role,
 
     /* Finished if already in desired role */
     if ((p->link_role == new_role) ||
-        (interop_database_match_addr(
+        (interop_match_addr_or_name(
                 INTEROP_DISABLE_ROLE_SWITCH, &remote_bd_addr)) ||
                 (!btm_cb.is_wifi_connected && (btm_get_bredr_acl_count() <= 1) &&
                 (!IsHighQualityCodecSelected(remote_bd_addr))))
@@ -755,7 +755,7 @@ tBTM_STATUS BTM_SwitchRole(const RawAddress& remote_bd_addr, uint8_t new_role,
     return (BTM_BUSY);
   }
 
-    if (interop_database_match_addr(INTEROP_DYNAMIC_ROLE_SWITCH, &remote_bd_addr))
+    if (interop_match_addr_or_name(INTEROP_DYNAMIC_ROLE_SWITCH, &remote_bd_addr))
     {
 #if (defined(BTM_SAFE_REATTEMPT_ROLE_SWITCH) && BTM_SAFE_REATTEMPT_ROLE_SWITCH == TRUE)
         p_dev_rec = btm_find_dev (remote_bd_addr);
@@ -947,7 +947,7 @@ tBTM_STATUS BTM_SetLinkPolicy(const RawAddress& remote_bda,
                     *settings);
     }
     if ((*settings & HCI_ENABLE_MASTER_SLAVE_SWITCH) &&
-        (interop_database_match_addr(INTEROP_DISABLE_ROLE_SWITCH_POLICY, &remote_bda)) ) {
+        (interop_match_addr_or_name(INTEROP_DISABLE_ROLE_SWITCH_POLICY, &remote_bda)) ) {
       *settings &= (~HCI_ENABLE_MASTER_SLAVE_SWITCH);
       BTM_TRACE_API ("BTM_SetLinkPolicy switch not supported (settings: 0x%04x)", *settings );
     }
@@ -1726,7 +1726,7 @@ void btm_blacklist_role_change_device(const RawAddress& bd_addr,
       ((p->switch_role_state == BTM_ACL_SWKEY_STATE_SWITCHING) ||
        (p->switch_role_state == BTM_ACL_SWKEY_STATE_IN_PROGRESS)) &&
       ((cod & cod_audio_device) == cod_audio_device) &&
-      (!interop_match_addr(INTEROP_DYNAMIC_ROLE_SWITCH, &bd_addr))) {
+      (!interop_match_addr_or_name(INTEROP_DYNAMIC_ROLE_SWITCH, &bd_addr))) {
     p->switch_role_failed_attempts++;
     if (p->switch_role_failed_attempts == BTM_MAX_SW_ROLE_FAILED_ATTEMPTS) {
       BTM_TRACE_WARNING(

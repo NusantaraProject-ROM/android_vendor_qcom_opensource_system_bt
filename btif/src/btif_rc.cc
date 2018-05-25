@@ -685,7 +685,7 @@ void handle_rc_features(btif_rc_device_cb_t* p_dev) {
   BTIF_TRACE_DEBUG("%s: AVDTP Address: %s AVCTP address: %s", __func__,
                    avdtp_addr.ToString().c_str(), rc_addr.ToString().c_str());
 
-  if (interop_match_addr(INTEROP_DISABLE_ABSOLUTE_VOLUME, &rc_addr) ||
+  if (interop_match_addr_or_name(INTEROP_DISABLE_ABSOLUTE_VOLUME, &rc_addr) ||
       absolute_volume_disabled() || avdtp_addr != rc_addr) {
     p_dev->rc_features &= ~BTA_AV_FEAT_ADV_CTRL;
   }
@@ -1906,7 +1906,7 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
                    ctype, label, pavrc_cmd->reg_notif.event_id);
   RawAddress rc_addr = p_dev->rc_addr;
 
-  if (interop_match_addr(INTEROP_DISABLE_PLAYER_APPLICATION_SETTING_CMDS,
+  if (interop_match_addr_or_name(INTEROP_DISABLE_PLAYER_APPLICATION_SETTING_CMDS,
             &rc_addr))
   {
       if (event == AVRC_PDU_LIST_PLAYER_APP_ATTR || event == AVRC_PDU_GET_PLAYER_APP_VALUE_TEXT ||
@@ -3065,7 +3065,7 @@ static bt_status_t register_notification_rsp(
                sizeof(btrc_uid_t));
         break;
       case BTRC_EVT_APP_SETTINGS_CHANGED:
-        if (interop_match_addr(INTEROP_DISABLE_PLAYER_APPLICATION_SETTING_CMDS,
+        if (interop_match_addr_or_name(INTEROP_DISABLE_PLAYER_APPLICATION_SETTING_CMDS,
                     bd_addr))
         {
             BTIF_TRACE_DEBUG("Blacklisted CK for BTRC_EVT_APP_SETTINGS_CHANGED event");

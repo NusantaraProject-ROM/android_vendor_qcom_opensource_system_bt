@@ -502,7 +502,7 @@ static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
             &manufacturer, &lmp_sub_version) == BTM_SUCCESS) {
           p_rem_dev = bta_dm_find_peer_device(peer_addr);
           /* Disable sniff policy on the HID link since SCO is Up on Slave Link */
-          if ((p_rem_dev) && (interop_match_addr(
+          if ((p_rem_dev) && (interop_match_addr_or_name(
               INTEROP_DISABLE_SNIFF_DURING_SCO,
               &peer_addr) ||
               interop_match_manufacturer(
@@ -1183,7 +1183,7 @@ static void bta_dm_pm_hid_check(bool bScoActive)
           &manufacturer, &lmp_sub_version) == BTM_SUCCESS) {
           p_rem_dev = bta_dm_find_peer_device(bta_dm_conn_srvcs.conn_srvc[j].peer_bdaddr);
         /* Disable/Enable sniff policy on the HID link if SCO Up/Down*/
-        if ((p_rem_dev) && (interop_match_addr(
+        if ((p_rem_dev) && (interop_match_addr_or_name(
             INTEROP_DISABLE_SNIFF_DURING_SCO,
             &(bta_dm_conn_srvcs.conn_srvc[j].peer_bdaddr)) ||
             interop_match_manufacturer(

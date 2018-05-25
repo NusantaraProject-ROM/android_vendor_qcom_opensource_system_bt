@@ -43,7 +43,6 @@
 #include <errno.h>
 #include "device/include/interop.h"
 #include "btif/include/btif_storage.h"
-#include "device/include/interop_config.h"
 #include "device/include/profile_config.h"
 #include <cutils/properties.h>
 #include <hardware/bluetooth.h>
@@ -410,7 +409,7 @@ bool sdp_change_hfp_version (tSDP_ATTRIBUTE *p_attr, RawAddress remote_address)
         if (((p_attr->value_ptr[3] << 8) | (p_attr->value_ptr[4])) ==
                 UUID_SERVCLASS_HF_HANDSFREE)
         {
-            is_blacklisted = interop_database_match_addr(INTEROP_HFP_1_7_BLACKLIST,
+            is_blacklisted = interop_match_addr_or_name(INTEROP_HFP_1_7_BLACKLIST,
                                                            &remote_address);
             SDP_TRACE_DEBUG("%s: HF version is 1.7 for BD addr: %s",\
                            __func__, remote_address.ToString().c_str());
@@ -1471,27 +1470,11 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
 ***************************************************************************************/
 static bool is_device_blacklisted_for_pbap (RawAddress remote_address, bool check_for_1_2)
 {
-  bt_property_t prop_name;
-  bt_bdname_t bdname;
-
-  memset(&bdname, 0, sizeof(bt_bdname_t));
-  BTIF_STORAGE_FILL_PROPERTY(&prop_name, BT_PROPERTY_BDNAME,
-                         sizeof(bt_bdname_t), &bdname);
-  if (btif_storage_get_remote_device_property(&remote_address,
-                                        &prop_name) != BT_STATUS_SUCCESS) {
-    SDP_TRACE_DEBUG("%s: BT_PROPERTY_BDNAME failed", __func__);
-  }
-  if (check_for_1_2 && (interop_match_addr(INTEROP_ADV_PBAP_VER_1_1, &remote_address) ||
-      (strlen((const char *)bdname.name) != 0 &&
-      interop_match_name(INTEROP_ADV_PBAP_VER_1_1,
-      (const char *)bdname.name)))) {
+  if (check_for_1_2 && interop_match_addr_or_name(INTEROP_ADV_PBAP_VER_1_1, &remote_address)) {
     SDP_TRACE_DEBUG("%s: device is blacklisted for pbap version < 1.2 ", __func__);
     return true;
   }
-  if (!check_for_1_2 && (interop_match_addr(INTEROP_ADV_PBAP_VER_1_2, &remote_address) ||
-      (strlen((const char *)bdname.name) != 0 &&
-      interop_match_name(INTEROP_ADV_PBAP_VER_1_2,
-      (const char *)bdname.name)))) {
+  if (!check_for_1_2 && interop_match_addr_or_name(INTEROP_ADV_PBAP_VER_1_2, &remote_address)) {
     SDP_TRACE_DEBUG("%s: device is blacklisted for pbap version 1.2 ", __func__);
     return true;
   }

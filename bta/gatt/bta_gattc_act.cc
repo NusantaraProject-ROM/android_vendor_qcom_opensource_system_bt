@@ -733,10 +733,7 @@ void bta_gattc_disc_close(tBTA_GATTC_CLCB* p_clcb, tBTA_GATTC_DATA* p_data) {
 void bta_gattc_set_discover_st(tBTA_GATTC_SERV* p_srcb) {
   uint8_t i;
 
-  BD_NAME bdname;
-
-  if (!BTM_GetRemoteDeviceName(p_srcb->server_bda, bdname) || !*bdname ||
-      (!interop_match_name(INTEROP_DISABLE_LE_CONN_UPDATES, (const char*)bdname))) {
+  if (!interop_match_addr_or_name(INTEROP_DISABLE_LE_CONN_UPDATES, &p_srcb->server_bda)) {
     L2CA_EnableUpdateBleConnParams(p_srcb->server_bda, false);
   }
 
@@ -818,10 +815,7 @@ void bta_gattc_start_discover(tBTA_GATTC_CLCB* p_clcb,
       p_clcb->p_srcb->state = BTA_GATTC_SERV_DISC_ACT;
 
       if (p_clcb->transport == BTA_TRANSPORT_LE) {
-        BD_NAME bdname;
-
-        if (!BTM_GetRemoteDeviceName(p_clcb->p_srcb->server_bda, bdname) || !*bdname ||
-            (!interop_match_name(INTEROP_DISABLE_LE_CONN_UPDATES, (const char*)bdname))) {
+        if (!interop_match_addr_or_name(INTEROP_DISABLE_LE_CONN_UPDATES, &p_clcb->p_srcb->server_bda)) {
           L2CA_EnableUpdateBleConnParams(p_clcb->p_srcb->server_bda, false);
         }
       }
@@ -867,10 +861,7 @@ void bta_gattc_disc_cmpl(tBTA_GATTC_CLCB* p_clcb,
   APPL_TRACE_DEBUG("%s: conn_id=%d", __func__, p_clcb->bta_conn_id);
 
   if (p_clcb->transport == BTA_TRANSPORT_LE) {
-    BD_NAME bdname;
-
-    if (!BTM_GetRemoteDeviceName(p_clcb->p_srcb->server_bda, bdname) || !*bdname ||
-        (!interop_match_name(INTEROP_DISABLE_LE_CONN_UPDATES, (const char*)bdname))) {
+    if (!interop_match_addr_or_name(INTEROP_DISABLE_LE_CONN_UPDATES, &p_clcb->p_srcb->server_bda)) {
       L2CA_EnableUpdateBleConnParams(p_clcb->p_srcb->server_bda, true);
     }
   }
