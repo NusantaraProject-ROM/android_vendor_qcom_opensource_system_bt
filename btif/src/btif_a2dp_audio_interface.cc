@@ -693,7 +693,7 @@ void on_hidl_server_died() {
     auto hidl_death_unlink = btAudio->unlinkToDeath(BTAudioHidlDeathRecipient);
     if (!hidl_death_unlink.isOk()) LOG_ERROR(LOG_TAG,"hidl_death_unlink server died");
     btAudio = nullptr;
-    usleep(1500000); //sleep for 1.5sec for hal server to restart
+    usleep(500000); //sleep for 0.5sec for hal server to restart
     btif_dispatch_sm_event(BTIF_AV_REINIT_AUDIO_IF,NULL,0);
   }
 }
