@@ -306,7 +306,7 @@ static future_t* start_up(void) {
     response =
           AWAIT_COMMAND(packet_factory->make_read_scrambling_supported_freqs());
     if(response) {
-      char value[MAX_SCRAMBLING_FREQS_SIZE];
+
       LOG_DEBUG(LOG_TAG, "%s sending scrambling support VSC", __func__);
       packet_parser->parse_read_scrambling_supported_freqs_response(
           response, &number_of_scrambling_supported_freqs,
@@ -314,37 +314,6 @@ static future_t* start_up(void) {
 
       LOG_DEBUG(LOG_TAG, "%s number_of_scrambling_supported_freqs %d", __func__,
                       number_of_scrambling_supported_freqs);
-
-      for ( uint8_t i = 0; i < number_of_scrambling_supported_freqs; i++) {
-        switch (scrambling_supported_freqs[i]) {
-          case BTAV_A2DP_CODEC_SAMPLE_RATE_44100:
-            strlcat(value, "441.", MAX_SCRAMBLING_FREQS_SIZE);
-            break;
-          case BTAV_A2DP_CODEC_SAMPLE_RATE_48000:
-            strlcat(value, "48.", MAX_SCRAMBLING_FREQS_SIZE);
-            break;
-          case BTAV_A2DP_CODEC_SAMPLE_RATE_88200:
-            strlcat(value, "882.", MAX_SCRAMBLING_FREQS_SIZE);
-            break;
-          case BTAV_A2DP_CODEC_SAMPLE_RATE_96000:
-            strlcat(value, "96.", MAX_SCRAMBLING_FREQS_SIZE);
-            break;
-          case BTAV_A2DP_CODEC_SAMPLE_RATE_176400:
-            strlcat(value, "1764.", MAX_SCRAMBLING_FREQS_SIZE);
-            break;
-          case BTAV_A2DP_CODEC_SAMPLE_RATE_192000:
-            strlcat(value, "192.", MAX_SCRAMBLING_FREQS_SIZE);
-            break;
-        }
-      }
-      if(number_of_scrambling_supported_freqs) {
-        if(osi_property_set("persist.vendor.bt.soc.scram_freqs", value))
-          LOG_WARN(LOG_TAG, "%s persist.vendor.bt.soc.scram_freqs set to %s",
-              __func__, value);
-      } else {
-        // reset the property
-        osi_property_set("persist.vendor.bt.soc.scram_freqs", "");
-      }
     }
   }
 
