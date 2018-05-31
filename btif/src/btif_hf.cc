@@ -1099,6 +1099,16 @@ bt_status_t HeadsetInterface::ConnectAudio(RawAddress* bd_addr) {
     return BT_STATUS_NOT_READY;
   }
 
+  // if SCO is setting up, don't allow SCO connection
+  for (int i = 0; i < btif_max_hf_clients; i++) {
+    if (btif_hf_cb[i].audio_state == BTHF_AUDIO_STATE_CONNECTING) {
+       BTIF_TRACE_ERROR("%s: SCO setting up with %s, not allowing SCO connection with %s",
+        __func__, btif_hf_cb[i].connected_bda.ToString().c_str(),
+       bd_addr->ToString().c_str());
+       return BT_STATUS_FAIL;
+    }
+  }
+
   if (!is_active_device(*bd_addr)) {
     LOG(ERROR) << "HF: ConnectAudio is called for inactive device, returning"
                << *bd_addr;
@@ -1984,6 +1994,17 @@ bt_status_t HeadsetInterface::SendBsir(bool value, RawAddress* bd_addr) {
 
 bt_status_t HeadsetInterface::SetActiveDevice(RawAddress* active_device_addr) {
   CHECK_BTHF_INIT();
+
+  // if SCO is setting up, don't allow active device switch
+  for (int i = 0; i < btif_max_hf_clients; i++) {
+    if (btif_hf_cb[i].audio_state == BTHF_AUDIO_STATE_CONNECTING) {
+       BTIF_TRACE_ERROR("%s: SCO setting up with %s, not allowing active device switch to %s",
+        __func__, btif_hf_cb[i].connected_bda.ToString().c_str(),
+       active_device_addr->ToString().c_str());
+       return BT_STATUS_FAIL;
+    }
+  }
+
   active_bda = *active_device_addr;
   BTA_AgSetActiveDevice(*active_device_addr);
   return BT_STATUS_SUCCESS;
