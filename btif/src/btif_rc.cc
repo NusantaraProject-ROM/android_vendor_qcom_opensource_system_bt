@@ -711,7 +711,8 @@ void handle_rc_features(btif_rc_device_cb_t* p_dev) {
   }
 
   BTIF_TRACE_DEBUG("%s: rc_features: 0x%x", __func__, rc_features);
-  HAL_CBACK(bt_rc_callbacks, remote_features_cb, &rc_addr, rc_features);
+  if(rc_features)
+    HAL_CBACK(bt_rc_callbacks, remote_features_cb, &rc_addr, rc_features);
 
 #if (AVRC_ADV_CTRL_INCLUDED == TRUE)
   BTIF_TRACE_DEBUG(
@@ -3916,14 +3917,13 @@ static void register_volumechange(uint8_t lbl, btif_rc_device_cb_t* p_dev) {
   rc_transaction_t* p_transaction = NULL;
 
   BTIF_TRACE_DEBUG("%s: label: %d", __func__, lbl);
-  for (int i = 0; i < btif_max_rc_clients; i++) {
-    if (btif_rc_cb.rc_multi_cb[i].rc_connected &&
-       !((btif_rc_cb.rc_multi_cb[i].rc_features & BTA_AV_FEAT_ADV_CTRL) &&
-       (btif_rc_cb.rc_multi_cb[i].rc_features & BTA_AV_FEAT_RCTG)))
-    {
-        BTIF_TRACE_DEBUG("ABS volume is not supported at %d", i);
+  int index = btif_av_idx_by_bdaddr(&p_dev->rc_addr);
+  if (btif_rc_cb.rc_multi_cb[index].rc_connected &&
+     !((btif_rc_cb.rc_multi_cb[index].rc_features & BTA_AV_FEAT_ADV_CTRL) &&
+     (btif_rc_cb.rc_multi_cb[index].rc_features & BTA_AV_FEAT_RCTG)))
+  {
+        BTIF_TRACE_DEBUG("ABS volume is not supported at %d", index);
         return;
-    }
   }
 
   avrc_cmd.cmd.opcode = 0x00;
