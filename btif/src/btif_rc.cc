@@ -1422,6 +1422,12 @@ void btif_rc_handler(tBTA_AV_EVT event, tBTA_AV* p_data) {
       }
     } break;
     case BTA_AV_RC_OPEN_EVT: {
+      int ver = AVRC_REV_INVALID;
+      ver = sdp_get_stored_avrc_tg_version(p_data->rc_open.peer_addr);
+      if (ver > AVRC_REV_1_3) {
+        BTIF_TRACE_IMP("%s: remote ver > 1.3, add BR feature bit", __func__);
+        p_data->rc_open.peer_features |= BTA_AV_FEAT_BROWSE;
+      }
       BTIF_TRACE_DEBUG("%s: Peer_features: %x", __func__,
                        p_data->rc_open.peer_features);
       handle_rc_connect(&(p_data->rc_open));
