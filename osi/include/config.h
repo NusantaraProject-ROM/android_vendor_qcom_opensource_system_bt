@@ -24,6 +24,9 @@
 
 typedef struct config_t config_t;
 typedef struct config_section_node_t config_section_node_t;
+#ifdef BT_IOT_LOGGING_ENABLED
+typedef int (*compare_func)(const char* first, const char* second);
+#endif
 
 // Creates a new config object with no entries (i.e. not backed by a file).
 // This function returns a config object or NULL on error. Clients must call
@@ -85,20 +88,23 @@ const char* config_get_string(const config_t* config, const char* section,
 // Sets an integral value for the |key| in |section|. If |key| or |section| do
 // not already exist, this function creates them. |config|, |section|, and |key|
 // must not be NULL.
-void config_set_int(config_t* config, const char* section, const char* key,
+// Returns true if the value for the |key| was changed, false otherwise
+bool config_set_int(config_t* config, const char* section, const char* key,
                     int value);
 
 // Sets a boolean value for the |key| in |section|. If |key| or |section| do
 // not already exist, this function creates them. |config|, |section|, and |key|
 // must not be NULL.
-void config_set_bool(config_t* config, const char* section, const char* key,
+// Returns true if the value for the |key| was changed, false otherwise
+bool config_set_bool(config_t* config, const char* section, const char* key,
                      bool value);
 
 // Sets a string value for the |key| in |section|. If |key| or |section| do
 // not already exist, this function creates them. |config|, |section|, |key|,
 // and
 // |value| must not be NULL.
-void config_set_string(config_t* config, const char* section, const char* key,
+// Returns true if the value for the |key| was changed, false otherwise
+bool config_set_string(config_t* config, const char* section, const char* key,
                        const char* value);
 
 // Removes |section| from the |config| (and, as a result, all keys in the
@@ -140,6 +146,11 @@ const config_section_node_t* config_section_next(
 // pointer will remain valid until |config_free| is called. |iter| may not be
 // NULL and must not equal the value returned by |config_section_end|.
 const char* config_section_name(const config_section_node_t* iter);
+
+#ifdef BT_IOT_LOGGING_ENABLED
+// Sorts the entries in each section of config by entry key.
+void config_sections_sort_by_entry_key(config_t* config, compare_func comp);
+#endif
 
 // Saves |config| to a file given by |filename|. Note that this could be a
 // destructive operation: if |filename| already exists, it will be overwritten.

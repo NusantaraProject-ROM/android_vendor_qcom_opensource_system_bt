@@ -59,5 +59,8 @@ fluoride_defaults {
     static_libs: [
         "libbluetooth-types",
     ],
+    cflags: [
+        "-DBT_IOT_LOGGING_ENABLED",
+    ],
 }
 
