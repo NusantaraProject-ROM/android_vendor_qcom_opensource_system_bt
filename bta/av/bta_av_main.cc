@@ -200,6 +200,7 @@ extern int btif_max_av_clients;
 static void bta_av_api_set_tws_earbud_role(tBTA_AV_DATA * p_data);
 static void bta_av_api_set_is_tws_device(tBTA_AV_DATA * p_data);
 #endif
+
 /* action functions */
 const tBTA_AV_NSM_ACT bta_av_nsm_act[] = {
     bta_av_api_enable,       /* BTA_AV_API_ENABLE_EVT */
@@ -223,6 +224,7 @@ const tBTA_AV_NSM_ACT bta_av_nsm_act[] = {
     bta_av_api_update_max_av_clients,
     bta_av_api_enable_multicast,    /* BTA_AV_ENABLE_MULTICAST_EVT */
     bta_av_rc_collission_detected, /* BTA_AV_RC_COLLISSION_DETECTED_EVT */
+    bta_av_update_enc_mode, /* BTA_AV_UPDATE_ENCODER_MODE_EVT */
 #if (TWS_ENABLED == TRUE)
     bta_av_api_set_tws_earbud_role, /* BTA_AV_SET_EARBUD_ROLE_EVT */
     bta_av_api_set_is_tws_device, /* BTA_AV_SET_TWS_DEVICE_EVT */
@@ -1650,6 +1652,8 @@ const char* bta_av_evt_code(uint16_t evt_code) {
       return "API_STOP";
     case BTA_AV_ENABLE_MULTICAST_EVT:
       return "MULTICAST_ENABLE";
+    case BTA_AV_UPDATE_ENCODER_MODE_EVT:
+      return "UPDATE_ENCODER_MODE";
     default:
       return "unknown";
   }

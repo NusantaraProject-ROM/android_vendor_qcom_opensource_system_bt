@@ -384,6 +384,7 @@ void BTA_AvUpdateMaxAVClient(uint8_t max_clients)
   tBTA_AV_MAX_CLIENT *p_buf;
 
   if ((p_buf = (tBTA_AV_MAX_CLIENT *) osi_malloc(sizeof(tBTA_AV_MAX_CLIENT))) != NULL) {
+    APPL_TRACE_DEBUG("%s: gghai: event: %d", __func__, BTA_AV_UPDATE_MAX_AV_CLIENTS_EVT);
     p_buf->hdr.event = BTA_AV_UPDATE_MAX_AV_CLIENTS_EVT;
     p_buf->max_clients = max_clients;
     bta_sys_sendmsg(p_buf);
@@ -420,6 +421,28 @@ void BTA_AvReconfig(tBTA_AV_HNDL hndl, bool suspend, uint8_t sep_info_idx,
 
   bta_sys_sendmsg(p_buf);
 }
+
+/*******************************************************************************
+ *
+ * Function         BTA_AvUpdateEncoderMode
+ *
+ * Description      Update current encoder mode to SoC by sending
+ *                  Vendor Specific Command. It is called based on
+ *                  Encoder feedback of Low Latency and High Quality
+ *                  modes
+ * Returns          void
+ *
+ ******************************************************************************/
+void BTA_AvUpdateEncoderMode(uint16_t enc_mode) {
+  tBTA_AV_ENC_MODE* p_buf =
+      (tBTA_AV_ENC_MODE*)osi_malloc(sizeof(tBTA_AV_ENC_MODE));
+
+  p_buf->hdr.event = BTA_AV_UPDATE_ENCODER_MODE_EVT;
+  p_buf->enc_mode = enc_mode;
+
+  bta_sys_sendmsg(p_buf);
+}
+
 
 /*******************************************************************************
  *

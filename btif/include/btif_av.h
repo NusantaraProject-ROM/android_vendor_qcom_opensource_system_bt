@@ -62,6 +62,7 @@ typedef enum {
   BTIF_AV_REINIT_AUDIO_IF,
   BTIF_AV_SETUP_CODEC_REQ_EVT,
   BTIF_AV_TRIGGER_HANDOFF_REQ_EVT,
+  BTIF_AV_ENCODER_MODE_CHANGED_EVT,
 } btif_av_sm_event_t;
 
 /*******************************************************************************

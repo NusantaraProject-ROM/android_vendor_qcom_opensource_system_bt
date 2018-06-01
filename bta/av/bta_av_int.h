@@ -144,6 +144,7 @@ enum {
   BTA_AV_UPDATE_MAX_AV_CLIENTS_EVT,
   BTA_AV_ENABLE_MULTICAST_EVT, /* Event for enable and disable multicast */
   BTA_AV_RC_COLLISSION_DETECTED_EVT,
+  BTA_AV_UPDATE_ENCODER_MODE_EVT,
 #if (TWS_ENABLED == TRUE)
   BTA_AV_SET_EARBUD_ROLE_EVT, /* Set TWS earbud role */
   BTA_AV_SET_TWS_DEVICE_EVT, /* Update TWS state */
@@ -170,6 +171,9 @@ enum {
 #else
 #define BTA_AV_LAST_EVT BTA_AV_RC_COLLISSION_DETECTED_EVT
 #endif
+
+/* Info ID from updating aptX Adaptive Encoder mode */
+#define BTA_AV_ENCODER_MODE_CHANGE_ID 5
 
 /* maximum number of SEPS in stream discovery results */
 #define BTA_AV_NUM_SEPS 32
@@ -382,6 +386,13 @@ typedef struct {
   uint8_t sep_info_idx;
 } tBTA_AV_API_RCFG;
 
+/* data type for BTA_AV_UPDATE_ENCODER_MODE_EVT */
+typedef struct {
+  BT_HDR hdr;
+  uint16_t enc_mode;
+} tBTA_AV_ENC_MODE;
+
+
 /* data type for BTA_AV_CI_SETCONFIG_OK_EVT and BTA_AV_CI_SETCONFIG_FAIL_EVT */
 typedef struct {
   BT_HDR hdr;
@@ -505,6 +516,7 @@ typedef union {
   tBTA_AV_API_STATUS_RSP api_status_rsp;
   tBTA_AV_ENABLE_MULTICAST multicast_state;
   tBTA_AV_MAX_CLIENT max_av_clients;
+  tBTA_AV_ENC_MODE encoder_mode;
 #if (TWS_ENABLED == TRUE)
   tBTA_AV_TWS_SET_EARBUD_ROLE tws_set_earbud_role;
   tBTA_AV_SET_TWS_DEVICE tws_set_device;
@@ -726,6 +738,7 @@ extern tBT_VENDOR_A2DP_OFFLOAD offload_start;
 #define VS_QHCI_A2DP_OFFLOAD_START            0x0A
 #define VS_QHCI_GET_SCRAMBLING_FREQS          0x11
 #define VS_QHCI_SCRAMBLE_A2DP_MEDIA           0x12
+#define VS_QHCI_ENCODER_MODE_CHANGE           0X13
 #define A2DP_TRANSPORT_TYPE_SLIMBUS     0
 #define QHCI_INVALID_VSC 0x01
 /* SPLITA2DP */
@@ -797,6 +810,7 @@ extern void bta_av_rc_disc(uint8_t disc);
 extern void bta_av_conn_chg(tBTA_AV_DATA* p_data);
 extern void bta_av_dereg_comp(tBTA_AV_DATA* p_data);
 extern void bta_av_rc_collission_detected(tBTA_AV_DATA *p_data);
+extern void bta_av_update_enc_mode(tBTA_AV_DATA* p_data);
 
 /* sm action functions */
 extern void bta_av_disable(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);

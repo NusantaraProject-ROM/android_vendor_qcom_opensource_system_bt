@@ -1241,6 +1241,7 @@ void bta_av_co_get_peer_params(tA2DP_ENCODER_INIT_PEER_PARAMS* p_peer_params) {
     min_mtu = p_peer->mtu;
     if (min_mtu > BTA_AV_MAX_A2DP_MTU)
         min_mtu = BTA_AV_MAX_A2DP_MTU;
+    if(min_mtu == 0) min_mtu = 672;
     APPL_TRACE_DEBUG("%s updating peer MTU to %d for index %d",
                                     __func__, min_mtu, index);
   }
@@ -1294,6 +1295,13 @@ bool bta_av_co_set_codec_user_config(
     APPL_TRACE_ERROR("%s: no open peer to configure", __func__);
     success = false;
     goto done;
+  }
+
+  if(codec_user_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE
+            && codec_user_config.codec_specific_4 > 0) {
+    APPL_TRACE_DEBUG("%s: Updating Encoder Mode to: %x", __func__, codec_user_config.codec_specific_4);
+    BTA_AvUpdateEncoderMode(codec_user_config.codec_specific_4);
+    return success;
   }
 
   // Find the peer SEP codec to use

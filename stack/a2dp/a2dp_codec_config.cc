@@ -65,6 +65,7 @@
 #include "a2dp_vendor.h"
 #include "a2dp_vendor_aptx.h"
 #include "a2dp_vendor_aptx_hd.h"
+#include "a2dp_vendor_aptx_adaptive.h"
 #include "a2dp_vendor_ldac.h"
 #include "osi/include/log.h"
 #include "a2dp_vendor_aptx_tws.h"
@@ -83,6 +84,7 @@ bool sbc_offload = false;
 bool aac_offload = false;
 bool aptx_offload = false;
 bool aptxhd_offload = false;
+bool aptx_adaptive_offload = false;
 bool ldac_offload = false;
 bool aptxtws_offload = false;
 static void init_btav_a2dp_codec_config(
@@ -165,6 +167,9 @@ A2dpCodecConfig* A2dpCodecConfig::createCodec(
       break;
     case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD:
       codec_config = new A2dpCodecConfigAptxHd(codec_priority);
+      break;
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE:
+      codec_config = new A2dpCodecConfigAptxAdaptive(codec_priority);
       break;
     case BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC:
       codec_config = new A2dpCodecConfigLdac(codec_priority);
@@ -1466,6 +1471,9 @@ void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap, bool scrambli
       } else if (strcmp(tok,"aptxhd") == 0) {
         LOG_INFO(LOG_TAG,"%s: APTXHD offload supported",__func__);
         aptxhd_offload = TRUE;
+      } else if (strcmp(tok,"aptxadaptive") == 0) {
+        LOG_INFO(LOG_TAG,"%s: APTXHD offload supported",__func__);
+        aptx_adaptive_offload = TRUE;
       } else if (strcmp(tok,"ldac") == 0) {
         LOG_INFO(LOG_TAG,"%s: ldac offload supported",__func__);
         ldac_offload = TRUE;
@@ -1507,6 +1515,9 @@ bool A2DP_IsCodecEnabledInOffload(btav_a2dp_codec_index_t codec_index) {
       break;
     case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD:
       codec_status = aptxhd_offload;
+      break;
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE:
+      codec_status = aptx_adaptive_offload;
       break;
     case BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC:
       if (!ldac_offload)

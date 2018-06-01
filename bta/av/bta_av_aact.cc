@@ -126,6 +126,9 @@ static void bta_av_vendor_offload_select_codec(tBTA_AV_SCB* p_scb);
 //static uint8_t bta_av_vendor_offload_convert_sample_rate(uint16_t sample_rate);
 
 void bta_av_vendor_offload_check_stop_start(tBTA_AV_SCB* p_scb);
+void update_sub_band_info(uint8_t **param, int *param_len, uint8_t id, uint16_t data);
+void update_sub_band_info(uint8_t **param, int *param_len, uint8_t id, uint8_t *data, uint8_t len);
+void enc_mode_change_callback(tBTM_VSC_CMPL *param);
 
 /* state machine states */
 enum {
@@ -2634,6 +2637,63 @@ void bta_av_reconfig(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
 
 /*******************************************************************************
  *
+ * Function         bta_av_update_enc_mode
+ *
+ * Description      Sends Vendor Specific Command to SoC
+ *                  with new encoder mode.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void bta_av_update_enc_mode(tBTA_AV_DATA* p_data) {
+  uint8_t param[48];
+  uint8_t *p_param;
+  uint8_t *num_sub_band;
+  int param_len = 0;
+  uint16_t enc_mode = p_data->encoder_mode.enc_mode;
+
+  memset(param, 0, 48);
+  p_param = param;
+
+  *p_param++ = VS_QHCI_ENCODER_MODE_CHANGE;
+  param_len++;
+  num_sub_band = p_param++;
+  param_len++;
+
+  update_sub_band_info(&p_param, &param_len, BTA_AV_ENCODER_MODE_CHANGE_ID, enc_mode);
+  *num_sub_band += 1;
+
+  APPL_TRACE_ERROR("VSC stream: opcode: 0x%02x, num: 0x%02x, ID: 0x%02x, len: 0x%02x, Info1: 0x%02x, Info2: 0x%02x", param[0], param[1], param[2], param[3], param[4], param[5]);
+   BTM_VendorSpecificCommand(HCI_VSQC_CONTROLLER_A2DP_OPCODE, param_len,
+                                 param, enc_mode_change_callback);
+}
+
+void update_sub_band_info(uint8_t **param, int *p_param_len, uint8_t id, uint16_t data)
+{
+  uint8_t *p_param = *param;
+  *p_param++ = BTA_AV_ENCODER_MODE_CHANGE_ID;
+  *p_param_len += 1;
+
+  *p_param++ = 2; /* size of uint16_t */
+  *p_param_len += 1;
+
+  UINT16_TO_STREAM(p_param, data);
+  *p_param_len += 2;
+  *param = p_param;
+}
+
+void update_sub_band_info(uint8_t **param, int *p_param_len, uint8_t id, uint8_t *data, uint8_t len)
+{
+  /* For future use */
+}
+
+void enc_mode_change_callback(tBTM_VSC_CMPL *param)
+{
+  APPL_TRACE_ERROR("Received Encoder mode changed Callback from Controller");
+}
+
+/*******************************************************************************
+ *
  * Function         bta_av_data_path
  *
  * Description      Handle stream data path.
@@ -4061,6 +4121,7 @@ void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     else if ((strcmp(codec_name,"AAC")) == 0) codec_type = 2;
     else if ((strcmp(codec_name,"aptX")) == 0) codec_type = 8;
     else if ((strcmp(codec_name,"aptX-HD")) == 0) codec_type = 9;
+    else if ((strcmp(codec_name,"aptX-adaptive")) == 0) codec_type = 10;
     else if ((strcmp(codec_name,"LDAC")) == 0) codec_type = 4;
     else if ((strcmp(codec_name,"aptX-TWS")) == 0) codec_type = 11;
     if ((codec_type == 8) || (codec_type == 9) || (codec_type == 4)) {
