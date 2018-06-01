@@ -65,6 +65,9 @@
 #include "osi/include/properties.h"
 #include "osi/include/thread.h"
 #include "stack_manager.h"
+#ifdef BT_IOT_LOGGING_ENABLED
+#include "btif_iot_config.h"
+#endif
 
 using bluetooth::Uuid;
 /*******************************************************************************
@@ -398,6 +401,12 @@ void btif_enable_bluetooth_evt(tBTA_STATUS status) {
   RawAddress local_bd_addr = *controller_get_interface()->get_address();
 
   std::string bdstr = local_bd_addr.ToString();
+
+#ifdef BT_IOT_LOGGING_ENABLED
+  //save bd addr to iot conf file
+  btif_iot_config_set_str(IOT_CONF_KEY_SECTION_ADAPTER,
+          IOT_CONF_KEY_ADDRESS, bdstr.c_str());
+#endif
 
   char val[PROPERTY_VALUE_MAX] = "";
   int val_size = 0;
