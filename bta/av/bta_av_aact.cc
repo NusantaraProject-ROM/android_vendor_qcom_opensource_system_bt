@@ -861,8 +861,8 @@ static void bta_av_a2dp_sdp_cback(bool found, tA2DP_Service* p_service) {
  *
  ******************************************************************************/
 static void bta_av_adjust_seps_idx(tBTA_AV_SCB* p_scb, uint8_t avdt_handle) {
-  APPL_TRACE_DEBUG("%s: codec: %s", __func__,
-                   A2DP_CodecName(p_scb->cfg.codec_info));
+  APPL_TRACE_DEBUG("%s: codec: %s and codec_index = %d", __func__,
+          A2DP_CodecName(p_scb->cfg.codec_info), A2DP_SourceCodecIndex(p_scb->cfg.codec_info));
 #if (TWS_ENABLED == TRUE)
   for (int i = 0; i < BTAV_VENDOR_A2DP_CODEC_INDEX_MAX; i++) {
 #else
@@ -2469,6 +2469,7 @@ void bta_av_reconfig(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     bta_av_ssm_execute(p_scb, BTA_AV_SDP_DISC_OK_EVT, NULL);
     return;
   }
+  btav_a2dp_codec_index_t curr_codec_index = A2DP_SourceCodecIndex(p_scb->cfg.codec_info);
   p_cfg = &p_scb->cfg;
 
   alarm_cancel(p_scb->avrc_ct_timer);
@@ -2496,7 +2497,6 @@ void bta_av_reconfig(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
                      p_rcfg->suspend,
                      p_scb->recfg_sup,
                      p_scb->suspend_sup);
-  btav_a2dp_codec_index_t curr_codec_index = A2DP_SourceCodecIndex(p_scb->cfg.codec_info);
   btav_a2dp_codec_index_t rcfg_codec_index = A2DP_SourceCodecIndex(p_cfg->codec_info);
   APPL_TRACE_DEBUG("curr_index: %d, rcfg_index: %d",curr_codec_index,rcfg_codec_index);
   // p_scb->sep_info_idx > p_scb->num_seps condition satified for remote initiated SetConfig

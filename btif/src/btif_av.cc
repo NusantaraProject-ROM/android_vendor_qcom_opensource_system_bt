@@ -544,7 +544,7 @@ static void btif_report_source_codec_state(UNUSED_ATTR void* p_data,
   std::vector<btav_a2dp_codec_config_t> codecs_local_capabilities;
   std::vector<btav_a2dp_codec_config_t> codecs_selectable_capabilities;
 
-  A2dpCodecs* a2dp_codecs = bta_av_get_a2dp_codecs();
+  A2dpCodecs* a2dp_codecs = bta_av_get_peer_a2dp_codecs(*bd_addr);
   if (a2dp_codecs == nullptr) return;
   if (!a2dp_codecs->getCodecConfigAndCapabilities(
           &codec_config, &codecs_local_capabilities,
@@ -692,7 +692,9 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
         btif_a2dp_on_idle(index);
       } else {
         //There is another AV connection, update current playin
-        BTIF_TRACE_EVENT("reset A2dp states in IDLE ");
+        BTIF_TRACE_EVENT("idle state for index %d init_co", index);
+        bta_av_co_peer_init(btif_av_cb[index].codec_priorities, index);
+
       }
       if (!btif_av_is_playing_on_other_idx(index) &&
            btif_av_is_split_a2dp_enabled()) {
@@ -3339,6 +3341,12 @@ static bt_status_t disconnect(const RawAddress& bd_addr) {
 static bt_status_t set_active_device(const RawAddress& bd_addr) {
   BTIF_TRACE_EVENT("%s", __func__);
   CHECK_BTAV_INIT();
+
+  if (bd_addr.IsEmpty()) {
+    if (!bta_av_co_set_active_peer(bd_addr)) {
+      BTIF_TRACE_WARNING("%s: unable to set active peer to empty in BtaAvCo",__func__);
+    }
+  }
 
   /* Initiate handoff for the device with address in the argument*/
   return btif_transfer_context(btif_av_handle_event, BTIF_AV_TRIGGER_HANDOFF_REQ_EVT,

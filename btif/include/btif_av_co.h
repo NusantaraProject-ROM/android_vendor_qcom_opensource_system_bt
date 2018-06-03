@@ -59,10 +59,15 @@ bool bta_av_co_set_codec_audio_config(
 void bta_av_co_init(
     const std::vector<btav_a2dp_codec_config_t>& codec_priorities);
 
+void bta_av_co_peer_init(
+    const std::vector<btav_a2dp_codec_config_t>& codec_priorities, int index);
+
 // Gets the initialized A2DP codecs.
 // Returns a pointer to the |A2dpCodecs| object with the initialized A2DP
 // codecs, or nullptr if no codecs are initialized.
 A2dpCodecs* bta_av_get_a2dp_codecs(void);
+
+A2dpCodecs* bta_av_get_peer_a2dp_codecs(const RawAddress& bd_addr);
 
 // Gets the current A2DP codec.
 // Returns a pointer to the current |A2dpCodec| if valid, otherwise nullptr.
@@ -76,6 +81,8 @@ bt_status_t bta_av_set_a2dp_current_codec(tBTA_AV_HNDL hndl);
 // and return if AAC can be selected as a codec for streaming or not
 //TRUE if AAC is allowed , FALSE otherwise
 bool bta_av_co_audio_is_aac_wl_enabled(RawAddress *remote_bdaddr);
+
+bool bta_av_co_set_active_peer(const RawAddress& peer_address);
 
 #ifdef __cplusplus
 }
