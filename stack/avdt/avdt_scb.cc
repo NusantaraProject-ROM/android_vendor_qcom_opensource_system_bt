@@ -843,6 +843,8 @@ tAVDT_SCB* avdt_scb_alloc(tAVDT_CS* p_cs) {
       memcpy(&p_scb->cs, p_cs, sizeof(tAVDT_CS));
       p_scb->transport_channel_timer =
           alarm_new("avdt_scb.transport_channel_timer");
+      p_scb->delay_report_timer =
+          alarm_new("avdt_scb.delay_report_timer");
       AVDT_TRACE_DEBUG("%s: hdl=%d, psc_mask:0x%x", __func__, i + 1,
                        p_cs->cfg.psc_mask);
       break;
@@ -871,6 +873,7 @@ tAVDT_SCB* avdt_scb_alloc(tAVDT_CS* p_cs) {
 void avdt_scb_dealloc(tAVDT_SCB* p_scb, UNUSED_ATTR tAVDT_SCB_EVT* p_data) {
   AVDT_TRACE_DEBUG("%s: hdl=%d", __func__, avdt_scb_to_hdl(p_scb));
   alarm_free(p_scb->transport_channel_timer);
+  alarm_free(p_scb->delay_report_timer);
   memset(p_scb, 0, sizeof(tAVDT_SCB));
 }
 

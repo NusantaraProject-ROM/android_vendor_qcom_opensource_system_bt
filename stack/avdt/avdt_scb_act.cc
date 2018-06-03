@@ -673,6 +673,10 @@ void avdt_scb_hdl_setconfig_rsp(tAVDT_SCB* p_scb,
       tAVDT_SCB_EVT avdt_scb_evt;
       avdt_scb_evt.msg.single = single;
       avdt_scb_event(p_scb, AVDT_SCB_API_OPEN_REQ_EVT, &avdt_scb_evt);
+    } else {
+      alarm_set_on_mloop(p_scb->delay_report_timer,
+                         AVDT_DELAY_REPORT_TIMEOUT_MS,
+                         avdt_delay_report_timer_timeout, p_scb);
     }
   }
 }
@@ -823,7 +827,7 @@ void avdt_scb_snd_delay_rpt_req(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
  ******************************************************************************/
 void avdt_scb_hdl_delay_rpt_cmd(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
   tAVDT_EVT_HDR single;
-
+  alarm_cancel(p_scb->delay_report_timer);
   (*p_scb->cs.p_ctrl_cback)(
       avdt_scb_to_hdl(p_scb), p_scb->p_ccb ? &p_scb->p_ccb->peer_addr : NULL,
       AVDT_DELAY_REPORT_EVT, (tAVDT_CTRL*)&p_data->msg.hdr);
