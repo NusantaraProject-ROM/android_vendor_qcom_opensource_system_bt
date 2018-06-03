@@ -1957,23 +1957,13 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
            for (int i = 0; i < AVDT_CODEC_SIZE; i++)
              BTIF_TRACE_EVENT("%d ",old_codec_cfg[i]);
           }
-          if ((cur_codec_cfg != NULL) && (old_codec_cfg != NULL)) {
-           if((A2DP_GetTrackBitsPerSample(cur_codec_cfg)==A2DP_GetTrackBitsPerSample(old_codec_cfg))
-              && (A2DP_GetTrackSampleRate(cur_codec_cfg)==A2DP_GetTrackSampleRate(old_codec_cfg) &&
-              (A2DP_GetTrackChannelCount(cur_codec_cfg)==A2DP_GetTrackChannelCount(old_codec_cfg))))
-            {
-              BTIF_TRACE_EVENT("BTA_AV_SUSPEND_EVT: Dual handoff");
-              btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-            } else {
-              btif_dispatch_sm_event(BTIF_AV_SETUP_CODEC_REQ_EVT, NULL, 0);
-              is_block_hal_start = true;
-              btif_trigger_unblock_audio_start_recovery_timer();
-              BTIF_TRACE_EVENT("BTA_AV_SUSPEND_EVT: Wait for Audio Start as codec params differs");
-            }
-          } else {
-            BTIF_TRACE_EVENT("BTA_AV_SUSPEND_EVT: Dual handoff either codec NULL");
-            btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-          }
+          /*In P implementation Audio is sending suspend for same codec SHO and different codec SHO*/
+
+          btif_dispatch_sm_event(BTIF_AV_SETUP_CODEC_REQ_EVT, NULL, 0);
+          is_block_hal_start = true;
+          btif_trigger_unblock_audio_start_recovery_timer();
+          BTIF_TRACE_EVENT("BTA_AV_SUSPEND_EVT: Wait for Audio Start in non-split");
+
         } else {
           BTIF_TRACE_EVENT("BTA_AV_SUSPEND_EVT:SplitA2DP Disallow stack start wait Audio to Start");
           audio_start_awaited = true;

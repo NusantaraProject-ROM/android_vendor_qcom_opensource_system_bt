@@ -60,7 +60,7 @@ using system_bt_osi::A2dpSessionMetrics;
  * layers we might need to temporarily buffer up data.
  */
 #define MAX_OUTPUT_A2DP_FRAME_QUEUE_SZ (MAX_PCM_FRAME_NUM_PER_TICK * 2)
-#define BTIF_UNBLOCK_AUDIO_START_TOUT 2000
+#define BTIF_UNBLOCK_AUDIO_START_TOUT 3000
 #define BTIF_REMOTE_START_TOUT 3000
 enum {
   BTIF_A2DP_SOURCE_STATE_OFF,
