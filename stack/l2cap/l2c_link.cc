@@ -175,6 +175,10 @@ bool l2c_link_hci_conn_comp(uint8_t status, uint16_t handle,
   /* If we don't have one, this is an error */
   if (!p_lcb) {
     L2CAP_TRACE_WARNING("L2CAP got conn_comp for unknown BD_ADDR");
+    if ((status == HCI_SUCCESS) && ((handle | 0xF000) != HCI_INVALID_HANDLE)) {
+      L2CAP_TRACE_WARNING("L2CAP got conn_comp, lcb cleared due to link connection timeout");
+      btm_sec_disconnect(handle, HCI_ERR_HOST_TIMEOUT);
+    }
     return (false);
   }
 
