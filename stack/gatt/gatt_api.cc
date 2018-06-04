@@ -590,6 +590,11 @@ tGATT_STATUS GATTC_ConfigureMTU(uint16_t conn_id, uint16_t mtu) {
     return GATT_ILLEGAL_PARAMETER;
   }
 
+  /* Validate that the link is BLE, not BR/EDR */
+  if (p_tcb->transport != BT_TRANSPORT_LE) {
+    return GATT_ERROR;
+  }
+
   if (gatt_is_clcb_allocated(conn_id)) {
     LOG(ERROR) << "GATT_BUSY conn_id = " << +conn_id;
     return GATT_BUSY;

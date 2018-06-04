@@ -719,7 +719,7 @@ static void gatts_process_find_info(tGATT_TCB& tcb, uint8_t op_code,
 static void gatts_process_mtu_req(tGATT_TCB& tcb, uint16_t len,
                                   uint8_t* p_data) {
   /* BR/EDR conenction, send error response */
-  if ((tcb.transport == BT_TRANSPORT_LE) && tcb.att_lcid != L2CAP_ATT_CID) {
+  if (tcb.att_lcid != L2CAP_ATT_CID) {
     gatt_send_error_rsp(tcb, GATT_REQ_NOT_SUPPORTED, GATT_REQ_MTU, 0, false);
     return;
   }
