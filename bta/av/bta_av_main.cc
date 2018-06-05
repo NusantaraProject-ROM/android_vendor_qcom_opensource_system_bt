@@ -864,11 +864,11 @@ static void bta_av_api_to_ssm(tBTA_AV_DATA* p_data) {
   }
   APPL_TRACE_DEBUG("bta_av_api_to_ssm: num tws devices = %d",tws_device);
 #endif //TWS_ENABLED
-  if ((is_multicast_enabled == TRUE) ||
+  if (is_multicast_enabled == TRUE
 #if (TWS_ENABLED == TRUE)
-      (tws_device > 1) ||
+     ||  tws_device > 1
 #endif
-      ((event == BTA_AV_AP_STOP_EVT) && (bta_av_multiple_streams_started() == TRUE))) {
+     ) {
     /* Send START request to all Open Stream connections.*/
     for (xx=0; xx < BTA_AV_NUM_STRS; xx++)
       if (is_multicast_enabled) {
