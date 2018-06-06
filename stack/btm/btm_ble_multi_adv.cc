@@ -31,6 +31,7 @@
 #include "device/include/controller.h"
 #include "osi/include/alarm.h"
 
+#include "stack_config.h"
 #include "ble_advertiser.h"
 #include "ble_advertiser_hci_interface.h"
 #include "btm_int_types.h"
@@ -757,6 +758,7 @@ class BleAdvertisingManagerImpl
   void SetData(uint8_t inst_id, bool is_scan_rsp, std::vector<uint8_t> data,
                MultiAdvCb cb) override {
     VLOG(1) << __func__ << " inst_id: " << +inst_id;
+    bool update_flags = false;
     if (inst_id >= inst_count) {
       LOG(ERROR) << "bad instance id " << +inst_id;
       return;
@@ -765,10 +767,18 @@ class BleAdvertisingManagerImpl
     AdvertisingInstance* p_inst = &adv_inst[inst_id];
     VLOG(1) << "is_scan_rsp = " << is_scan_rsp;
 
-    if (!is_scan_rsp && is_connectable(p_inst->advertising_event_properties)) {
-      uint8_t flags_val = BTM_GENERAL_DISCOVERABLE;
+    if(stack_config_get_interface()->get_pts_le_nonconn_adv_enabled()
+       || stack_config_get_interface()->get_pts_le_conn_nondisc_adv_enabled())
+      update_flags = true;
 
-      if (p_inst->duration) flags_val = BTM_LIMITED_DISCOVERABLE;
+    if ((!is_scan_rsp && is_connectable(p_inst->advertising_event_properties))
+        || update_flags) {
+      uint8_t flags_val = BTM_BLE_NON_DISCOVERABLE;
+      if(!stack_config_get_interface()->get_pts_le_conn_nondisc_adv_enabled()) {
+        flags_val = BTM_GENERAL_DISCOVERABLE;
+
+        if (p_inst->duration) flags_val = BTM_LIMITED_DISCOVERABLE;
+      }
 
       std::vector<uint8_t> flags;
       flags.push_back(2);  // length

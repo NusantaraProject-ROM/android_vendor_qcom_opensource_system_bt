@@ -33,6 +33,7 @@ typedef struct {
   const char* (*get_pts_smp_options)(void);
   int (*get_pts_smp_failure_case)(void);
   bool (*get_pts_le_nonconn_adv_enabled)(void);
+  bool (*get_pts_le_conn_nondisc_adv_enabled)(void);
   config_t* (*get_all)(void);
 } stack_config_t;
 
