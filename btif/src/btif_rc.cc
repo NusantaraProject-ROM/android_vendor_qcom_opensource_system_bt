@@ -1153,11 +1153,9 @@ skip:
   /* If AVRC is open and peer sends PLAY but there is no AVDT, then we queue-up
    * this PLAY */
   if ((p_remote_cmd->rc_id == BTA_AV_RC_PLAY) && (!btif_av_is_connected())) {
-    if (p_remote_cmd->key_state == AVRC_STATE_PRESS) {
-      APPL_TRACE_WARNING("%s: AVDT not open, queuing the PLAY command",
-                         __func__);
-      p_dev->rc_pending_play = true;
-    }
+    APPL_TRACE_WARNING("%s: AVDT not open, queuing the PLAY command",
+                       __func__);
+    p_dev->rc_pending_play = true;
     return;
   }
 
