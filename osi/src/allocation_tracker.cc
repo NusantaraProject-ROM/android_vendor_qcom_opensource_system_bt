@@ -55,7 +55,11 @@ static size_t alloc_total_size = 0;
 static size_t free_total_size = 0;
 
 #define ALLOCATION_TRACK_MAX 16384
+#ifdef ALOCATION_TRACKER_DEBUG
 #define ALLOCATION_TRACK_NUM_CALLERS 2
+#else
+#define ALLOCATION_TRACK_NUM_CALLERS 1
+#endif
 
 typedef enum {
   ALLOCATION_TRACK_EVENT_FREE = 0,
