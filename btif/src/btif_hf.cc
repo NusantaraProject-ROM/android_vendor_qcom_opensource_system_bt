@@ -567,11 +567,12 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
           BTIF_TRACE_DEBUG("%s: peer TWS_PLUS device is designated as SECONDARY_EB", __func__);
       }
 #endif
+      bd_addr = btif_hf_cb[idx].connected_bda;
       if (btif_hf_cb[idx].state == BTHF_CONNECTION_STATE_DISCONNECTED)
         btif_hf_cb[idx].connected_bda = RawAddress::kAny;
 
       if (p_data->open.status != BTA_AG_SUCCESS)
-        btif_queue_advance();
+        btif_queue_advance_by_uuid(UUID_SERVCLASS_AG_HANDSFREE, &bd_addr);
       break;
 
     case BTA_AG_CLOSE_EVT:
@@ -611,6 +612,7 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
         }
       }
 #endif
+      bd_addr = btif_hf_cb[idx].connected_bda;
       btif_hf_cb[idx].connected_bda = RawAddress::kAny;
       btif_hf_cb[idx].peer_feat = 0;
       clear_phone_state_multihf(idx);
@@ -618,7 +620,7 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
        *seconds),
        ** then AG_CLOSE may be received. We need to advance the queue here
        */
-      btif_queue_advance();
+      btif_queue_advance_by_uuid(UUID_SERVCLASS_AG_HANDSFREE, &bd_addr);
       break;
 
     case BTA_AG_CONN_EVT:
@@ -628,7 +630,7 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
 
       HAL_HF_CBACK(bt_hf_callbacks, ConnectionStateCallback, btif_hf_cb[idx].state,
                 &btif_hf_cb[idx].connected_bda);
-      btif_queue_advance();
+      btif_queue_advance_by_uuid(UUID_SERVCLASS_AG_HANDSFREE, &btif_hf_cb[idx].connected_bda);
       break;
 
     case BTA_AG_AUDIO_OPEN_EVT:
@@ -1013,7 +1015,7 @@ static bt_status_t connect_int(RawAddress* bd_addr, uint16_t uuid) {
     /* inform the application of the disconnection as the connection is not processed */
     HAL_HF_CBACK(bt_hf_callbacks, ConnectionStateCallback, btif_hf_cb[i].state,
                   bd_addr);
-    btif_queue_advance();
+    btif_queue_advance_by_uuid(UUID_SERVCLASS_AG_HANDSFREE, bd_addr);
     return BT_STATUS_SUCCESS;
   }
 
