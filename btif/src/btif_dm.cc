@@ -403,7 +403,7 @@ static bool check_eir_is_remote_name_short(tBTA_DM_SEARCH *p_search_data) {
   if (p_search_data->inq_res.p_eir) {
 
     p_eir_remote_name = AdvertiseDataParser::GetFieldByType(
-          p_search_data->inq_res.p_eir, HCI_EXT_INQ_RESPONSE_LEN,
+          p_search_data->inq_res.p_eir, p_search_data->inq_res.eir_len,
           BTM_EIR_SHORTENED_LOCAL_NAME_TYPE, &remote_name_len);
 
     if (p_eir_remote_name) {
@@ -432,11 +432,11 @@ static bool check_eir_remote_name(tBTA_DM_SEARCH* p_search_data,
   /* Check EIR for remote name and services */
   if (p_search_data->inq_res.p_eir) {
     p_eir_remote_name = AdvertiseDataParser::GetFieldByType(
-        p_search_data->inq_res.p_eir, HCI_EXT_INQ_RESPONSE_LEN,
+        p_search_data->inq_res.p_eir, p_search_data->inq_res.eir_len,
         BTM_EIR_COMPLETE_LOCAL_NAME_TYPE, &remote_name_len);
     if (!p_eir_remote_name) {
       p_eir_remote_name = AdvertiseDataParser::GetFieldByType(
-          p_search_data->inq_res.p_eir, HCI_EXT_INQ_RESPONSE_LEN,
+          p_search_data->inq_res.p_eir, p_search_data->inq_res.eir_len,
           BTM_EIR_SHORTENED_LOCAL_NAME_TYPE, &remote_name_len);
     }
 
