@@ -918,6 +918,7 @@ static void bta_av_api_set_tws_earbud_role(tBTA_AV_DATA * p_data)
     return;
   }
   p_scb->channel_mode = p_data->tws_set_earbud_role.chn_mode;
+  bta_av_set_tws_chn_mode(p_scb, true);
 //  p_scb->tws_device = true;
 }
 static void bta_av_api_set_is_tws_device(tBTA_AV_DATA * p_data)

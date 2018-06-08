@@ -2309,6 +2309,10 @@ bool btif_rc_handle_twsp_symmetric_volume_ctrl(btif_rc_device_cb_t* p_dev, uint8
       (BTM_SecGetTwsPlusPeerDev(p_dev->rc_addr,
                                      tws_addr_pair) == true)) {
     btif_rc_device_cb_t *p_con_dev = btif_rc_get_device_by_bda(&tws_addr_pair);
+    if (p_con_dev == NULL) {
+      BTIF_TRACE_DEBUG("%s:TW+ pair not connected",__func__);
+      return true;
+    }
     if (AVRC_RSP_INTERIM == ctype && p_dev->rc_initial_volume == MAX_VOLUME) {
       if (p_con_dev->rc_volume != MAX_VOLUME){
         BTIF_TRACE_DEBUG("%s:TWS Pair has already set volume,setting rc_volume", __func__);

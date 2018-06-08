@@ -1547,7 +1547,7 @@ void bta_av_setconfig_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
  *
  ******************************************************************************/
 #if (TWS_ENABLED == TRUE)
-static void bta_av_set_tws_chn_mode(tBTA_AV_SCB *p_scb) {
+void bta_av_set_tws_chn_mode(tBTA_AV_SCB *p_scb, bool adjust) {
   int i;
   tBTA_AV_SCB *p_scbi;
   RawAddress tws_pair_addr;
@@ -1561,12 +1561,22 @@ static void bta_av_set_tws_chn_mode(tBTA_AV_SCB *p_scb) {
       if (BTM_SecGetTwsPlusPeerDev(p_scb->peer_addr,
                                tws_pair_addr) == true) {
         if (tws_pair_addr ==  p_scbi->peer_addr) {
-          if (p_scbi->channel_mode == 0) {
-            p_scb->channel_mode = 1;//Right
-            APPL_TRACE_DEBUG("%s:setting channel mode to Right",__func__);
-          } else {
-            p_scb->channel_mode = 0;//Left
-            APPL_TRACE_DEBUG("%s:setting channel mode to Left",__func__);
+          if (!adjust) {//set role on connection
+            if (p_scbi->channel_mode == 0) {
+              p_scb->channel_mode = 1;//Right
+              APPL_TRACE_DEBUG("%s:setting channel mode to Right",__func__);
+            } else {
+              p_scb->channel_mode = 0;//Left
+              APPL_TRACE_DEBUG("%s:setting channel mode to Left",__func__);
+            }
+          } else {//one of the earbuds role is set, adjust the role
+            if (p_scb->channel_mode == 0) {
+              p_scbi->channel_mode = 1;//Right
+              APPL_TRACE_DEBUG("%s:setting channel mode to Right",__func__);
+            } else {
+              p_scbi->channel_mode = 0;//Left
+              APPL_TRACE_DEBUG("%s:setting channel mode to Left",__func__);
+            }
           }
           APPL_TRACE_ERROR("%s:tws pair found",__func__);
           is_tws_pair = true;
@@ -1688,7 +1698,7 @@ void bta_av_str_opened(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     APPL_TRACE_DEBUG("%s:audio count  = %d ",__func__, bta_av_cb.audio_open_cnt);
     if (p_scb->tws_device && bta_av_cb.audio_open_cnt > 1) {
       APPL_TRACE_DEBUG("%s: 2nd TWS device, set channel mode",__func__);
-      bta_av_set_tws_chn_mode(p_scb);
+      bta_av_set_tws_chn_mode(p_scb, false);
     }
 #endif
     if (open.starting) {

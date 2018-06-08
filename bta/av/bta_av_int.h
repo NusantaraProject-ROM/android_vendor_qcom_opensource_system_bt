@@ -866,5 +866,7 @@ extern void bta_av_open_at_inc(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
 extern void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
 extern void bta_av_offload_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
 extern void bta_av_vendor_offload_stop(tBTA_AV_SCB* p_scb);
-
+#if (TWS_ENABLED == TRUE)
+extern void bta_av_set_tws_chn_mode(tBTA_AV_SCB* p_scb, bool adjust);
+#endif
 #endif /* BTA_AV_INT_H */
