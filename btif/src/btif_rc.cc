@@ -1590,6 +1590,19 @@ uint8_t btif_rc_get_connected_peer_handle(const RawAddress& peer_addr) {
 
 /***************************************************************************
  **
+ ** Function       btif_rc_get_connected_peer_address
+ **
+ ** Description    Fetches the connected headset's address if any
+ **
+ ***************************************************************************/
+RawAddress btif_rc_get_connected_peer_address(uint8_t handle) {
+  btif_rc_device_cb_t* p_dev = NULL;
+  p_dev = btif_rc_get_device_by_handle(handle);
+  return (p_dev == NULL) ? RawAddress::kEmpty : p_dev->rc_addr;
+}
+
+/***************************************************************************
+ **
  ** Function       btif_rc_check_handle_pending_play
  **
  ** Description    Clears the queued PLAY command. if |bSendToApp| is true,

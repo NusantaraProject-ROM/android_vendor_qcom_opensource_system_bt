@@ -302,6 +302,7 @@ static void btif_av_event_free_data(btif_sm_event_t event, void* p_data);
 extern void btif_rc_handler(tBTA_AV_EVT event, tBTA_AV* p_data);
 extern bool btif_rc_get_connected_peer(RawAddress* peer_addr);
 extern uint8_t btif_rc_get_connected_peer_handle(const RawAddress& peer_addr);
+extern RawAddress btif_rc_get_connected_peer_address(uint8_t handle);
 extern void btif_rc_check_handle_pending_play(const RawAddress& peer_addr,
                                               bool bSendToApp);
 extern void btif_rc_get_playing_device(RawAddress *address);
@@ -1356,10 +1357,13 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
     if (btif_av_check_flag_remote_suspend(index)) {
       BTIF_TRACE_EVENT("%s: Resetting remote suspend flag on RC PLAY", __func__);
       btif_av_clear_remote_suspend_flag();
-      if(bluetooth::headset::btif_hf_is_call_vr_idle())
+      if (bluetooth::headset::btif_hf_is_call_vr_idle())
       {
-        BTIF_TRACE_EVENT("%s: No active call, start stream", __func__);
-        btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
+        RawAddress addr = btif_rc_get_connected_peer_address(p_av->remote_cmd.rc_handle);
+        if (!addr.IsEmpty() && btif_av_is_current_device(addr)) {
+          BTIF_TRACE_EVENT("%s: No active call, start stream for active device ", __func__);
+          btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
+        }
       }
     }
   }
