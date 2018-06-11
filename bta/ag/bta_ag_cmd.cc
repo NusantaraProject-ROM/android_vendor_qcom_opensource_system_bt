@@ -1951,6 +1951,11 @@ void bta_ag_send_ring(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
                       BTA_AG_RING_TIMEOUT_EVT, bta_ag_scb_to_idx(p_scb));
          twsp_set_ring_sent(p_scb, true);
      }
+     //Start the time always so that ring attempt is made an every timer
+     //expiry and update as needed
+     bta_sys_start_timer(p_scb->ring_timer, BTA_AG_RING_TIMEOUT_MS,
+                BTA_AG_RING_TIMEOUT_EVT, bta_ag_scb_to_idx(p_scb));
+
   } else {
 #endif
       /* send RING */
