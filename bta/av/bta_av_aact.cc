@@ -3666,9 +3666,11 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
       default:
       break;
     }
-  } else if (status == QHCI_INVALID_VSC && sub_opcode == VS_QHCI_A2DP_OFFLOAD_START) {
+  } else if ((status == QHCI_INVALID_VSC && sub_opcode == VS_QHCI_A2DP_OFFLOAD_START)
+      || (status == QHCI_INVALID_VSC && last_sent_vsc_cmd == VS_QHCI_A2DP_OFFLOAD_START)) {
     btif_a2dp_src_vsc.multi_vsc_support = true;
     bta_av_vendor_offload_start(offload_start.p_scb);
+    last_sent_vsc_cmd = 0;
   } else {
     APPL_TRACE_DEBUG("Offload failed for subopcode= %d",param->p_param_buf[1]);
     if (param->opcode != VS_QHCI_STOP_A2DP_MEDIA)
@@ -3834,6 +3836,7 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
     param_len += AVDT_CODEC_SIZE;
     BTM_VendorSpecificCommand(HCI_VSQC_CONTROLLER_A2DP_OPCODE, param_len,
                                  param, offload_vendor_callback);
+    last_sent_vsc_cmd = VS_QHCI_A2DP_OFFLOAD_START;
     offload_start.p_scb = p_scb;
   }
 }
