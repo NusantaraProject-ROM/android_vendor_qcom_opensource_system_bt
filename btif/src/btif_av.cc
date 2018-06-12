@@ -2622,7 +2622,8 @@ static bool btif_av_get_valid_idx(int idx) {
   btif_sm_state_t state = btif_sm_get_state(btif_av_cb[idx].sm_handle);
   return ((state == BTIF_AV_STATE_OPENED) ||
           (state ==  BTIF_AV_STATE_STARTED) ||
-          (state == BTIF_AV_STATE_OPENING));
+          (state == BTIF_AV_STATE_OPENING) ||
+          (state == BTIF_AV_STATE_CLOSING));
 }
 
 /*******************************************************************************
