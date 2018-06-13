@@ -1286,8 +1286,6 @@ static void btu_hcif_hardware_error_evt(uint8_t* p) {
   if(*p == 0x0f || (*p == 0x0a))
   {
      HCI_TRACE_ERROR("Ctlr H/w error event - code:Tigger SSR");
-     bte_main_disable();//Destroys all the BTE tasks
-
      usleep(20000); /* 20 milliseconds */
      //Reset SOC status to trigger hciattach service
 /*   if(osi_property_set("bluetooth.status", "off") < 0)
