@@ -1575,6 +1575,9 @@ A2dpCodecConfig* bta_av_get_a2dp_current_codec(void) {
   tBTA_AV_CO_PEER* p_active_peer;
 
   p_active_peer = bta_av_co_get_active_peer();
+  if (p_active_peer == NULL) {
+    p_active_peer = &bta_av_co_cb.peers[0];
+  }
 
   mutex_global_lock();
   if (p_active_peer != NULL && p_active_peer->codecs != nullptr) {

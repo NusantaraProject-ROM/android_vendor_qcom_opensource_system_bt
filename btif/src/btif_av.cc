@@ -3355,10 +3355,8 @@ static bt_status_t set_active_device(const RawAddress& bd_addr) {
   BTIF_TRACE_EVENT("%s", __func__);
   CHECK_BTAV_INIT();
 
-  if (bd_addr.IsEmpty()) {
-    if (!bta_av_co_set_active_peer(bd_addr)) {
-      BTIF_TRACE_WARNING("%s: unable to set active peer to empty in BtaAvCo",__func__);
-    }
+  if (!bta_av_co_set_active_peer(bd_addr)) {
+    BTIF_TRACE_WARNING("%s: unable to set active peer in BtaAvCo",__func__);
   }
 
   /* Initiate handoff for the device with address in the argument*/
