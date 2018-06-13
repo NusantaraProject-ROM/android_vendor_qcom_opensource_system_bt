@@ -3218,14 +3218,10 @@ void btif_av_trigger_dual_handoff(bool handoff, RawAddress address) {
       BTIF_TRACE_DEBUG("Invalid index, skip audio_config_cb");
       return;
     }
+
     if (next_idx != INVALID_INDEX && next_idx != btif_max_av_clients) {
+      BTIF_TRACE_DEBUG("Not sending Reconfig update to audio");
       reconfig_a2dp = true;
-      btav_a2dp_codec_config_t codec_config;
-      std::vector<btav_a2dp_codec_config_t> codecs_local_capabilities;
-      std::vector<btav_a2dp_codec_config_t> codecs_selectable_capabilities;
-      codec_config.codec_type = BTAV_A2DP_CODEC_INDEX_SOURCE_MAX;
-      HAL_CBACK(bt_av_src_callbacks, audio_config_cb, (btif_av_cb[index].peer_bda),
-              codec_config, codecs_local_capabilities, codecs_selectable_capabilities);
     }
   }
 }
