@@ -1750,7 +1750,7 @@ void check_and_store_pce_profile_version(tSDP_DISC_REC* p_sdp_rec) {
   FILE *fp;
   bool has_entry = FALSE;
   struct pce_entry entry;
-  UINT16 peer_pce_version;
+  uint16_t peer_pce_version;
 
   RawAddress remote_addr = p_sdp_rec->remote_bd_addr;
   SDP_FindProfileVersionInRec(p_sdp_rec, UUID_SERVCLASS_PHONE_ACCESS, &peer_pce_version);
