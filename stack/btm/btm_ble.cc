@@ -1505,6 +1505,7 @@ void btm_ble_link_sec_check(const RawAddress& bd_addr,
                             tBTM_BLE_SEC_REQ_ACT* p_sec_req_act) {
   tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(bd_addr);
   uint8_t req_sec_level = BTM_LE_SEC_NONE, cur_sec_level = BTM_LE_SEC_NONE;
+  bool le_fresh_pairing_enabled = false;
 
   BTM_TRACE_DEBUG("btm_ble_link_sec_check auth_req =0x%x", auth_req);
 
@@ -1541,7 +1542,14 @@ void btm_ble_link_sec_check(const RawAddress& bd_addr,
         cur_sec_level = BTM_LE_SEC_NONE;
     }
 
-    if (cur_sec_level >= req_sec_level) {
+    if(stack_config_get_interface()->get_pts_le_fresh_pairing_enabled()) {
+      if (cur_sec_level == req_sec_level) {
+        BTM_TRACE_DEBUG("LE fresh pairing enabled");
+        le_fresh_pairing_enabled = true;
+      }
+    }
+
+    if (!le_fresh_pairing_enabled && (cur_sec_level >= req_sec_level)) {
       /* To avoid re-encryption on an encrypted link for an equal condition
        * encryption */
       *p_sec_req_act = BTM_BLE_SEC_REQ_ACT_ENCRYPT;
