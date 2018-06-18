@@ -1130,14 +1130,6 @@ bt_status_t HeadsetInterface::ConnectAudio(RawAddress* bd_addr) {
 
   int idx = btif_hf_idx_by_bdaddr(bd_addr);
 
-#if (TWS_AG_ENABLED == TRUE)
-  //If SLC is TWS device pick the idx of primary first (bta_ag_cb.sco.p_curr_scb
-  //idx first
-  if (is_twsp_device_connected()) {
-      idx = get_idx_primary_eb(bd_addr);
-  }
-#endif
-
   if ((idx < 0) || (idx >= BTIF_HF_NUM_CB)) {
     BTIF_TRACE_ERROR("%s: Invalid index %d", __func__, idx);
     return BT_STATUS_FAIL;
@@ -1201,14 +1193,6 @@ bt_status_t HeadsetInterface::DisconnectAudio(RawAddress* bd_addr) {
     BTIF_TRACE_ERROR("%s: Invalid index %d", __func__, idx);
     return BT_STATUS_FAIL;
   }
-
-#if (TWS_AG_ENABLED == TRUE)
-  //If SLC is TWS device pick the idx of primary first (bta_ag_cb.sco.p_curr_scb
-  //idx first
-  if (is_twsp_device_connected()) {
-      idx = get_idx_primary_eb(bd_addr);
-  }
-#endif
 
   if (idx != BTIF_HF_INVALID_IDX) {
     BTA_AgAudioClose(btif_hf_cb[idx].handle);
@@ -1627,11 +1611,6 @@ bt_status_t HeadsetInterface::PhoneStateChange(
 #ifdef BT_IOT_LOGGING_ENABLED
   bthf_audio_state_t current_audio_state;
   current_audio_state = btif_hf_cb[idx].audio_state;
-#endif
-#if (TWS_AG_ENABLED == TRUE)
-  if (is_twsp_device_connected()) {
-      idx = get_idx_primary_eb(&btif_hf_cb[idx].connected_bda);
-   }
 #endif
 
   btif_hf_cb_t& control_block = btif_hf_cb[idx];
