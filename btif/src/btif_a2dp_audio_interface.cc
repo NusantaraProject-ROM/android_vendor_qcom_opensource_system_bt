@@ -676,7 +676,7 @@ void btif_a2dp_audio_send_sink_latency()
       sink_latency = btif_get_ba_latency();
   }
   else {
-      sink_latency = btif_av_get_sink_latency();
+      sink_latency = btif_av_get_audio_delay();
   }
   LOG_INFO(LOG_TAG,"send_sink_latency = %d", sink_latency);
   Lock lock(mtxBtAudio);
