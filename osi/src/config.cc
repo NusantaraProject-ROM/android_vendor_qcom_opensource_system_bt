@@ -191,7 +191,7 @@ const char* config_get_string(const config_t* config, const char* section,
   return entry->value;
 }
 
-bool config_set_int(config_t* config, const char* section, const char* key,
+void config_set_int(config_t* config, const char* section, const char* key,
                     int value) {
   CHECK(config != NULL);
   CHECK(section != NULL);
@@ -199,21 +199,20 @@ bool config_set_int(config_t* config, const char* section, const char* key,
 
   char value_str[32] = {0};
   snprintf(value_str, sizeof(value_str), "%d", value);
-  return config_set_string(config, section, key, value_str);
+  config_set_string(config, section, key, value_str);
 }
 
-bool config_set_bool(config_t* config, const char* section, const char* key,
+void config_set_bool(config_t* config, const char* section, const char* key,
                      bool value) {
   CHECK(config != NULL);
   CHECK(section != NULL);
   CHECK(key != NULL);
 
-  return config_set_string(config, section, key, value ? "true" : "false");
+  config_set_string(config, section, key, value ? "true" : "false");
 }
 
-bool config_set_string(config_t* config, const char* section, const char* key,
+void config_set_string(config_t* config, const char* section, const char* key,
                        const char* value) {
-  bool changed = true;
   section_t* sec = section_find(config, section);
   if (!sec) {
     sec = section_new(section);
@@ -239,19 +238,15 @@ bool config_set_string(config_t* config, const char* section, const char* key,
          node != list_end(sec->entries); node = list_next(node)) {
       entry_t* entry = static_cast<entry_t*>(list_node(node));
       if (!strcmp(entry->key, key)) {
-        if (entry->value != NULL && !strcmp(entry->value, value_no_newline.c_str()))
-          changed = false;
-
         osi_free(entry->value);
         entry->value = osi_strdup(value_no_newline.c_str());
-        return changed;
+        return;
       }
     }
 
     entry_t* entry = entry_new(key, value_no_newline.c_str());
     list_append(sec->entries, entry);
   }
-  return changed;
 }
 
 bool config_remove_section(config_t* config, const char* section) {
@@ -298,45 +293,6 @@ const char* config_section_name(const config_section_node_t* node) {
   const section_t* section = (const section_t*)list_node(lnode);
   return section->name;
 }
-
-#ifdef BT_IOT_LOGGING_ENABLED
-void config_sections_sort_by_entry_key(config_t* config, compare_func comp) {
-  CHECK(config != NULL);
-
-  for (list_node_t* node = list_begin(config->sections);
-      node != list_end(config->sections);
-      node = list_next(node)) {
-    section_t* sec = (section_t*)list_node(node);
-    if (list_length(sec->entries) <= 1)
-      continue;
-    list_node_t* p = list_end(sec->entries);
-    list_node_t* head_next = list_next(list_begin(sec->entries));
-    bool changed = true;
-
-    while (p != head_next && changed) {
-      list_node_t* q = list_begin(sec->entries);
-      changed = false;
-      for (;list_next(q) && list_next(q) != p; q = list_next(q)) {
-        entry_t* first = (entry_t*)list_node(q);
-        entry_t* second = (entry_t*)list_node(list_next(q));
-        char* tmp_key;
-        char* tmp_value;
-        if (comp(first->key, second->key) > 0) {
-          tmp_key = first->key;
-          tmp_value = first->value;
-          first->key = second->key;
-          first->value = second->value;
-          second->key = tmp_key;
-          second->value = tmp_value;
-          changed = true;
-        }
-      }
-      p = q;
-    }
-
-  }
-}
-#endif
 
 bool config_save(const config_t* config, const char* filename) {
   CHECK(config != NULL);

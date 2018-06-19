@@ -72,9 +72,6 @@
 #include "bta_ag_twsp_dev.h"
 #include "bta_ag_twsp.h"
 #endif
-#ifdef BT_IOT_LOGGING_ENABLED
-#include "btif/include/btif_iot_config.h"
-#endif
 
 /*****************************************************************************
  *  Constants
@@ -290,10 +287,6 @@ void bta_ag_disc_int_res(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
 
       /* send ourselves sdp ok event */
       event = BTA_AG_DISC_OK_EVT;
-
-#ifdef BT_IOT_LOGGING_ENABLED
-      btif_iot_config_addr_set_hex_if_greater(p_scb->peer_addr, IOT_CONF_KEY_HFP_VERSION, p_scb->peer_version, 2);
-#endif
     }
   }
 
@@ -342,9 +335,6 @@ void bta_ag_disc_acp_res(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
       p_data->disc_result.status == SDP_DB_FULL) {
     /* get attributes */
     bta_ag_sdp_find_attr(p_scb, bta_ag_svc_mask[p_scb->conn_service]);
-#ifdef BT_IOT_LOGGING_ENABLED
-    btif_iot_config_addr_set_hex_if_greater(p_scb->peer_addr, IOT_CONF_KEY_HFP_VERSION, p_scb->peer_version, 2);
-#endif
   }
 
   /* free discovery db */

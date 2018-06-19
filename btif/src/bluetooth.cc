@@ -63,9 +63,6 @@
 #include "device/include/controller.h"
 #include "btif_debug.h"
 #include "btif_storage.h"
-#ifdef BT_IOT_LOGGING_ENABLED
-#include "btif_iot_config.h"
-#endif
 #include "btsnoop.h"
 #include "btsnoop_mem.h"
 #include "device/include/interop.h"
@@ -334,9 +331,6 @@ static void dump(int fd, const char** arguments) {
   btif_debug_bond_event_dump(fd);
   btif_debug_a2dp_dump(fd);
   btif_debug_config_dump(fd);
-#ifdef BT_IOT_LOGGING_ENABLED
-  btif_debug_iot_config_dump(fd);
-#endif
   BTA_HfClientDumpStatistics(fd);
   wakelock_debug_dump(fd);
   osi_allocator_debug_dump(fd);

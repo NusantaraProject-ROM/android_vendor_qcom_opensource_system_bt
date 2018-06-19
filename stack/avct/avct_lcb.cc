@@ -36,9 +36,6 @@
 #include "bt_types.h"
 #include "bt_utils.h"
 #include "osi/include/osi.h"
-#ifdef BT_IOT_LOGGING_ENABLED
-#include "btif/include/btif_iot_config.h"
-#endif
 
 /*****************************************************************************
  * state machine constants and types
@@ -178,11 +175,6 @@ void avct_lcb_event(tAVCT_LCB* p_lcb, uint8_t event, tAVCT_LCB_EVT* p_data) {
 
   /* look up the state table for the current state */
   state_table = avct_lcb_st_tbl[p_lcb->state];
-
-#ifdef BT_IOT_LOGGING_ENABLED
-  if (p_lcb->state == AVCT_LCB_IDLE_ST && event == AVCT_LCB_LL_OPEN_EVT)
-    btif_iot_config_addr_int_add_one(p_lcb->peer_addr, IOT_CONF_KEY_AVRCP_CONN_COUNT);
-#endif
 
   /* set next state */
   p_lcb->state = state_table[event][AVCT_LCB_NEXT_STATE];

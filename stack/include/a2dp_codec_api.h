@@ -498,10 +498,6 @@ typedef struct {
   void (*set_transmit_queue_length)(size_t transmit_queue_length);
 } tA2DP_ENCODER_INTERFACE;
 
-// Gets peer sink endpoint codec type.
-// |p_codec_info| contains information about the codec capabilities.
-int A2DP_IotGetPeerSinkCodecType(const uint8_t* p_codec_info);
-
 // Gets the A2DP codec type.
 // |p_codec_info| contains information about the codec capabilities.
 tA2DP_CODEC_TYPE A2DP_GetCodecType(const uint8_t* p_codec_info);
