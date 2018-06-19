@@ -1630,6 +1630,8 @@ void bta_av_co_init(
   RawAddress bt_addr;
   char value[PROPERTY_VALUE_MAX] = {'\0'};
   tBTA_AV_CO_PEER* p_peer;
+  /* Protect access to bta_av_co_cb.codec_config */
+  mutex_global_lock();
   /* Reset the control block */
   bta_av_co_cb.reset();
 
@@ -1639,9 +1641,6 @@ void bta_av_co_init(
   bta_av_co_cp_set_flag(AVDT_CP_SCMS_COPY_FREE);
 #endif
 
-  /* Reset the current config */
-  /* Protect access to bta_av_co_cb.codec_config */
-  mutex_global_lock();
 /* SPLITA2DP */
   bool a2dp_offload = btif_av_is_split_a2dp_enabled();
   bool isScramblingSupported = bta_av_co_is_scrambling_enabled();
