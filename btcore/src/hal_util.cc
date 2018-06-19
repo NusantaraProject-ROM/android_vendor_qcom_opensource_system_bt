@@ -38,8 +38,7 @@ int hal_util_load_bt_library(const bt_interface_t** interface) {
   // Always try to load the default Bluetooth stack on GN builds.
   void* handle = dlopen(BLUETOOTH_LIBRARY_NAME, RTLD_NOW);
   if (!handle) {
-    LOG(ERROR) << __func__ << ": failed to load bluetooth library, error="
-               << dlerror();
+    LOG(ERROR) << __func__ << ": failed to load bluetooth library";
     goto error;
   }
 
