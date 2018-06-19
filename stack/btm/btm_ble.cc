@@ -44,6 +44,7 @@
 #include "osi/include/osi.h"
 #include "smp_api.h"
 #include "btif/include/btif_storage.h"
+#include "stack_config.h"
 
 extern bool aes_cipher_msg_auth_code(BT_OCTET16 key, uint8_t* input,
                                      uint16_t length, uint16_t tlen,
@@ -1615,10 +1616,11 @@ tBTM_STATUS btm_ble_set_encryption(const RawAddress& bd_addr,
           break;
         }
       }
-
-      if (SMP_Pair(bd_addr) == SMP_STARTED) {
-        cmd = BTM_CMD_STARTED;
-        p_rec->sec_state = BTM_SEC_STATE_AUTHENTICATING;
+      if(!stack_config_get_interface()->get_pts_le_sec_request_disabled()) {
+        if (SMP_Pair(bd_addr) == SMP_STARTED) {
+          cmd = BTM_CMD_STARTED;
+          p_rec->sec_state = BTM_SEC_STATE_AUTHENTICATING;
+        }
       }
       break;
 
