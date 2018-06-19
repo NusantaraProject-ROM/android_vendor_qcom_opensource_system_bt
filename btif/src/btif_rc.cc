@@ -4477,7 +4477,7 @@ static void handle_get_capability_response(tBTA_AV_META_MSG* pmeta_msg,
         }
       }
     }
-    if (list_is_empty(p_dev->rc_supported_event_list)) {
+    if (p_dev->rc_supported_event_list == NULL || list_is_empty(p_dev->rc_supported_event_list)) {
         BTIF_TRACE_EVENT(" Supported event list Empty, returning");
         return;
     }
