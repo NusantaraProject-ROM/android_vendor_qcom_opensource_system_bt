@@ -843,6 +843,10 @@ static void bta_av_api_to_ssm(tBTA_AV_DATA* p_data) {
   tBTA_AV_SCB *p_scb = bta_av_hndl_to_scb(p_data->hdr.layer_specific);
   RawAddress tws_pair_addr;
   bool tws_pair_found = false;
+  if (p_scb == NULL) {
+    APPL_TRACE_ERROR("failed to alloc SCB");
+    return;
+  }
   if (p_scb->tws_device) {
     tws_device++;
     if (BTM_SecGetTwsPlusPeerDev(p_scb->peer_addr, tws_pair_addr) == true) {
