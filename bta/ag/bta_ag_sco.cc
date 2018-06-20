@@ -282,7 +282,9 @@ static void bta_ag_sco_disc_cback(uint16_t sco_idx) {
 #endif
 
     APPL_TRACE_DEBUG("%s: Calling SCO_CLOSE for %d", __func__, handle);
-    curr_scb->inuse_codec = BTA_AG_CODEC_NONE;
+    if(curr_scb != NULL) {
+      curr_scb->inuse_codec = BTA_AG_CODEC_NONE;
+    }
 
     BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
     p_buf->event = BTA_AG_SCO_CLOSE_EVT;

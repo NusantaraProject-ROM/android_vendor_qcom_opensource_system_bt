@@ -1042,15 +1042,17 @@ uint16_t btm_find_scb_by_handle(uint16_t handle) {
  *
  ******************************************************************************/
 tBTM_STATUS BTM_RemoveSco(uint16_t sco_inx) {
+  BTM_TRACE_DEBUG("%s", __func__);
 #if (BTM_MAX_SCO_LINKS > 0)
+  if (sco_inx >= BTM_MAX_SCO_LINKS)
+    return (BTM_UNKNOWN_ADDR);
+
   tSCO_CONN* p = &btm_cb.sco_cb.sco_db[sco_inx];
   uint16_t tempstate;
   tBTM_PM_STATE state = BTM_PM_ST_INVALID;
 
-  BTM_TRACE_DEBUG("%s", __func__);
-
   /* Validity check */
-  if ((sco_inx >= BTM_MAX_SCO_LINKS) || (p->state == SCO_ST_UNUSED))
+  if (p->state == SCO_ST_UNUSED)
     return (BTM_UNKNOWN_ADDR);
 
   /* If no HCI handle, simply drop the connection and return */
