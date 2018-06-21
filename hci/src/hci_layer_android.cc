@@ -87,10 +87,8 @@ class BluetoothHciCallbacks : public IBluetoothHciCallbacks {
   }
 
   Return<void> hciEventReceived(const hidl_vec<uint8_t>& event) {
-    LOG_DEBUG(LOG_TAG, "%s-->", __func__);
     BT_HDR* packet = WrapPacketAndCopy(MSG_HC_TO_STACK_HCI_EVT, event);
     hci_event_received(FROM_HERE, packet);
-    LOG_DEBUG(LOG_TAG, "%s<--", __func__);
     return Void();
   }
 
