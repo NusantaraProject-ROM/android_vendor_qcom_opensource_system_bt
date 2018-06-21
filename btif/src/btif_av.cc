@@ -1870,6 +1870,13 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       } else {
         btif_av_cb[index].flags |= BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING;
       }
+      if (btif_av_cb[index].remote_started) {
+        if (btif_a2dp_source_is_remote_start()) {
+          BTIF_TRACE_DEBUG("%s:cancel remote start timer",__func__);
+          btif_a2dp_source_cancel_remote_start();
+        }
+        btif_av_cb[index].remote_started = false;
+      }
       /* if we were remotely suspended but suspend locally, local suspend
        * always overrides
        */
@@ -1986,7 +1993,7 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
            * Remote sent avdtp start followed by avdtp suspend, setting
            * the flag not to update the play state to app
            */
-          remote_start_cancelled = true;
+           //remote_start_cancelled = true;
         }
         btif_av_cb[index].remote_started = false;
       }
@@ -2405,7 +2412,7 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
       }
       BTIF_TRACE_IMP("%s: Remote Started set @ index = %d", __func__, index);
       btif_av_cb[index].remote_started = false;
-      btif_av_cb[index].is_suspend_for_remote_start = true;
+      //btif_av_cb[index].is_suspend_for_remote_start = true;
 #ifdef BTA_AV_SPLIT_A2DP_ENABLED
       if ((bt_split_a2dp_enabled) && (!btif_av_is_playing_on_other_idx(index))) {
         BTIF_TRACE_IMP("%s: Other index is not playing", __func__);
