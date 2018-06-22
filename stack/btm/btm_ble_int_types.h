@@ -125,8 +125,9 @@ typedef struct {
 typedef struct {
   uint16_t discoverable_mode;
   uint16_t connectable_mode;
-  uint32_t scan_window;
-  uint32_t scan_interval;
+  std::vector<uint32_t> scan_window;
+  std::vector<uint32_t> scan_interval;
+  uint8_t scan_phy;
   uint8_t scan_type;             /* current scan type: active or passive */
   uint8_t scan_duplicate_filter; /* duplicate filter enabled for scan */
   uint16_t adv_interval_min;

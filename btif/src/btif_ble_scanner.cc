@@ -408,12 +408,13 @@ class BleScannerInterfaceImpl : public BleScannerInterface {
                                 jni_thread_wrapper(FROM_HERE, std::move(cb))));
   }
 
-  void SetScanParameters(int scan_interval, int scan_window,
+  void SetScanParameters(int scan_phy, std::vector<uint32_t> scan_interval,
+                         std::vector<uint32_t> scan_window,
                          Callback cb) override {
     if (!stack_manager_get_interface()->get_stack_is_running()) return;
     do_in_bta_thread(
-        FROM_HERE, base::Bind(&BTM_BleSetScanParams, scan_interval, scan_window,
-                              BTM_BLE_SCAN_MODE_ACTI,
+        FROM_HERE, base::Bind(&BTM_BleSetScanParams, scan_phy, scan_interval,
+                              scan_window, BTM_BLE_SCAN_MODE_ACTI,
                               jni_thread_wrapper(FROM_HERE, std::move(cb))));
   }
 

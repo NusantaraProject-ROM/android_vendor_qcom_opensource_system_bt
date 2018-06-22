@@ -60,6 +60,14 @@ typedef uint8_t tBLE_SCAN_MODE;
 
 typedef uint8_t tBTM_BLE_BATCH_SCAN_MODE;
 
+#define PHY_LE_1M_IN             1
+#define PHY_LE_CODED_IN          3
+#define PHY_LE_ALL_SUPPORTED_IN  255
+
+#define SCAN_PHY_LE_1M             1
+#define SCAN_PHY_LE_CODED          4
+#define SCAN_PHY_LE_ALL_SUPPORTED  5
+
 /* advertising channel map */
 #define BTM_BLE_ADV_CHNL_37 (0x01 << 0)
 #define BTM_BLE_ADV_CHNL_38 (0x01 << 1)
