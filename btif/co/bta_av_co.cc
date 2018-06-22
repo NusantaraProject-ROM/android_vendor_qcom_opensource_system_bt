@@ -75,6 +75,7 @@
 #include "device/include/interop.h"
 #include "device/include/controller.h"
 #include "bt_vendor_av.h"
+#include "btif/include/btif_storage.h"
 bool isDevUiReq = false;
 
 /*****************************************************************************
@@ -1013,6 +1014,7 @@ static const tBTA_AV_CO_SINK* bta_av_co_find_peer_src_supports_codec(
 //
 static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
   tBTA_AV_CO_SINK* p_sink = NULL;
+  char remote_name[BTM_MAX_REM_BD_NAME_LEN] = "";
 
   // Update all selectable codecs.
   // This is needed to update the selectable parameters for each codec.
@@ -1036,16 +1038,23 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
       continue;
     }
 #endif
-    if (bta_av_co_audio_is_aac_wl_enabled(&p_peer->addr)) {
-      if ((!strcmp(iter->name().c_str(),"AAC")) && (!interop_match_addr(INTEROP_ENABLE_AAC_CODEC, &p_peer->addr)))
-      {
-        APPL_TRACE_DEBUG("This device is not present in white-list remote devices");
+    if (!strcmp(iter->name().c_str(),"AAC")) {
+      if (bta_av_co_audio_is_aac_wl_enabled(&p_peer->addr) &&
+          btif_storage_get_stored_remote_name(p_peer->addr, remote_name) &&
+          interop_match_addr(INTEROP_ENABLE_AAC_CODEC, &p_peer->addr) &&
+          interop_match_name(INTEROP_ENABLE_AAC_CODEC, remote_name)) {
+        APPL_TRACE_DEBUG("%s: AAC is supported for this WL remote device", __func__);
+        p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
+      } else {
+          APPL_TRACE_DEBUG("%s: RD is not present in name and address based check for AAC or WL disabled.",
+                               __func__);
       }
-      else
-      {
-       APPL_TRACE_DEBUG("AAC is supported for this WL remote device");
-       p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
-      }
+    } else {
+      APPL_TRACE_DEBUG("%s: non-AAC codec has been selected.", __func__);
+      p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
+    }
+
+#if 0
     } else {
       if ((!strcmp(iter->name().c_str(),"AAC")) && (interop_match_addr_or_name(INTEROP_DISABLE_AAC_CODEC, &p_peer->addr)))
       {
@@ -1057,6 +1066,8 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
        p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
       }
     }
+#endif
+
     if (p_sink != NULL) {
       APPL_TRACE_DEBUG("%s: selected codec %s", __func__, iter->name().c_str());
       break;

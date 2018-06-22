@@ -41,6 +41,7 @@
 #include "osi/include/osi.h"
 #include "a2dp_constants.h"
 #include "device/include/interop.h"
+#include "btif/include/btif_storage.h"
 
 /*******************************************************************************
  *
@@ -180,6 +181,7 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
 
   p_data->msg.discover_rsp.p_sep_info = sep_info;
   p_data->msg.discover_rsp.num_seps = 0;
+  char remote_name[BTM_MAX_REM_BD_NAME_LEN] = "";
 
   AVDT_TRACE_WARNING("%s: total connections: %d, total codecs: %d",
       __func__, num_conn, num_codecs);
@@ -207,20 +209,30 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
     if (effective_num_seps == num_codecs)
       break;
     if ((p_scb->allocated) && (!p_scb->in_use)) {
-       effective_num_seps++;
-       if (bta_av_co_audio_is_aac_wl_enabled(&p_ccb->peer_addr)) {
-         if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC &&
-             !interop_match_addr(INTEROP_ENABLE_AAC_CODEC, &p_ccb->peer_addr)) {
-           AVDT_TRACE_EVENT("%s: skipping AAC advertise\n", __func__);
-           continue;
-         }
-       } else {
+      effective_num_seps++;
+      if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC) {
+        if (bta_av_co_audio_is_aac_wl_enabled(&p_ccb->peer_addr) &&
+            (btif_storage_get_stored_remote_name(p_ccb->peer_addr, remote_name)) &&
+            interop_match_addr(INTEROP_ENABLE_AAC_CODEC, &p_ccb->peer_addr) &&
+            interop_match_name(INTEROP_ENABLE_AAC_CODEC, remote_name)) {
+          AVDT_TRACE_EVENT("%s: Remote device matched for AAC WL, Show AAC SEP\n", __func__);
+        } else {
+          AVDT_TRACE_EVENT("%s: RD not matched for Name and address based WL check or WL disabled, skip AAC advertise\n",
+                                 __func__);
+          continue;
+        }
+      }
+
+#if 0
+    else {
            if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC &&
                interop_match_addr_or_name(INTEROP_DISABLE_AAC_CODEC, &p_ccb->peer_addr)) {
              AVDT_TRACE_EVENT("%s: skipping AAC advertise\n", __func__);
              continue;
            }
        }
+#endif
+
        /* copy sep info */
        sep_info[p_data->msg.discover_rsp.num_seps].in_use = p_scb->in_use;
        sep_info[p_data->msg.discover_rsp.num_seps].seid = i + 1;
