@@ -454,4 +454,5 @@ uint16_t btif_av_get_audio_delay(void);
 void initialize_audio_hidl();
 void deinit_audio_hal();
 
+RawAddress btif_av_get_addr_by_index(int idx);
 #endif /* BTIF_AV_H */

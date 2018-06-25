@@ -52,4 +52,5 @@ void btif_a2dp_control_reset_audio_delay(void);
 // Get the audio delay reported to the audio HAL in uints of 1/10ms.
 // |delay| is the audio delay to send to Audio
 uint16_t btif_a2dp_control_get_audio_delay(void);
+void btif_a2dp_pending_cmds_reset(void);
 #endif /* BTIF_A2DP_CONTROL_H */

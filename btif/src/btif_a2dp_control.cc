@@ -944,3 +944,8 @@ uint16_t btif_a2dp_control_get_audio_delay(void) {
   APPL_TRACE_DEBUG("%s: DELAY: %d ms", __func__, delay_report_stats.audio_delay);
   return (delay_report_stats.audio_delay > 0) ? delay_report_stats.audio_delay : 0;
 }
+
+void btif_a2dp_pending_cmds_reset() {
+  a2dp_cmd_pending = A2DP_CTRL_CMD_NONE;
+  a2dp_cmd_queued = A2DP_CTRL_CMD_NONE;
+}

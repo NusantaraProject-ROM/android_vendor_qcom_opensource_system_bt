@@ -211,6 +211,7 @@ static void btm_read_automatic_flush_timeout_cb(void* data);
 static void btm_read_tx_power_cb(void* data);
 static void btif_a2dp_source_unblock_audio_start_timeout(void* context);
 static void btif_a2dp_source_remote_start_timeout(void* context);
+static char a2dp_hal_imp[PROPERTY_VALUE_MAX] = "false";
 UNUSED_ATTR static const char* dump_media_event(uint16_t event) {
   switch (event) {
     CASE_RETURN_STR(BTIF_MEDIA_AUDIO_TX_START)
@@ -750,8 +751,20 @@ void btif_a2dp_source_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
         APPL_TRACE_WARNING("%s: A2DP stop request failed: status = %d",
                            __func__, p_av_suspend->status);
         if ((pending_cmd == A2DP_CTRL_CMD_STOP) ||
-            (pending_cmd == A2DP_CTRL_CMD_SUSPEND))
+            (pending_cmd == A2DP_CTRL_CMD_SUSPEND)) {
           btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+          if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+              !strcmp(a2dp_hal_imp, "true")) {
+            btif_a2dp_pending_cmds_reset();
+            int index = ((p_av_suspend->hndl) & BTA_AV_HNDL_MSK) - 1;
+            RawAddress addr = btif_av_get_addr_by_index(index);
+            if (!addr.IsEmpty()) {
+              btif_dispatch_sm_event(BTIF_AV_DISCONNECT_REQ_EVT, (void *)addr.address,
+                  sizeof(RawAddress));
+              BTIF_TRACE_DEBUG("%s: Disconnect for peer device on Start fail by Remote",__func__);
+            }
+          }
+        }
       }
       return;
     }
@@ -780,8 +793,20 @@ void btif_a2dp_source_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
         APPL_TRACE_WARNING("%s: A2DP suspend request failed: status = %d",
                          __func__, p_av_suspend->status);
         if ((pending_cmd == A2DP_CTRL_CMD_STOP) ||
-            (pending_cmd == A2DP_CTRL_CMD_SUSPEND))
+            (pending_cmd == A2DP_CTRL_CMD_SUSPEND)) {
           btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+          if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+              !strcmp(a2dp_hal_imp, "true")) {
+            btif_a2dp_pending_cmds_reset();
+            int index = ((p_av_suspend->hndl) & BTA_AV_HNDL_MSK) - 1;
+            RawAddress addr = btif_av_get_addr_by_index(index);
+            if (!addr.IsEmpty()) {
+              btif_dispatch_sm_event(BTIF_AV_DISCONNECT_REQ_EVT, (void *)addr.address,
+                  sizeof(RawAddress));
+              BTIF_TRACE_DEBUG("%s: Disconnect for peer device on Start fail by Remote",__func__);
+            }
+          }
+        }
       }
     }
   }

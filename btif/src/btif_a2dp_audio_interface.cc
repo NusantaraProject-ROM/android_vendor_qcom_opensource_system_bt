@@ -699,7 +699,7 @@ void on_hidl_server_died() {
 }
 uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
 {
-  APPL_TRACE_DEBUG(LOG_TAG,"btif_a2dp_audio_process_request %s", audio_a2dp_hw_dump_ctrl_event((tA2DP_CTRL_CMD)cmd));
+  APPL_TRACE_WARNING(LOG_TAG,"btif_a2dp_audio_process_request %s", audio_a2dp_hw_dump_ctrl_event((tA2DP_CTRL_CMD)cmd));
   uint8_t status = A2DP_CTRL_ACK_FAILURE;
   if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
           !strcmp(a2dp_hal_imp, "true")) {
@@ -1419,6 +1419,11 @@ uint8_t btif_a2dp_audio_snd_ctrl_cmd(uint8_t cmd)
   APPL_TRACE_DEBUG("a2dp_snd_ctrl_cmd : %s DONE",
                    audio_a2dp_hw_dump_ctrl_event((tA2DP_CTRL_CMD)cmd));
   return status;
+}
+
+void btif_a2dp_audio_reset_pending_cmds() {
+  a2dp_cmd_pending = A2DP_CTRL_CMD_NONE;
+  a2dp_cmd_queued = A2DP_CTRL_CMD_NONE;
 }
 
 /*

@@ -3564,6 +3564,10 @@ static const btav_sink_interface_t bt_av_sink_interface = {
     update_audio_track_gain,
 };
 
+RawAddress btif_av_get_addr_by_index(int idx) {
+  return (idx < btif_max_av_clients) ? btif_av_cb[idx].peer_bda:RawAddress::kEmpty;
+}
+
 /*******************************************************************************
  *
  * Function         btif_av_get_addr
