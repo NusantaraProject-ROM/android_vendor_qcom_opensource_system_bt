@@ -524,6 +524,15 @@ bt_status_t btif_a2dp_source_setup_codec(tBTA_AV_HNDL hndl) {
       return BT_STATUS_FAIL;
     }
 
+    uint8_t p_codec_info[AVDT_CODEC_SIZE];
+    memset(p_codec_info, 0, AVDT_CODEC_SIZE);
+
+    //copy peer codec info to p_codec_info
+    if (!current_codec->copyOutOtaCodecConfig(p_codec_info)) {
+      APPL_TRACE_ERROR("%s: Fetching peer codec info returns fail.", __func__);
+      return BT_STATUS_FAIL;
+    }
+
     //int index = 0;
     //index = HANDLE_TO_INDEX(hndl);
     RawAddress peer_bda;
@@ -548,8 +557,12 @@ bt_status_t btif_a2dp_source_setup_codec(tBTA_AV_HNDL hndl) {
       flow_spec.peak_bandwidth = (660*1000)/8; /* bytes/second */
 
     } else if (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC) {
-      /* For ABR mode default peak bandwidth is 0 */
-      flow_spec.peak_bandwidth = 0; /* bytes/second */
+      /* For ABR mode default peak bandwidth is 0, for static it will be fetched */
+      uint32_t bitrate = 0;
+      bitrate = A2DP_GetTrackBitRate(p_codec_info);
+      APPL_TRACE_DEBUG(LOG_TAG,"bitrate = %d", bitrate);
+
+      flow_spec.peak_bandwidth = bitrate/8;  /* bytes/second */
 
     } else if (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_AAC) {
       flow_spec.peak_bandwidth = (320*1000)/8; /* bytes/second */

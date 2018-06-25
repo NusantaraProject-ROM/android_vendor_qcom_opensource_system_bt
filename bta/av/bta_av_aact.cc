@@ -429,7 +429,8 @@ static void bta_av_update_flow_spec(tBTA_AV_SCB* p_scb) {
   }
   APPL_TRACE_DEBUG("codec_name %s peak_bandwidth %d",codec_name,
                                 flow_spec.peak_bandwidth);
-  BTM_FlowSpec (p_scb->peer_addr, &flow_spec, NULL);
+  //Sending Flow_spec has been taken care whenever event:BTIF_AV_START_STREAM_REQ_EVT comes.
+  //BTM_FlowSpec (p_scb->peer_addr, &flow_spec, NULL);
 }
 
 /*******************************************************************************

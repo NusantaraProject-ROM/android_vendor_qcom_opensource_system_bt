@@ -4671,7 +4671,8 @@ void btif_av_flow_spec_cmd(int index, int bitrate) {
   flow_spec.token_bucket_size = 0x00;  /* bytes - no token bucket is needed*/
   flow_spec.latency = 0xFFFFFFFF;      /* microseconds - default value */
   flow_spec.peak_bandwidth = bitrate/8;/*bytes per second */
-  BTM_FlowSpec (btif_av_cb[index].peer_bda, &flow_spec, NULL);
+  //Sending Flow_spec has been taken care whenever event:BTIF_AV_START_STREAM_REQ_EVT comes.
+  //BTM_FlowSpec (btif_av_cb[index].peer_bda, &flow_spec, NULL);
   APPL_TRACE_DEBUG("%s peak_bandwidth %d",__func__, flow_spec.peak_bandwidth);
 }
 #if (TWS_ENABLED == TRUE)
