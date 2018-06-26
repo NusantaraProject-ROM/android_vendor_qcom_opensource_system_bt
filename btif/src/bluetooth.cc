@@ -342,8 +342,6 @@ static void dump(int fd, const char** arguments) {
 #if (BTSNOOP_MEM == TRUE)
   btif_debug_btsnoop_dump(fd);
 #endif
-
-  close(fd);
 }
 
 static const void* get_profile_interface(const char* profile_id) {
