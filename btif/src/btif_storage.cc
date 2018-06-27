@@ -813,7 +813,7 @@ bt_status_t btif_storage_remove_bonded_device(
 bt_status_t btif_storage_is_device_bonded(RawAddress *remote_bd_addr) {
 
   
-  char bdstr[17] = {'\0'};
+  char bdstr[18] = {'\0'};
   snprintf(bdstr, sizeof(bdstr), "%02x:%02x:%02x:%02x:%02x:%02x",
                                   remote_bd_addr->address[0],
                                   remote_bd_addr->address[1],

@@ -1006,7 +1006,7 @@ static bt_status_t connect_int(RawAddress* bd_addr, uint16_t uuid) {
     return BT_STATUS_BUSY;
   }
 
-  if (!btif_storage_is_device_bonded(bd_addr)) {
+  if (btif_storage_is_device_bonded(bd_addr) != BT_STATUS_SUCCESS) {
     BTIF_TRACE_WARNING("HF %s()## connect_int ## Device Not Bonded %s \n", __func__,
                          bd_addr->ToString().c_str());
     btif_hf_cb[i].state = BTHF_CONNECTION_STATE_DISCONNECTED;
