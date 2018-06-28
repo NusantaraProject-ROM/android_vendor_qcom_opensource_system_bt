@@ -269,6 +269,7 @@ tPAN_RESULT PAN_SetRole(uint8_t role, uint8_t* sec_mask,
 tPAN_RESULT PAN_Connect(const RawAddress& rem_bda, uint8_t src_role,
                         uint8_t dst_role, uint16_t* handle) {
   uint32_t mx_chan_id;
+  bool is_remote_already_connected = FALSE;
 
   /*
   ** Initialize the handle so that in case of failure return values
@@ -356,6 +357,7 @@ tPAN_RESULT PAN_Connect(const RawAddress& rem_bda, uint8_t src_role,
     pan_cb.num_conns++;
   } else if (pcb->con_state == PAN_STATE_CONNECTED) {
     pcb->con_flags |= PAN_FLAGS_CONN_COMPLETED;
+    is_remote_already_connected = TRUE;
   } else
     /* PAN connection is still in progress */
     return PAN_WRONG_STATE;
@@ -370,7 +372,13 @@ tPAN_RESULT PAN_Connect(const RawAddress& rem_bda, uint8_t src_role,
   tBNEP_RESULT ret = BNEP_Connect(rem_bda, Uuid::From16Bit(src_uuid),
                                   Uuid::From16Bit(dst_uuid), &(pcb->handle));
   if (ret != BNEP_SUCCESS) {
-    pan_release_pcb(pcb);
+    //Release pcb & decrement  number of pan connection only if it's new connection
+    PAN_TRACE_ERROR("PAN Connection failed is_remote_already_connected: %d ret:%d",
+        is_remote_already_connected, ret);
+    if (is_remote_already_connected == FALSE) {
+      pan_cb.num_conns--;
+      pan_release_pcb(pcb);
+    }
     return ret;
   }
 
