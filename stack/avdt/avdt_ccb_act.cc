@@ -178,7 +178,9 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   //int num_codecs = AVDT_NUM_SEPS / num_conn;
   int num_codecs = ((avdt_ccb_get_num_allocated_seps()) / num_conn);
   int effective_num_seps = 0;
-
+  char value[PROPERTY_VALUE_MAX] = {'\0'};
+  const char *codec_name;
+  property_get("vendor.bluetooth.soc", value, NULL);
   p_data->msg.discover_rsp.p_sep_info = sep_info;
   p_data->msg.discover_rsp.num_seps = 0;
   char remote_name[BTM_MAX_REM_BD_NAME_LEN] = "";
@@ -210,15 +212,25 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
       break;
     if ((p_scb->allocated) && (!p_scb->in_use)) {
       effective_num_seps++;
-      if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC) {
-        if (bta_av_co_audio_is_aac_wl_enabled(&p_ccb->peer_addr) &&
-            (btif_storage_get_stored_remote_name(p_ccb->peer_addr, remote_name)) &&
-            interop_match_addr(INTEROP_ENABLE_AAC_CODEC, &p_ccb->peer_addr) &&
-            interop_match_name(INTEROP_ENABLE_AAC_CODEC, remote_name)) {
-          AVDT_TRACE_EVENT("%s: Remote device matched for AAC WL, Show AAC SEP\n", __func__);
-        } else {
-          AVDT_TRACE_EVENT("%s: RD not matched for Name and address based WL check or WL disabled, skip AAC advertise\n",
-                                 __func__);
+      codec_name = A2DP_CodecName(p_scb->cs.cfg.codec_info);
+      APPL_TRACE_DEBUG("codec name %s", A2DP_CodecName(p_scb->cs.cfg.codec_info));
+      if (strcmp(value, "cherokee") == 0) {
+        if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC) {
+          if (bta_av_co_audio_is_aac_wl_enabled(&p_ccb->peer_addr) &&
+              (btif_storage_get_stored_remote_name(p_ccb->peer_addr, remote_name)) &&
+              interop_match_addr(INTEROP_ENABLE_AAC_CODEC, &p_ccb->peer_addr) &&
+              interop_match_name(INTEROP_ENABLE_AAC_CODEC, remote_name)) {
+            AVDT_TRACE_EVENT("%s: Remote device matched for AAC WL, Show AAC SEP\n", __func__);
+          } else {
+            AVDT_TRACE_EVENT("%s: RD not matched for Name and address based WL check or WL disabled, skip AAC advertise\n",
+                                   __func__);
+            continue;
+          }
+        }
+      } else {
+        APPL_TRACE_DEBUG("BT soc is %s\n", value);
+        if ((strcmp(codec_name,"aptX-HD") == 0) || (strcmp(codec_name,"LDAC") == 0)) {
+          APPL_TRACE_DEBUG("These codecs are not supported for this SOC type");
           continue;
         }
       }
