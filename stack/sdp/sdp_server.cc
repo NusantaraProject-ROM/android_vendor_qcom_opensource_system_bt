@@ -1541,7 +1541,7 @@ static uint16_t sdp_update_pbap_blacklist_len(tCONN_CB* p_ccb, tSDP_ATTR_SEQ* at
   bool is_pbap_102_blacklisted = is_device_blacklisted_for_pbap(p_ccb->device_address, true);
   static bool running_pts = false;
   char pts_property[6];
-  osi_property_get("bt.pbap.pts", pts_property, "false");
+  osi_property_get("vendor.bt.pbap.pts", pts_property, "false");
   if (!strncmp("true", pts_property, 4)) {
     SDP_TRACE_DEBUG("%s pts running= %d", __func__, pts_property);
     running_pts = true;
@@ -1624,7 +1624,7 @@ static tSDP_RECORD *sdp_upgrade_pse_record(tSDP_RECORD * p_rec,
   static bool is_pbap_102_blacklisted = is_device_blacklisted_for_pbap(remote_address, true);
   static bool running_pts = false;
   char pts_property[6];
-  osi_property_get("bt.pbap.pts", pts_property, "false");
+  osi_property_get("vendor.bt.pbap.pts", pts_property, "false");
   if (!strncmp("true", pts_property, 4)) {
     SDP_TRACE_DEBUG("%s pts running= %d", __func__, pts_property);
     running_pts = true;

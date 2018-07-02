@@ -96,7 +96,7 @@ static const tBTA_OP_FMT bta_ops_obj_fmt[OBEX_PUSH_NUM_FORMATS] = {
 #define UUID_MAX_LENGTH 16
 #define SPP_PROFILE_VERSION   0x0102
 
-#define NO_OF_EMAIL_ACCOUNTS_PROPERTY "persist.bluetooth.emailaccountcount"
+#define NO_OF_EMAIL_ACCOUNTS_PROPERTY "vendor.bluetooth.emailaccountcount"
 #define DEFAULT_ACTIVE_ACCOUNTS "0"
 
 // Adds a protocol list and service name (if provided) to an SDP record given by
