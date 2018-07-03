@@ -613,7 +613,7 @@ tBTM_STATUS BTM_SwitchRole(const RawAddress& remote_bd_addr, uint8_t new_role,
   bool is_sco_active;
 #endif
   tBTM_STATUS status;
-  tBTM_PM_MODE pwr_mode;
+  tBTM_PM_STATE pwr_mode_state;
   tBTM_PM_PWR_MD settings;
 
   VLOG(1) << __func__ << " BDA: " << remote_bd_addr;
@@ -674,16 +674,20 @@ tBTM_STATUS BTM_SwitchRole(const RawAddress& remote_bd_addr, uint8_t new_role,
 #endif
     }
 
-    if ((status = BTM_ReadPowerMode(p->remote_addr, &pwr_mode)) != BTM_SUCCESS)
-        return(status);
+  if ((status = btm_read_power_mode_state(p->remote_addr, &pwr_mode_state)) != BTM_SUCCESS)
+    return(status);
 
   /* Wake up the link if in sniff or park before attempting switch */
-  if (pwr_mode == BTM_PM_MD_PARK || pwr_mode == BTM_PM_MD_SNIFF) {
+  if (pwr_mode_state == BTM_PM_MD_PARK || pwr_mode_state == BTM_PM_MD_SNIFF) {
     memset((void*)&settings, 0, sizeof(settings));
     settings.mode = BTM_PM_MD_ACTIVE;
     status = BTM_SetPowerMode(BTM_PM_SET_ONLY_ID, p->remote_addr, &settings);
     if (status != BTM_CMD_STARTED) return (BTM_WRONG_MODE);
 
+    p->switch_role_state = BTM_ACL_SWKEY_STATE_MODE_CHANGE;
+  } else if (pwr_mode_state == BTM_PM_STS_PENDING) {
+
+    BTM_TRACE_DEBUG("BTM_SwitchRole pend mode, continue role switch after mode changed");
     p->switch_role_state = BTM_ACL_SWKEY_STATE_MODE_CHANGE;
   }
   /* some devices do not support switch while encryption is on */
