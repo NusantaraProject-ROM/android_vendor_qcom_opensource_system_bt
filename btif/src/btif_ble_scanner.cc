@@ -322,6 +322,10 @@ class BleScannerInterfaceImpl : public BleScannerInterface {
 
       case BTM_BLE_PF_SRVC_UUID:
       case BTM_BLE_PF_SRVC_SOL_UUID: {
+        if(p_uuid_mask->IsEmpty()) {
+          BTIF_TRACE_DEBUG("%s uuid mask is empty", __func__);
+          p_uuid_mask = NULL;
+        }
         if (p_uuid_mask == NULL) {
           do_in_bta_thread(
               FROM_HERE,
