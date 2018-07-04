@@ -2126,6 +2126,7 @@ void bta_av_getcap_results(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   uint8_t media_type;
   tAVDT_SEP_INFO* p_info = &p_scb->sep_info[p_scb->sep_info_idx];
   uint16_t uuid_int; /* UUID for which connection was initiatied */
+  tA2DP_CODEC_TYPE codec_type;
 
   if (p_scb == NULL)
   {
@@ -2140,16 +2141,26 @@ void bta_av_getcap_results(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     return;
   }
 
+
+  media_type = A2DP_GetMediaType(p_scb->p_cap->codec_info);
+  codec_type = A2DP_GetCodecType(p_scb->p_cap->codec_info);
+  APPL_TRACE_DEBUG("%s: num_codec %d", __func__, p_scb->p_cap->num_codec);
+  APPL_TRACE_DEBUG("%s: media type: x%x, x%x, codec_type: %x,min bitpool: %x", __func__,
+                    media_type, p_scb->media_type, codec_type, p_scb->p_cap->codec_info[5]);
+  if (codec_type ==A2DP_MEDIA_CT_SBC ) {
+    if ((p_scb->p_cap->codec_info[5]) < A2DP_SBC_IE_MIN_BITPOOL) {
+      p_scb->p_cap->codec_info[5] = A2DP_SBC_IE_MIN_BITPOOL;
+      APPL_TRACE_DEBUG("%s: Set min bitpool: %x", __func__, p_scb->p_cap->codec_info[5]);
+    }
+  }
+
   memcpy(&cfg, &p_scb->cfg, sizeof(tAVDT_CFG));
   cfg.num_codec = 1;
   cfg.num_protect = p_scb->p_cap->num_protect;
   memcpy(cfg.codec_info, p_scb->p_cap->codec_info, AVDT_CODEC_SIZE);
   memcpy(cfg.protect_info, p_scb->p_cap->protect_info, AVDT_PROTECT_SIZE);
-  media_type = A2DP_GetMediaType(p_scb->p_cap->codec_info);
 
-  APPL_TRACE_DEBUG("%s: num_codec %d", __func__, p_scb->p_cap->num_codec);
-  APPL_TRACE_DEBUG("%s: media type x%x, x%x", __func__, media_type,
-                   p_scb->media_type);
+  APPL_TRACE_DEBUG("%s: min bitpool: %x", __func__, p_scb->p_cap->codec_info[5]);
   A2DP_DumpCodecInfo(p_scb->cfg.codec_info);
 
   /* if codec present and we get a codec configuration */
