@@ -1244,7 +1244,7 @@ void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started) {
   bool no_streams = false;
   tBTA_AV_SCB* p_scbi;
   char splitEnabled[PROPERTY_VALUE_MAX] = {0};
-  osi_property_get("persist.vendor.enable.splita2dp", splitEnabled, "true");
+  osi_property_get("persist.vendor.btstack.enable.splita2dp", splitEnabled, "true");
   started_msk = BTA_AV_HNDL_TO_MSK(p_scb->hdi);
   APPL_TRACE_DEBUG("bta_av_stream_chg started:%d started_msk:x%x chnl:x%x",
                    started, started_msk, p_scb->chnl);
