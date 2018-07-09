@@ -970,7 +970,8 @@ bool l2c_link_check_power_mode(tL2C_LCB* p_lcb) {
   if (need_to_active) {
     /* check power mode */
     if (BTM_ReadPowerMode(p_lcb->remote_bd_addr, &mode) == BTM_SUCCESS) {
-      if (mode == BTM_PM_STS_PENDING) {
+      if ((mode == BTM_PM_STS_PENDING) ||
+         ((mode == BTM_PM_STS_SNIFF) && btm_pm_is_mode_pend_link(p_lcb->handle))) {
         L2CAP_TRACE_DEBUG("LCB(0x%x) is in PM pending state", p_lcb->handle);
 
         return true;

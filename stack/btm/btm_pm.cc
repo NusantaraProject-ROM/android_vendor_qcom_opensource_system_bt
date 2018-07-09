@@ -695,10 +695,13 @@ static void btm_pm_check_stored(void) {
 void btm_pm_proc_cmd_status(uint8_t status) {
   tBTM_PM_MCB* p_cb;
   tBTM_PM_STATUS pm_status;
+  tACL_CONN* p;
+  tL2C_LCB* p_lcb;
 
   if (btm_cb.pm_pend_link >= MAX_L2CAP_LINKS) return;
 
   p_cb = &btm_cb.pm_mode_db[btm_cb.pm_pend_link];
+  p = &btm_cb.acl_db[btm_cb.pm_pend_link];
 
   if (status == HCI_SUCCESS) {
     p_cb->state = BTM_PM_ST_PENDING;
@@ -709,6 +712,16 @@ void btm_pm_proc_cmd_status(uint8_t status) {
   } else /* the command was not successfull. Stay in the same state */
   {
     pm_status = BTM_PM_STS_ERROR;
+    p_lcb = l2cu_find_lcb_by_bd_addr(p->remote_addr, BT_TRANSPORT_BR_EDR);
+    if (p_lcb != NULL) {
+      if ((p_cb->state == BTM_PM_ST_ACTIVE) || (p_cb->state == BTM_PM_ST_SNIFF)) {
+        /* There might be any pending packets due to SNIFF or PENDING state */
+        /* Trigger L2C to start transmission of the pending packets. */
+        BTM_TRACE_DEBUG(
+            "btm mode change command failed; check l2c_link for outgoing packets");
+        l2c_link_check_send_pkts(p_lcb, NULL, NULL);
+      }
+    }
   }
 
   /* notify the caller is appropriate */
@@ -869,6 +882,32 @@ void btm_pm_proc_ssr_evt(uint8_t* p, UNUSED_ATTR uint16_t evt_len) {
   }
 }
 #endif  // BTM_SSR_INCLUDED
+
+/*******************************************************************************
+ *
+ * Function         btm_pm_is_mode_pend_link
+ *
+ * Description      This function is called to check if mode change pending on this acl
+ *
+ * Returns          true, if mode change pending
+ *
+ ******************************************************************************/
+bool btm_pm_is_mode_pend_link(uint16_t hci_handle) {
+  int acl_index;
+
+  acl_index = btm_handle_to_acl_index(hci_handle);
+
+  BTM_TRACE_DEBUG("btm_pm_is_mode_pend_link btm_cb.pm_pend_link:%d,acl_index:%d",
+                   btm_cb.pm_pend_link, acl_index);
+
+  if (acl_index >= MAX_L2CAP_LINKS) {
+    return false;
+  } else if (btm_cb.pm_pend_link == acl_index) {
+    return true;
+  } else {
+    return false;
+  }
+}
 
 /*******************************************************************************
  *
