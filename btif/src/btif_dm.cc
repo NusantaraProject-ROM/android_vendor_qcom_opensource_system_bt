@@ -1908,6 +1908,8 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
 
       btif_tws_plus_load_tws_devices();
 
+      btif_vendor_update_add_on_features();
+
       btif_enable_bluetooth_evt(p_data->enable.status);
     } break;
 
