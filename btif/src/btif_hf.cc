@@ -1676,12 +1676,19 @@ bt_status_t HeadsetInterface::PhoneStateChange(
             if (num_active > control_block.num_active) {
               res = BTA_AG_IN_CALL_CONN_RES;
               if (is_active_device(*bd_addr)) {
-                ag_res.audio_handle = control_block.handle;
-                BTIF_TRACE_DEBUG("%s: Moving the audio_state to CONNECTING for device %s",
-                      __FUNCTION__, bd_addr->ToString().c_str());
-                control_block.audio_state = BTHF_AUDIO_STATE_CONNECTING;
-                btif_transfer_context(btif_in_hf_generic_evt, BTIF_HFP_CB_AUDIO_CONNECTING,
-                                   (char*)(&btif_hf_cb[idx].connected_bda), sizeof(RawAddress), NULL);
+                // initiate SCO only if it is not connected already
+                if (btif_hf_cb[idx].audio_state != BTHF_AUDIO_STATE_CONNECTED) {
+                  ag_res.audio_handle = control_block.handle;
+                  BTIF_TRACE_DEBUG("%s: Moving the audio_state to CONNECTING for device %s",
+                         __FUNCTION__, bd_addr->ToString().c_str());
+                  control_block.audio_state = BTHF_AUDIO_STATE_CONNECTING;
+                  btif_transfer_context(btif_in_hf_generic_evt, BTIF_HFP_CB_AUDIO_CONNECTING,
+                               (char*)(&btif_hf_cb[idx].connected_bda), sizeof(RawAddress), NULL);
+                } else {
+                  BTIF_TRACE_IMP("%s: SCO is already connected with device %s, not intiating SCO",
+                         __func__, bd_addr->ToString().c_str());
+                  ag_res.audio_handle = BTA_AG_HANDLE_SCO_NO_CHANGE;
+                }
               }
             } else if (num_held > control_block.num_held)
               res = BTA_AG_IN_CALL_HELD_RES;
