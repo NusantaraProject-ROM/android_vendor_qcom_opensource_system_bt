@@ -707,8 +707,9 @@ void bta_ag_rfc_data(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
 
     if (strstr(buf, "AT+IPHONEACCEV") != NULL) {
         APPL_TRACE_IMP("%s: AT+IPHONEACCEV received, not coming out of sniff", __func__);
-    } else if (strstr(buf, "AT+CHUP") != NULL) {
-        APPL_TRACE_IMP("%s: AT+CHUP received, not coming out of sniff", __func__);
+    } else if (strstr(buf, "AT+CHUP") != NULL || strstr(buf, "ATA") != NULL ||
+               strstr(buf, "ATD") != NULL || strstr(buf, "AT+BLDN") != NULL) {
+        APPL_TRACE_IMP("%s: AT+CHUP/ATA/ATD/AT+BLDN received, not coming out of sniff", __func__);
     } else {
         APPL_TRACE_IMP("%s: setting sys busy", __func__);
         bta_sys_busy(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
@@ -722,8 +723,9 @@ void bta_ag_rfc_data(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
     } else {
       if (strstr(buf, "AT+IPHONEACCEV") != NULL) {
           APPL_TRACE_IMP("%s: AT+IPHONEACCEV received, not setting idle", __func__);
-      } else if (strstr(buf, "AT+CHUP") != NULL) {
-          APPL_TRACE_IMP("%s: AT+CHUP received, not setting idle", __func__);
+      } else if (strstr(buf, "AT+CHUP") != NULL || strstr(buf, "ATA") != NULL ||
+                 strstr(buf, "ATD") != NULL || strstr(buf, "AT+BLDN") != NULL) {
+          APPL_TRACE_IMP("%s: AT+CHUP/ATA/ATD/AT+BLDN received, not setting idle", __func__);
       } else {
           APPL_TRACE_IMP("%s: resetting idle timer", __func__);
           bta_sys_idle(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
