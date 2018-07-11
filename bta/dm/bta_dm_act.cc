@@ -378,6 +378,7 @@ static void bta_dm_sys_hw_cback(tBTA_SYS_HW_EVT status) {
   uint8_t key_mask = 0;
   BT_OCTET16 er;
   tBTA_BLE_LOCAL_ID_KEYS id_key;
+  tBTA_DM_MSG* p_data;
 
   APPL_TRACE_DEBUG("%s with event: %i", __func__, status);
 
@@ -405,6 +406,14 @@ static void bta_dm_sys_hw_cback(tBTA_SYS_HW_EVT status) {
     /* hw is ready, go on with BTA DM initialization */
     alarm_free(bta_dm_search_cb.search_timer);
     alarm_free(bta_dm_search_cb.gatt_close_timer);
+
+    while (!bta_dm_search_cb.p_disc_queue.empty()) {
+      p_data =(tBTA_DM_MSG*) bta_dm_search_cb.p_disc_queue.front();
+      if(p_data)
+        osi_free_and_reset((void**)&p_data);
+      bta_dm_search_cb.p_disc_queue.pop();
+    }
+
     memset(&bta_dm_search_cb, 0, sizeof(bta_dm_search_cb));
 
     /* unregister from SYS */
@@ -436,6 +445,12 @@ static void bta_dm_sys_hw_cback(tBTA_SYS_HW_EVT status) {
     /* hw is ready, go on with BTA DM initialization */
     alarm_free(bta_dm_search_cb.search_timer);
     alarm_free(bta_dm_search_cb.gatt_close_timer);
+    while (!bta_dm_search_cb.p_disc_queue.empty()) {
+      p_data =(tBTA_DM_MSG*) bta_dm_search_cb.p_disc_queue.front();
+      if(p_data)
+        osi_free_and_reset((void**)&p_data);
+      bta_dm_search_cb.p_disc_queue.pop();
+    }
     memset(&bta_dm_search_cb, 0, sizeof(bta_dm_search_cb));
     /*
      * TODO: Should alarm_free() the bta_dm_search_cb timers during
@@ -1810,6 +1825,7 @@ void bta_dm_search_cmpl(tBTA_DM_MSG* p_data) {
     bta_dm_di_disc_cmpl(p_data);
   else
     bta_dm_search_cb.p_search_cback(BTA_DM_DISC_CMPL_EVT, NULL);
+  BTA_DmProcessQueuedServiceDiscovery();
 }
 
 /*******************************************************************************
@@ -4879,6 +4895,25 @@ void bta_dm_close_gatt_conn(UNUSED_ATTR tBTA_DM_MSG* p_data) {
   bta_dm_search_cb.pending_close_bda = RawAddress::kEmpty;
   bta_dm_search_cb.conn_id = BTA_GATT_INVALID_CONN_ID;
 }
+
+/*******************************************************************************
+ *
+ * Function         bta_dm_queue_service_disc
+ *
+ * Description      This function queues the service discovery request info
+ *
+ * Parameters:
+ *
+ ******************************************************************************/
+void bta_dm_queue_service_disc(tBTA_DM_MSG* p_data) {
+  APPL_TRACE_DEBUG("bta_dm_queue_service_disc");
+
+  tBTA_DM_MSG* p_service_disc_data =
+       (tBTA_DM_MSG*)osi_malloc(sizeof(tBTA_DM_API_DISCOVER));
+  memcpy(p_service_disc_data, p_data, sizeof(tBTA_DM_API_DISCOVER));
+  bta_dm_search_cb.p_disc_queue.push(p_service_disc_data);
+}
+
 /*******************************************************************************
  *
  * Function         btm_dm_start_gatt_discovery

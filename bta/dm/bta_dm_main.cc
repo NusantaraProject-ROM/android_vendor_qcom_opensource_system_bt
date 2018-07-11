@@ -117,7 +117,8 @@ enum {
   BTA_DM_DISC_RMT_NAME,              /* 16 bta_dm_disc_rmt_name */
   BTA_DM_API_DI_DISCOVER,            /* 17 bta_dm_di_disc */
   BTA_DM_CLOSE_GATT_CONN,            /* 18 bta_dm_close_gatt_conn */
-  BTA_DM_SEARCH_NUM_ACTIONS          /* 19 */
+  BTA_DM_QUEUE_SVC_DISC,             /* 19 bta_dm_queue_service_disc */
+  BTA_DM_SEARCH_NUM_ACTIONS          /* 20 */
 };
 
 /* action function list */
@@ -142,7 +143,8 @@ const tBTA_DM_ACTION bta_dm_search_action[] = {
                                           */
     bta_dm_disc_rmt_name,              /* 16 BTA_DM_DISC_RMT_NAME */
     bta_dm_di_disc,                    /* 17 BTA_DM_API_DI_DISCOVER */
-    bta_dm_close_gatt_conn};
+    bta_dm_close_gatt_conn,
+    bta_dm_queue_service_disc          /* 19 BTA_DM_QUEUE_SVC_DISC*/};
 
 #define BTA_DM_SEARCH_IGNORE BTA_DM_SEARCH_NUM_ACTIONS
 /* state table information */
@@ -237,7 +239,7 @@ const uint8_t bta_dm_search_disc_active_st_table[][BTA_DM_SEARCH_NUM_COLS] = {
                       BTA_DM_DISCOVER_ACTIVE},
     /* API_SEARCH_CANCEL */ {BTA_DM_SEARCH_CANCEL_NOTIFY, BTA_DM_SEARCH_IGNORE,
                              BTA_DM_SEARCH_CANCELLING},
-    /* API_SEARCH_DISC */ {BTA_DM_SEARCH_IGNORE, BTA_DM_SEARCH_IGNORE,
+    /* API_SEARCH_DISC */ {BTA_DM_QUEUE_SVC_DISC, BTA_DM_SEARCH_IGNORE,
                            BTA_DM_DISCOVER_ACTIVE},
     /* INQUIRY_CMPL */ {BTA_DM_SEARCH_IGNORE, BTA_DM_SEARCH_IGNORE,
                         BTA_DM_DISCOVER_ACTIVE},

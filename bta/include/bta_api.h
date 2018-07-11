@@ -1836,4 +1836,17 @@ extern void BTA_VendorInit(void);
  ******************************************************************************/
 extern void BTA_VendorCleanup(void);
 
+/*******************************************************************************
+ *
+ * Function         BTA_DmProcessQueuedServiceDiscovery
+ *
+ * Description      This function processes queued service discovery
+ *
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+extern void BTA_DmProcessQueuedServiceDiscovery(void);
+
+
 #endif /* BTA_API_H */

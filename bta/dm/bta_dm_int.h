@@ -728,7 +728,7 @@ typedef struct {
   uint32_t ble_raw_used;
   alarm_t* gatt_close_timer; /* GATT channel close delay timer */
   RawAddress pending_close_bda; /* pending GATT channel remote device address */
-
+  std::queue<tBTA_DM_MSG *> p_disc_queue;
 } tBTA_DM_SEARCH_CB;
 
 /* DI control block */
@@ -925,4 +925,6 @@ extern void bta_dm_execute_callback(tBTA_DM_MSG* p_data);
 
 extern void bta_dm_remove_all_acl(tBTA_DM_MSG* p_data);
 extern void bta_dm_hci_raw_command(tBTA_DM_MSG *p_data);
+
+extern void bta_dm_queue_service_disc(tBTA_DM_MSG* p_data);
 #endif /* BTA_DM_INT_H */

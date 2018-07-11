@@ -1266,3 +1266,25 @@ void BTA_VendorCleanup(void) {
 
   if (cmn_ble_vsc_cb.adv_inst_max > 0) btm_ble_multi_adv_cleanup();
 }
+
+/*******************************************************************************
+ *
+ * Function         BTA_DmProcessQueuedServiceDiscovery
+ *
+ * Description      This function processes queued service discovery
+ *
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void BTA_DmProcessQueuedServiceDiscovery(void) {
+  APPL_TRACE_API("BTA_DmProcessQueuedServiceDiscovery");
+
+  if (!bta_dm_search_cb.p_disc_queue.empty()) {
+    APPL_TRACE_API("Processing queued service discovery");
+
+    tBTA_DM_MSG* p_data =(tBTA_DM_MSG*) bta_dm_search_cb.p_disc_queue.front();
+    bta_dm_search_cb.p_disc_queue.pop();
+    bta_sys_sendmsg(p_data);
+  }
+}
