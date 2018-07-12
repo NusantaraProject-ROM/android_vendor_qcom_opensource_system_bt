@@ -3169,6 +3169,9 @@ void btif_av_trigger_dual_handoff(bool handoff, RawAddress address) {
   btif_sm_state_t state = BTIF_AV_STATE_IDLE;
   BTIF_TRACE_DEBUG("%s()", __func__);
 
+  /*clear remote suspend flag unconditionally, which was set when one remote does suspend*/
+  btif_av_clear_remote_suspend_flag();
+
   /* Get the current playing device */
   index = btif_av_get_latest_playing_device_idx();
   other_idx = btif_av_get_other_connected_idx(index);
