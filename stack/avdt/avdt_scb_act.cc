@@ -38,6 +38,7 @@
 #include "bt_utils.h"
 #include "btu.h"
 #include "osi/include/osi.h"
+#include "stack/include/a2dp_sbc_constants.h"
 
 /* This table is used to lookup the callback event that matches a particular
  * state machine API request event.  Note that state machine API request
@@ -588,6 +589,7 @@ bool avdt_check_sep_state(tAVDT_SCB *p_scb) {
  ******************************************************************************/
 void avdt_scb_hdl_setconfig_cmd(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
   tAVDT_CFG* p_cfg;
+  tA2DP_CODEC_TYPE codec_type;
   AVDT_TRACE_WARNING("avdt_scb_hdl_setconfig_cmd: SCB in use: %d, Conn in progress: %d, avdt_check_sep_state: %d",
        p_scb->in_use, avdt_cb.conn_in_progress, avdt_check_sep_state(p_scb));
 
@@ -596,8 +598,11 @@ void avdt_scb_hdl_setconfig_cmd(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
     A2DP_DumpCodecInfo(p_scb->cs.cfg.codec_info);
     A2DP_DumpCodecInfo(p_data->msg.config_cmd.p_cfg->codec_info);
     p_cfg = p_data->msg.config_cmd.p_cfg;
-    if (A2DP_GetCodecType(p_scb->cs.cfg.codec_info) ==
-        A2DP_GetCodecType(p_cfg->codec_info)) {
+    codec_type = A2DP_GetCodecType(p_cfg->codec_info);
+    AVDT_TRACE_DEBUG("%s: Incoming codec_type: %x, min/max bitpool: %x/%x", __func__, codec_type,
+                       p_cfg->codec_info[A2DP_SBC_IE_MIN_BITPOOL_OFFSET],
+                       p_cfg->codec_info[A2DP_SBC_IE_MAX_BITPOOL_OFFSET]);
+    if (A2DP_GetCodecType(p_scb->cs.cfg.codec_info) == codec_type) {
       /* set sep as in use */
       p_scb->in_use = true;
 
@@ -605,6 +610,39 @@ void avdt_scb_hdl_setconfig_cmd(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
       p_scb->p_ccb = avdt_ccb_by_idx(p_data->msg.config_cmd.hdr.ccb_idx);
       avdt_set_scbs_busy(p_scb);
       p_scb->peer_seid = p_data->msg.config_cmd.int_seid;
+      if (codec_type == A2DP_MEDIA_CT_SBC) {
+        //minbitpool < 2, then set minbitpool = 2
+        if ((p_cfg->codec_info[A2DP_SBC_IE_MIN_BITPOOL_OFFSET]) < A2DP_SBC_IE_MIN_BITPOOL) {
+          p_cfg->codec_info[A2DP_SBC_IE_MIN_BITPOOL_OFFSET] = A2DP_SBC_IE_MIN_BITPOOL;
+          AVDT_TRACE_DEBUG("%s: Incoming connection set min bitpool: %x", __func__,
+                              p_cfg->codec_info[A2DP_SBC_IE_MIN_BITPOOL_OFFSET]);
+        }
+
+        //minbitpool > 250, then set minbitpool = 250
+        if ((p_cfg->codec_info[A2DP_SBC_IE_MIN_BITPOOL_OFFSET]) > A2DP_SBC_IE_MAX_BITPOOL) {
+          p_cfg->codec_info[A2DP_SBC_IE_MIN_BITPOOL_OFFSET] = A2DP_SBC_IE_MAX_BITPOOL;
+          AVDT_TRACE_DEBUG("%s: Incoming connection set min bitpool: %x", __func__,
+                              p_cfg->codec_info[A2DP_SBC_IE_MIN_BITPOOL_OFFSET]);
+        }
+
+        //maxbitpool > 250, then set minbitpool = 250
+        if ((p_cfg->codec_info[A2DP_SBC_IE_MAX_BITPOOL_OFFSET]) > A2DP_SBC_IE_MAX_BITPOOL) {
+          p_cfg->codec_info[A2DP_SBC_IE_MAX_BITPOOL_OFFSET] = A2DP_SBC_IE_MAX_BITPOOL;
+          AVDT_TRACE_DEBUG("%s: Incoming connection set max bitpool: %x", __func__,
+                              p_cfg->codec_info[A2DP_SBC_IE_MAX_BITPOOL_OFFSET]);
+        }
+
+        //minbitpool > maxbitpool, then set maxbitpool = minbitpool
+        if ((p_cfg->codec_info[A2DP_SBC_IE_MIN_BITPOOL_OFFSET]) >
+            (p_cfg->codec_info[A2DP_SBC_IE_MAX_BITPOOL_OFFSET])) {
+          p_cfg->codec_info[A2DP_SBC_IE_MAX_BITPOOL_OFFSET] =
+                              p_cfg->codec_info[A2DP_SBC_IE_MIN_BITPOOL_OFFSET];
+          AVDT_TRACE_DEBUG("%s: Incoming connection minbitpool set by remote exceeds"
+                           "maxbitpool value, So set maxbitbool to minbitpool: %x to %x",
+                           __func__, p_cfg->codec_info[A2DP_SBC_IE_MAX_BITPOOL_OFFSET],
+                                     p_cfg->codec_info[A2DP_SBC_IE_MIN_BITPOOL_OFFSET]);
+        }
+      }
       memcpy(&p_scb->req_cfg, p_cfg, sizeof(tAVDT_CFG));
       /* call app callback */
       /* handle of scb- which is same as sep handle of bta_av_cb.p_scb*/

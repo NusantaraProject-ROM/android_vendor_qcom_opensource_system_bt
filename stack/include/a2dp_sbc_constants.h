@@ -62,6 +62,9 @@
 #define A2DP_SBC_IE_MIN_BITPOOL 2
 #define A2DP_SBC_IE_MAX_BITPOOL 250
 
+#define A2DP_SBC_IE_MIN_BITPOOL_OFFSET 5
+#define A2DP_SBC_IE_MAX_BITPOOL_OFFSET 6
+
 /* for media payload header */
 #define A2DP_SBC_HDR_F_MSK 0x80
 #define A2DP_SBC_HDR_S_MSK 0x40
