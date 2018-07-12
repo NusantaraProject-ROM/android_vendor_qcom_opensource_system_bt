@@ -1808,10 +1808,12 @@ static void btif_dm_remote_service_record_evt(uint16_t event, char* p_param) {
       prop.val = (void*)&rec;
       prop.len = sizeof(rec);
 
-      /* disc_res.result is overloaded with SCN. Cannot check result */
-      p_data->disc_res.services &= ~BTA_USER_SERVICE_MASK;
-      /* TODO: Get the UUID as well */
-      rec.channel = p_data->disc_res.result - 3;
+      if (p_data->disc_res.services & BTA_USER_SERVICE_MASK) {
+        /* disc_res.result is overloaded with SCN. Cannot check result */
+        p_data->disc_res.services &= ~BTA_USER_SERVICE_MASK;
+        /* TODO: Get the UUID as well */
+        rec.channel = p_data->disc_res.result - 3;
+      }
       /* TODO: Need to get the service name using p_raw_data */
       rec.name[0] = 0;
 
