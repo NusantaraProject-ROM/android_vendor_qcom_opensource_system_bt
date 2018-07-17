@@ -90,12 +90,6 @@
 /* Invalid Chld command */
 #define BTA_AG_INVALID_CHLD 255
 
-/* clip type constants */
-#define BTA_AG_CLIP_TYPE_MIN 128
-#define BTA_AG_CLIP_TYPE_MAX 175
-#define BTA_AG_CLIP_TYPE_DEFAULT 129
-#define BTA_AG_CLIP_TYPE_VOIP 255
-
 #define COLON_IDX_4_VGSVGM 4
 
 /* Local events which will not trigger a higher layer callback */
@@ -1677,22 +1671,10 @@ void bta_ag_hfp_result(tBTA_AG_SCB* p_scb, tBTA_AG_API_RESULT* p_result) {
       /* tell sys to stop av if any */
       bta_sys_sco_use(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
 
-      /* store caller id string.
-       * append type info at the end.
-       * make sure a valid type info is passed.
-       * otherwise add 129 as default type */
-      if ((p_result->data.num < BTA_AG_CLIP_TYPE_MIN) ||
-          (p_result->data.num > BTA_AG_CLIP_TYPE_MAX)) {
-        if (p_result->data.num != BTA_AG_CLIP_TYPE_VOIP)
-          p_result->data.num = BTA_AG_CLIP_TYPE_DEFAULT;
-      }
-
-      APPL_TRACE_DEBUG("CLIP type :%d", p_result->data.num);
       p_scb->clip[0] = 0;
-      if (p_result->data.str[0] != 0)
-        snprintf(p_scb->clip, sizeof(p_scb->clip), "%s,%d", p_result->data.str,
-                 p_result->data.num);
-
+      if (p_result->data.str[0] != 0) {
+        snprintf(p_scb->clip, sizeof(p_scb->clip), "%s", p_result->data.str);
+      }
       /* send callsetup indicator */
       if (p_scb->post_sco == BTA_AG_POST_SCO_CALL_END) {
         /* Need to sent 2 callsetup IND's(Call End and Incoming call) after SCO
