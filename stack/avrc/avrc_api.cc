@@ -599,6 +599,7 @@ static uint8_t avrc_proc_far_msg(uint8_t handle, uint8_t label, uint8_t cr,
     p_rsp = avrc_proc_vendor_command(handle, label, *pp_pkt, p_msg);
     if (p_rsp) {
       AVCT_MsgReq(handle, label, AVCT_RSP, p_rsp);
+      osi_free_and_reset((void**)pp_pkt);
       drop_code = 3;
     } else if (p_msg->hdr.opcode == AVRC_OP_DROP) {
       drop_code = 1;
