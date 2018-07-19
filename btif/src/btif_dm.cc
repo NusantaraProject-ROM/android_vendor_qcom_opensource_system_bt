@@ -1592,11 +1592,15 @@ static void btif_dm_search_services_evt(uint16_t event, char* p_param) {
   BTIF_TRACE_EVENT("%s:  event = %d", __func__, event);
   switch (event) {
     case BTA_DM_DISC_RES_EVT: {
-      uint32_t i = 0;
+      uint32_t i = 0, j = 0;
       bt_property_t prop[2];
       int num_properties = 0;
       bt_status_t ret;
       bool is_tws_plus_device = false;
+      Uuid remote_uuids[BT_MAX_NUM_UUIDS];
+      Uuid missed_remote_uuids[BT_MAX_NUM_UUIDS];
+      uint8_t missing_uuids_len = 0;
+      bt_property_t remote_uuid_prop;
 
       RawAddress& bd_addr = p_data->disc_res.bd_addr;
 
@@ -1654,7 +1658,51 @@ static void btif_dm_search_services_evt(uint16_t event, char* p_param) {
         }
       }
 
-      if (p_data->disc_res.num_uuids != 0) {
+      // updates extra uuids which are discovered during
+      // new sdp search to existing uuid list present in conf file.
+      // If conf file has more UUIDs than the sdp search, it will
+      // update the conf file UUIDs as the final UUIDs
+      BTIF_STORAGE_FILL_PROPERTY(&remote_uuid_prop, BT_PROPERTY_UUIDS,
+                                 sizeof(remote_uuids), remote_uuids);
+      btif_storage_get_remote_device_property(&bd_addr,
+                                        &remote_uuid_prop);
+      if(remote_uuid_prop.len && p_data->disc_res.result == BTA_SUCCESS) {
+        // compare now
+        bool uuid_found = false;
+        uint8_t uuid_len = remote_uuid_prop.len / sizeof(Uuid);
+        for (i = 0; i < p_data->disc_res.num_uuids; i++) {
+          uuid_found = false;
+          Uuid* disc_uuid =  reinterpret_cast<Uuid*> (p_data->disc_res.p_uuid_list + i);
+          for (j = 0; j < uuid_len; j++) {
+            Uuid* base_uuid =  reinterpret_cast<Uuid*> (remote_uuid_prop.val) + j;
+            if(*disc_uuid == *base_uuid) {
+              uuid_found = true;
+              break;
+            }
+          }
+          if(!uuid_found) {
+            BTIF_TRACE_WARNING("%s:new uuid found ", __func__);
+            memcpy(&missed_remote_uuids[missing_uuids_len++], disc_uuid, sizeof(Uuid));
+          }
+        }
+
+        // add the missing uuids now
+        if(missing_uuids_len) {
+          BTIF_TRACE_WARNING("%s :missing_uuids_len = %d ", __func__, missing_uuids_len);
+          for (j = 0; j < missing_uuids_len &&
+             (unsigned long)remote_uuid_prop.len < BT_MAX_NUM_UUIDS * sizeof(Uuid); j++) {
+            memcpy(&remote_uuids[uuid_len + j], &missed_remote_uuids[j], sizeof(Uuid));
+            remote_uuid_prop.len += sizeof(Uuid);
+          }
+        }
+        prop[0].type = BT_PROPERTY_UUIDS;
+        prop[0].val = remote_uuids;
+        prop[0].len = remote_uuid_prop.len;
+        ret = btif_storage_set_remote_device_property(&bd_addr, &prop[0]);
+        ASSERTC(ret == BT_STATUS_SUCCESS, "storing remote services failed",
+                ret);
+        num_properties++;
+      } else if (p_data->disc_res.num_uuids != 0) {
         /* Also write this to the NVRAM */
         ret = btif_storage_set_remote_device_property(&bd_addr, &prop[0]);
         ASSERTC(ret == BT_STATUS_SUCCESS, "storing remote services failed",
