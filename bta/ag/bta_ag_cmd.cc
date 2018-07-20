@@ -1006,7 +1006,15 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
         bta_ag_send_ok(p_scb);
 
         /* if service level conn. not already open, now it's open */
-        bta_ag_svc_conn_open(p_scb, NULL);
+        if (!p_scb->svc_conn &&
+            !((p_scb->features & BTA_AG_FEAT_HF_IND) &&
+              (p_scb->peer_features & BTA_AG_PEER_FEAT_HF_IND) &&
+               p_scb->peer_version >= HFP_VERSION_1_7) ) {
+          APPL_TRACE_IMP("%s: remote is not HFP 1.7 and/or remote does not" \
+                         " support HF indicators, marking SLC as complete",
+                          __func__);
+          bta_ag_svc_conn_open(p_scb, NULL);
+        }
       } else {
         val.idx = bta_ag_parse_chld(p_scb, val.str);
 
@@ -1101,7 +1109,13 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
         */
         if (!p_scb->svc_conn &&
             !((p_scb->features & BTA_AG_FEAT_3WAY) &&
-              (p_scb->peer_features & BTA_AG_PEER_FEAT_3WAY))) {
+              (p_scb->peer_features & BTA_AG_PEER_FEAT_3WAY)) &&
+            !((p_scb->features & BTA_AG_FEAT_HF_IND) &&
+              (p_scb->peer_features & BTA_AG_PEER_FEAT_HF_IND) &&
+               p_scb->peer_version >= HFP_VERSION_1_7) ) {
+          APPL_TRACE_IMP("%s: remote is not HFP 1.7 and/or remote does not" \
+                         " support HF indicators and 3-way calling, marking"\
+                         " SLC as complete", __func__);
           bta_ag_svc_conn_open(p_scb, NULL);
         }
       } else {
