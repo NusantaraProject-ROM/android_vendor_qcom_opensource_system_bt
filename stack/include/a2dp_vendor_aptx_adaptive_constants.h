@@ -84,6 +84,6 @@
 #define QCOM_CODEC_APTX_ADAPTIVE_ID                (0xff)
 #define A2DP_APTX_ADAPTIVE_CHANNEL                 (0x0001)
 #define A2DP_APTX_ADAPTIVE_SAMPLERATE              (0x22)
-#define CHANNEL_MODE_BACK_CHANNEL_MASK             (0xE0)
+#define CHANNEL_MODE_BACK_CHANNEL_MASK             (0x1F000000)
 
 #endif  // A2DP_VENDOR_APTX_ADAPTIVE_CONSTANTS_H

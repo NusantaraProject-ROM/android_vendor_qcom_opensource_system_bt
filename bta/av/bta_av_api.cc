@@ -384,7 +384,6 @@ void BTA_AvUpdateMaxAVClient(uint8_t max_clients)
   tBTA_AV_MAX_CLIENT *p_buf;
 
   if ((p_buf = (tBTA_AV_MAX_CLIENT *) osi_malloc(sizeof(tBTA_AV_MAX_CLIENT))) != NULL) {
-    APPL_TRACE_DEBUG("%s: gghai: event: %d", __func__, BTA_AV_UPDATE_MAX_AV_CLIENTS_EVT);
     p_buf->hdr.event = BTA_AV_UPDATE_MAX_AV_CLIENTS_EVT;
     p_buf->max_clients = max_clients;
     bta_sys_sendmsg(p_buf);

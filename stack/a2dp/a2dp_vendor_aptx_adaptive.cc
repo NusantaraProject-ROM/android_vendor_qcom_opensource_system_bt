@@ -272,7 +272,7 @@ static tA2DP_STATUS A2DP_ParseInfoAptxAdaptive(tA2DP_APTX_ADAPTIVE_CIE* p_ie,
   p_ie->sampleRate = *p_codec_info & 0xF8;
   p_codec_info++;
 
-  p_ie->channelMode = *p_codec_info & 0x0F;
+  p_ie->channelMode = *p_codec_info & 0x1F;
   p_codec_info++;
   //p_ie->channelMode = *(p_codec_info ++);
   p_ie->ttp_ll_0 = *(p_codec_info ++);
@@ -1124,7 +1124,7 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
   LOG_ERROR(LOG_TAG, "setting codec_config_.codec_specific_4 to channelMode: %d", channelMode);
   // Store the channel mode in spare field
   codec_config_.codec_specific_4 &= (int64_t) CHANNEL_MODE_BACK_CHANNEL_MASK;
-  codec_config_.codec_specific_4 |= channelMode;
+  codec_config_.codec_specific_4 |= (int64_t) channelMode << 24;
 
   // Create a local copy of the peer codec capability/config, and the
   // result codec config.
