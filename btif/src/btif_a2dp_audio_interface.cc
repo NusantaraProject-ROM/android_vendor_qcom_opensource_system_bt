@@ -673,10 +673,11 @@ void btif_a2dp_audio_send_sink_latency()
   uint16_t sink_latency;
 
   if (isBAEnabled()) {
-      sink_latency = btif_get_ba_latency();
+    sink_latency = btif_get_ba_latency();
   }
   else {
-      sink_latency = btif_av_get_audio_delay();
+    int idx = btif_av_get_current_playing_dev_idx();
+    sink_latency = btif_av_get_audio_delay(idx);
   }
   LOG_INFO(LOG_TAG,"send_sink_latency = %d", sink_latency);
   Lock lock(mtxBtAudio);

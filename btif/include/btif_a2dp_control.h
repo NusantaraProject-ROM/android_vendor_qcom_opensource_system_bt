@@ -43,14 +43,18 @@ void btif_a2dp_control_log_bytes_read(uint32_t bytes_read);
 
 // Set the audio delay reported to the audio HAL in uints of 1/10ms.
 // |delay| is the audio delay to set.
-void btif_a2dp_control_set_audio_delay(uint16_t delay);
+// |index| is the remote device index
+void btif_a2dp_control_set_audio_delay(uint16_t delay, int index);
 
 // Reset the remote audio device's delay value and reset the counter that keeps
 // track of the number of audio bytes sent
-void btif_a2dp_control_reset_audio_delay(void);
+// |index| is the remote device index
+void btif_a2dp_control_reset_audio_delay(int index);
 
-// Get the audio delay reported to the audio HAL in uints of 1/10ms.
+// Get the audio delay reported to the audio HAL in uints of ms.
 // |delay| is the audio delay to send to Audio
-uint16_t btif_a2dp_control_get_audio_delay(void);
+// |index| is the remote device index
+uint16_t btif_a2dp_control_get_audio_delay(int index);
+
 void btif_a2dp_pending_cmds_reset(void);
 #endif /* BTIF_A2DP_CONTROL_H */

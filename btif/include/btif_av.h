@@ -436,21 +436,21 @@ int btif_av_get_current_playing_dev_idx();
  *
  * @param delay the delay to set in units of 1/10ms
  */
-void btif_av_set_audio_delay(uint16_t delay);
+void btif_av_set_audio_delay(uint16_t delay, tBTA_AV_HNDL hndl);
 
 /**
  * Reset the audio delay and count of audio bytes sent to zero.
  */
-void btif_av_reset_audio_delay(void);
+void btif_av_reset_audio_delay(tBTA_AV_HNDL hndl);
 
 /**
- * Function         btif_av_set_audio_delay
+ * Function         btif_av_get_audio_delay
  *
  * Description      Get the audio delay for the stream.
  *
  * Returns          uint16_t
  */
-uint16_t btif_av_get_audio_delay(void);
+uint16_t btif_av_get_audio_delay(int index);
 
 void initialize_audio_hidl();
 void deinit_audio_hal();

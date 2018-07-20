@@ -41,10 +41,11 @@
 #include "btif_a2dp_audio_interface.h"
 
 #define A2DP_DATA_READ_POLL_MS 10
+#define A2DP_NUM_STRS 2
 
 struct {
   uint64_t total_bytes_read = 0;
-  uint16_t audio_delay = 0;
+  uint16_t audio_delay[A2DP_NUM_STRS] = {0, 0};
   struct timespec timestamp = {};
 } delay_report_stats;
 
@@ -589,14 +590,15 @@ static void btif_a2dp_recv_ctrl_data(void) {
 
       case A2DP_CTRL_GET_PRESENTATION_POSITION: {
         btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+        int idx = btif_av_get_current_playing_dev_idx();
 
         APPL_TRACE_DEBUG("Delay Rpt: total bytes read = %d", delay_report_stats.total_bytes_read);
-        APPL_TRACE_DEBUG("Delay Rpt: delay = %d", delay_report_stats.audio_delay);
+        APPL_TRACE_DEBUG("Delay Rpt: delay = %d, index: %d", delay_report_stats.audio_delay[idx]);
         UIPC_Send(UIPC_CH_ID_AV_CTRL, 0,
                   (uint8_t*)&(delay_report_stats.total_bytes_read),
                   sizeof(uint64_t));
         UIPC_Send(UIPC_CH_ID_AV_CTRL, 0,
-                  (uint8_t*)&(delay_report_stats.audio_delay), sizeof(uint16_t));
+                  (uint8_t*)&(delay_report_stats.audio_delay[idx]), sizeof(uint16_t));
 
         uint32_t seconds = delay_report_stats.timestamp.tv_sec;
         UIPC_Send(UIPC_CH_ID_AV_CTRL, 0, (uint8_t*)&seconds, sizeof(seconds));
@@ -927,22 +929,25 @@ void btif_a2dp_control_log_bytes_read(uint32_t bytes_read) {
   clock_gettime(CLOCK_MONOTONIC, &delay_report_stats.timestamp);
 }
 
-void btif_a2dp_control_set_audio_delay(uint16_t delay) {
-  APPL_TRACE_DEBUG("%s: DELAY: %.1f ms", __func__, (float)delay / 10);
-  delay_report_stats.audio_delay = delay;
+void btif_a2dp_control_set_audio_delay(uint16_t delay, int index) {
+  APPL_TRACE_DEBUG("%s: DELAY: %.1f ms, index: %d", __func__, (float)delay / 10, index);
+  delay_report_stats.audio_delay[index] = delay;
 }
 
-void btif_a2dp_control_reset_audio_delay(void) {
+void btif_a2dp_control_reset_audio_delay(int index) {
   APPL_TRACE_DEBUG("%s", __func__);
-  delay_report_stats.audio_delay = 0;
+  delay_report_stats.audio_delay[index] = 0;
   delay_report_stats.total_bytes_read = 0;
   delay_report_stats.timestamp = {};
 }
 
 // For Split-A2DP
-uint16_t btif_a2dp_control_get_audio_delay(void) {
-  APPL_TRACE_DEBUG("%s: DELAY: %d ms", __func__, delay_report_stats.audio_delay);
-  return (delay_report_stats.audio_delay > 0) ? delay_report_stats.audio_delay : 0;
+uint16_t btif_a2dp_control_get_audio_delay(int index) {
+  // delay report is the audio delay from the remote headset receiving
+  // data to the headset playing sound in units of 1/10ms
+  uint16_t delay = delay_report_stats.audio_delay[index] / 10;
+  APPL_TRACE_DEBUG("%s: DELAY: %d ms, index: %d", __func__, delay, index);
+  return (delay > 0) ? delay : 0;
 }
 
 void btif_a2dp_pending_cmds_reset() {
