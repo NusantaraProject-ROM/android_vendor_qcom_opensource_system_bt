@@ -4560,6 +4560,10 @@ void btif_av_set_earbud_state(const RawAddress& address, uint8_t earbud_state) {
 void btif_av_set_earbud_role(const RawAddress& address, uint8_t earbud_role) {
   BTIF_TRACE_EVENT("btif_av_set_earbud_role = %d",earbud_role);
   int index = btif_av_idx_by_bdaddr(&(RawAddress&)address);
+  if (index == btif_max_av_clients) {
+    BTIF_TRACE_ERROR("%s: invalid index",__func__);
+    return;
+  }
   BTA_AVSetEarbudRole(earbud_role, btif_av_cb[index].bta_handle);
 }
 #endif

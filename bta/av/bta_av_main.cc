@@ -955,6 +955,10 @@ static void bta_av_api_set_tws_earbud_role(tBTA_AV_DATA * p_data)
 {
   APPL_TRACE_DEBUG("bta_av_api_set_earbud_role = %d",p_data->tws_set_earbud_role.chn_mode);
   tBTA_AV_SCB *p_scb = bta_av_hndl_to_scb(p_data->hdr.layer_specific);
+  if (p_scb == NULL) {
+    APPL_TRACE_ERROR("bta_av_api_set_tws_earbud_role: scb not found");
+    return;
+  }
   if (p_scb->started) {
     APPL_TRACE_ERROR("%:already streaming,not overwriting ch role",__func__);
     return;
@@ -967,6 +971,10 @@ static void bta_av_api_set_is_tws_device(tBTA_AV_DATA * p_data)
 {
   APPL_TRACE_DEBUG("bta_av_api_set_is_tws_device = %d", p_data->tws_set_device.is_tws_device);
   tBTA_AV_SCB *p_scb = bta_av_hndl_to_scb(p_data->hdr.layer_specific);
+  if (p_scb == NULL) {
+    APPL_TRACE_ERROR("bta_av_api_set_is_tws_device: scb not found");
+    return;
+  }
   p_scb->tws_device = p_data->tws_set_device.is_tws_device;
 }
 #endif
