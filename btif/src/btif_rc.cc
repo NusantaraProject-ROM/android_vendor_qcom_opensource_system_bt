@@ -2081,6 +2081,20 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
           pavrc_cmd->get_elem_attrs.num_attr,
           (btrc_media_attr_t*)pavrc_cmd->get_elem_attrs.attrs,
           BTRC_MAX_ELEM_ATTR_SIZE, element_attrs);
+      int ver = AVRC_REV_INVALID;
+      ver = sdp_get_stored_avrc_tg_version (rc_addr.address);
+      if ((!(p_dev->rc_features & BTA_AV_FEAT_CA)) ||
+              (ver < AVRC_REV_1_6) || (ver == AVRC_REV_INVALID))
+      {
+        BTIF_TRACE_DEBUG("remove cover art element if remote doesn't support avrcp1.6");
+        for(int index=0; index<num_attr; index++) {
+          if(element_attrs[index] == AVRC_MEDIA_ATTR_ID_COVER_ART) {
+            if(index < (num_attr-1))
+               element_attrs[index] = element_attrs[num_attr-1];
+            num_attr--;
+          }
+        }
+      }
       if (num_attr == 0) {
         BTIF_TRACE_ERROR(
             "%s: No valid attributes requested in GET_ELEMENT_ATTRIBUTES",
@@ -2088,15 +2102,6 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
         send_reject_response(p_dev->rc_handle, label, pavrc_cmd->pdu,
                              AVRC_STS_BAD_PARAM, pavrc_cmd->cmd.opcode);
         return;
-      }
-      int ver = AVRC_REV_INVALID;
-      ver = sdp_get_stored_avrc_tg_version (rc_addr.address);
-      if ((!(p_dev->rc_features & BTA_AV_FEAT_CA)) ||
-              (ver < AVRC_REV_1_6) || (ver == AVRC_REV_INVALID))
-      {
-          BTIF_TRACE_DEBUG("remove cover art element if remote doesn't support avrcp1.6");
-          if (num_attr == AVRC_MAX_NUM_MEDIA_ATTR_ID)
-              num_attr--;
       }
       fill_pdu_queue(IDX_GET_ELEMENT_ATTR_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
       HAL_CBACK(bt_rc_callbacks, get_element_attr_cb, num_attr, element_attrs,
@@ -2216,6 +2221,20 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
           pavrc_cmd->get_attrs.attr_count,
           (btrc_media_attr_t*)pavrc_cmd->get_attrs.p_attr_list,
           BTRC_MAX_ELEM_ATTR_SIZE, item_attrs);
+      int ver = AVRC_REV_INVALID;
+      ver = sdp_get_stored_avrc_tg_version (rc_addr.address);
+      if ((!(p_dev->rc_features & BTA_AV_FEAT_CA)) ||
+              (ver < AVRC_REV_1_6) || (ver == AVRC_REV_INVALID))
+      {
+        BTIF_TRACE_DEBUG("remove cover art element if remote doesn't support avrcp1.6");
+        for(int index=0; index<num_attr; index++) {
+          if(item_attrs[index] == AVRC_MEDIA_ATTR_ID_COVER_ART) {
+            if(index < (num_attr-1))
+               item_attrs[index] = item_attrs[num_attr-1];
+            num_attr--;
+          }
+        }
+      }
       if (num_attr == 0) {
         BTIF_TRACE_ERROR(
             "%s: No valid attributes requested in GET_ITEM_ATTRIBUTES",
@@ -2223,15 +2242,6 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
         send_reject_response(p_dev->rc_handle, label, pavrc_cmd->pdu,
                              AVRC_STS_BAD_PARAM, pavrc_cmd->cmd.opcode);
         return;
-      }
-      int ver = AVRC_REV_INVALID;
-      ver = sdp_get_stored_avrc_tg_version (rc_addr.address);
-      if ((!(p_dev->rc_features & BTA_AV_FEAT_CA)) ||
-              (ver < AVRC_REV_1_6) || (ver == AVRC_REV_INVALID))
-      {
-          BTIF_TRACE_DEBUG("remove cover art element if remote doesn't support avrcp1.6");
-          if (num_attr == AVRC_MAX_NUM_MEDIA_ATTR_ID)
-              num_attr--;
       }
       fill_pdu_queue(IDX_GET_ITEM_ATTR_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
       BTIF_TRACE_DEBUG("%s: GET_ITEM_ATTRIBUTES: num_attr: %d", __func__,
