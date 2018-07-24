@@ -3163,6 +3163,9 @@ void btm_sec_rmt_name_request_complete(const RawAddress* p_bd_addr,
         }
       }
       return;
+    } else if((p_bd_addr && (btm_cb.pairing_bda != *p_bd_addr)) &&
+             (p_dev_rec && (p_dev_rec->sec_state == BTM_SEC_STATE_GETTING_NAME))) {
+      BTM_TRACE_WARNING("%s: security in progress,continue next security procedure", __func__);
     } else {
       BTM_TRACE_WARNING("%s: wrong BDA, retry with pairing BDA", __func__);
       if (BTM_ReadRemoteDeviceName(btm_cb.pairing_bda, NULL,
