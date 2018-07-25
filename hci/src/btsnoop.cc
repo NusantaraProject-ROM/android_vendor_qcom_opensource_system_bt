@@ -43,6 +43,7 @@
 #include "osi/include/time.h"
 #include "stack_config.h"
 #include "l2c_api.h"
+#include <poll.h>
 
 // The number of of packets per btsnoop file before we rotate to the next
 // file. As of right now there are two snoop files that are rotated through.
@@ -92,7 +93,6 @@ static char* get_btsnoop_last_log_path(char* last_log_path, char* log_path);
 static void open_next_snoop_file();
 static void btsnoop_write_packet(packet_type_t type, uint8_t* packet,
                                  bool is_received, uint64_t timestamp_us);
-void btlogger_write(const void* data, size_t length);
 
 // Module lifecycle functions
 
@@ -301,6 +301,7 @@ static void btsnoop_write_packet(packet_type_t type, uint8_t* packet,
                                  bool is_received, uint64_t timestamp_us) {
   uint32_t length_he = 0;
   uint32_t flags = 0;
+  int status = 0;
 
   switch (type) {
     case kCommandPacket:
@@ -340,40 +341,30 @@ static void btsnoop_write_packet(packet_type_t type, uint8_t* packet,
     if (!sock_snoop_active && packet_counter > packets_per_file) {
       open_next_snoop_file();
     }
-    btlogger_write(&header, sizeof(btsnoop_header_t));
-    btlogger_write(packet, length_he - 1);
-  }
-}
 
-void btlogger_write(const void* data, size_t length) {
-  if (logfile_fd != -1) {
-    ssize_t ret;
-    OSI_NO_INTR(ret = send(logfile_fd, data, length, 0));
+    struct pollfd fds;
+    fds.fd = logfile_fd;
+    fds.events = POLLOUT;
+    iovec iov[] = {{&header, sizeof(btsnoop_header_t)},
+                   {reinterpret_cast<void*>(packet), length_he - 1}};
 
-    if (ret == -1 && errno == ECONNRESET) {
-      close(logfile_fd);
-      logfile_fd = -1;
-    } else if (ret == -1 && errno == EAGAIN) {
-      LOG_ERROR(LOG_TAG, "%s Dropping snoop pkts because of congestion", __func__);
+    status = poll(&fds, 1, 0);
+    if(status > 0 && fds.revents & POLLOUT) {
+      TEMP_FAILURE_RETRY(writev(logfile_fd, iov, 2));
+    } else if (status == 0) {
+      LOG_WARN(LOG_TAG, "%s poll() timeout", __func__);
+    } else if (status == -1) {
+      LOG_ERROR(LOG_TAG, "%s poll failed errno %d (%s)",
+                    __func__, errno, strerror(errno));
     }
   }
 }
 
 void update_snoop_fd(int snoop_fd) {
-  struct timeval socket_timeout;
   std::lock_guard<std::mutex> lock(btSnoopFd_mutex);
   LOG_INFO(LOG_TAG, "%s Now writing to server socket", __func__);
   sock_snoop_active = true;
   logfile_fd = snoop_fd;
-  socket_timeout.tv_sec = 0;
-  socket_timeout.tv_usec = 5000;
-
-  if(setsockopt(logfile_fd, SOL_SOCKET, SO_SNDTIMEO, &socket_timeout, sizeof(socket_timeout)) < 0) {
-    LOG_WARN(LOG_TAG, "%s fail to set socket option %s", __func__,
-           strerror(errno));
-    close(logfile_fd);
-    logfile_fd = -1;
-  }
 }
 
 static bool is_avdt_media_packet(const uint8_t *p, bool is_received) {
