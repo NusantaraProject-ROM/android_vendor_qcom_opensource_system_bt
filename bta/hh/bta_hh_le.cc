@@ -115,17 +115,26 @@ static void gatt_op_queue_clean(uint16_t conn_id) {
   gatt_op_queue_executing.erase(conn_id);
 }
 
+struct gatt_read_op_data {
+  GATT_READ_OP_CB cb;
+  void* cb_data;
+};
+
 static void gatt_execute_next_op(uint16_t conn_id);
-GATT_READ_OP_CB act_read_cb = NULL;
-void* act_read_cb_data = NULL;
 static void gatt_read_op_finished(uint16_t conn_id, tGATT_STATUS status,
                                   uint16_t handle, uint16_t len, uint8_t* value,
                                   void* data) {
-  GATT_READ_OP_CB tmp_cb = act_read_cb;
-  void* tmp_cb_data = act_read_cb_data;
+  gatt_read_op_data* tmp = NULL;
+  GATT_READ_OP_CB tmp_cb = NULL;
+  void* tmp_cb_data = NULL;
 
-  act_read_cb = NULL;
-  act_read_cb_data = NULL;
+  tmp = (gatt_read_op_data*)data;
+  if (tmp != NULL) {
+    tmp_cb = tmp->cb;
+    tmp_cb_data = tmp->cb_data;
+
+    osi_free(data);
+  }
 
   mark_as_not_executing(conn_id);
   gatt_execute_next_op(conn_id);
@@ -134,16 +143,28 @@ static void gatt_read_op_finished(uint16_t conn_id, tGATT_STATUS status,
     tmp_cb(conn_id, status, handle, len, value, tmp_cb_data);
     return;
   }
+
 }
 
-GATT_WRITE_OP_CB act_write_cb = NULL;
-void* act_write_cb_data = NULL;
+struct gatt_write_op_data {
+  GATT_WRITE_OP_CB cb;
+  void* cb_data;
+};
+
 static void gatt_write_op_finished(uint16_t conn_id, tGATT_STATUS status,
                                    uint16_t handle, void* data) {
-  GATT_WRITE_OP_CB tmp_cb = act_write_cb;
-  void* tmp_cb_data = act_write_cb_data;
-  act_write_cb = NULL;
-  act_write_cb_data = NULL;
+
+  gatt_write_op_data* tmp = NULL;
+  GATT_WRITE_OP_CB tmp_cb = NULL;
+  void* tmp_cb_data = NULL;
+
+  tmp = (gatt_write_op_data*)data;
+  if (tmp != NULL) {
+    tmp_cb = tmp->cb;
+    tmp_cb_data = tmp->cb_data;
+
+    osi_free(data);
+  }
 
   mark_as_not_executing(conn_id);
   gatt_execute_next_op(conn_id);
@@ -155,7 +176,7 @@ static void gatt_write_op_finished(uint16_t conn_id, tGATT_STATUS status,
 }
 
 static void gatt_execute_next_op(uint16_t conn_id) {
-  APPL_TRACE_DEBUG("%s:", __func__, conn_id);
+  APPL_TRACE_DEBUG("%s: conn_id %d", __func__, conn_id);
   if (gatt_op_queue.empty()) {
     APPL_TRACE_DEBUG("%s: op queue is empty", __func__);
     return;
@@ -179,31 +200,40 @@ static void gatt_execute_next_op(uint16_t conn_id) {
 
   gatt_operation& op = gatt_ops.front();
 
+
   if (op.type == GATT_READ_CHAR) {
-    act_read_cb = op.read_cb;
-    act_read_cb_data = op.read_cb_data;
+    gatt_read_op_data* data =
+         (gatt_read_op_data*)osi_malloc(sizeof(gatt_read_op_data));
+    data->cb = op.read_cb;
+    data->cb_data = op.read_cb_data;
     BTA_GATTC_ReadCharacteristic(conn_id, op.handle, BTA_GATT_AUTH_REQ_NONE,
-                                 gatt_read_op_finished, NULL);
+                                 gatt_read_op_finished, data);
 
   } else if (op.type == GATT_READ_DESC) {
-    act_read_cb = op.read_cb;
-    act_read_cb_data = op.read_cb_data;
+    gatt_read_op_data* data =
+         (gatt_read_op_data*)osi_malloc(sizeof(gatt_read_op_data));
+    data->cb = op.read_cb;
+    data->cb_data = op.read_cb_data;
     BTA_GATTC_ReadCharDescr(conn_id, op.handle, BTA_GATT_AUTH_REQ_NONE,
-                            gatt_read_op_finished, NULL);
+                            gatt_read_op_finished, data);
 
   } else if (op.type == GATT_WRITE_CHAR) {
-    act_write_cb = op.write_cb;
-    act_write_cb_data = op.write_cb_data;
+    gatt_write_op_data* data =
+        (gatt_write_op_data*)osi_malloc(sizeof(gatt_write_op_data));
+    data->cb = op.write_cb;
+    data->cb_data = op.write_cb_data;
     BTA_GATTC_WriteCharValue(conn_id, op.handle, op.write_type,
                              std::move(op.value), BTA_GATT_AUTH_REQ_NONE,
-                             gatt_write_op_finished, NULL);
+                             gatt_write_op_finished, data);
 
   } else if (op.type == GATT_WRITE_DESC) {
-    act_write_cb = op.write_cb;
-    act_write_cb_data = op.write_cb_data;
+    gatt_write_op_data* data =
+        (gatt_write_op_data*)osi_malloc(sizeof(gatt_write_op_data));
+    data->cb = op.write_cb;
+    data->cb_data = op.write_cb_data;
     BTA_GATTC_WriteCharDescr(conn_id, op.handle, std::move(op.value),
                              BTA_GATT_AUTH_REQ_NONE, gatt_write_op_finished,
-                             NULL);
+                             data);
   }
 
   gatt_ops.pop_front();
