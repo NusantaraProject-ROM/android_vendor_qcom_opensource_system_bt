@@ -3941,7 +3941,7 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
     }
   } else { //Single VSC
     unsigned char status = 0;
-    if (last_sent_vsc_cmd == VS_QHCI_A2DP_OFFLOAD_START) {
+    if (last_sent_vsc_cmd == VS_QHCI_A2DP_OFFLOAD_START && !p_scb->tws_device) {
       APPL_TRACE_DEBUG("%s: START single VSC already exchanged", __func__);
       (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
       return;
