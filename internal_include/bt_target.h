@@ -709,6 +709,10 @@
 #define L2CAP_MAX_RX_BUFFER 0x100000
 #endif
 
+#ifndef L2CAP_NO_IDLE_TIMEOUT
+#define L2CAP_NO_IDLE_TIMEOUT 0xFFFF
+#endif
+
 /******************************************************************************
  *
  * BLE
