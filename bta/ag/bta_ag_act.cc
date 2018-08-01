@@ -243,10 +243,11 @@ void bta_ag_start_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
       if (pending_bd_addr == p_scb->peer_addr)
       {
         APPL_TRACE_WARNING("%s: p_scb %x, abort outgoing conn, there is"\
-             " an incoming conn from dev %s", __func__,
-             p_scb, p_scb->peer_addr.ToString().c_str());
+             " an incoming conn from dev %s, moving to BTA_AG_INIT_ST state",
+              __func__, p_scb, p_scb->peer_addr.ToString().c_str());
         // send ourselves close event for clean up
         bta_ag_cback_open(p_scb, NULL, BTA_AG_FAIL_RFCOMM);
+        p_scb->state = 0;
         return;
       }
     }
@@ -363,11 +364,12 @@ void bta_ag_disc_fail(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
 
   /* reinitialize stuff */
 
+  /* call open cback w. failure */
+  bta_ag_cback_open(p_scb, NULL, BTA_AG_FAIL_SDP);
+
   /* clear the remote BD address */
   p_scb->peer_addr = RawAddress::kEmpty;
 
-  /* call open cback w. failure */
-  bta_ag_cback_open(p_scb, NULL, BTA_AG_FAIL_SDP);
 }
 
 /*******************************************************************************
@@ -1011,26 +1013,6 @@ void bta_ag_setcodec(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
   (*bta_ag_cb.p_cback)(BTA_AG_WBS_EVT, (tBTA_AG*)&val);
 }
 
-/*******************************************************************************
- *
- * Function         bta_ag_collision_timer_cback
- *
- * Description      AG connection collision timer callback
- *
- *
- * Returns          void
- *
- ******************************************************************************/
-static void bta_ag_collision_timer_cback(void* data) {
-  tBTA_AG_SCB* p_scb = (tBTA_AG_SCB*)data;
-
-  APPL_TRACE_DEBUG("%s", __func__);
-
-  /* If the peer haven't opened AG connection     */
-  /* we will restart opening process.             */
-  bta_ag_resume_open(p_scb);
-}
-
 void bta_ag_handle_collision(tBTA_AG_SCB* p_scb,
                              tBTA_AG_DATA* data) {
   /* Cancel SDP if it had been started. */
@@ -1039,13 +1021,15 @@ void bta_ag_handle_collision(tBTA_AG_SCB* p_scb,
     bta_ag_free_db(p_scb, NULL);
   }
 
+  APPL_TRACE_IMP("%s: sending RFCOMM fail event to btif for dev %s",
+                  __func__, p_scb->peer_addr.ToString().c_str())
+  bta_ag_cback_open(p_scb, NULL, BTA_AG_FAIL_RFCOMM);
+
   /* reopen registered servers */
   /* Collision may be detected before or after we close servers. */
   if (bta_ag_is_server_closed(p_scb)) {
     bta_ag_start_servers(p_scb, p_scb->reg_services);
   }
 
-  /* Start timer to han */
-  alarm_set_on_mloop(p_scb->collision_timer, BTA_AG_COLLISION_TIMEOUT_MS,
-                     bta_ag_collision_timer_cback, p_scb);
+  /* connection is retried from apps, no need for connection attempt again*/
 }
