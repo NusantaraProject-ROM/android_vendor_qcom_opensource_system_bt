@@ -1568,7 +1568,8 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
   uint8_t mask;
   tBTA_AV_LCB* p_lcb = NULL;
 
-  APPL_TRACE_IMP("%s:bta_av_sig_chg event: %d", __func__, event);
+  APPL_TRACE_IMP("%s:bta_av_sig_chg event: %d, conn_acp: %d", __func__, event,
+                 p_data->hdr.offset);
   if (event == AVDT_CONNECT_IND_EVT) {
     p_lcb = bta_av_find_lcb(p_data->str_msg.bd_addr, BTA_AV_LCB_FIND);
     if (!p_lcb) {
@@ -1605,6 +1606,13 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
             APPL_TRACE_DEBUG("SCB in use %d", xx);
             continue;
           }
+#if (TWS_ENABLED == TRUE)
+          else if ((p_data->hdr.offset == AVDT_INT) &&
+              (p_cb->p_scb[xx]->state == BTA_AV_INIT_SST)) {
+            APPL_TRACE_DEBUG("Invalid SCB %d", xx);
+            continue;
+          }
+#endif
           APPL_TRACE_DEBUG("Found a free p_lcb : 0x%x", xx);
           p_lcb = &p_cb->lcb[xx];
           p_lcb->lidx = xx + 1;
