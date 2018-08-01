@@ -419,6 +419,9 @@ static void bta_ag_send_ind(tBTA_AG_SCB* p_scb, uint16_t id, uint16_t value,
     utl_itoa(value, p);
     bta_ag_send_result(p_scb, BTA_AG_IND_RES, str, 0);
   }
+
+  APPL_TRACE_IMP("%s: p_scb->call_ind %x, p_scb->callsetup_ind %x, p_scb->callheld_ind %x",
+              __func__,  p_scb->call_ind, p_scb->callsetup_ind, p_scb->callheld_ind);
 }
 
 /*******************************************************************************
@@ -634,10 +637,23 @@ void bta_ag_send_call_inds(tBTA_AG_SCB* p_scb, tBTA_AG_RES result) {
     call = p_scb->call_ind;
   }
 
-/* if res value equal to BTA_AG_OUT_CALL_CONN_RES, always send indicator,
+  if ( result == BTA_AG_IN_CALL_CONN_RES)
+    APPL_TRACE_IMP("%s: BTA_AG_IN_CALL_CONN_RES, call %x, callsetup %x, call held %x, p_scb->callsetup_ind %x",
+     __func__, call, callsetup, p_scb->callheld_ind, p_scb->callsetup_ind );
+
+  if ( result == BTA_AG_OUT_CALL_CONN_RES)
+    APPL_TRACE_IMP("%s: BTA_AG_OUT_CALL_CONN_RES, call %x, callsetup %x, call held %x, p_scb->callsetup_ind %x",
+     __func__, call, callsetup, p_scb->callheld_ind, p_scb->callsetup_ind );
+
+/* if res value equal to BTA_AG_OUT_CALL_CONN_RES when held call is there, always send indicator.
     otherwise, send indicator function tracks if the values have actually changed*/
-  if (result == BTA_AG_IN_CALL_CONN_RES || result == BTA_AG_OUT_CALL_CONN_RES)
+  if ( (result == BTA_AG_IN_CALL_CONN_RES || result == BTA_AG_OUT_CALL_CONN_RES) &&
+       (p_scb->callsetup_ind == 3 || p_scb->callsetup_ind == 1) &&
+       callsetup == 0 &&
+       p_scb->callheld_ind == 2) {
+    APPL_TRACE_IMP("%s, forcing the call update", __func__);
     bta_ag_send_ind(p_scb, BTA_AG_IND_CALL, call, true);
+  }
   else
     bta_ag_send_ind(p_scb, BTA_AG_IND_CALL, call, false);
   bta_ag_send_ind(p_scb, BTA_AG_IND_CALLSETUP, callsetup, false);
@@ -1737,8 +1753,8 @@ void bta_ag_hfp_result(tBTA_AG_SCB* p_scb, tBTA_AG_API_RESULT* p_result) {
       p_scb->roam_ind = p_result->data.str[8] - '0';
       p_scb->battchg_ind = p_result->data.str[10] - '0';
       p_scb->callheld_ind = p_result->data.str[12] - '0';
-      APPL_TRACE_DEBUG("cind call:%d callsetup:%d", p_scb->call_ind,
-                       p_scb->callsetup_ind);
+      APPL_TRACE_IMP("cind call:%d callsetup:%d, callheld:%d", p_scb->call_ind,
+                       p_scb->callsetup_ind, p_scb->callheld_ind);
 
       bta_ag_send_result(p_scb, p_result->result, p_result->data.str, 0);
       bta_ag_send_ok(p_scb);
