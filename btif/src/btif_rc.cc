@@ -6583,8 +6583,9 @@ static bt_status_t send_passthrough_cmd(RawAddress* bd_addr, uint8_t key_code,
  *
  ********************************************************************/
 static bt_status_t is_device_active_in_handoff(RawAddress *bd_addr) {
-  RawAddress playing_device;
+  RawAddress playing_device, av_addr;
   uint16_t connected_devices, playing_devices;
+  int av_index;
 
   btif_rc_device_cb_t* p_dev = btif_rc_get_device_by_bda(bd_addr);
   if (p_dev == NULL) {
@@ -6594,9 +6595,20 @@ static bt_status_t is_device_active_in_handoff(RawAddress *bd_addr) {
 
   connected_devices = btif_av_get_num_connected_devices();
   playing_devices = btif_av_get_num_playing_devices();
+  av_index = btif_av_get_current_playing_dev_idx();
+  av_addr = btif_av_get_addr_by_index(av_index);
+  BTIF_TRACE_DEBUG("%s: Current AV Device Index: %d and address: %s:",
+                       __func__, av_index, av_addr.ToString().c_str());
 
-  if ((connected_devices < btif_max_rc_clients) || (playing_devices > 1))
-    return BT_STATUS_SUCCESS;
+  if (connected_devices < btif_max_rc_clients) {
+    if (!btif_av_is_device_connected(*bd_addr)) {
+       BTIF_TRACE_ERROR("%s: AV is not connected for the device", __func__);
+       return BT_STATUS_FAIL;
+    } else if ((btif_av_is_device_connected(*bd_addr)) && (*bd_addr == av_addr)) {
+       BTIF_TRACE_DEBUG("%s: Matched AV connected and streaming device.", __func__);
+       return BT_STATUS_SUCCESS;
+    }
+  }
 
   if ((connected_devices > 1) && (playing_devices == 1)) {
     /* One playing device, check the active device */
