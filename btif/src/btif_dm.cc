@@ -3577,6 +3577,16 @@ void btif_dm_on_disable() {
   }
 }
 
+void btif_dm_bredr_disable() {
+  /* Cleanup static variables.*/
+  num_active_br_edr_links = 0;
+
+  /* cancel any pending pairing requests */
+  if (pairing_cb.state == BT_BOND_STATE_BONDING) {
+    BTIF_TRACE_DEBUG("%s: Cancel pending pairing request", __func__);
+    btif_dm_cancel_bond(&pairing_cb.bd_addr);
+  }
+}
 /*******************************************************************************
  *
  * Function         btif_dm_read_energy_info
