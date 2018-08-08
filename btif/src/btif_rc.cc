@@ -1985,7 +1985,7 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
     {
         btrc_player_attr_t player_attr[BTRC_MAX_ELEM_ATTR_SIZE];
         uint8_t player_attr_num;
-        BTIF_TRACE_DEBUG("PLAYER_APP_VALUE PDU 0x13 = %d",pavrc_cmd->get_cur_app_val.num_attr);
+        BTIF_TRACE_DEBUG("PLAYER_APP_VALUE PDU 0x13 = %d ",pavrc_cmd->get_cur_app_val.num_attr);
         if ((pavrc_cmd->get_cur_app_val.num_attr == 0) ||
               (pavrc_cmd->get_cur_app_val.num_attr > BTRC_MAX_ELEM_ATTR_SIZE))
         {
@@ -2157,11 +2157,6 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
 
     case AVRC_PDU_SET_ADDRESSED_PLAYER: {
       fill_pdu_queue(IDX_SET_ADDR_PLAYER_RSP, ctype, label, true, p_dev, pavrc_cmd->pdu);
-      if (!bluetooth::headset::btif_hf_is_call_vr_idle()) {
-          BTIF_TRACE_EVENT(" %s() call active and setbrowsed player called, reject ", __func__);
-          set_addressed_player_rsp(&rc_addr, (btrc_status_t)ERR_PLAYER_NOT_ADDRESED);
-          return;
-      }
       HAL_CBACK(bt_rc_callbacks, set_addressed_player_cb,
                 pavrc_cmd->addr_player.player_id, &rc_addr);
     } break;
