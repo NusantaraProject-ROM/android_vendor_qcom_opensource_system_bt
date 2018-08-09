@@ -524,6 +524,8 @@ void btm_accept_sco_link(uint16_t sco_inx, enh_esco_params_t* p_setup,
 
   btm_esco_conn_rsp(sco_inx, HCI_SUCCESS, p_sco->esco.data.bd_addr, p_setup);
 #else
+  BTM_TRACE_WARNING("%s: rejecting SCO since BTM_MAX_SCO_LINKS <= 0, sco_inx %x",
+         __func__, sco_inx);
   btm_reject_sco_link(sco_inx);
 #endif
 }
@@ -851,6 +853,13 @@ void btm_sco_conn_req(const RawAddress& bda, DEV_CLASS dev_class,
      * to return accept sco to avoid race conditon for sco creation
      */
     int rem_bd_matches = p->rem_bd_known && p->esco.data.bd_addr == bda;
+
+    /* log it as WARNING so that it gets printed always*/
+    BTM_TRACE_WARNING("%s: xx %x, p->rem_bd_known %x, rem_bd_matches %x, "\
+                    "p->esco.data.bd_addr %s, bda %s, p->state %x", __func__,
+           xx, p->rem_bd_known, rem_bd_matches, p->esco.data.bd_addr.ToString().c_str(),
+           bda.ToString().c_str(), p->state);
+
     if (((p->state == SCO_ST_CONNECTING) && rem_bd_matches) ||
         ((p->state == SCO_ST_LISTENING) &&
          (rem_bd_matches || !p->rem_bd_known))) {
@@ -872,6 +881,8 @@ void btm_sco_conn_req(const RawAddress& bda, DEV_CLASS dev_class,
             ||
             (link_type == BTM_LINK_TYPE_SCO &&
              !(p_sco->def_esco_parms.packet_types & BTM_SCO_LINK_ONLY_MASK))) {
+          BTM_TRACE_WARNING("%s: eSCO link requested with SCO packets, no call " \
+                 " back registered. rejecting xSCO", __func__);
           btm_esco_conn_rsp(xx, HCI_ERR_HOST_REJECT_RESOURCES, bda, NULL);
         } else /* Accept the request */
         {
