@@ -1128,17 +1128,17 @@ static ssize_t out_write(struct audio_stream_out* stream, const void* buffer,
             !strcmp(a2dp_hal_imp, "true")) {
       sent = bytes;
       ERROR("ignore data write failure");
-    } else {
-      skt_disconnect(out->common.audio_fd);
-      out->common.audio_fd = AUDIO_SKT_DISCONNECTED;
-      if ((out->common.state != AUDIO_A2DP_STATE_SUSPENDED) &&
-              (out->common.state != AUDIO_A2DP_STATE_STOPPING)) {
-        out->common.state = AUDIO_A2DP_STATE_STOPPED;
-      } else {
-        ERROR("write failed : stream suspended, avoid resetting state");
-      }
-      goto finish;
     }
+
+    skt_disconnect(out->common.audio_fd);
+    out->common.audio_fd = AUDIO_SKT_DISCONNECTED;
+    if ((out->common.state != AUDIO_A2DP_STATE_SUSPENDED) &&
+            (out->common.state != AUDIO_A2DP_STATE_STOPPING)) {
+      out->common.state = AUDIO_A2DP_STATE_STOPPED;
+    } else {
+      ERROR("write failed : stream suspended, avoid resetting state");
+    }
+    goto finish;
   }
 
 finish:;
