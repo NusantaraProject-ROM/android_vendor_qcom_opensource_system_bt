@@ -956,6 +956,8 @@ extern void AVDT_UpdateMaxAvClients(uint8_t num_clients);
 extern uint16_t AVDT_SendReport(uint8_t handle, AVDT_REPORT_TYPE type,
                                 tAVDT_REPORT_DATA* p_data);
 
+extern void AVDT_UpdateLinkPktType(uint8_t hdl, uint16_t packet_type);
+
 /******************************************************************************
  *
  * Function         AVDT_SetTraceLevel

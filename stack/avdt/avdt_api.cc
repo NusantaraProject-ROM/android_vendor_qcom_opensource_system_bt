@@ -34,6 +34,8 @@
 #include "bt_target.h"
 #include "bt_types.h"
 #include "btm_api.h"
+#include "btm_int.h"
+#include "btm_int_types.h"
 #include "btu.h"
 #include "l2c_api.h"
 #include "stack/include/a2dp_codec_api.h"
@@ -1305,4 +1307,18 @@ uint8_t AVDT_SetTraceLevel(uint8_t new_level) {
  ******************************************************************************/
 void AVDT_UpdateMaxAvClients(uint8_t max_clients) {
     avdt_scb_set_max_av_client(max_clients);
+}
+
+/*******************************************************************************
+ *
+ * Function         AVDT_UpdateLinkPktType
+ *
+ * Description      Sends command to change packet type for a link
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void AVDT_UpdateLinkPktType(uint8_t hdl, uint16_t packet_type) {
+    tACL_CONN* p_acl_cb = btm_bda_to_acl(avdt_scb_by_hdl(hdl)->p_ccb->peer_addr, BT_TRANSPORT_BR_EDR);
+    btm_set_packet_types(p_acl_cb, packet_type);
 }

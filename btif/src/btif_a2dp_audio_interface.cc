@@ -125,6 +125,7 @@ static void btif_a2dp_audio_send_mcast_status();
 static void btif_a2dp_audio_send_num_connected_devices();
 static void btif_a2dp_audio_send_connection_status();
 static void btif_a2dp_audio_send_sink_latency();
+void btif_a2dp_update_sink_latency_change();
 extern int btif_max_av_clients;
 extern bool enc_update_in_progress;
 extern tBTA_AV_HNDL btif_av_get_av_hdl_from_idx(int idx);
@@ -685,6 +686,10 @@ void btif_a2dp_audio_send_sink_latency()
     auto ret = btAudio->a2dp_on_get_sink_latency(sink_latency);
     if (!ret.isOk()) LOG_ERROR(LOG_TAG,"server died");
   }
+}
+
+void btif_a2dp_update_sink_latency_change() {
+  btif_a2dp_audio_send_sink_latency();
 }
 
 void on_hidl_server_died() {

@@ -39,6 +39,9 @@
 #define SOFT_HANDOFF 1
 #define RECONFIG_A2DP_PARAM 2
 
+#define APTX_HQ_LATENCY 200
+#define APTX_LL_LATENCY 70
+
 /*******************************************************************************
  *  Type definitions for callback functions
  ******************************************************************************/

@@ -2442,6 +2442,7 @@ void bta_av_str_stopped(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   bool sus_evt = true;
   BT_HDR* p_buf;
   uint8_t policy = HCI_ENABLE_SNIFF_MODE;
+  char *codec_name = (char *)A2DP_CodecName(p_scb->cfg.codec_info);
 
   APPL_TRACE_ERROR("%s: audio_open_cnt=%d, p_data %p", __func__,
                    bta_av_cb.audio_open_cnt, p_data);
@@ -2529,6 +2530,10 @@ void bta_av_str_stopped(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
       bta_av_data.suspend = suspend_rsp;
       (*bta_av_cb.p_cback)(BTA_AV_STOP_EVT, &bta_av_data);
     }
+  }
+  if(strstr(codec_name, "aptX") != NULL) {
+    APPL_TRACE_WARNING("%s: Removing packet type limit for aptX codec stream stop", __func__);
+    AVDT_UpdateLinkPktType(p_scb->avdt_handle, btm_cb.btm_acl_pkt_types_supported);
   }
 }
 
@@ -2845,6 +2850,7 @@ void bta_av_start_ok(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   BT_HDR hdr;
   uint8_t policy = HCI_ENABLE_SNIFF_MODE;
   uint8_t cur_role = BTM_ROLE_UNDEFINED;
+  char *codec_name = (char *)A2DP_CodecName(p_scb->cfg.codec_info);
 
   APPL_TRACE_DEBUG("%s: wait:x%x, role:x%x", __func__, p_scb->wait,
                    p_scb->role);
@@ -2886,6 +2892,12 @@ void bta_av_start_ok(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
       (*bta_av_cb.p_cback)(BTA_AV_START_EVT, &bta_av_data);
       return;
     }
+  }
+
+  if(strstr(codec_name, "aptX") != NULL) {
+    APPL_TRACE_WARNING("%s: Changing packet type for aptX family codec stream", __func__);
+    AVDT_UpdateLinkPktType(p_scb->avdt_handle, (btm_cb.btm_acl_pkt_types_supported |
+                HCI_PKT_TYPES_MASK_NO_3_DH1 | HCI_PKT_TYPES_MASK_NO_3_DH3 | HCI_PKT_TYPES_MASK_NO_3_DH5));
   }
 
   if (!bta_av_link_role_ok(p_scb, A2DP_SET_ONE_BIT))
