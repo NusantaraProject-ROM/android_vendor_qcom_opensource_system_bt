@@ -522,7 +522,7 @@ typedef union {
 
 /* AV callback */
 typedef void(tBTA_AV_CBACK)(tBTA_AV_EVT event, tBTA_AV* p_data);
-typedef void(tBTA_AV_SINK_DATA_CBACK)(tBTA_AV_EVT event, tBTA_AV_MEDIA* p_data);
+typedef void(tBTA_AV_SINK_DATA_CBACK)(tBTA_AV_EVT event, tBTA_AV_MEDIA* p_data, RawAddress bd_addr);
 
 /* type for stream state machine action functions */
 typedef void (*tBTA_AV_ACT)(void* p_cb, void* p_data);

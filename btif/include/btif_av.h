@@ -66,6 +66,7 @@ typedef enum {
   BTIF_AV_SETUP_CODEC_REQ_EVT,
   BTIF_AV_TRIGGER_HANDOFF_REQ_EVT,
   BTIF_AV_ENCODER_MODE_CHANGED_EVT,
+  BTIF_AV_SINK_QUICK_HANDOFF_EVT,
 } btif_av_sm_event_t;
 
 /*******************************************************************************
@@ -503,5 +504,37 @@ RawAddress btif_av_get_addr_by_index(int idx);
 ** Returns          int64_t
 *******************************************************************************/
 int64_t btif_get_average_delay();
+
+/*******************************************************************************
+**
+** Function         btif_is_a2dp_sink_handoff_required
+**
+** Description      To check if there is need for Soft-Handoff in A2DP Sink.
+**
+** Returns          bool
+*******************************************************************************/
+bool btif_is_a2dp_sink_handoff_required(int idx);
+
+/*******************************************************************************
+**
+** Function         btif_initiate_sink_handoff
+**
+** Description      Intiates operations required to handle Soft-Handoff
+**
+** Returns          void
+*******************************************************************************/
+void btif_initiate_sink_handoff(int idx, bool audio_state_changed);
+
+/*******************************************************************************
+**
+** Function         btif_get_max_allowable_sink_connections
+**
+** Description      Get maximum number of supported Sink Connections
+**                  Currently, Default:2, Max:2
+**                  TODO: Q: Range:{1,5} Deafault:3 Max:5
+**
+** Returns          void
+*******************************************************************************/
+int btif_get_max_allowable_sink_connections();
 
 #endif /* BTIF_AV_H */

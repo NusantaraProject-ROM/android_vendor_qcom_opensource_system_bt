@@ -85,7 +85,8 @@ static void queue_int_add(connect_node_t* p_param) {
        node != list_end(connect_queue); node = list_next(node)) {
     if (((connect_node_t*)list_node(node))->uuid == p_param->uuid) {
       if (p_param->uuid == UUID_SERVCLASS_AUDIO_SOURCE ||
-          p_param->uuid == UUID_SERVCLASS_AG_HANDSFREE) {
+          p_param->uuid == UUID_SERVCLASS_AG_HANDSFREE ||
+          p_param->uuid == UUID_SERVCLASS_AUDIO_SINK) {
           counter++;
           LOG_INFO(LOG_TAG, "%s add  connect request for uuid: %04x",
                __func__, counter);

@@ -322,6 +322,9 @@ static bool isShoMcastEnabled = false;
 static void sleep_ms(period_ms_t timeout_ms);
 static bt_status_t set_addressed_player_rsp(RawAddress* bd_addr,
                                             btrc_status_t rsp_status);
+extern void btif_sink_ho_through_avrcp_pback_status(RawAddress bd_addr);
+extern void btif_av_set_remote_playing_state(int index, bool playing_state);
+extern bool btif_device_in_sink_role();
 
 /* Response status code - Unknown Error - this is changed to "reserved" */
 #define BTIF_STS_GEN_ERROR 0x06
@@ -1283,6 +1286,13 @@ void handle_rc_passthrough_rsp(tBTA_AV_REMOTE_RSP* p_remote_rsp) {
       return;
   }
   release_transaction(p_remote_rsp->label, idx);
+  int av_index = btif_av_idx_by_bdaddr(&rc_addr);
+  int av_cur_index = btif_av_get_current_playing_dev_idx();
+  if (p_remote_rsp->rc_id == AVRC_ID_PAUSE && p_remote_rsp->key_state == AVRC_STATE_RELEASE
+      && av_index != av_cur_index) {
+    BTIF_TRACE_DEBUG("%s: passthrough PAUSED response for released key event", __func__);
+    btif_av_set_remote_playing_state(av_index, false);
+  }
   if (bt_rc_ctrl_callbacks != NULL) {
     HAL_CBACK(bt_rc_ctrl_callbacks, passthrough_rsp_cb, &rc_addr,
               p_remote_rsp->rc_id, p_remote_rsp->key_state);
@@ -2551,6 +2561,8 @@ static bt_status_t init_ctrl(btrc_ctrl_callbacks_t* callbacks) {
   if (bt_rc_ctrl_callbacks) return BT_STATUS_DONE;
 
   bt_rc_ctrl_callbacks = callbacks;
+  if (btif_device_in_sink_role())
+    btif_max_rc_clients = btif_get_max_allowable_sink_connections();
   if (btif_rc_cb.rc_multi_cb != NULL) {
     osi_free(btif_rc_cb.rc_multi_cb);
     btif_rc_cb.rc_multi_cb = NULL;
@@ -4738,6 +4750,7 @@ static void handle_notification_response(tBTA_AV_META_MSG* pmeta_msg,
          * if the play state is playing.
          */
         if (p_rsp->param.play_status == AVRC_PLAYSTATE_PLAYING) {
+          btif_sink_ho_through_avrcp_pback_status(rc_addr);
           rc_start_play_status_timer(p_dev);
           get_element_attribute_cmd(AVRC_MAX_NUM_MEDIA_ATTR_ID, attr_list,
                                     p_dev);
@@ -6694,6 +6707,13 @@ static bt_status_t send_passthrough_cmd(RawAddress* bd_addr, uint8_t key_code,
     BTIF_TRACE_DEBUG("%s: feature not supported", __func__);
   }
   return (bt_status_t)status;
+}
+
+bt_status_t send_av_passthrough_cmd(RawAddress* bd_addr, uint8_t key_code,
+                                        uint8_t key_state) {
+    BTIF_TRACE_DEBUG("%s", __func__);
+    send_passthrough_cmd(bd_addr, key_code, key_state);
+    return BT_STATUS_SUCCESS;
 }
 
 /**********************************************************************
