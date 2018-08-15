@@ -188,7 +188,7 @@ void gatt_enc_cmpl_cback(const RawAddress* bd_addr, tBT_TRANSPORT transport,
   gatt_sec_check_complete(status, p_clcb, p_tcb->sec_act);
 
   /* start all other pending operation in queue */
-  while (!p_tcb->pending_enc_clcb.empty()) {
+  for (size_t count = p_tcb->pending_enc_clcb.size(); count > 0; count--) {
     tGATT_CLCB* p_clcb = p_tcb->pending_enc_clcb.front();
     p_tcb->pending_enc_clcb.pop();
     gatt_security_check_start(p_clcb);
@@ -223,7 +223,7 @@ void gatt_notify_enc_cmpl(const RawAddress& bd_addr) {
   if (gatt_get_sec_act(p_tcb) == GATT_SEC_ENC_PENDING) {
     gatt_set_sec_act(p_tcb, GATT_SEC_NONE);
 
-    while (!p_tcb->pending_enc_clcb.empty()) {
+    for (size_t count = p_tcb->pending_enc_clcb.size(); count > 0; count--) {
       tGATT_CLCB* p_clcb = p_tcb->pending_enc_clcb.front();
       p_tcb->pending_enc_clcb.pop();
       gatt_security_check_start(p_clcb);
