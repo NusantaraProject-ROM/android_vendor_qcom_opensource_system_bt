@@ -167,38 +167,41 @@ static bt_status_t btif_in_fetch_bonded_device(const char* bdstr, int *dev_type)
 
 static bool btif_has_ble_keys(const char* bdstr);
 
+static bool prop_upd(const RawAddress* remote_bd_addr, bt_property_t *prop);
 /*******************************************************************************
  *  Static functions
  ******************************************************************************/
-
-static int prop2cfg(const RawAddress* remote_bd_addr, bt_property_t* prop) {
+static bool prop_upd(const RawAddress* remote_bd_addr, bt_property_t *prop)
+{
   std::string addrstr;
   const char* bdstr = addrstr.c_str();
   int name_length = 0;
-  int dev_type = BT_DEVICE_TYPE_BREDR;
+  char value[1024];
+  bool ret = true;
 
-  if (remote_bd_addr) {
+  if(!prop || prop->len <= 0 || prop->len > (int)sizeof(value) - 1) {
+    BTIF_TRACE_ERROR("%s: prop is null or length of prop is invalid", __func__);
+    return false;
+  }
+
+  if(remote_bd_addr) {
     addrstr = remote_bd_addr->ToString();
     bdstr = addrstr.c_str();
   }
-  BTIF_TRACE_DEBUG("in, bd addr:%s, prop type:%d, len:%d", bdstr, prop->type,
-                   prop->len);
-  char value[1024];
-  if (prop->len <= 0 || prop->len > (int)sizeof(value) - 1) {
-    BTIF_TRACE_ERROR("property type:%d, len:%d is invalid", prop->type,
-                     prop->len);
-    return false;
-  }
-  switch (prop->type) {
+
+  BTIF_TRACE_DEBUG("%s: in, bd addr:%s, prop type:%d, len:%d", __func__, bdstr, prop->type,
+              prop->len);
+
+  switch(prop->type) {
     case BT_PROPERTY_REMOTE_DEVICE_TIMESTAMP:
       btif_config_set_int(bdstr, BTIF_STORAGE_PATH_REMOTE_DEVTIME,
-                          (int)time(NULL));
+                  (int)time(NULL));
       break;
     case BT_PROPERTY_BDNAME:
       name_length = prop->len > BTM_MAX_LOC_BD_NAME_LEN ? BTM_MAX_LOC_BD_NAME_LEN:
-                                                          prop->len;
+          prop->len;
       strncpy(value, (char*)prop->val, name_length);
-         value[name_length]='\0';
+      value[name_length]='\0';
       if (remote_bd_addr)
         btif_config_set_str(bdstr, BTIF_STORAGE_PATH_REMOTE_NAME, value);
       else {
@@ -213,49 +216,73 @@ static int prop2cfg(const RawAddress* remote_bd_addr, bt_property_t* prop) {
       break;
     case BT_PROPERTY_ADAPTER_SCAN_MODE:
       btif_config_set_int("Adapter", BTIF_STORAGE_KEY_ADAPTER_SCANMODE,
-                          *(int*)prop->val);
+                  *(int*)prop->val);
       break;
     case BT_PROPERTY_ADAPTER_DISCOVERY_TIMEOUT:
       btif_config_set_int("Adapter", BTIF_STORAGE_KEY_ADAPTER_DISC_TIMEOUT,
-                          *(int*)prop->val);
+                  *(int*)prop->val);
       break;
     case BT_PROPERTY_CLASS_OF_DEVICE:
       btif_config_set_int(bdstr, BTIF_STORAGE_PATH_REMOTE_DEVCLASS,
-                          *(int*)prop->val);
+                  *(int*)prop->val);
       break;
     case BT_PROPERTY_TYPE_OF_DEVICE:
       btif_config_set_int(bdstr, BTIF_STORAGE_PATH_REMOTE_DEVTYPE,
-                          *(int*)prop->val);
+                  *(int*)prop->val);
       break;
-    case BT_PROPERTY_UUIDS: {
-      std::string val;
-      size_t cnt = (prop->len) / sizeof(Uuid);
-      for (size_t i = 0; i < cnt; i++) {
-        val += (reinterpret_cast<Uuid*>(prop->val) + i)->ToString() + " ";
+    case BT_PROPERTY_UUIDS:
+      {
+        std::string val;
+        size_t cnt = (prop->len) / sizeof(Uuid);
+        for (size_t i = 0; i < cnt; i++) {
+          val += (reinterpret_cast<Uuid*>(prop->val) + i)->ToString() + " ";
+        }
+        btif_config_set_str(bdstr, BTIF_STORAGE_PATH_REMOTE_SERVICE, val.c_str());
       }
-      btif_config_set_str(bdstr, BTIF_STORAGE_PATH_REMOTE_SERVICE, val.c_str());
       break;
-    }
-    case BT_PROPERTY_REMOTE_VERSION_INFO: {
-      bt_remote_version_t* info = (bt_remote_version_t*)prop->val;
-
-      if (!info) return false;
-
-      btif_config_set_int(bdstr, BTIF_STORAGE_PATH_REMOTE_VER_MFCT,
-                          info->manufacturer);
-      btif_config_set_int(bdstr, BTIF_STORAGE_PATH_REMOTE_VER_VER,
-                          info->version);
-      btif_config_set_int(bdstr, BTIF_STORAGE_PATH_REMOTE_VER_SUBVER,
-                          info->sub_ver);
-    } break;
-
+    case BT_PROPERTY_REMOTE_VERSION_INFO:
+      {
+        bt_remote_version_t* info = (bt_remote_version_t*)prop->val;
+        if(!info){
+          BTIF_TRACE_ERROR("%s: version info is null", __func__);
+          ret = false;
+          break;
+        }
+        btif_config_set_int(bdstr, BTIF_STORAGE_PATH_REMOTE_VER_MFCT,
+                    info->manufacturer);
+        btif_config_set_int(bdstr, BTIF_STORAGE_PATH_REMOTE_VER_VER,
+                    info->version);
+        btif_config_set_int(bdstr, BTIF_STORAGE_PATH_REMOTE_VER_SUBVER,
+                    info->sub_ver);
+      }
+      break;
     default:
-      BTIF_TRACE_ERROR("Unknown prop type:%d", prop->type);
-      return false;
+      BTIF_TRACE_ERROR("%s: Unknown prop type:%d", __func__, prop->type);
+      ret = false;
+      break;
+  }
+
+  return ret;
+}
+
+static int prop2cfgs(const RawAddress* remote_bd_addr, bt_property_t* prop, int count) {
+  std::string addrstr;
+  const char* bdstr = addrstr.c_str();
+  int dev_type = BT_DEVICE_TYPE_BREDR, c;
+  int ret = 0;
+
+  if (remote_bd_addr) {
+      addrstr = remote_bd_addr->ToString();
+      bdstr = addrstr.c_str();
+  }
+
+  for(c = 0; c<count; c++, prop++)
+  {
+      ret |= (int)prop_upd(remote_bd_addr, prop);
   }
 
   /* save changes if the device was bonded */
-  if (btif_in_fetch_bonded_device(bdstr, &dev_type) == BT_STATUS_SUCCESS) {
+  if (ret && btif_in_fetch_bonded_device(bdstr, &dev_type) == BT_STATUS_SUCCESS) {
     // flush is expensive, avoid for BLE devices during BLE Scanning
     if(dev_type == BT_DEVICE_TYPE_BREDR) {
       btif_config_flush();
@@ -264,7 +291,35 @@ static int prop2cfg(const RawAddress* remote_bd_addr, bt_property_t* prop) {
     }
   }
 
-  return true;
+  return ret;
+}
+
+static int prop2cfg(const RawAddress* remote_bd_addr, bt_property_t* prop) {
+  std::string addrstr;
+  const char* bdstr = addrstr.c_str();
+  int dev_type = BT_DEVICE_TYPE_BREDR;
+  int ret;
+
+  if(remote_bd_addr) {
+    addrstr = remote_bd_addr->ToString();
+    bdstr = addrstr.c_str();
+  }
+
+  ret = (int)prop_upd(remote_bd_addr, prop);
+  if(!ret) {
+      BTIF_TRACE_ERROR("%s: prop_upd fail", __func__);
+  }
+  /* save changes if the device was bonded */
+  if (ret && btif_in_fetch_bonded_device(bdstr, &dev_type) == BT_STATUS_SUCCESS) {
+    // flush is expensive, avoid for BLE devices during BLE Scanning
+    if(dev_type == BT_DEVICE_TYPE_BREDR) {
+      btif_config_flush();
+    } else {
+      btif_config_save();
+    }
+  }
+
+  return ret;
 }
 
 static int cfg2prop(const RawAddress* remote_bd_addr, bt_property_t* prop) {
@@ -699,6 +754,23 @@ bt_status_t btif_storage_get_remote_device_property(
 bt_status_t btif_storage_set_remote_device_property(
     const RawAddress* remote_bd_addr, bt_property_t* property) {
   return prop2cfg(remote_bd_addr, property) ? BT_STATUS_SUCCESS
+                                            : BT_STATUS_FAIL;
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_storage_set_remote_device_properties
+ *
+ * Description      BTIF storage API - Stores the remote device properties
+ *                  to NVRAM
+ *
+ * Returns          BT_STATUS_SUCCESS if the store was successful,
+ *                  BT_STATUS_FAIL otherwise
+ *
+ ******************************************************************************/
+bt_status_t btif_storage_set_remote_device_properties(
+    const RawAddress* remote_bd_addr, bt_property_t* property, int number) {
+  return prop2cfgs(remote_bd_addr, property, number) ? BT_STATUS_SUCCESS
                                             : BT_STATUS_FAIL;
 }
 

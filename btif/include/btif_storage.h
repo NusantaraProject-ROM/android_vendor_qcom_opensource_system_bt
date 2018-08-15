@@ -99,6 +99,20 @@ bt_status_t btif_storage_set_remote_device_property(
 
 /*******************************************************************************
  *
+ * Function         btif_storage_set_remote_device_properties
+ *
+ * Description      BTIF storage API - Stores the remote device properties
+ *                  to NVRAM
+ *
+ * Returns          BT_STATUS_SUCCESS if the store was successful,
+ *                  BT_STATUS_FAIL otherwise
+ *
+ ******************************************************************************/
+bt_status_t btif_storage_set_remote_device_properties(
+    const RawAddress* remote_bd_addr, bt_property_t* property, int number);
+
+/*******************************************************************************
+ *
  * Function         btif_storage_add_remote_device
  *
  * Description      BTIF storage API - Adds a newly discovered device to
