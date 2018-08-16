@@ -1060,9 +1060,20 @@ static void btu_hcif_hdl_command_complete(uint16_t opcode, uint8_t* p,
 static void btu_hcif_command_complete_evt_on_task(BT_HDR* event,
                                                   void* context) {
   command_opcode_t opcode;
+  uint8_t hci_evt_code, hci_evt_len;
   uint8_t* stream =
       event->data + event->offset +
       3;  // 2 to skip the event headers, 1 to skip the command credits
+  uint8_t* full_stream =
+      event->data + event->offset;
+
+  STREAM_TO_UINT8(hci_evt_code, full_stream);
+  STREAM_TO_UINT8(hci_evt_len, full_stream);
+
+#if HCI_RAW_CMD_INCLUDED == TRUE
+  btm_hci_event (full_stream, hci_evt_code, hci_evt_len);
+#endif
+
   STREAM_TO_UINT16(opcode, stream);
 
   btu_hcif_hdl_command_complete(
