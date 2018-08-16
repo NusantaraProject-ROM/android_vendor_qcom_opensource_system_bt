@@ -2020,18 +2020,23 @@ bt_status_t HeadsetInterface::SendBsir(bool value, RawAddress* bd_addr) {
 bt_status_t HeadsetInterface::SetActiveDevice(RawAddress* active_device_addr) {
   CHECK_BTHF_INIT();
 
-  // if SCO is setting up, don't allow active device switch
-  for (int i = 0; i < btif_max_hf_clients; i++) {
-    if (btif_hf_cb[i].audio_state == BTHF_AUDIO_STATE_CONNECTING) {
-       BTIF_TRACE_ERROR("%s: SCO setting up with %s, not allowing active device switch to %s",
-        __func__, btif_hf_cb[i].connected_bda.ToString().c_str(),
-       active_device_addr->ToString().c_str());
-       return BT_STATUS_FAIL;
+  if (!active_device_addr->IsEmpty()) {
+    // if SCO is setting up, don't allow active device switch
+    for (int i = 0; i < btif_max_hf_clients; i++) {
+      if (btif_hf_cb[i].audio_state == BTHF_AUDIO_STATE_CONNECTING) {
+         BTIF_TRACE_ERROR("%s: SCO setting up with %s, not allowing active device switch to %s",
+          __func__, btif_hf_cb[i].connected_bda.ToString().c_str(),
+         active_device_addr->ToString().c_str());
+         return BT_STATUS_FAIL;
+      }
     }
-  }
 
-  active_bda = *active_device_addr;
-  BTA_AgSetActiveDevice(*active_device_addr);
+    active_bda = *active_device_addr;
+  } else {
+    BTIF_TRACE_IMP("%s: set active bda to Empty", __func__);
+    active_bda = RawAddress::kEmpty;
+  }
+  BTA_AgSetActiveDevice(active_bda);
   return BT_STATUS_SUCCESS;
 }
 
