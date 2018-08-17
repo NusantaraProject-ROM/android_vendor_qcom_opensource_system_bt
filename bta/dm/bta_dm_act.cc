@@ -785,6 +785,7 @@ void bta_dm_process_remove_device(const RawAddress& bd_addr) {
 void bta_dm_remove_device(tBTA_DM_MSG* p_data) {
   tBTA_DM_API_REMOVE_DEVICE* p_dev = &p_data->remove_dev;
   bool continue_delete_other_dev = false;
+  tBTM_SEC_DEV_REC* p_dev_rec;
   if (p_dev == NULL) return;
 
   RawAddress other_address = p_dev->bd_addr;
@@ -793,6 +794,10 @@ void bta_dm_remove_device(tBTA_DM_MSG* p_data) {
   bool continue_delete_dev = false;
   uint8_t other_transport = BT_TRANSPORT_INVALID;
   interop_database_remove_addr(INTEROP_DYNAMIC_ROLE_SWITCH, &other_address);
+
+  p_dev_rec = btm_find_dev(p_dev->bd_addr);
+  if(p_dev_rec && (p_dev_rec->device_type != BT_TRANSPORT_BR_EDR))
+    BTM_BleUpdateBgConnDev(false, p_dev->bd_addr);
 
   if (BTM_IsAclConnectionUp(p_dev->bd_addr, BT_TRANSPORT_LE) ||
       BTM_IsAclConnectionUp(p_dev->bd_addr, BT_TRANSPORT_BR_EDR)) {
