@@ -418,29 +418,35 @@ static void bta_ag_esco_connreq_cback(tBTM_ESCO_EVT event,
     const RawAddress* remote_bda = BTM_ReadScoBdAddr(sco_inx);
     tBTA_AG_SCB* p_scb = bta_ag_scb_by_idx(bta_ag_idx_by_bdaddr(remote_bda));
 
-    if (remote_bda == NULL)
-       APPL_TRACE_IMP("%s: remote_bda is NULL", __func__);
+    if (p_scb == NULL) {
+      APPL_TRACE_IMP("%s: p_scb is NULL", __func__);
+    } else {
+      APPL_TRACE_IMP("%s: p_scb->svc_conn %x, peer_addr is %s",
+        __func__, p_scb->svc_conn, p_scb->peer_addr.ToString().c_str());
+    }
 
-    if (p_scb == NULL)
-       APPL_TRACE_IMP("%s: p_scb is NULL", __func__);
-
-    APPL_TRACE_IMP("%s: p_scb->svc_conn %x, remote_bda %s," \
-            " bta_ag_sco_is_active_device is %x",
-            __func__, p_scb->svc_conn, (*remote_bda).ToString().c_str(),
-            bta_ag_sco_is_active_device(*remote_bda));
+    if (remote_bda == NULL) {
+      APPL_TRACE_IMP("%s: remote_bda is NULL", __func__);
+    } else {
+      APPL_TRACE_IMP("%s: remote_bda %s, bta_ag_sco_is_active_device is %x",
+                      __func__, (*remote_bda).ToString().c_str(),
+                      bta_ag_sco_is_active_device(*remote_bda));
+    }
 
 #if (TWS_AG_ENABLED == TRUE)
-    APPL_TRACE_IMP("%s: is_twsp_device(p_scb->peer_addr) is %x",
+    if (p_scb != NULL)
+      APPL_TRACE_IMP("%s: is_twsp_device(p_scb->peer_addr) is %x",
                __func__, is_twsp_device(p_scb->peer_addr));
 #endif
 
     if (
+       p_scb &&
 #if (TWS_AG_ENABLED == TRUE)
     /*Allow Incoming SCO requests from non-active devices if it is TWS+
      device*/
-    !is_twsp_device(p_scb->peer_addr) &&
+       !is_twsp_device(p_scb->peer_addr) &&
 #endif
-remote_bda && bta_ag_sco_is_active_device(*remote_bda) && p_scb &&
+       remote_bda && bta_ag_sco_is_active_device(*remote_bda) &&
         p_scb->svc_conn) {
       p_scb->sco_idx = sco_inx;
 #if (TWS_AG_ENABLED == TRUE)
