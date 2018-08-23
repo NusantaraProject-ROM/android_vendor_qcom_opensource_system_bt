@@ -131,6 +131,7 @@ extern bool enc_update_in_progress;
 extern tBTA_AV_HNDL btif_av_get_av_hdl_from_idx(int idx);
 extern void btif_av_reset_reconfig_flag();
 extern tBTIF_A2DP_SOURCE_VSC btif_a2dp_src_vsc;
+extern bool btif_av_is_state_opened(int i);
 //extern void bta_av_vendor_offload_stop(void);
 
 #if 0
@@ -1015,15 +1016,18 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
            * If we are the source, the ACK will be sent after the start
            * procedure is completed, othewise send it now.
            */
-          btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
           int idx = btif_av_get_latest_device_idx_to_start();
-          if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SRC) {
-            status = A2DP_CTRL_ACK_SUCCESS;
+          if (idx < btif_max_av_clients &&
+              btif_av_is_state_opened(idx)) {
+            btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
+            if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SRC) {
+              status = A2DP_CTRL_ACK_SUCCESS;
+              break;
+            }
+            /*Return pending and ack when start stream cfm received from remote*/
+            status = A2DP_CTRL_ACK_PENDING;
             break;
           }
-          /*Return pending and ack when start stream cfm received from remote*/
-          status = A2DP_CTRL_ACK_PENDING;
-          break;
         }
 
         APPL_TRACE_WARNING("%s: A2DP command %s while AV stream is not ready",

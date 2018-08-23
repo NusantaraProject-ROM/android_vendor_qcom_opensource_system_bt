@@ -55,7 +55,7 @@ extern tBTA_AV_HNDL btif_av_get_av_hdl_from_idx(int idx);
 extern bool btif_av_is_playing_on_other_idx(int current_index);
 extern bool btif_av_is_handoff_set();
 extern int btif_max_av_clients;
-
+extern bool btif_av_is_state_opened(int i);
 static void btif_a2dp_data_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event);
 static void btif_a2dp_ctrl_cb(tUIPC_CH_ID ch_id, tUIPC_EVENT event);
 static void btif_a2dp_snd_ctrl_cmd(tA2DP_CTRL_CMD cmd);
@@ -388,11 +388,13 @@ static void btif_a2dp_recv_ctrl_data(void) {
            * If we are the source, the ACK will be sent after the start
            * procedure is completed, othewise send it now.
            */
-          btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-          int idx = btif_av_get_latest_device_idx_to_start();
-          if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SRC)
-            btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+          if (cur_idx <  btif_max_av_clients &&
+              btif_av_is_state_opened(cur_idx)) {
+            btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
+            if (btif_av_get_peer_sep(cur_idx) == AVDT_TSEP_SRC)
+              btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
           break;
+          }
         } else if (btif_av_is_handoff_set() && !(is_block_hal_start)) {
           APPL_TRACE_DEBUG("%s: Entertain Audio Start after stream open", __func__);
           UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb);
