@@ -555,12 +555,10 @@ static void btif_update_source_codec(void* p_data) {
   btif_a2dp_source_encoder_user_config_update_req(req->codec_config, req->bd_addr);
 
   if (req->codec_config.codec_specific_4 > 0) {
-    BTIF_TRACE_DEBUG("%s: codec_specific_4 > 0", __func__);
     A2dpCodecConfig* current_codec = bta_av_get_a2dp_current_codec();
     if (current_codec != nullptr) {
       btav_a2dp_codec_config_t codec_config;
       codec_config = current_codec->getCodecConfig();
-      BTIF_TRACE_DEBUG("%s: get codec_config", __func__);
       if(codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE) {
         int index = btif_max_av_clients;
         const uint16_t ENCODER_MODE_MASK = 0x3000;
@@ -572,8 +570,6 @@ static void btif_update_source_codec(void* p_data) {
           index = btif_av_get_latest_playing_device_idx();
         else
           index = btif_av_get_latest_device_idx_to_start();
-
-        BTIF_TRACE_DEBUG("%s: Aptx Adaptive Codec: index = %d, encoder_mode = %d", __func__, index, encoder_mode);
 
         if(index >= btif_max_av_clients) return;
 

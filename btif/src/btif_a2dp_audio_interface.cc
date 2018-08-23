@@ -93,7 +93,7 @@ android::sp<IBluetoothAudio> btAudio;
   case const:                  \
     return #const;
 
-uint8_t codec_info[30];
+uint8_t codec_info[32];
 uint8_t len,a2dp_cmd_pending = A2DP_CTRL_CMD_NONE;
 uint8_t a2dp_cmd_queued = A2DP_CTRL_CMD_NONE;
 uint8_t a2dp_local_cmd_pending = A2DP_CTRL_CMD_NONE;
@@ -831,7 +831,6 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         codec_info[len++] = (uint8_t)(((bitrate & 0xFF00) >> 8) & 0x00FF);
         codec_info[len++] = (uint8_t)(((bitrate & 0xFF0000) >> 16) & 0x00FF);
         codec_info[len++] = (uint8_t)(((bitrate & 0xFF000000) >> 24) & 0x00FF);
-        LOG_INFO(LOG_TAG,"len  = %d", len);
         status = A2DP_CTRL_ACK_SUCCESS;
         a2dp_local_cmd_pending = A2DP_CTRL_CMD_NONE;
         break;
@@ -1188,7 +1187,6 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         codec_info[len++] = (uint8_t)(((bitrate & 0xFF000000) >> 24) & 0x00FF);
         *(uint32_t *)&codec_info[len] = (uint32_t)bits_per_sample;
         len = len+4;
-        LOG_INFO(LOG_TAG,"len  = %d", len);
         status = A2DP_CTRL_ACK_SUCCESS;
         break;
       }

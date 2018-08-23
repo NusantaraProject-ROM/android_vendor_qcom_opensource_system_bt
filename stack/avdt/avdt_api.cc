@@ -1319,6 +1319,15 @@ void AVDT_UpdateMaxAvClients(uint8_t max_clients) {
  *
  ******************************************************************************/
 void AVDT_UpdateLinkPktType(uint8_t hdl, uint16_t packet_type) {
-    tACL_CONN* p_acl_cb = btm_bda_to_acl(avdt_scb_by_hdl(hdl)->p_ccb->peer_addr, BT_TRANSPORT_BR_EDR);
-    btm_set_packet_types(p_acl_cb, packet_type);
+        tAVDT_SCB* p_scb = NULL;
+        tAVDT_CCB* p_ccb = NULL;
+        tACL_CONN* p_acl_cb = NULL;
+
+        p_scb = avdt_scb_by_hdl(hdl);
+        if (p_scb != NULL)
+                p_ccb = avdt_scb_by_hdl(hdl)->p_ccb;
+        if (p_ccb != NULL)
+                p_acl_cb = btm_bda_to_acl(p_ccb->peer_addr, BT_TRANSPORT_BR_EDR);
+        if (p_acl_cb != NULL)
+                btm_set_packet_types(p_acl_cb, packet_type);
 }

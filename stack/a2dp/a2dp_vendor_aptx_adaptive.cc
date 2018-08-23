@@ -97,8 +97,8 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_src_caps = {
     A2DP_APTX_ADAPTIVE_EOC1,
     A2DP_APTX_ADAPTIVE_EOC2,
 
-  //  BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24 /* bits_per_sample */
-    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 /* bits_per_sample */
+   BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24 /* bits_per_sample */
+   //BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 /* bits_per_sample */
 };
 
 /* Default aptX-adaptive codec configuration */
@@ -118,8 +118,8 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_offload_caps = {
     A2DP_APTX_ADAPTIVE_EOC1,
     A2DP_APTX_ADAPTIVE_EOC2,
 
-    //BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24 /* bits_per_sample */
-    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 /* bits_per_sample */
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24 /* bits_per_sample */
+    //BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 /* bits_per_sample */
 };
 /* Default aptX-adaptive codec configuration */
 static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_src_config = {
@@ -139,8 +139,8 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_src_config = {
     A2DP_APTX_ADAPTIVE_EOC1,
     A2DP_APTX_ADAPTIVE_EOC2,
 
-    //BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24 /* bits_per_sample */
-    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 /* bits_per_sample */
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24 /* bits_per_sample */
+    //BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 /* bits_per_sample */
 };
 /* Default aptX-adaptive offload codec configuration */
 static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_offload_config = {
@@ -160,8 +160,8 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_offload_config =
     A2DP_APTX_ADAPTIVE_EOC1,
     A2DP_APTX_ADAPTIVE_EOC2,
 
-    //BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24 /* bits_per_sample */
-    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 /* bits_per_sample */
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24 /* bits_per_sample */
+    //BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 /* bits_per_sample */
 };
 tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_caps, a2dp_aptx_adaptive_default_config;
 
@@ -697,7 +697,7 @@ static bool select_audio_sample_rate(
 //
 static bool select_best_bits_per_sample(
     btav_a2dp_codec_config_t* p_codec_config) {
-  p_codec_config->bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16;
+  p_codec_config->bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24;
   return true;
 }
 
@@ -941,9 +941,9 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
       break;
 
     case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24:
-      //codec_capability_.bits_per_sample = codec_user_config_.bits_per_sample;
-      //codec_config_.bits_per_sample = codec_user_config_.bits_per_sample;
-     // break;
+      codec_capability_.bits_per_sample = codec_user_config_.bits_per_sample;
+      codec_config_.bits_per_sample = codec_user_config_.bits_per_sample;
+      break;
     case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_32:
 
     case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_NONE:
@@ -961,8 +961,8 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
       break;
 
     // Compute the common capability
-    //codec_capability_.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24;
-    codec_capability_.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16;
+    codec_capability_.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24;
+    //codec_capability_.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16;
 
     // No user preference - try the codec audio config
     if (select_audio_bits_per_sample(&codec_audio_config_, &codec_config_)) {
