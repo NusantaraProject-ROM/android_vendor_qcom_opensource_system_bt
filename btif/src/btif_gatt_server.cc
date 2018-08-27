@@ -63,6 +63,9 @@ using std::vector;
     if (bt_gatt_callbacks == NULL) {                             \
       LOG_WARN(LOG_TAG, "%s: BTGATT not initialized", __func__); \
       return BT_STATUS_NOT_READY;                                \
+    } else if(!btif_is_enabled()){                               \
+      LOG_WARN(LOG_TAG, "%s: BTIF is not enabled", __func__);    \
+      return BT_STATUS_NOT_READY;                                \
     } else {                                                     \
       LOG_VERBOSE(LOG_TAG, "%s", __func__);                      \
     }                                                            \
