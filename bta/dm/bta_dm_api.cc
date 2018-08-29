@@ -1278,13 +1278,26 @@ void BTA_VendorCleanup(void) {
  *
  ******************************************************************************/
 void BTA_DmProcessQueuedServiceDiscovery(void) {
+  uint8_t transport = BT_DEVICE_TYPE_BREDR;
+
   APPL_TRACE_API("BTA_DmProcessQueuedServiceDiscovery");
 
-  if (!bta_dm_search_cb.p_disc_queue.empty()) {
+  while (!bta_dm_search_cb.p_disc_queue.empty()) {
     APPL_TRACE_API("Processing queued service discovery");
 
     tBTA_DM_MSG* p_data =(tBTA_DM_MSG*) bta_dm_search_cb.p_disc_queue.front();
     bta_dm_search_cb.p_disc_queue.pop();
-    bta_sys_sendmsg(p_data);
+    RawAddress bda = p_data->discover.bd_addr;
+
+    if (p_data->discover.transport != BT_TRANSPORT_INVALID) {
+      transport = p_data->discover.transport;
+    }
+    if (BTM_IsAclConnectionUp(bda, transport)) {
+      bta_sys_sendmsg(p_data);
+      break;
+    }
+    else if (p_data) {
+      osi_free(p_data);
+    }
   }
 }

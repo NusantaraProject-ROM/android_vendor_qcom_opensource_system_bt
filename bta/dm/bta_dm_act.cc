@@ -4996,6 +4996,9 @@ void btm_dm_start_gatt_discovery(const RawAddress& bd_addr) {
       /* don't create ACL for GATT discovery if ACL already disconnected */
           APPL_TRACE_DEBUG("btm_dm_start_gatt_discovery: Not creating acl"
             " for client_if = %d", bta_dm_search_cb.client_if);
+          if (bta_dm_search_cb.gatt_disc_active) {
+            bta_dm_cancel_gatt_discovery(bd_addr);
+          }
           bta_dm_search_cb.gatt_disc_active = false;
     }
   }
