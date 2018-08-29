@@ -1092,6 +1092,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
          * audioflinger close the channel. This can happen if we are
          * remotely suspended, clear REMOTE SUSPEND flag.
          */
+        btif_av_clear_remote_suspend_flag();
         status = A2DP_CTRL_ACK_SUCCESS;
         break;
 
@@ -1437,6 +1438,7 @@ uint8_t btif_a2dp_audio_snd_ctrl_cmd(uint8_t cmd)
        * audioflinger close the channel. This can happen if we are
        * remotely suspended, clear REMOTE SUSPEND flag.
        */
+      btif_av_clear_remote_suspend_flag();
       status = A2DP_CTRL_ACK_SUCCESS;
       break;
 

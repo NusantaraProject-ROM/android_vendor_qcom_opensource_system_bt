@@ -899,4 +899,5 @@ void BTA_AvOffloadStart(tBTA_AV_HNDL hndl, bool do_scrambling);
 void BTA_AvOffloadStartRsp(tBTA_AV_HNDL hndl, tBTA_AV_STATUS status);
 void BTA_AvUpdateTWSDevice(bool isTwsDevice, tBTA_AV_HNDL hndl);
 void BTA_AVSetEarbudRole(uint8_t role, tBTA_AV_HNDL hndl);
+void bta_av_sniff_enable(bool policy_enable, const RawAddress& peer_addr);
 #endif /* BTA_AV_API_H */

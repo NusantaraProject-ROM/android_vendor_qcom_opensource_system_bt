@@ -1405,9 +1405,12 @@ void bta_av_config_ind(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
 void bta_av_disconnect_req(tBTA_AV_SCB* p_scb,
                            UNUSED_ATTR tBTA_AV_DATA* p_data) {
   tBTA_AV_RCB* p_rcb;
+  uint8_t policy = HCI_ENABLE_SNIFF_MODE;
 
   APPL_TRACE_WARNING("%s: conn_lcb: 0x%x peer_addr: %s", __func__,
                      bta_av_cb.conn_lcb, p_scb->peer_addr.ToString().c_str());
+
+  bta_sys_set_policy(BTA_ID_AV, policy, p_scb->peer_addr);
 
   alarm_cancel(bta_av_cb.link_signalling_timer);
   alarm_cancel(p_scb->avrc_ct_timer);
@@ -4054,8 +4057,7 @@ stop:
   btif_a2dp_src_vsc.tx_stop_initiated = TRUE;
   param[0] = VS_QHCI_STOP_A2DP_MEDIA;
   param[1] = 0;
-  if (btif_a2dp_src_vsc.multi_vsc_support &&
-    last_sent_vsc_cmd == VS_QHCI_STOP_A2DP_MEDIA) {
+  if (last_sent_vsc_cmd == VS_QHCI_STOP_A2DP_MEDIA) {
     APPL_TRACE_DEBUG("%s: STOP VSC already exchanged.", __func__);
     status = 0;
     (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_STOP_RSP_EVT, (tBTA_AV*)&status);
