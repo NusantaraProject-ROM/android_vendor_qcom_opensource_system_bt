@@ -1011,8 +1011,10 @@ void bta_av_rc_msg(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
       if (p_data->rc_msg.msg.pass.op_id == AVRC_ID_VENDOR) {
         p_data->rc_msg.msg.hdr.ctype = BTA_AV_RSP_NOT_IMPL;
 #if (TWS_ENABLED == TRUE)
-        p_data->rc_msg.msg.hdr.ctype = bta_av_is_twsplus_command(
-                                        p_data->rc_msg.msg.pass.p_pass_data);
+        if (p_data->rc_msg.msg.pass.p_pass_data != NULL) {
+          p_data->rc_msg.msg.hdr.ctype = bta_av_is_twsplus_command(
+                                          p_data->rc_msg.msg.pass.p_pass_data);
+        }
 #endif
 #if (AVRC_METADATA_INCLUDED == TRUE)
         if (p_cb->features & BTA_AV_FEAT_METADATA
