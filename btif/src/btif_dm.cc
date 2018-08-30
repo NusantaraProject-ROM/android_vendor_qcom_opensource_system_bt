@@ -2833,8 +2833,7 @@ bt_status_t btif_dm_get_adapter_property(bt_property_t* prop) {
  *
  ******************************************************************************/
 bt_status_t btif_dm_get_remote_services_from_app(const RawAddress& remote_addr) {
-  if ((pairing_cb.state == BT_BOND_STATE_BONDING) &&
-     (remote_addr == pairing_cb.bd_addr)) {
+  if (pairing_cb.state == BT_BOND_STATE_BONDING) {
     BTIF_TRACE_WARNING("%s():in bonding state, return busy", __FUNCTION__);
     return BT_STATUS_BUSY;
   }
