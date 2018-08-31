@@ -3213,11 +3213,12 @@ static bt_status_t get_folder_items_list_rsp(RawAddress* bd_addr,
     /* create single item and build response iteratively for all num_items */
     for (item_cnt = 0; item_cnt < num_items; item_cnt++) {
       cur_item = &p_items[item_cnt];
-      item.item_type = p_items->item_type;
+      item.item_type = cur_item->item_type;
       /* build respective item based on item_type. All items should be of same
        * type within
        * a response */
-      switch (p_items->item_type) {
+      BTIF_TRACE_DEBUG("cur_item->item_type:%d,p_items->item_type:%d",cur_item->item_type,p_items->item_type);
+      switch (cur_item->item_type) {
         case AVRC_ITEM_PLAYER: {
           item.u.player.name.charset_id = cur_item->player.charset_id;
           memcpy(&(item.u.player.features), &(cur_item->player.features),
