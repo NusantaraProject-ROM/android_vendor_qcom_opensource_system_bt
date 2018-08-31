@@ -89,6 +89,11 @@ typedef struct {
 
 } tPORT_STATE;
 
+#define PORT_STATE_CLOSED 0
+#define PORT_STATE_OPENING 1
+#define PORT_STATE_OPENED 2
+#define PORT_STATE_CLOSING 3
+
 /*
  * Define the callback function prototypes.  Parameters are specific
  * to each event and are described bellow
@@ -662,5 +667,18 @@ extern uint8_t PORT_SetTraceLevel(uint8_t new_level);
  *
  ******************************************************************************/
 extern const char* PORT_GetResultString(const uint8_t result_code);
+
+/*******************************************************************************
+ *
+ * Function         PORT_GetStateBySCN
+ *
+ * Description      This function retrun the current port state
+ *
+ *
+ * Parameters:      SCN     - Server Channel of the port
+ *                  bd_addr    - bd_addr of the peer
+ *
+ ******************************************************************************/
+extern int PORT_GetStateBySCN(const RawAddress& bd_addr, uint32_t scn_id);
 
 #endif /* PORT_API_H */

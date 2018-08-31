@@ -142,10 +142,12 @@ typedef struct {
   uint8_t inx; /* Index of this control block in the port_info array */
   bool in_use; /* True when structure is allocated */
 
-#define PORT_STATE_CLOSED 0
-#define PORT_STATE_OPENING 1
-#define PORT_STATE_OPENED 2
-#define PORT_STATE_CLOSING 3
+  /* port current state
+  * PORT_STATE_CLOSED 0
+  * PORT_STATE_OPENING 1
+  * PORT_STATE_OPENED 2
+  * PORT_STATE_CLOSING 3
+  */
 
   uint8_t state; /* State of the application */
 

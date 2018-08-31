@@ -1785,3 +1785,56 @@ const char* PORT_GetResultString(const uint8_t result_code) {
 
   return result_code_strings[result_code];
 }
+/*******************************************************************************
+ *
+ * Function         PORT_GetStateBySCN
+ *
+ * Description      This function retrun the current port state
+ *
+ *
+ * Parameters:      SCN     - Server Channel of the port
+ *                  bd_addr    - bd_addr of the peer
+ *
+ ******************************************************************************/
+int PORT_GetStateBySCN(const RawAddress& bd_addr, uint32_t scn_id) {
+  uint8_t xx, yy;
+  tRFC_MCB* p_mcb = NULL;
+  tPORT* p_port;
+  bool found_port = false;
+
+  /* Get the mcb with address */
+  for (xx = 0; xx < MAX_BD_CONNECTIONS; xx++) {
+    if (bd_addr == rfc_cb.port.rfc_mcb[xx].bd_addr) {
+      p_mcb = &rfc_cb.port.rfc_mcb[xx];
+      break;
+    }
+  }
+  if (p_mcb == NULL) {
+    return PORT_STATE_CLOSED;
+  } else if ((rfc_cb.port.rfc_mcb[xx].state > RFC_MX_STATE_IDLE) &&
+             (rfc_cb.port.rfc_mcb[xx].state < RFC_MX_STATE_CONNECTED)) {
+    return PORT_STATE_OPENING;
+  } else if (rfc_cb.port.rfc_mcb[xx].state == RFC_MX_STATE_CONNECTED) {
+
+    p_port = &rfc_cb.port.port[0];
+
+    for (yy = 0; yy < MAX_RFC_PORTS; yy++, p_port++) {
+      if ((p_port->rfc.p_mcb == p_mcb) && (p_port->scn == scn_id)){
+        found_port = true;
+        break;
+      }
+    }
+    if ((!found_port) ||
+        (found_port && (p_port->rfc.state < RFC_STATE_OPENED))) {
+      /* Port is not established yet. */
+      return PORT_STATE_OPENING;
+    } else if(found_port && (p_port->rfc.state == RFC_STATE_OPENED)) {
+
+      /* Port already established. */
+      return PORT_STATE_OPENED;
+    }
+  }
+  /* should not come to this line ,some thing wrong */
+  return PORT_STATE_CLOSED;
+}
+
