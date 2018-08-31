@@ -367,6 +367,11 @@ static void* btif_hh_poll_event_thread(void* arg) {
                        strerror(errno));
       break;
     }
+    if (p_dev->fd == -1) {
+      APPL_TRACE_ERROR("%s: fd is closed, stop the poll thread", __func__);
+      p_dev->hh_keep_polling = 0;
+      break;
+    }
     if (pfds[0].revents & POLLIN) {
       APPL_TRACE_DEBUG("%s: POLLIN", __func__);
       ret = uhid_read_event(p_dev);
@@ -375,6 +380,7 @@ static void* btif_hh_poll_event_thread(void* arg) {
   }
 
   p_dev->hh_poll_thread_id = -1;
+  APPL_TRACE_DEBUG("%s: Thread destroyed", __func__);
   return 0;
 }
 
@@ -623,9 +629,9 @@ void bta_hh_co_data(uint8_t dev_handle, uint8_t* p_rpt, uint16_t len,
  *                  dscp_len    - report descriptor length
  *                  *p_dscp     - report descriptor
  *
- * Returns          void
+ * Returns          0 on success else error code
  ******************************************************************************/
-void bta_hh_co_send_hid_info(btif_hh_device_t* p_dev, const char* dev_name,
+int bta_hh_co_send_hid_info(btif_hh_device_t* p_dev, const char* dev_name,
                              uint16_t vendor_id, uint16_t product_id,
                              uint16_t version, uint8_t ctry_code, int dscp_len,
                              uint8_t* p_dscp) {
@@ -635,7 +641,7 @@ void bta_hh_co_send_hid_info(btif_hh_device_t* p_dev, const char* dev_name,
   if (p_dev->fd < 0) {
     APPL_TRACE_WARNING("%s: Error: fd = %d, dscp_len = %d", __func__, p_dev->fd,
                        dscp_len);
-    return;
+    return p_dev->fd;
   }
 
   APPL_TRACE_WARNING("%s: fd = %d, name = [%s], dscp_len = %d", __func__,
@@ -675,11 +681,9 @@ void bta_hh_co_send_hid_info(btif_hh_device_t* p_dev, const char* dev_name,
   if (result) {
     APPL_TRACE_WARNING("%s: Error: failed to send DSCP, result = %d", __func__,
                        result);
-
-    /* The HID report descriptor is corrupted. Close the driver. */
-    close(p_dev->fd);
-    p_dev->fd = -1;
   }
+
+  return result;
 }
 
 /*******************************************************************************

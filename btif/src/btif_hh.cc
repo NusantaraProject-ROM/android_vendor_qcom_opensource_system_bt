@@ -137,7 +137,7 @@ static tHID_KB_LIST hid_kb_numlock_on_list[] = {{LOGITECH_KB_MX5500_PRODUCT_ID,
 extern void bta_hh_co_destroy(int fd);
 extern void bta_hh_co_write(int fd, uint8_t* rpt, uint16_t len);
 extern bt_status_t btif_dm_remove_bond(const RawAddress* bd_addr);
-extern void bta_hh_co_send_hid_info(btif_hh_device_t* p_dev,
+extern int bta_hh_co_send_hid_info(btif_hh_device_t* p_dev,
                                     const char* dev_name, uint16_t vendor_id,
                                     uint16_t product_id, uint16_t version,
                                     uint8_t ctry_code, int dscp_len,
@@ -996,11 +996,16 @@ static void btif_hh_upstreams_evt(uint16_t event, char* p_param) {
         }
 
         BTIF_TRACE_WARNING("%s: name = %s", __func__, cached_name);
-        bta_hh_co_send_hid_info(p_dev, cached_name, p_data->dscp_info.vendor_id,
+        if (bta_hh_co_send_hid_info(p_dev, cached_name, p_data->dscp_info.vendor_id,
                                 p_data->dscp_info.product_id,
                                 p_data->dscp_info.version,
                                 p_data->dscp_info.ctry_code, len,
-                                p_data->dscp_info.descriptor.dsc_list);
+                                p_data->dscp_info.descriptor.dsc_list)) {
+            BTIF_TRACE_ERROR("BTA_HH_GET_DSCP_EVT: Unable to write decriptor, "
+                "disconnecting the device");
+            btif_hh_disconnect(&p_dev->bd_addr);
+            return;
+        }
         if (btif_hh_add_added_dev(p_dev->bd_addr, p_dev->attr_mask)) {
           tBTA_HH_DEV_DSCP_INFO dscp_info;
           bt_status_t ret;
@@ -1677,13 +1682,13 @@ static void cleanup(void) {
   for (i = 0; i < BTIF_HH_MAX_HID; i++) {
     p_dev = &btif_hh_cb.devices[i];
     if (p_dev->dev_status != BTHH_CONN_STATE_UNKNOWN && p_dev->fd >= 0) {
+      p_dev->hh_keep_polling = 0;
+      p_dev->hh_poll_thread_id = -1;
       BTIF_TRACE_DEBUG("%s: Closing uhid fd = %d", __func__, p_dev->fd);
       if (p_dev->fd >= 0) {
         bta_hh_co_destroy(p_dev->fd);
         p_dev->fd = -1;
       }
-      p_dev->hh_keep_polling = 0;
-      p_dev->hh_poll_thread_id = -1;
     }
   }
 
