@@ -245,7 +245,7 @@ tBTA_JV_RFC_CB* bta_jv_rfc_port_to_cb(uint16_t port_handle) {
     handle = bta_jv_cb.port_cb[port_handle - 1].handle;
     handle &= BTA_JV_RFC_HDL_MASK;
     handle &= ~BTA_JV_RFCOMM_MASK;
-    if (handle) p_cb = &bta_jv_cb.rfc_cb[handle - 1];
+    if (handle && (handle < BTA_JV_MAX_RFC_CONN)) p_cb = &bta_jv_cb.rfc_cb[handle - 1];
   } else {
     APPL_TRACE_WARNING(
         "bta_jv_rfc_port_to_cb(port_handle:0x%x):jv handle:0x%x not"
@@ -1016,7 +1016,7 @@ static void bta_jv_l2cap_client_cback(uint16_t gap_handle, uint16_t event,
  *
  ******************************************************************************/
 void bta_jv_l2cap_connect(tBTA_JV_MSG* p_data) {
-  tBTA_JV_L2C_CB* p_cb;
+  tBTA_JV_L2C_CB* p_cb = NULL;
   tBTA_JV_L2CAP_CL_INIT evt_data;
   uint16_t handle = GAP_INVALID_HANDLE;
   uint8_t sec_id;
@@ -1067,7 +1067,10 @@ void bta_jv_l2cap_connect(tBTA_JV_MSG* p_data) {
   }
 
   if (evt_data.status == BTA_JV_SUCCESS) {
-    p_cb = &bta_jv_cb.l2c_cb[handle];
+    if (handle < BTA_JV_MAX_L2C_CONN) {
+      p_cb = &bta_jv_cb.l2c_cb[handle];
+    }
+    if (NULL == p_cb) return;
     p_cb->handle = handle;
     p_cb->p_cback = cc->p_cback;
     p_cb->l2cap_socket_id = cc->l2cap_socket_id;
@@ -1192,7 +1195,7 @@ static void bta_jv_l2cap_server_cback(uint16_t gap_handle, uint16_t event,
  *
  ******************************************************************************/
 void bta_jv_l2cap_start_server(tBTA_JV_MSG* p_data) {
-  tBTA_JV_L2C_CB* p_cb;
+  tBTA_JV_L2C_CB* p_cb = NULL;
   uint8_t sec_id;
   uint16_t handle;
   tL2CAP_CFG_INFO cfg;
@@ -1239,7 +1242,10 @@ void bta_jv_l2cap_start_server(tBTA_JV_MSG* p_data) {
     bta_jv_free_sec_id(&sec_id);
     evt_data.status = BTA_JV_FAILURE;
   } else {
-    p_cb = &bta_jv_cb.l2c_cb[handle];
+    if (handle < BTA_JV_MAX_L2C_CONN) {
+      p_cb = &bta_jv_cb.l2c_cb[handle];
+    }
+    if (NULL == p_cb) return;
     evt_data.status = BTA_JV_SUCCESS;
     evt_data.handle = handle;
     evt_data.sec_id = sec_id;
@@ -1469,7 +1475,7 @@ static void bta_jv_port_mgmt_cl_cback(uint32_t code, uint16_t port_handle) {
 
   APPL_TRACE_DEBUG("bta_jv_port_mgmt_cl_cback:code:%d, port_handle%d", code,
                    port_handle);
-  if (NULL == p_cb || NULL == p_cb->p_cback) return;
+  if (NULL == p_pcb || NULL == p_cb || NULL == p_cb->p_cback) return;
 
   APPL_TRACE_DEBUG("bta_jv_port_mgmt_cl_cback code=%d port_handle:%d handle:%d",
                    code, port_handle, p_cb->handle);
@@ -1514,7 +1520,7 @@ static void bta_jv_port_event_cl_cback(uint32_t code, uint16_t port_handle) {
   tBTA_JV evt_data;
 
   APPL_TRACE_DEBUG("bta_jv_port_event_cl_cback:%d", port_handle);
-  if (NULL == p_cb || NULL == p_cb->p_cback) return;
+  if (NULL == p_pcb || NULL == p_cb || NULL == p_cb->p_cback) return;
 
   APPL_TRACE_DEBUG(
       "bta_jv_port_event_cl_cback code=x%x port_handle:%d handle:%d", code,
@@ -1681,9 +1687,9 @@ static void bta_jv_port_mgmt_sr_cback(uint32_t code, uint16_t port_handle) {
   uint16_t lcid;
   APPL_TRACE_DEBUG("bta_jv_port_mgmt_sr_cback, code:%d, port_handle:%d", code,
                    port_handle);
-  if (NULL == p_cb || NULL == p_cb->p_cback) {
-    APPL_TRACE_ERROR("bta_jv_port_mgmt_sr_cback, p_cb:%p, p_cb->p_cback%p",
-                     p_cb, p_cb ? p_cb->p_cback : NULL);
+  if (NULL == p_pcb || NULL == p_cb || NULL == p_cb->p_cback) {
+    APPL_TRACE_ERROR("bta_jv_port_mgmt_sr_cback, p_pcb:%p, p_cb:%p, p_cb->p_cback%p",
+                     p_pcb, p_cb, p_cb ? p_cb->p_cback : NULL);
     return;
   }
   uint32_t rfcomm_slot_id = p_pcb->rfcomm_slot_id;
@@ -1749,7 +1755,7 @@ static void bta_jv_port_event_sr_cback(uint32_t code, uint16_t port_handle) {
   tBTA_JV_RFC_CB* p_cb = bta_jv_rfc_port_to_cb(port_handle);
   tBTA_JV evt_data;
 
-  if (NULL == p_cb || NULL == p_cb->p_cback) return;
+  if (NULL == p_pcb || NULL == p_cb || NULL == p_cb->p_cback) return;
 
   APPL_TRACE_DEBUG(
       "bta_jv_port_event_sr_cback code=x%x port_handle:%d handle:%d", code,
@@ -2382,7 +2388,7 @@ static void fcchan_conn_chng_cbk(uint16_t chan, const RawAddress& bd_addr,
   struct fc_client *t = NULL, *new_conn;
   tBTA_JV_L2CAP_CBACK* p_cback = NULL;
   char call_init = false;
-  uint32_t l2cap_socket_id;
+  uint32_t l2cap_socket_id = 0;
 
   tc = fcchan_get(chan, false);
   if (tc) {
@@ -2445,6 +2451,8 @@ static void fcchan_conn_chng_cbk(uint16_t chan, const RawAddress& bd_addr,
     }
   }
 
+  if (NULL == p_cback) return;
+
   if (call_init) p_cback(BTA_JV_L2CAP_CL_INIT_EVT, &init_evt, l2cap_socket_id);
 
   // call this with lock taken so socket does not disappear from under us */
@@ -2467,10 +2475,11 @@ static void fcchan_data_cbk(uint16_t chan, const RawAddress& bd_addr,
   if (tc) {
     // try to find an open socked for that addr and channel
     t = fcclient_find_by_addr(tc->clients, &bd_addr);
-    if (!t) {
-      // no socket -> drop it
-      return;
-    }
+  }
+
+  if (!t) {
+    // no socket -> drop it
+    return;
   }
 
   sock_cback = t->p_cback;
@@ -2519,6 +2528,8 @@ void bta_jv_l2cap_connect_le(tBTA_JV_MSG* p_data) {
 
   // it could have been deleted/moved from under us, so re-find it */
   t = fcclient_find_by_id(id);
+  if (NULL == t) return;
+
   if (t) {
     if (evt.l2c_cl_init.status == BTA_JV_SUCCESS)
       call_init_f = !t->init_called;
@@ -2580,7 +2591,7 @@ void bta_jv_l2cap_stop_server_le(tBTA_JV_MSG* p_data) {
 void bta_jv_l2cap_start_server_le(tBTA_JV_MSG* p_data) {
   tBTA_JV_API_L2CAP_SERVER* ss = &(p_data->l2cap_server);
   tBTA_JV_L2CAP_START evt_data;
-  struct fc_client* t;
+  struct fc_client* t = NULL;
 
   evt_data.handle = GAP_INVALID_HANDLE;
   evt_data.status = BTA_JV_FAILURE;
