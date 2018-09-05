@@ -1514,17 +1514,11 @@ bool bta_av_co_set_codec_audio_config(
   bool restart_output = false;
   bool config_updated = false;
 
-  // Find the peer that is currently open
+  // Find the peer that is currently Active.
   tBTA_AV_CO_PEER* p_peer = nullptr;
-  for (size_t i = 0; i < BTA_AV_CO_NUM_ELEMENTS(bta_av_co_cb.peers); i++) {
-    tBTA_AV_CO_PEER* p_peer_tmp = &bta_av_co_cb.peers[i];
-    if (p_peer_tmp->opened) {
-      p_peer = p_peer_tmp;
-      break;
-    }
-  }
+  p_peer = bta_av_co_get_active_peer();
   if (p_peer == nullptr) {
-    APPL_TRACE_ERROR("%s: no open peer to configure", __func__);
+    APPL_TRACE_ERROR("%s: no active peer to configure", __func__);
     return false;
   }
 
