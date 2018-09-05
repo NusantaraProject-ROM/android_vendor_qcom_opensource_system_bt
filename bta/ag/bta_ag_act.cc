@@ -227,6 +227,8 @@ void bta_ag_start_dereg(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
  ******************************************************************************/
 void bta_ag_start_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
   RawAddress pending_bd_addr;
+  int rfcomm_conn_status = 0;
+  tBTA_SERVICE_MASK services;
 
   /* store parameters */
   if (p_data) {
@@ -235,8 +237,22 @@ void bta_ag_start_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
     p_scb->cli_sec_mask = p_data->api_open.sec_mask;
   }
 
+  services = p_scb->reg_services >> BTA_HSP_SERVICE_ID;
+  for (int i = 0; i < BTA_AG_NUM_IDX && services != 0; i++, services >>= 1) {
+    /* if service is set in mask */
+    if (services & 1) {
+      rfcomm_conn_status = PORT_GetStateBySCN(p_scb->peer_addr,
+                                           bta_ag_cb.profile[i].scn);
+      APPL_TRACE_WARNING("%s: rfcomm connection status %d for device %s, scn %x",
+                     __func__, rfcomm_conn_status, p_scb->peer_addr, bta_ag_cb.profile[i].scn);
+
+      if (rfcomm_conn_status == PORT_STATE_OPENED)
+        break;
+    }
+  }
+
   /* Check if RFCOMM has any incoming connection to avoid collision. */
-  if (PORT_IsOpening(pending_bd_addr)) {
+  if (PORT_IsOpening(pending_bd_addr) || rfcomm_conn_status == PORT_STATE_OPENED) {
     if (bta_ag_cb.max_hf_clients > 1)
     {
       // Abort the outgoing connection if incoming connection is from the same device
