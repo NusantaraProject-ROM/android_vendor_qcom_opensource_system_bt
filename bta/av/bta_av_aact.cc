@@ -2680,7 +2680,6 @@ void bta_av_update_enc_mode(tBTA_AV_DATA* p_data) {
   update_sub_band_info(&p_param, &param_len, BTA_AV_ENCODER_MODE_CHANGE_ID, enc_mode);
   *num_sub_band += 1;
 
-  APPL_TRACE_ERROR("VSC stream: opcode: 0x%02x, num: 0x%02x, ID: 0x%02x, len: 0x%02x, Info1: 0x%02x, Info2: 0x%02x", param[0], param[1], param[2], param[3], param[4], param[5]);
    BTM_VendorSpecificCommand(HCI_VSQC_CONTROLLER_A2DP_OPCODE, param_len,
                                  param, enc_mode_change_callback);
 }
@@ -4000,6 +3999,12 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
                                  param, offload_vendor_callback);
     last_sent_vsc_cmd = VS_QHCI_A2DP_OFFLOAD_START;
     offload_start.p_scb = p_scb;
+    if(strcmp(codec_name,"aptX-adaptive") == 0)
+    {
+        tBTA_AV_DATA av_data;
+        av_data.encoder_mode.enc_mode = btif_av_get_aptx_mode_info();
+        bta_av_update_enc_mode(&av_data);
+    }
   }
 }
 void bta_av_vendor_offload_stop(tBTA_AV_SCB* p_scb)

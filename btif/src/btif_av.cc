@@ -170,6 +170,7 @@ typedef struct {
 #endif
   bool avdt_sync; /* for AVDT1.3 delay reporting */
   uint16_t codec_latency;
+  uint16_t aptx_mode;
 } btif_av_cb_t;
 
 typedef struct {
@@ -201,7 +202,7 @@ static btif_av_cb_t btif_av_cb[BTIF_AV_NUM_CB] = {
     , false, false
 #endif
     , false
-    , 0},
+    , 0, 0x1000},
     { 0, {{0}}, false, 0, 0, 0, 0, std::vector<btav_a2dp_codec_config_t>(), false,
     false, false, BTIF_AV_STATE_IDLE, BTA_A2DP_SOURCE_SERVICE_ID,
     false, false, false, 0, false, false
@@ -209,7 +210,7 @@ static btif_av_cb_t btif_av_cb[BTIF_AV_NUM_CB] = {
     , false, false
 #endif
     , false
-    , 0},
+    , 0, 0x1000},
 };
 
 static alarm_t* av_open_on_rc_timer = NULL;
@@ -575,9 +576,11 @@ static void btif_update_source_codec(void* p_data) {
         if(index >= btif_max_av_clients) return;
 
         if(encoder_mode == HQ_MODE_MASK) {
+          btif_av_cb[index].aptx_mode = HQ_MODE_MASK;
           btif_av_cb[index].codec_latency = APTX_HQ_LATENCY;
           btif_a2dp_update_sink_latency_change();
         } else if (encoder_mode == LL_MODE_MASK) {
+          btif_av_cb[index].aptx_mode = LL_MODE_MASK;
           btif_av_cb[index].codec_latency = APTX_LL_LATENCY;
           btif_a2dp_update_sink_latency_change();
         }
@@ -4923,6 +4926,18 @@ uint16_t btif_av_get_audio_delay(int index) {
     BTIF_TRACE_ERROR("%s: Invalid index for connection", __func__);
     return btif_a2dp_control_get_audio_delay(0);
   }
+}
+
+uint16_t btif_av_get_aptx_mode_info() {
+  int index = btif_max_av_clients;
+  if (btif_av_stream_started_ready())
+    index = btif_av_get_latest_playing_device_idx();
+  else
+    index = btif_av_get_latest_device_idx_to_start();
+
+  if(index >= btif_max_av_clients) return 0;
+
+  return btif_av_cb[index].aptx_mode;
 }
 
 /*******************************************************************************
