@@ -4133,7 +4133,7 @@ void bta_dm_enable_test_mode(UNUSED_ATTR tBTA_DM_MSG* p_data) {
  *
  ******************************************************************************/
 void bta_dm_disable_test_mode(UNUSED_ATTR tBTA_DM_MSG* p_data) {
-  BTM_DeviceReset(NULL);
+  BTM_HCI_Reset();
 }
 
 /*******************************************************************************
