@@ -39,8 +39,12 @@
 // A2DP SBC encoder interval in milliseconds.
 #define A2DP_SBC_ENCODER_INTERVAL_MS 20
 
-/* High quality quality setting @ 44.1 khz */
-#define A2DP_SBC_DEFAULT_BITRATE 328
+/*
+ * Higher quality setting. 492 kbps @ 48 khz, 452 kbps @ 44.1 khz.
+ * Up to 4 frames for 2DH5, 6 frames for 3DH5.
+ */
+#define A2DP_SBC_DEFAULT_BITRATE 454
+#define A2DP_SBC_48KHZ_BITRATE 494
 
 #define A2DP_SBC_NON_EDR_MAX_RATE 229
 
@@ -54,8 +58,8 @@
 #define MAX_2MBPS_AVDTP_MTU 663
 #define A2DP_SBC_MAX_PCM_ITER_NUM_PER_TICK 3
 
-#define A2DP_SBC_MAX_HQ_FRAME_SIZE_44_1 119
-#define A2DP_SBC_MAX_HQ_FRAME_SIZE_48 115
+#define A2DP_SBC_MAX_HQ_FRAME_SIZE_44_1 165
+#define A2DP_SBC_MAX_HQ_FRAME_SIZE_48 165
 
 /* Define the bitrate step when trying to match bitpool value */
 #define A2DP_SBC_BITRATE_STEP 5
@@ -892,6 +896,11 @@ static uint16_t a2dp_sbc_source_rate(void) {
      LOG_ERROR(LOG_TAG,"%s:MQ enabled",__func__);
      return A2DP_SBC_NON_EDR_MAX_RATE;
   }
+
+  if (a2dp_sbc_encoder_cb.sbc_encoder_params.s16SamplingFreq == SBC_sf48000) {
+    rate = A2DP_SBC_48KHZ_BITRATE;
+  }
+
   /* restrict bitrate if a2dp link is non-edr */
   if (!a2dp_sbc_encoder_cb.is_peer_edr) {
     rate = A2DP_SBC_NON_EDR_MAX_RATE;
