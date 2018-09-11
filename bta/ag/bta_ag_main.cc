@@ -39,9 +39,6 @@ static const char* bta_ag_evt_str(uint16_t event);
 static const char* bta_ag_state_str(uint8_t state);
 static const char* bta_ag_res_str(tBTA_AG_RES result);
 
-/* state machine states */
-enum { BTA_AG_INIT_ST, BTA_AG_OPENING_ST, BTA_AG_OPEN_ST, BTA_AG_CLOSING_ST };
-
 /* state machine action enumeration list */
 enum {
   BTA_AG_REGISTER,

@@ -98,6 +98,9 @@
   (BTA_AG_FEAT_3WAY | BTA_AG_FEAT_ECNR | BTA_AG_FEAT_VREC | \
    BTA_AG_FEAT_INBAND | BTA_AG_FEAT_VTAG)
 
+/* state machine states */
+enum { BTA_AG_INIT_ST, BTA_AG_OPENING_ST, BTA_AG_OPEN_ST, BTA_AG_CLOSING_ST };
+
 enum {
   /* these events are handled by the state machine */
   BTA_AG_API_REGISTER_EVT = BTA_SYS_EVT_START(BTA_ID_AG),

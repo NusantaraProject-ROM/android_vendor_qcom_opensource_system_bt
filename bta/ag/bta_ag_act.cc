@@ -587,7 +587,7 @@ void bta_ag_rfc_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
 void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
   uint16_t lcid;
   int i;
-  tBTA_AG_SCB *ag_scb, *other_scb;
+  tBTA_AG_SCB *ag_scb;
   RawAddress dev_addr;
   int status;
 
@@ -608,39 +608,35 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
   /* Collision Handling */
   for (i = 0, ag_scb = &bta_ag_cb.scb[0]; i < BTA_AG_MAX_NUM_CLIENTS;
        i++, ag_scb++) {
-    if (ag_scb->in_use && alarm_is_scheduled(ag_scb->collision_timer)) {
-      alarm_cancel(ag_scb->collision_timer);
+    if (ag_scb->in_use) {
 
       VLOG(1) << __func__ << "ag_scb addr:" << ag_scb->peer_addr;
       if (dev_addr == ag_scb->peer_addr) {
-        /* Read the property if multi hf is enabled */
-        if (bta_ag_cb.max_hf_clients > 1)
+        if (bta_ag_cb.max_hf_clients > 1 && ag_scb != p_scb)
         {
           /* If incoming and outgoing device are same, nothing more to do.*/
           /* Outgoing conn will be aborted because we have successful incoming conn.*/
-          APPL_TRACE_WARNING("%s: p_scb %x, abort outgoing conn,"\
-            "there is an incoming conn from dev %s", 
-           __func__, ag_scb, dev_addr.ToString().c_str());
-          if (ag_scb->conn_handle)
-          {
-            RFCOMM_RemoveConnection(ag_scb->conn_handle);
+          APPL_TRACE_WARNING("%s: ag_scb %x, abort outgoing conn,"\
+            "there is an incoming conn from dev %s, i %x, ag_scb->state %x",
+           __func__, ag_scb, dev_addr.ToString().c_str(), i, ag_scb->state);
+
+          // if outgoing conn is waiting for SDP or RFCOMM conn to open
+          if (ag_scb->state == BTA_AG_OPENING_ST) {
+            bta_ag_handle_collision(ag_scb, NULL);
+            ag_scb->state = BTA_AG_INIT_ST;
+            ag_scb->peer_addr = RawAddress::kEmpty;
           }
-          // send ourselves close event for clean up
-          bta_ag_cback_open(ag_scb, NULL, BTA_AG_FAIL_RFCOMM);
-        }
-      } else {
-        /* Resume outgoing connection. */
-        APPL_TRACE_DEBUG("%s: Resume Outgoing connection", __func__);
-        other_scb = bta_ag_get_other_idle_scb(p_scb);
-        if (other_scb) {
-          other_scb->peer_addr = ag_scb->peer_addr;
-          other_scb->open_services = ag_scb->open_services;
-          other_scb->cli_sec_mask = ag_scb->cli_sec_mask;
-          APPL_TRACE_DEBUG("%s: Calling Ag resume open API", __func__);
-          bta_ag_resume_open(other_scb);
+          /* Outgoing RFCOMM is just connected, SLC didn't finish.
+             If there is an incoming RFCOMM conn from the same device,
+             treat it as collision and disconnect outgoing HF connection */
+          else if(ag_scb->state == BTA_AG_OPEN_ST && !ag_scb->svc_conn) {
+            // RFCOMM closure takes care of moving BTA to INIT, btif cleanup
+            bta_ag_start_close(ag_scb, NULL);
+          }
+
+          break;
         }
       }
-      break;
     }
   }
 
