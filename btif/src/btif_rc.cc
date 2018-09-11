@@ -1367,6 +1367,7 @@ void handle_rc_metamsg_cmd(tBTA_AV_META_MSG* pmeta_msg) {
     return;
   }
 
+  BTIF_TRACE_EVENT("%s: pmeta_msg->len: %d", __func__, pmeta_msg->len);
   if (pmeta_msg->len < 3) {
     BTIF_TRACE_WARNING("%s: Invalid length. opcode: 0x%x, len: 0x%x", __func__,
                        pmeta_msg->p_msg->hdr.opcode, pmeta_msg->len);

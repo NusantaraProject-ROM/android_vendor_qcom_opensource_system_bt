@@ -121,10 +121,10 @@ static tAVRC_STS avrc_pars_vendor_cmd(tAVRC_MSG_VENDOR* p_msg,
   }
 
   p++; /* skip the reserved byte */
+  AVRC_TRACE_DEBUG("%s: len: %d, p_msg->vendor_len: %d", __func__, *p, p_msg->vendor_len);
   BE_STREAM_TO_UINT16(len, p);
   if ((len + 4) != (p_msg->vendor_len)) {
-    AVRC_TRACE_ERROR("%s incorrect length :%d, %d", __func__, len,
-                     p_msg->vendor_len);
+    AVRC_TRACE_ERROR("%s: incorrect length, len: %d", __func__, len);
     status = AVRC_STS_INTERNAL_ERR;
   }
 
@@ -269,17 +269,19 @@ static tAVRC_STS avrc_pars_vendor_cmd(tAVRC_MSG_VENDOR* p_msg,
       break;
 
     case AVRC_PDU_GET_ELEMENT_ATTR: /* 0x20 */
-      if (len < 9)                  /* UID/8 and num_attr/1 */
+      if (len < 9) {                 /* UID/8 and num_attr/1 */
         status = AVRC_STS_INTERNAL_ERR;
-      else {
+        AVRC_TRACE_ERROR("%s: length is incorrect, status: %d", __func__, status);
+      } else {
         BE_STREAM_TO_UINT32(u32, p);
         BE_STREAM_TO_UINT32(u32_2, p);
         if (u32 == 0 && u32_2 == 0) {
           BE_STREAM_TO_UINT8(p_result->get_elem_attrs.num_attr, p);
           if ((len - 9 /* UID/8 and num_attr/1 */) !=
-              (p_result->get_elem_attrs.num_attr * 4))
+              (p_result->get_elem_attrs.num_attr * 4)) {
             status = AVRC_STS_INTERNAL_ERR;
-          else {
+            AVRC_TRACE_ERROR("%s: num attr length is incorrect, status: %d", __func__, status);
+          } else {
             p_u32 = p_result->get_elem_attrs.attrs;
             if (p_result->get_elem_attrs.num_attr > AVRC_MAX_ELEM_ATTR_SIZE)
               p_result->get_elem_attrs.num_attr = AVRC_MAX_ELEM_ATTR_SIZE;
@@ -294,37 +296,44 @@ static tAVRC_STS avrc_pars_vendor_cmd(tAVRC_MSG_VENDOR* p_msg,
 
     case AVRC_PDU_GET_PLAY_STATUS: /* 0x30 */
       /* no additional parameters */
-      if (len != 0) status = AVRC_STS_INTERNAL_ERR;
+      if (len != 0) {
+        status = AVRC_STS_INTERNAL_ERR;
+        AVRC_TRACE_ERROR("%s: length is incorrect, status: %d", __func__, status);
+      }
       break;
 
     case AVRC_PDU_REGISTER_NOTIFICATION: /* 0x31 */
-      if (len != 5)
+      if (len != 5) {
         status = AVRC_STS_INTERNAL_ERR;
-      else {
+        AVRC_TRACE_ERROR("%s: length is incorrect, status: %d", __func__, status);
+      } else {
         BE_STREAM_TO_UINT8(p_result->reg_notif.event_id, p);
         BE_STREAM_TO_UINT32(p_result->reg_notif.param, p);
       }
       break;
 
     case AVRC_PDU_SET_ABSOLUTE_VOLUME: /* 0x50 */
-      if (len != 1)
+      if (len != 1) {
         status = AVRC_STS_INTERNAL_ERR;
-      else
+        AVRC_TRACE_ERROR("%s: length is incorrect, status: %d", __func__, status);
+      } else
         p_result->volume.volume = *p++;
       break;
 
     case AVRC_PDU_REQUEST_CONTINUATION_RSP: /* 0x40 */
       if (len != 1) {
         status = AVRC_STS_INTERNAL_ERR;
-      }
-      BE_STREAM_TO_UINT8(p_result->continu.target_pdu, p);
+        AVRC_TRACE_ERROR("%s: length is incorrect, status: %d", __func__, status);
+      } else
+        BE_STREAM_TO_UINT8(p_result->continu.target_pdu, p);
       break;
 
     case AVRC_PDU_ABORT_CONTINUATION_RSP: /* 0x41 */
       if (len != 1) {
         status = AVRC_STS_INTERNAL_ERR;
-      }
-      BE_STREAM_TO_UINT8(p_result->abort.target_pdu, p);
+        AVRC_TRACE_ERROR("%s: length is incorrect, status: %d", __func__, status);
+      } else
+        BE_STREAM_TO_UINT8(p_result->abort.target_pdu, p);
       break;
 
     case AVRC_PDU_SET_ADDRESSED_PLAYER: /* 0x60 */
@@ -332,19 +341,25 @@ static tAVRC_STS avrc_pars_vendor_cmd(tAVRC_MSG_VENDOR* p_msg,
         AVRC_TRACE_ERROR("AVRC_PDU_SET_ADDRESSED_PLAYER length is incorrect:%d",
                          len);
         status = AVRC_STS_INTERNAL_ERR;
-      }
-      BE_STREAM_TO_UINT16(p_result->addr_player.player_id, p);
+      } else
+        BE_STREAM_TO_UINT16(p_result->addr_player.player_id, p);
       break;
 
     case AVRC_PDU_PLAY_ITEM:          /* 0x74 */
     case AVRC_PDU_ADD_TO_NOW_PLAYING: /* 0x90 */
-      if (len != (AVRC_UID_SIZE + 3)) status = AVRC_STS_INTERNAL_ERR;
-      BE_STREAM_TO_UINT8(p_result->play_item.scope, p);
-      if (p_result->play_item.scope > AVRC_SCOPE_NOW_PLAYING) {
-        status = AVRC_STS_BAD_SCOPE;
+      if (len != (AVRC_UID_SIZE + 3)) {
+        status = AVRC_STS_INTERNAL_ERR;
+        AVRC_TRACE_ERROR("%s: length is incorrect, status: %d", __func__, status);
+      } else {
+        BE_STREAM_TO_UINT8(p_result->play_item.scope, p);
+        if (p_result->play_item.scope > AVRC_SCOPE_NOW_PLAYING) {
+          status = AVRC_STS_BAD_SCOPE;
+          AVRC_TRACE_ERROR("%s: scope is not correct, status: %d", __func__, status);
+          break;
+        }
+        BE_STREAM_TO_ARRAY(p, p_result->play_item.uid, AVRC_UID_SIZE);
+        BE_STREAM_TO_UINT16(p_result->play_item.uid_counter, p);
       }
-      BE_STREAM_TO_ARRAY(p, p_result->play_item.uid, AVRC_UID_SIZE);
-      BE_STREAM_TO_UINT16(p_result->play_item.uid_counter, p);
       break;
 
     default:
@@ -405,46 +420,93 @@ static tAVRC_STS avrc_pars_browsing_cmd(tAVRC_MSG_BROWSE* p_msg,
                                         uint16_t buf_len) {
   tAVRC_STS status = AVRC_STS_NO_ERROR;
   uint8_t* p = p_msg->p_browse_data;
-  int count;
+  int count, p_browse_packet_len = 0;
 
   p_result->pdu = *p++;
-  AVRC_TRACE_DEBUG("avrc_pars_browsing_cmd() pdu:0x%x", p_result->pdu);
-  /* skip over len */
-  p += 2;
+  AVRC_TRACE_DEBUG("%s: pdu:0x%x, *p:%d , buf_len: %d",
+                               __func__, p_result->pdu, p_msg->p_browse_data, buf_len);
+
+  p += 1; //length of the header
+  p_browse_packet_len = *p;
+  p += 1;
+  AVRC_TRACE_DEBUG("%s: p_browse_packet_len = %d, *p:%d, browse_len: %d",
+                                     __func__, p_browse_packet_len, *p, p_msg->browse_len);
+  if ((p_browse_packet_len + 3) != p_msg->browse_len) {
+    status = AVRC_STS_INTERNAL_ERR;
+    AVRC_TRACE_ERROR("%s total Browse length packet criteria didn't match, status: %d",
+                                            __func__, status)
+    return status;
+  }
 
   switch (p_result->pdu) {
     case AVRC_PDU_SET_BROWSED_PLAYER: /* 0x70 */
+      if (p_browse_packet_len < 2) {
+        status = AVRC_STS_BAD_PARAM;
+        AVRC_TRACE_ERROR("%s: browse packet length criteria didn't match,status:%d ",
+                                        __func__, status);
+        break;
+      }
       // For current implementation all players are browsable.
       BE_STREAM_TO_UINT16(p_result->br_player.player_id, p);
       break;
 
     case AVRC_PDU_GET_FOLDER_ITEMS: /* 0x71 */
+      if (p_browse_packet_len < 10) {
+        status = AVRC_STS_BAD_PARAM;
+        AVRC_TRACE_ERROR("%s: browse packet length criteria didn't match,status:%d ",
+                                          __func__, status);
+        break;
+      }
       STREAM_TO_UINT8(p_result->get_items.scope, p);
       // To be modified later here (Scope) when all browsing commands are
       // supported
+      AVRC_TRACE_DEBUG("%s: AVRC_PDU_GET_FOLDER_ITEMS: scope: %d ",
+                                        __func__, p_result->get_items.scope);
       if (p_result->get_items.scope > AVRC_SCOPE_NOW_PLAYING) {
         status = AVRC_STS_BAD_SCOPE;
+        AVRC_TRACE_ERROR("%s: AVRC_PDU_GET_FOLDER_ITEMS: Scope is exceeding,status:%d ",
+                                      __func__, status);
       }
       BE_STREAM_TO_UINT32(p_result->get_items.start_item, p);
       BE_STREAM_TO_UINT32(p_result->get_items.end_item, p);
       if (p_result->get_items.start_item > p_result->get_items.end_item) {
         status = AVRC_STS_BAD_RANGE;
+        AVRC_TRACE_ERROR("%s: AVRC_PDU_GET_FOLDER_ITEMS: start item is > end item, status:%d ",
+                                      __func__, status);
       }
+      AVRC_TRACE_DEBUG("%s: AVRC_PDU_GET_FOLDER_ITEMS: attribute_count: %d ",
+                                 __func__, p_result->get_items.attr_count);
       STREAM_TO_UINT8(p_result->get_items.attr_count, p);
       p_result->get_items.p_attr_list = NULL;
       if (p_result->get_items.attr_count && p_buf &&
           (p_result->get_items.attr_count != AVRC_FOLDER_ITEM_COUNT_NONE)) {
         p_result->get_items.p_attr_list = (uint32_t*)p_buf;
         count = p_result->get_items.attr_count;
-        if (buf_len < (count << 2))
+        if (buf_len < (count << 2)) {
           p_result->get_items.attr_count = count = (buf_len >> 2);
-        for (int idx = 0; idx < count; idx++) {
-          BE_STREAM_TO_UINT32(p_result->get_items.p_attr_list[idx], p);
         }
+        for (int idx = 0, count = 0; idx < p_result->get_items.attr_count && count < 8; idx++) {
+          BE_STREAM_TO_UINT32(p_result->get_items.p_attr_list[idx], p);
+          if (AVRC_IS_VALID_MEDIA_ATTRIBUTE(
+                  p_result->get_items.p_attr_list[idx])) {
+            count++;
+          }
+        }
+        if (p_result->get_items.attr_count != count && count == 0) {
+          status = AVRC_STS_BAD_PARAM;
+          AVRC_TRACE_ERROR("%s: attrbute count is not valid, status:%d ", __func__, status);
+        } else
+          p_result->get_items.attr_count = count;
       }
       break;
 
     case AVRC_PDU_CHANGE_PATH: /* 0x72 */
+      if (p_browse_packet_len < 11) {
+        status = AVRC_STS_BAD_PARAM;
+        AVRC_TRACE_ERROR("%s: browse packet length criteria didn't match,status:%d ",
+                                 __func__, status);
+        break;
+      }
       BE_STREAM_TO_UINT16(p_result->chg_path.uid_counter, p);
       BE_STREAM_TO_UINT8(p_result->chg_path.direction, p);
       if (p_result->chg_path.direction != AVRC_DIR_UP &&
@@ -455,26 +517,37 @@ static tAVRC_STS avrc_pars_browsing_cmd(tAVRC_MSG_BROWSE* p_msg,
       break;
 
     case AVRC_PDU_GET_ITEM_ATTRIBUTES: /* 0x73 */
+      if (p_browse_packet_len < 12) {
+        status = AVRC_STS_BAD_PARAM;
+        AVRC_TRACE_ERROR("%s: browse packet length criteria didn't match,status:%d ",
+                                 __func__, status);
+        break;
+      }
+      AVRC_TRACE_DEBUG("%s: scope: %d ", __func__, p_result->get_attrs.scope);
       BE_STREAM_TO_UINT8(p_result->get_attrs.scope, p);
       if (p_result->get_attrs.scope > AVRC_SCOPE_NOW_PLAYING) {
         status = AVRC_STS_BAD_SCOPE;
+        AVRC_TRACE_ERROR("%s: scope is not correct, status: %d ", __func__, status);
         break;
       }
       BE_STREAM_TO_ARRAY(p, p_result->get_attrs.uid, AVRC_UID_SIZE);
       BE_STREAM_TO_UINT16(p_result->get_attrs.uid_counter, p);
       BE_STREAM_TO_UINT8(p_result->get_attrs.attr_count, p);
+      AVRC_TRACE_DEBUG("%s: attr_count: %d, *p = %d", __func__, p_result->get_attrs.attr_count, *p);
       p_result->get_attrs.p_attr_list = NULL;
       if (p_result->get_attrs.attr_count && p_buf) {
         p_result->get_attrs.p_attr_list = (uint32_t*)p_buf;
         count = p_result->get_attrs.attr_count;
-        if (buf_len < (count << 2))
+        if (buf_len < (count << 2)) {
           p_result->get_attrs.attr_count = count = (buf_len >> 2);
-        for (int idx = 0, count = 0; idx < p_result->get_attrs.attr_count;
+        }
+        for (int idx = 0, count = 0; idx < p_result->get_attrs.attr_count && count < 8;
              idx++) {
           BE_STREAM_TO_UINT32(p_result->get_attrs.p_attr_list[count], p);
           if (AVRC_IS_VALID_MEDIA_ATTRIBUTE(
                   p_result->get_attrs.p_attr_list[count])) {
             count++;
+            AVRC_TRACE_DEBUG("%s: After valid check of attr_list: %d ", __func__, count);
           }
         }
 
@@ -486,6 +559,12 @@ static tAVRC_STS avrc_pars_browsing_cmd(tAVRC_MSG_BROWSE* p_msg,
       break;
 
     case AVRC_PDU_GET_TOTAL_NUM_OF_ITEMS: /* 0x75 */
+      if (p_browse_packet_len < 1) {
+        status = AVRC_STS_BAD_PARAM;
+        AVRC_TRACE_ERROR("%s: browse packet length criteria didn't match,status:%d ",
+                               __func__, status);
+        break;
+      }
       BE_STREAM_TO_UINT8(p_result->get_num_of_items.scope, p);
       if (p_result->get_num_of_items.scope > AVRC_SCOPE_NOW_PLAYING) {
         status = AVRC_STS_BAD_SCOPE;
@@ -493,10 +572,17 @@ static tAVRC_STS avrc_pars_browsing_cmd(tAVRC_MSG_BROWSE* p_msg,
       break;
 
     case AVRC_PDU_SEARCH: /* 0x80 */
+      if (p_browse_packet_len < 4) {
+        status = AVRC_STS_BAD_PARAM;
+        AVRC_TRACE_ERROR("%s: browse packet length criteria didn't match,status:%d ",
+                                 __func__, status);
+        break;
+      }
       BE_STREAM_TO_UINT16(p_result->search.string.charset_id, p);
       BE_STREAM_TO_UINT16(p_result->search.string.str_len, p);
       p_result->search.string.p_str = p_buf;
       if (p_buf) {
+        AVRC_TRACE_DEBUG("%s: p_buf is valid", __func__);
         if (p_result->search.string.str_len > buf_len) {
           p_result->search.string.str_len = buf_len;
         } else {
