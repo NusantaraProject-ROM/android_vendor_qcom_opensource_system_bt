@@ -699,6 +699,7 @@ static void process_service_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
     if (max_list_len > (p_ccb->rem_mtu_size - SDP_MAX_ATTR_RSPHDR_LEN))
         max_list_len = p_ccb->rem_mtu_size - SDP_MAX_ATTR_RSPHDR_LEN;
 
+  param_len = static_cast<uint16_t>(p_req_end - p_req);
   p_req = sdpu_extract_attr_seq(p_req, param_len, &attr_seq);
 
   if ((!p_req) || (!attr_seq.num_attr)) {
