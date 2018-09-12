@@ -1624,7 +1624,7 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
       if (btif_av_is_split_a2dp_enabled()) {
         if (codec_cfg_change && btif_av_cb[index].current_playing == TRUE) {
           codec_cfg_change = false;
-          if (!isBitRateChange || !isBitsPerSampleChange)
+          if (!isBitRateChange && !isBitsPerSampleChange)
             reconfig_a2dp = TRUE;
           isBitRateChange = false;
           isBitsPerSampleChange = false;
@@ -1947,7 +1947,7 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       btif_report_source_codec_state(p_data, bt_addr);
       if (btif_av_is_split_a2dp_enabled() && (codec_cfg_change)) {
         codec_cfg_change = false;
-        if (!isBitRateChange || !isBitsPerSampleChange)
+        if (!isBitRateChange && !isBitsPerSampleChange)
           reconfig_a2dp = TRUE;
         isBitRateChange = false;
         isBitsPerSampleChange = false;
