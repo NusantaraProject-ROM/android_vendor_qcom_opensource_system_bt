@@ -1871,7 +1871,7 @@ void bta_av_sdp_failed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     p_scb->open_status = BTA_AV_FAIL_SDP;
   }
 
-  p_scb->sdp_discovery_started = true;
+  p_scb->sdp_discovery_started = false;
   bta_av_str_closed(p_scb, p_data);
 }
 
