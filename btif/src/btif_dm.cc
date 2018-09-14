@@ -374,14 +374,14 @@ static void btif_dm_sdp_delay_timer_cback(void* data) {
 
 void btif_dm_sdp_delay_timer(const RawAddress * bl_bdaddr) {
 
-  RawAddress   bl_dev_bdaddr = *bl_bdaddr;
+  bl_device.bd_addr = *bl_bdaddr;
 
   if (!bl_device.sdp_delay_timer) {
     BTIF_TRACE_ERROR("%s:unable to allocate sdp_delay_timer",__func__);
     return;
   }
   alarm_set(bl_device.sdp_delay_timer, BTIF_DM_SDP_DELAY_TIMER_MS,
-            btif_dm_sdp_delay_timer_cback, &bl_dev_bdaddr);
+            btif_dm_sdp_delay_timer_cback, &bl_device.bd_addr);
   BTIF_TRACE_DEBUG("%s: sdp delay timer started", __func__);
  }
 
