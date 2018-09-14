@@ -686,9 +686,9 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
  ******************************************************************************/
 void bta_ag_rfc_data(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
   uint16_t len;
-  char buf[BTA_AG_RFC_READ_MAX];
+  char buf[BTA_AG_RFC_READ_MAX+1];
 
-  memset(buf, 0, BTA_AG_RFC_READ_MAX);
+  memset(buf, 0, BTA_AG_RFC_READ_MAX+1);
 
   APPL_TRACE_DEBUG("%s", __func__);
 
