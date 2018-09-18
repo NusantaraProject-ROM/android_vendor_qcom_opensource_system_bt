@@ -279,6 +279,7 @@ typedef struct {
   uint64_t rc_playing_uid;
   bool rc_procedure_complete;
   bool rc_play_processed;
+  bool rc_ignore_play_released;
 #if (TWS_ENABLED == TRUE)
   uint8_t tws_earbud_role;
   uint8_t tws_earbud_state;
@@ -892,6 +893,7 @@ void handle_rc_connect(tBTA_AV_RC_OPEN* p_rc_open) {
   p_dev->rc_connected = true;
   p_dev->rc_handle = p_rc_open->rc_handle;
   p_dev->rc_state = BTRC_CONNECTION_STATE_CONNECTED;
+  p_dev->rc_ignore_play_released = false;
   btif_rc_init_txn_label_queue(p_dev);
   /* on locally initiated connection we will get remote features as part of
    * connect */
@@ -965,6 +967,7 @@ void handle_rc_disconnect(tBTA_AV_RC_CLOSE* p_rc_close) {
 #endif
     p_dev->rc_pending_play = false;
     p_dev->rc_play_processed = false;
+    p_dev->rc_ignore_play_released = false;
     p_dev->rc_addr = RawAddress::kEmpty;
     btif_rc_init_txn_label_queue(p_dev);
   }
@@ -1186,8 +1189,33 @@ skip:
   /* pass all commands up */
   BTIF_TRACE_DEBUG("%s: rc_features: %d, cmd->rc_id: %d, pressed: %d", __func__,
                    p_dev->rc_features, p_remote_cmd->rc_id, pressed);
-  HAL_CBACK(bt_rc_callbacks, passthrough_cmd_cb, p_remote_cmd->rc_id, pressed,
-            &rc_addr);
+
+  if (p_remote_cmd->rc_id == BTA_AV_RC_PLAY) {
+    if (pressed)  {
+      HAL_CBACK(bt_rc_callbacks, passthrough_cmd_cb, p_remote_cmd->rc_id, 1,
+                &rc_addr);
+      sleep_ms(30);
+      APPL_TRACE_WARNING("%s: Send fake play release command", __func__);
+      HAL_CBACK(bt_rc_callbacks, passthrough_cmd_cb, p_remote_cmd->rc_id, 0,
+                &rc_addr);
+      p_dev->rc_ignore_play_released = true;
+    } else {
+      if (p_dev->rc_ignore_play_released) {
+        APPL_TRACE_WARNING("%s: Ignore release command", __func__);
+        p_dev->rc_ignore_play_released = false;
+      } else {
+        APPL_TRACE_WARNING("%s: fake pressed command", __func__);
+        HAL_CBACK(bt_rc_callbacks, passthrough_cmd_cb, p_remote_cmd->rc_id, 1,
+                  &rc_addr);
+        sleep_ms(30);
+        HAL_CBACK(bt_rc_callbacks, passthrough_cmd_cb, p_remote_cmd->rc_id, 0,
+                  &rc_addr);
+      }
+    }
+  } else {
+    HAL_CBACK(bt_rc_callbacks, passthrough_cmd_cb, p_remote_cmd->rc_id, pressed,
+              &rc_addr);
+  }
 }
 
 /***************************************************************************
