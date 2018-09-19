@@ -3100,6 +3100,11 @@ static void bta_dm_vnd_info_report_cback (uint8_t evt_len, uint8_t *p_data) {
   STREAM_TO_UINT32(p_msg->event_mask, p_data);
   STREAM_TO_UINT8(p_msg->event_power_level, p_data);
   STREAM_TO_INT8(p_msg->event_rssi, p_data);
+  // for SOC_ERROR_CONN_FAIL error, set event_mask as fail reason.
+  if (soc_error_type == SOC_ERROR_CONN_FAIL) {
+    STREAM_TO_UINT8(p_msg->event_mask, p_data);
+  }
+
   if (p_msg->error_type == BT_SOC_A2DP_GLITCH) {
     STREAM_TO_UINT8(p_msg->event_link_quality, p_data);
     STREAM_SKIP_UINT16(p_data); // currently overflow count is not required.
