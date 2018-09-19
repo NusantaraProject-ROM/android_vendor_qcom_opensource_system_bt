@@ -129,7 +129,7 @@ typedef uint8_t tBTA_AV_HNDL;
 
 /* maximum number of streams created: 1 for audio, 1 for video */
 #ifndef BTA_AV_NUM_STRS
-#define BTA_AV_NUM_STRS 2
+#define BTA_AV_NUM_STRS 5
 #endif
 
 #ifndef BTA_AV_MAX_A2DP_MTU

@@ -98,7 +98,7 @@ static int reconfig_a2dp_param_val = 0;
 
 /* Number of BTIF-AV control blocks */
 /* Now supports Two AV connections. */
-#define BTIF_AV_NUM_CB       2
+#define BTIF_AV_NUM_CB       5
 #define HANDLE_TO_INDEX(x) ((x & BTA_AV_HNDL_MSK) - 1)
 #define INVALID_INDEX        -1
 
@@ -3423,9 +3423,6 @@ static bt_status_t init_src(
   else {
     if (a2dp_multicast_state && !bt_split_a2dp_enabled)
       is_multicast_supported = true;
-    if (max_a2dp_connections > 1)
-      btif_max_av_clients = 2;
-    else
       btif_max_av_clients = max_a2dp_connections;
     BTIF_TRACE_EVENT("%s() with max conn changed to = %d", __func__, btif_max_av_clients);
     if (bt_split_a2dp_enabled) {
@@ -3449,13 +3446,11 @@ static bt_status_t init_src( // gghai
     int max_connected_audio_devices,
     std::vector<btav_a2dp_codec_config_t> codec_priorities) {
   int a2dp_multicast_state = 0;
-
   if(max_connected_audio_devices > BTIF_AV_NUM_CB) {
     BTIF_TRACE_ERROR("%s: App setting maximum allowable connections(%d) to more than limit(%d)",
             __func__, max_connected_audio_devices, BTIF_AV_NUM_CB);
     max_connected_audio_devices = BTIF_AV_NUM_CB;
   }
-
   return init_src(callbacks, codec_priorities, max_connected_audio_devices, a2dp_multicast_state);
 }
 
