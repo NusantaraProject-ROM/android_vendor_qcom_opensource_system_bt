@@ -65,7 +65,6 @@ Interface* GetInterface();
 
 /* Number of BTIF-HF control blocks */
 typedef uint16_t tBTA_AG_PEER_FEAT;
-#define BTIF_HF_NUM_CB 3
 
 extern uint16_t btif_max_hf_clients;
 

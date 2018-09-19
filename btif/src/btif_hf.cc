@@ -131,19 +131,6 @@ static uint32_t btif_hf_features = BTIF_HF_FEATURES;
 uint16_t btif_max_hf_clients = 1;
 static RawAddress active_bda = {};
 
-typedef enum {
-  BTIF_HF_ID_1 = 0,
-  BTIF_HF_ID_2,
-#if (BTIF_HF_NUM_CB == 3)
-  BTIF_HF_ID_3
-#endif
-} bthf_hf_id_t;
-
-uint16_t bthf_hf_id[BTIF_HF_NUM_CB] = {BTIF_HF_ID_1, BTIF_HF_ID_2,
-#if (BTIF_HF_NUM_CB == 3)
-                                       BTIF_HF_ID_3
-#endif
-};
 /*******************************************************************************
  *  Local type definitions
  ******************************************************************************/
@@ -1096,7 +1083,7 @@ bt_status_t HeadsetInterface::ConnectAudio(RawAddress* bd_addr) {
 
   int idx = btif_hf_idx_by_bdaddr(bd_addr);
 
-  if ((idx < 0) || (idx >= BTIF_HF_NUM_CB)) {
+  if ((idx < 0) || (idx >= BTA_AG_MAX_NUM_CLIENTS)) {
     BTIF_TRACE_ERROR("%s: Invalid index %d", __func__, idx);
     return BT_STATUS_FAIL;
   }
@@ -2116,9 +2103,9 @@ bt_status_t btif_hf_execute_service(bool b_enable) {
             btif_hf_features |= BTA_AG_FEAT_CODEC;
     }
 
-    for (i = 0; i < btif_max_hf_clients; i++) {
+    for (uint8_t app_id = 0; app_id < btif_max_hf_clients; app_id++) {
       BTA_AgRegister(BTIF_HF_SERVICES, BTIF_HF_SECURITY, btif_hf_features,
-                     p_service_names, bthf_hf_id[i]);
+                     p_service_names, app_id);
     }
   } else {
     if (bt_hf_callbacks)
