@@ -776,8 +776,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         }
         bta_av_co_get_peer_params(&peer_param);
         LOG_INFO(LOG_TAG,"enc_update_in_progress = %d", enc_update_in_progress);
-        if ((btif_av_stream_started_ready() == FALSE) ||
-                (enc_update_in_progress == TRUE))
+        if (enc_update_in_progress)
         {
           LOG_INFO(LOG_TAG,"A2DP_CTRL_GET_CODEC_CONFIG: stream not started");
           if (btif_av_is_start_ack_pending() == FALSE)
@@ -1146,8 +1145,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         }
         bta_av_co_get_peer_params(&peer_param);
         LOG_INFO(LOG_TAG,"enc_update_in_progress = %d", enc_update_in_progress);
-        if ((btif_av_stream_started_ready() == FALSE) ||
-            (enc_update_in_progress == TRUE))
+        if (enc_update_in_progress)
         {
             LOG_INFO(LOG_TAG,"A2DP_CTRL_GET_CODEC_CONFIG: stream not started");
             status = A2DP_CTRL_ACK_FAILURE;

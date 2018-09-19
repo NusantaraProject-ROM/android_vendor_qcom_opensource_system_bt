@@ -215,6 +215,12 @@ void btif_a2dp_on_offload_started(tBTA_AV_STATUS status) {
       btif_a2dp_src_vsc.tx_start_initiated = FALSE;
       ack = A2DP_CTRL_ACK_UNSUPPORTED;
       break;
+    case BTA_AV_FAIL_UNSUPPORTED:
+      APPL_TRACE_ERROR("%s Facking success to MM: status = %d", __func__, status);
+      btif_a2dp_src_vsc.tx_start_initiated = FALSE;
+      ack = A2DP_CTRL_ACK_SUCCESS;
+      status = BTA_AV_SUCCESS;
+      break;
     default:
       APPL_TRACE_ERROR("%s FAILED: status = %d", __func__, status);
       btif_a2dp_src_vsc.tx_start_initiated = FALSE;

@@ -1757,8 +1757,8 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
           "%s: BTIF_AV_OFFLOAD_START_REQ_EVT: Stream not Started Opened",
           __func__);
       if (btif_av_cb[index].flags & BTIF_AV_FLAG_REMOTE_SUSPEND) {
-        btif_av_cb[index].flags &= ~BTIF_AV_FLAG_REMOTE_SUSPEND;
-        APPL_TRACE_WARNING("%s: Reset remote suspend flag: %d", __func__, btif_av_cb[index].flags);
+        APPL_TRACE_WARNING("%s: Ack success to MM although VSCs of START exchange didn't start : %d",
+                               __func__, btif_av_cb[index].flags);
         btif_a2dp_on_offload_started(BTA_AV_FAIL_UNSUPPORTED);
         break;
       }
@@ -1772,8 +1772,8 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
           btif_a2dp_src_vsc.tx_started = TRUE;
           bta_av_vendor_offload_stop(NULL);
         }
-        btif_av_cb[index].flags &= ~BTIF_AV_FLAG_REMOTE_SUSPEND;
-        APPL_TRACE_WARNING("%s: clear remote suspend flag: %d", __func__, btif_av_cb[index].flags);
+        APPL_TRACE_WARNING("%s: Ack success to MM although VSCs of STRAT Failed: %d",
+                               __func__, btif_av_cb[index].flags);
         btif_a2dp_on_offload_started(BTA_AV_FAIL_UNSUPPORTED);
       }
       break;
