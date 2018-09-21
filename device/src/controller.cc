@@ -144,6 +144,10 @@ static future_t* start_up(void) {
     send_soc_log_command(true);
   }
 
+  if (soc_type == BT_SOC_SMD || soc_type == BT_SOC_CHEROKEE) {
+    btm_enable_soc_iot_info_report(is_iot_info_report_enabled());
+  }
+
   // Read the local version info off the controller next, including
   // information such as manufacturer and supported HCI version
   response = AWAIT_COMMAND(packet_factory->make_read_local_version_info());

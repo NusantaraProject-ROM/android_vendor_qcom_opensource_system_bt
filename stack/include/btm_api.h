@@ -207,6 +207,17 @@ extern void BTM_VendorSpecificCommand(uint16_t opcode, uint8_t param_len,
                                       tBTM_VSC_CMPL_CB* p_cb);
 
 /*******************************************************************************
+**
+** Function         btm_enable_soc_iot_info_report
+**
+** Description      enable/disable bt soc iot info report.
+**
+** Returns          void
+**
+*******************************************************************************/
+void btm_enable_soc_iot_info_report(bool enable);
+
+/*******************************************************************************
  *
  * Function         BTM_AllocateSCN
  *

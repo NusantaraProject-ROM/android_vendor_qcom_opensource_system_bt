@@ -554,6 +554,13 @@ void bta_dm_disable(UNUSED_ATTR tBTA_DM_MSG* p_data) {
   bta_dm_cb.disabling = true;
 
   BTM_BleClearBgConnDev();
+
+  /* Disable soc iot info report */
+  if ((soc_type == BT_SOC_SMD || soc_type == BT_SOC_CHEROKEE) &&
+      is_iot_info_report_enabled()) {
+    btm_enable_soc_iot_info_report(false);
+  }
+
   /* Disable SOC Logging */
   if (soc_type == BT_SOC_SMD) {
     uint8_t param[5] = {0x10,0x02,0x00,0x00,0x01};

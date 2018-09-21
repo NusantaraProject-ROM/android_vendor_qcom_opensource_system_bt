@@ -48,6 +48,8 @@
 #include "osi/include/log.h"
 #include "osi/include/properties.h"
 
+#define IOT_INFO_REPORT_ENABLE_PROPERTY "persist.vendor.service.bt.iotinfo.report.enable"
+
 typedef struct {
   bt_soc_type soc_type;
   char* soc_name;
@@ -72,10 +74,12 @@ static int g_TaskIdx;
 static int g_TaskIDs[TASK_HIGH_MAX];
 #define INVALID_TASK_ID (-1)
 static bt_soc_type soc_type;
+static bool iot_info_report_enabled;
 static void init_soc_type();
 
 static future_t* init(void) {
   int i;
+  char value[PROPERTY_VALUE_MAX] = {0};
 
   for (i = 0; i < TASK_HIGH_MAX; i++) {
     g_DoSchedulingGroupOnce[i] = PTHREAD_ONCE_INIT;
@@ -84,6 +88,9 @@ static future_t* init(void) {
   }
 
   init_soc_type();
+
+  osi_property_get(IOT_INFO_REPORT_ENABLE_PROPERTY, value, "true");
+  iot_info_report_enabled = strncmp(value, "true", 4) == 0;
   return NULL;
 }
 
@@ -236,4 +243,17 @@ uint32_t bt_devclass_to_uint(DEV_CLASS dev_class) {
     cod = (dev_class[2]) | (dev_class[1] << 8) | (dev_class[0] << 16);
   }
   return cod;
+}
+
+/*****************************************************************************
+ *
+ * Function        is_iot_info_report_enabled
+ *
+ * Description     check if iot info report is enabled.
+ *
+ * Returns         bool
+ *
+ ******************************************************************************/
+bool is_iot_info_report_enabled() {
+  return iot_info_report_enabled;
 }
