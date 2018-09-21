@@ -553,6 +553,15 @@ btav_a2dp_codec_index_t A2DP_VendorSourceCodecIndexAptxAdaptive(
 const char* A2DP_VendorCodecIndexStrAptxAdaptive(void) { return "aptX-adaptive"; }
 
 bool A2DP_VendorInitCodecConfigAptxAdaptive(tAVDT_CFG* p_cfg) {
+  if (A2DP_GetOffloadStatus()) {
+    if (!A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)) {
+      LOG_ERROR(LOG_TAG, "%s: APTX-ADAPTIVE disabled in offload mode", __func__);
+      return false;
+    }
+  } else {
+    LOG_ERROR(LOG_TAG, "%s: APTX-ADAPTIVE is not supported in Non-Split mode", __func__);
+    return false;
+  }
   if (A2DP_BuildInfoAptxAdaptive(AVDT_MEDIA_TYPE_AUDIO, &a2dp_aptx_adaptive_caps,
                            p_cfg->codec_info) != A2DP_SUCCESS) {
     return false;

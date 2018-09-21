@@ -1472,7 +1472,7 @@ void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap, bool scrambli
         LOG_INFO(LOG_TAG,"%s: APTXHD offload supported",__func__);
         aptxhd_offload = TRUE;
       } else if (strcmp(tok,"aptxadaptive") == 0) {
-        LOG_INFO(LOG_TAG,"%s: APTXHD offload supported",__func__);
+        LOG_INFO(LOG_TAG,"%s: APTX Adaptive offload supported",__func__);
         aptx_adaptive_offload = TRUE;
       } else if (strcmp(tok,"ldac") == 0) {
         LOG_INFO(LOG_TAG,"%s: ldac offload supported",__func__);
