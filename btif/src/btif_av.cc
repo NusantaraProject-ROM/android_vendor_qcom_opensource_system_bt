@@ -277,6 +277,7 @@ static bool btif_av_get_valid_idx(int idx);
 int btif_av_idx_by_bdaddr(RawAddress *bd_addr);
 static int btif_av_get_valid_idx_for_rc_events(RawAddress bd_addr, int rc_handle);
 static int btif_get_conn_state_of_device(RawAddress address);
+static void btif_av_set_browse_active(RawAddress peer_addr, uint8_t device_switch);
 static bt_status_t connect_int(RawAddress *bd_addr, uint16_t uuid);
 static void btif_av_check_rc_connection_priority(void *p_data);
 static bt_status_t connect_int(RawAddress* bd_addr, uint16_t uuid);
@@ -2479,6 +2480,7 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
       {
         BTIF_TRACE_IMP("For Null -> Device set current playing and don't trigger handoff");
         btif_av_cb[index].current_playing = TRUE;
+        btif_av_set_browse_active(*bt_addr, BTA_AV_BROWSE_ACTIVE);
         break;
       }
 
@@ -2502,6 +2504,7 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
         return;
       }
 #endif
+      btif_av_set_browse_active(*bt_addr, BTA_AV_BROWSE_HANDOFF);
       if (index >= 0 && index < btif_max_av_clients)
       {
         for(int i = 0; i < btif_max_av_clients; i++)
@@ -2714,6 +2717,12 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
     case BTA_AV_RC_OPEN_EVT:
       index = btif_av_get_valid_idx_for_rc_events(p_bta_data->rc_open.peer_addr,
                 p_bta_data->rc_open.rc_handle);
+      break;
+
+    case BTA_AV_RC_BROWSE_OPEN_EVT:
+      BTIF_TRACE_ERROR("handle BTA_AV_RC_BROWSE_OPEN_EVT on Browse connect");
+      if (p_bta_data->rc_browse_open.status == 0)
+        btif_av_set_browse_active(p_bta_data->rc_browse_open.peer_addr, BTA_AV_BROWSE_CONNECT);
       break;
 
     case BTA_AV_RC_CLOSE_EVT:
@@ -3539,6 +3548,12 @@ bool btif_av_is_device_connected(RawAddress address) {
     return true;
   else
     return false;
+}
+
+void btif_av_set_browse_active(RawAddress peer_addr, uint8_t device_switch) {
+  uint8_t peer_handle = btif_rc_get_connected_peer_handle(peer_addr);
+  BTIF_TRACE_DEBUG("%s Trigger device switch on rc hdl %d", __func__, peer_handle);
+  BTA_AvBrowseActive(peer_handle, peer_addr, device_switch);
 }
 
 /*******************************************************************************

@@ -136,6 +136,7 @@ enum {
   BTA_AV_AVRC_RETRY_DISC_EVT,
   BTA_AV_CONN_CHG_EVT,
   BTA_AV_DEREG_COMP_EVT,
+  BTA_AV_BROWSE_ACTIVE_EVT,
 #if (AVDT_REPORTING == TRUE)
   BTA_AV_AVDT_RPT_CONN_EVT,
 #endif
@@ -150,6 +151,13 @@ enum {
   BTA_AV_SET_EARBUD_ROLE_EVT, /* Set TWS earbud role */
   BTA_AV_SET_TWS_DEVICE_EVT, /* Update TWS state */
 #endif
+};
+
+/* MultiBrowse specific connection events */
+enum {
+  BTA_AV_BROWSE_CONNECT,
+  BTA_AV_BROWSE_ACTIVE,
+  BTA_AV_BROWSE_HANDOFF,
 };
 
 /* events for AV control block state machine */
@@ -440,6 +448,13 @@ typedef struct {
   uint8_t handle;
 } tBTA_AV_RC_COLLISSION_DETECTED;
 
+/* data associated with BTA_AV_BROWSE_ACTIVE_EVT */
+typedef struct {
+  BT_HDR hdr;
+  uint8_t browse_device_evt;
+  RawAddress peer_addr;
+} tBTA_AV_API_ACTIVE_BROWSE_RC;
+
 /* data type for BTA_AV_CONN_CHG_EVT */
 typedef struct {
   BT_HDR hdr;
@@ -647,6 +662,7 @@ typedef struct {
   uint8_t lidx;               /* (index+1) to LCB */
   tBTA_AV_FEAT peer_features; /* peer features mask */
   uint16_t  cover_art_psm;  /* l2cap psm for cover art on remote */
+  bool is_browse_active;    /* active for browse connetion */
 } tBTA_AV_RCB;
 #define BTA_AV_NUM_RCB (BTA_AV_NUM_STRS + 2)
 
@@ -813,6 +829,7 @@ extern void bta_av_conn_chg(tBTA_AV_DATA* p_data);
 extern void bta_av_dereg_comp(tBTA_AV_DATA* p_data);
 extern void bta_av_rc_collission_detected(tBTA_AV_DATA *p_data);
 extern void bta_av_update_enc_mode(tBTA_AV_DATA* p_data);
+extern void bta_av_active_browse(tBTA_AV_DATA *p_data);
 
 /* sm action functions */
 extern void bta_av_disable(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);

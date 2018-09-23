@@ -671,6 +671,27 @@ void BTA_AvCloseRc(uint8_t rc_handle) {
   bta_sys_sendmsg(p_buf);
 }
 
+ /*******************************************************************************
+  *
+  * Function         BTA_AvBrowseActive
+  *
+  * Description      Set Active Browse AVRCP
+  *
+  * Returns          void
+  ******************************************************************************/
+void BTA_AvBrowseActive(uint8_t rc_handle, const RawAddress& bd_addr,
+                        uint8_t browse_device_evt) {
+  APPL_TRACE_DEBUG("%s: Send Browse Active msg",__func__);
+  tBTA_AV_API_ACTIVE_BROWSE_RC* p_buf =
+      (tBTA_AV_API_ACTIVE_BROWSE_RC*)osi_malloc(sizeof(tBTA_AV_API_ACTIVE_BROWSE_RC));
+
+  p_buf->hdr.event = BTA_AV_BROWSE_ACTIVE_EVT;
+  p_buf->hdr.layer_specific = rc_handle;
+  p_buf->peer_addr = bd_addr;
+  p_buf->browse_device_evt = browse_device_evt;
+
+  bta_sys_sendmsg(p_buf);
+}
 /*******************************************************************************
  *
  * Function         BTA_AvMetaRsp

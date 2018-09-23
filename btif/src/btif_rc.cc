@@ -842,11 +842,18 @@ void handle_rc_browse_connect(tBTA_AV_RC_BROWSE_OPEN* p_rc_br_open) {
     return;
   }
 
+  RawAddress rc_addr = p_dev->rc_addr;
+  if (p_rc_br_open->status == BTA_AV_SUCCESS_BR_HANDOFF) {
+    if (bt_rc_callbacks) {
+      BTIF_TRACE_IMP("%s set browse device to %s", __func__, rc_addr.ToString().c_str());
+      HAL_CBACK(bt_rc_callbacks, connection_state_cb, true, true, &rc_addr);
+    }
+  }
+
   /* check that we are already connected to this address since being connected
    * to a browse when not connected to the control channel over AVRCP is
    * probably not preferred anyways. */
   if (p_rc_br_open->status == BTA_AV_SUCCESS) {
-    RawAddress rc_addr = p_dev->rc_addr;
     p_dev->br_connected = true;
     HAL_CBACK(bt_rc_ctrl_callbacks, connection_state_cb, true, true, &rc_addr);
   }

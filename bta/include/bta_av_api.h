@@ -84,6 +84,7 @@
 #define BTA_AV_FAIL_GET_CAP \
   6 /* get capability failed due to no SEP availale on the peer  */
 #define BTA_AV_FAIL_UNSUPPORTED 7 /* Offload Start Rsp handling in open state */
+#define BTA_AV_SUCCESS_BR_HANDOFF 8 /* successful browse handoff operation */
 
 typedef uint8_t tBTA_AV_STATUS;
 
@@ -837,6 +838,17 @@ void BTA_AvOpenRc(tBTA_AV_HNDL handle);
  *
  ******************************************************************************/
 void BTA_AvCloseRc(uint8_t rc_handle);
+
+ /*******************************************************************************
+  *
+  * Function         BTA_AvBrowseActive
+  *
+  * Description      Set Active Browse AVRCP
+  *
+  * Returns          void
+  ******************************************************************************/
+void BTA_AvBrowseActive(uint8_t rc_handle, const RawAddress& bd_addr,
+                        uint8_t browse_device_evt);
 
 /*******************************************************************************
  *
