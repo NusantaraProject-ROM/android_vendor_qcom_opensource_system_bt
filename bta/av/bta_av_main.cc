@@ -920,10 +920,9 @@ static void bta_av_api_to_ssm(tBTA_AV_DATA* p_data) {
       }
 #if (TWS_ENABLED == TRUE)
       else {
-          if (tws_device > 1 &&
-           ((bta_av_cb.p_scb[xx] != NULL && bta_av_cb.p_scb[xx]->tws_device &&
-            bta_av_cb.p_scb[xx]->peer_addr != p_scb->peer_addr) ||
-             (tws_pair_found && bta_av_cb.p_scb[xx]->peer_addr !=  tws_pair_addr))) {
+          if (tws_device > 1 && bta_av_cb.p_scb[xx] != NULL && bta_av_cb.p_scb[xx]->tws_device &&
+           ((bta_av_cb.p_scb[xx]->peer_addr != p_scb->peer_addr) ||
+            (tws_pair_found && bta_av_cb.p_scb[xx]->peer_addr != tws_pair_addr))) {
             bta_av_ssm_execute(bta_av_cb.p_scb[xx], event, p_data);
           }
       }

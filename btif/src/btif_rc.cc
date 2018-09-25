@@ -2384,8 +2384,8 @@ bool btif_rc_handle_twsp_symmetric_volume_ctrl(btif_rc_device_cb_t* p_dev, uint8
                                      tws_addr_pair) == true)) {
     btif_rc_device_cb_t *p_con_dev = btif_rc_get_device_by_bda(&tws_addr_pair);
     if (p_con_dev == NULL) {
-      BTIF_TRACE_DEBUG("%s:TW+ pair not connected",__func__);
-      return true;
+      BTIF_TRACE_DEBUG("%s:TWS+ pair not connected",__func__);
+      return false;
     }
     if (AVRC_RSP_INTERIM == ctype && p_dev->rc_initial_volume == MAX_VOLUME) {
       if (p_con_dev->rc_volume != MAX_VOLUME){
@@ -6725,7 +6725,17 @@ static bt_status_t is_device_active_in_handoff(RawAddress *bd_addr) {
   av_addr = btif_av_get_addr_by_index(av_index);
   BTIF_TRACE_DEBUG("%s: Current AV Device Index: %d and address: %s:",
                        __func__, av_index, av_addr.ToString().c_str());
-
+#if (TWS_ENABLED == TRUE)
+  if (btif_av_current_device_is_tws()) {
+    if (btif_av_is_tws_enabled_for_dev(p_dev->rc_addr)) {
+      BTIF_TRACE_ERROR("%s:TWS+ device is streaming device",__func__);
+      return BT_STATUS_SUCCESS;
+    } else {
+      BTIF_TRACE_ERROR("%s:legacy device not active",__func__);
+      return BT_STATUS_FAIL;
+    }
+  }
+#endif
   if (connected_devices < btif_max_rc_clients) {
     if (!btif_av_is_device_connected(*bd_addr)) {
        BTIF_TRACE_ERROR("%s: AV is not connected for the device", __func__);

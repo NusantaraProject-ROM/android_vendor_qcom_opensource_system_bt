@@ -4024,7 +4024,7 @@ void bta_av_vendor_offload_stop(tBTA_AV_SCB* p_scb)
   }else if (p_scb->tws_device) {
     for (int xx = 0; xx < BTA_AV_NUM_STRS; xx++) {
       if (bta_av_cb.p_scb[xx] != NULL && bta_av_cb.p_scb[xx] != p_scb &&
-        bta_av_cb.p_scb[xx]->started == true) {
+        bta_av_cb.p_scb[xx]->started == true && bta_av_cb.p_scb[xx]->tws_device) {
         APPL_TRACE_DEBUG("%s:Playing on other device ignore stop", __func__);
         return;
       }

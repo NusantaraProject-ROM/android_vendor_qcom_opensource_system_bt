@@ -1928,7 +1928,8 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
                                           __func__, index);
       }
 #if (TWS_ENABLED == TRUE)
-     if (btif_av_cb[index].tws_device) {
+     if (btif_av_current_device_is_tws() &&
+       btif_av_cb[index].tws_device) {
        btif_av_cb[index].current_playing = true;
      }
 #endif
@@ -2010,15 +2011,18 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
         //TODO check for tws pair
         for(i = 0; i < btif_max_av_clients; i++) {
           state = btif_sm_get_state(btif_av_cb[i].sm_handle);
-          if (state == BTIF_AV_STATE_STARTED
 #if (TWS_ENABLED == TRUE)
-            //Will reach here if TWS+ pair is not in started state
-            || (btif_av_cb[index].tws_device &&
-               i != index && btif_av_cb[i].tws_device &&
-               (btif_av_cb[i].flags & BTIF_AV_FLAG_PENDING_START))
-#endif
-             )
+          if ((btif_av_cb[index].tws_device && i != index &&
+              btif_av_cb[i].tws_device &&
+              (btif_av_cb[i].flags & BTIF_AV_FLAG_PENDING_START ||
+              state == BTIF_AV_STATE_STARTED)) || (i == index)) {
             btif_av_cb[i].flags |= BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING;
+          } else if (enable_multicast && state == BTIF_AV_STATE_STARTED) {
+#else
+          if (state == BTIF_AV_STATE_STARTED) {
+#endif
+            btif_av_cb[i].flags |= BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING;
+          }
         }
       } else {
         btif_av_cb[index].flags |= BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING;
@@ -2507,12 +2511,12 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
       BTIF_TRACE_IMP("BTIF_AV_TRIGGER_HANDOFF_REQ_EVT on index %d", index);
       now_active_index = index;
 #if (TWS_ENABLED == TRUE)
-      if (btif_av_cb[index].tws_device ||
+      if (btif_av_cb[index].tws_device &&
         btif_av_is_tws_device_playing(index)) {
         btif_av_cb[index].current_playing = TRUE;
-        for(int i = 0; i< btif_max_av_clients; i++) {
-          if (i != index) btif_av_cb[i].current_playing = FALSE;
-        }
+        //for(int i = 0; i< btif_max_av_clients; i++) {
+        //  if (i != index) btif_av_cb[i].current_playing = FALSE;
+        //}
         BTIF_TRACE_DEBUG("TWSP device, do not trigger handoff");
         return;
       }
@@ -3612,6 +3616,11 @@ void btif_av_trigger_dual_handoff(bool handoff, int current_active_index, int pr
     if(btif_sm_get_state(btif_av_cb[previous_active_index].sm_handle) == BTIF_AV_STATE_STARTED) {
       BTIF_TRACE_DEBUG("Initiate SUSPEND for this device on index = %d", previous_active_index);
       btif_av_cb[previous_active_index].dual_handoff = handoff; /*Initiate Handoff*/
+      if (btif_av_cb[previous_active_index].tws_device) {
+        for (int i = 0; i < btif_max_av_clients; i++) {
+          if (i != previous_active_index && btif_av_cb[i].tws_device) btif_av_cb[i].dual_handoff = handoff;
+        }
+      }
       btif_sm_dispatch(btif_av_cb[previous_active_index].sm_handle, BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL);
     }
   }
@@ -3766,11 +3775,17 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
     std::vector<btav_a2dp_codec_config_t> codec_preferences) {
   BTIF_TRACE_EVENT("%s", __func__);
   CHECK_BTAV_INIT();
-
-  if (btif_av_is_tws_connected()) {
+  //RawAddress *bda = &bda;
+  //check if current device is TWS and then return failure with SHO support
+#if (TWS_ENABLED == TRUE)
+  int index = btif_av_idx_by_bdaddr(const_cast<RawAddress*>(&bd_addr));
+  if (index < btif_max_av_clients && btif_av_cb[index].tws_device) {
+  //if (btif_av_is_tws_connected()) {
     BTIF_TRACE_DEBUG("%s:TWSP device connected, config change not allowed",__func__);
     return BT_STATUS_FAIL;
+  //}
   }
+#endif
   btif_av_codec_config_req_t codec_req;
   isDevUiReq = false;
   for (auto cp : codec_preferences) {
