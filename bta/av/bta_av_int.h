@@ -133,6 +133,7 @@ enum {
   BTA_AV_AVRC_CLOSE_EVT,
   BTA_AV_AVRC_BROWSE_OPEN_EVT,
   BTA_AV_AVRC_BROWSE_CLOSE_EVT,
+  BTA_AV_AVRC_RETRY_DISC_EVT,
   BTA_AV_CONN_CHG_EVT,
   BTA_AV_DEREG_COMP_EVT,
 #if (AVDT_REPORTING == TRUE)
@@ -807,6 +808,7 @@ extern void bta_av_rc_closed(tBTA_AV_DATA* p_data);
 extern void bta_av_rc_browse_opened(tBTA_AV_DATA* p_data);
 extern void bta_av_rc_browse_closed(tBTA_AV_DATA* p_data);
 extern void bta_av_rc_disc(uint8_t disc);
+extern void bta_av_rc_retry_disc(tBTA_AV_DATA* p_data);
 extern void bta_av_conn_chg(tBTA_AV_DATA* p_data);
 extern void bta_av_dereg_comp(tBTA_AV_DATA* p_data);
 extern void bta_av_rc_collission_detected(tBTA_AV_DATA *p_data);

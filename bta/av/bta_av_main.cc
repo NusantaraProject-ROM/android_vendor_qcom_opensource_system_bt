@@ -214,6 +214,7 @@ const tBTA_AV_NSM_ACT bta_av_nsm_act[] = {
     bta_av_rc_closed,        /* BTA_AV_AVRC_CLOSE_EVT */
     bta_av_rc_browse_opened, /* BTA_AV_AVRC_BROWSE_OPEN_EVT */
     bta_av_rc_browse_closed, /* BTA_AV_AVRC_BROWSE_CLOSE_EVT */
+    bta_av_rc_retry_disc,    /* BTA_AV_AVRC_RETRY_DISC_EVT */
     bta_av_conn_chg,         /* BTA_AV_CONN_CHG_EVT */
     bta_av_dereg_comp,       /* BTA_AV_DEREG_COMP_EVT */
 #if (AVDT_REPORTING == TRUE)
