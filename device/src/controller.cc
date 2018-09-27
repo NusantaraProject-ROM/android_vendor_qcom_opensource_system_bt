@@ -105,8 +105,9 @@ void send_soc_log_command(bool value) {
   if (soc_type == BT_SOC_SMD) {
     LOG_INFO(LOG_TAG, "%s for BT_SOC_SMD.", __func__);
     BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE,5,param,NULL);
-  } else if (soc_type == BT_SOC_CHEROKEE) {
-    LOG_INFO(LOG_TAG, "%s for BT_SOC_CHEROKEE.", __func__);
+  } else if (soc_type == BT_SOC_CHEROKEE || soc_type == BT_SOC_HASTINGS) {
+    LOG_INFO(LOG_TAG, "%s for %s", __func__, soc_type == BT_SOC_CHEROKEE ?
+                "BT_SOC_CHEROKEE" : "BT_SOC_HASTINGS");
     BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE, 2, param_cherokee, NULL);
   }
 }

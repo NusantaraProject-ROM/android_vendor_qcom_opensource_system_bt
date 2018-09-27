@@ -214,7 +214,7 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
       effective_num_seps++;
       codec_name = A2DP_CodecName(p_scb->cs.cfg.codec_info);
       APPL_TRACE_DEBUG("codec name %s", A2DP_CodecName(p_scb->cs.cfg.codec_info));
-      if (strcmp(value, "cherokee") == 0) {
+      if (strcmp(value, "cherokee") == 0 || strcmp(value, "hastings") == 0) {
         if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC) {
           if (bta_av_co_audio_is_aac_wl_enabled(&p_ccb->peer_addr)) {
             if (btif_storage_get_stored_remote_name(p_ccb->peer_addr, remote_name) &&

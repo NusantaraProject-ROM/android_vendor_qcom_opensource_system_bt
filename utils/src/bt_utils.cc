@@ -58,6 +58,7 @@ static soc_type_node soc_type_entries[] = {
                            { BT_SOC_AR3K , (char *)"ath3k" },
                            { BT_SOC_ROME , (char *)"rome" },
                            { BT_SOC_CHEROKEE , (char *)"cherokee" },
+                           { BT_SOC_HASTINGS , (char *)"hastings" },
                            { BT_SOC_RESERVED , (char *)"" }
                                        };
 
