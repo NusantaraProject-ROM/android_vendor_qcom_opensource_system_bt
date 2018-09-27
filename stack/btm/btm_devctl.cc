@@ -720,7 +720,7 @@ void btm_hci_event(uint8_t *p, uint8_t event_code, uint8_t param_len)
  *
  ******************************************************************************/
 void btm_vsc_complete(uint8_t* p, uint16_t opcode, uint16_t evt_len,
-                      tBTM_CMPL_CB* p_vsc_cplt_cback) {
+                      tBTM_VSC_CMPL_CB* p_vsc_cplt_cback) {
   tBTM_VSC_CMPL vcs_cplt_params;
 
   /* If there was a callback address for vcs complete, call it */
