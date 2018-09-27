@@ -469,6 +469,7 @@ extern fixed_queue_t* btu_general_alarm_queue;
 extern void btif_av_set_earbud_state(const RawAddress& bd_addr, uint8_t tws_earbud_state);
 extern void btif_av_set_earbud_role(const RawAddress& bd_addr, uint8_t tws_earbud_role);
 extern bool btif_av_is_tws_enabled_for_dev(const RawAddress& rc_addr);
+extern bool btif_av_current_device_is_tws();
 extern fixed_queue_t* btu_general_alarm_queue;
 
 /*****************************************************************************
@@ -2992,7 +2993,11 @@ static bt_status_t register_notification_rsp_sho_mcast(
       BTIF_TRACE_DEBUG("%s: play_status: %d",__FUNCTION__,
                             avrc_rsp.reg_notif.param.play_status);
       if ((avrc_rsp.reg_notif.param.play_status == PLAY_STATUS_PLAYING) &&
-          (btif_av_check_flag_remote_suspend(av_index))) {
+          (btif_av_check_flag_remote_suspend(av_index))
+#if (TWS_ENABLED == TRUE)
+         && !BTM_SecIsTwsPlusDev(p_dev->rc_addr)
+#endif
+         ) {
           BTIF_TRACE_ERROR("%s: clear remote suspend flag: %d",__FUNCTION__,av_index );
           btif_av_clear_remote_suspend_flag();
           if (bluetooth::headset::btif_hf_check_if_sco_connected() == BT_STATUS_SUCCESS) {
@@ -3107,7 +3112,11 @@ static bt_status_t register_notification_rsp(
         BTIF_TRACE_ERROR("%s: play_status: %d",__FUNCTION__,
                               avrc_rsp.reg_notif.param.play_status);
         if ((avrc_rsp.reg_notif.param.play_status == PLAY_STATUS_PLAYING) &&
-            (btif_av_check_flag_remote_suspend(av_index)))
+            (btif_av_check_flag_remote_suspend(av_index))
+#if (TWS_ENABLED == TRUE)
+            && !BTM_SecIsTwsPlusDev(btif_rc_cb.rc_multi_cb[idx].rc_addr)
+#endif
+           )
         {
             BTIF_TRACE_ERROR("%s: clear remote suspend flag: %d",__FUNCTION__,av_index );
             btif_av_clear_remote_suspend_flag();
@@ -6697,6 +6706,12 @@ static bt_status_t update_play_status_to_stack(btrc_play_status_t play_state) {
     //CHECK for remote suspend
     //clear remote suspend and intiate start
     int index = 0;
+#if (TWS_ENABLED == TRUE)
+    if (btif_av_current_device_is_tws()) {
+      BTIF_TRACE_ERROR("%s:do not trigger start for TWS+ device for remote suspend",__func__);
+      return BT_STATUS_FAIL;
+    }
+#endif
     for (index = 0; index < btif_max_rc_clients; index++) {
       if (btif_av_check_flag_remote_suspend(index) == true) {
         break;

@@ -292,11 +292,13 @@ bool btif_av_is_tws_device_playing(int index);
 bool btif_av_is_tws_suspend_triggered(int index);
 bool btif_av_is_tws_enabled_for_dev(const RawAddress& rc_addr);
 bool btif_av_is_tws_connected(void);
+bool btif_av_current_device_is_tws(void);
 #else
 #define btif_av_is_tws_device_playing() 0
 #define btif_av_is_tws_suspend_triggered() 0
 #define btif_av_is_tws_enabled_for_dev() 0
 #define btif_av_is_tws_connected() 0
+#define btif_av_current_device_is_tws() 0
 #endif
 #ifdef AVK_BACKPORT
 void btif_av_request_audio_focus(bool enable);
@@ -4888,6 +4890,15 @@ bool btif_av_is_tws_enabled_for_dev(const RawAddress& rc_addr) {
 bool btif_av_is_tws_connected() {
   for (int i = 0; i < btif_max_av_clients; i++) {
     if (btif_av_cb[i].tws_device) {
+      BTIF_TRACE_DEBUG("%s",__func__);
+      return true;
+    }
+  }
+  return false;
+}
+bool btif_av_current_device_is_tws() {
+  for (int i = 0; i < btif_max_av_clients; i++) {
+    if (btif_av_cb[i].tws_device && btif_av_cb[i].current_playing) {
       BTIF_TRACE_DEBUG("%s",__func__);
       return true;
     }
