@@ -200,8 +200,7 @@ static bool prop_upd(const RawAddress* remote_bd_addr, bt_property_t *prop)
     case BT_PROPERTY_BDNAME:
       name_length = prop->len > BTM_MAX_LOC_BD_NAME_LEN ? BTM_MAX_LOC_BD_NAME_LEN:
           prop->len;
-      strncpy(value, (char*)prop->val, name_length);
-      value[name_length]='\0';
+      strlcpy(value, (char*)prop->val, sizeof(value));
       if (remote_bd_addr)
         btif_config_set_str(bdstr, BTIF_STORAGE_PATH_REMOTE_NAME, value);
       else {
@@ -210,8 +209,7 @@ static bool prop_upd(const RawAddress* remote_bd_addr, bt_property_t *prop)
       }
       break;
     case BT_PROPERTY_REMOTE_FRIENDLY_NAME:
-      strncpy(value, (char*)prop->val, prop->len);
-      value[prop->len] = '\0';
+      strlcpy(value, (char*)prop->val, sizeof(value));
       btif_config_set_str(bdstr, BTIF_STORAGE_PATH_REMOTE_ALIASE, value);
       break;
     case BT_PROPERTY_ADAPTER_SCAN_MODE:
