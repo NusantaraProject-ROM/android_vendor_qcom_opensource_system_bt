@@ -1173,7 +1173,10 @@ static void bta_jv_l2cap_server_cback(uint16_t gap_handle, uint16_t event,
 
     case GAP_EVT_CONN_CONGESTED:
     case GAP_EVT_CONN_UNCONGESTED:
-      p_cb->p_pm_cb->cong = p_cb->cong = (event == GAP_EVT_CONN_CONGESTED) ? true : false;
+      p_cb->cong = (event == GAP_EVT_CONN_CONGESTED) ? true : false;
+      if (NULL != p_cb->p_pm_cb) {
+        p_cb->p_pm_cb->cong = p_cb->cong;
+      }
       if (p_cb->cong == true)
         bta_jv_pm_conn_congested(p_cb);
       evt_data.l2c_cong.cong = p_cb->cong;
