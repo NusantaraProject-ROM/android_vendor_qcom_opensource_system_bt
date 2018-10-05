@@ -65,6 +65,7 @@
 #include "a2dp_sbc.h"
 #include <pthread.h>
 #include "osi/include/osi.h"
+#include "osi/include/properties.h"
 #include <base/logging.h>
 #include <utils/RefBase.h>
 #include <com/qualcomm/qti/bluetooth_audio/1.0/IBluetoothAudio.h>
@@ -170,6 +171,9 @@ typedef enum {
 #define A2DP_SBC_NON_EDR_MAX_RATE 229
 #endif
 #endif
+
+#define AAC_SAMPLE_SIZE  1024
+#define AAC_LATM_HEADER  12
 
 void on_hidl_server_died();
 //using OnServerDead = std::function<void(void)>;
@@ -1254,20 +1258,32 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         }
         else if (A2DP_MEDIA_CT_AAC == codec_type)
         {
-          bitrate = 0;//Bitrate is present in codec info
+          bool is_AAC_frame_ctrl_stack_enable = false;
+          char AAC_frame_ctrl_stack_val[PROPERTY_VALUE_MAX] = {'\0'};
+          osi_property_get("persist.vendor.btstack.aac_frm_ctl.enabled", AAC_frame_ctrl_stack_val, "false");
+          if (!strcmp(AAC_frame_ctrl_stack_val, "true"))
+            is_AAC_frame_ctrl_stack_enable = true;
+          LOG_INFO(LOG_TAG, "Stack AAC frame control enabled: %d", is_AAC_frame_ctrl_stack_enable);
+          if (is_AAC_frame_ctrl_stack_enable) {
+            int sample_rate = A2DP_GetTrackSampleRate(p_codec_info);
+            LOG_INFO(LOG_TAG,"sample_rate = %d", sample_rate);
+            bitrate = (peer_param.peer_mtu - AAC_LATM_HEADER) * (8 * sample_rate / AAC_SAMPLE_SIZE);
+          } else {
+            bitrate = 0;//Bitrate is present in codec info
+          }
         }
         bits_per_sample = CodecConfig->getAudioBitsPerSample();
-        LOG_INFO(LOG_TAG,"bitrate = %d, bits_per_sample = %d", bitrate, bits_per_sample);
+        LOG_INFO(LOG_TAG,"bitrate = %d, bits_per_sample = %d, peer_param.peer_mtu = %d",
+                          bitrate, bits_per_sample, peer_param.peer_mtu);
         codec_info[0] = 0; //playing device handle
         len = p_codec_info[0] + 2;
-        codec_info[len++] = (uint8_t)(peer_param.peer_mtu & 0x00FF);
-        codec_info[len++] = (uint8_t)(((peer_param.peer_mtu & 0xFF00) >> 8) & 0x00FF);
-        codec_info[len++] = (uint8_t)(bitrate & 0x00FF);
-        codec_info[len++] = (uint8_t)(((bitrate & 0xFF00) >> 8) & 0x00FF);
-        codec_info[len++] = (uint8_t)(((bitrate & 0xFF0000) >> 16) & 0x00FF);
-        codec_info[len++] = (uint8_t)(((bitrate & 0xFF000000) >> 24) & 0x00FF);
+        *(uint16_t *)&codec_info[len] = (uint16_t)peer_param.peer_mtu;
+        len = len + 2;
+        *(uint32_t *)&codec_info[len] = (uint32_t)bitrate;
+        len = len + 4;
         *(uint32_t *)&codec_info[len] = (uint32_t)bits_per_sample;
-        len = len+4;
+        LOG_INFO(LOG_TAG,"len  = %d", len);
+        len = len + 4;
         if (strcmp(A2DP_CodecName(p_codec_info), "aptX-TWS") == 0)
         {
            if (tws_defaultmono_supported && btif_av_is_tws_enable_monocfg()) {

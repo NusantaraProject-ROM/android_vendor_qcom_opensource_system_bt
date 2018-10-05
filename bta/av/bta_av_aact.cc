@@ -2255,7 +2255,7 @@ void bta_av_getcap_results(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
                     __func__, media_type, p_scb->media_type, codec_type,
                     p_scb->p_cap->codec_info[A2DP_SBC_IE_MIN_BITPOOL_OFFSET],
                     p_scb->p_cap->codec_info[A2DP_SBC_IE_MAX_BITPOOL_OFFSET]);
-  if (codec_type ==A2DP_MEDIA_CT_SBC ) {
+  if (codec_type == A2DP_MEDIA_CT_SBC ) {
     //minbitpool < 2, then set minbitpool = 2
     if ((p_scb->p_cap->codec_info[A2DP_SBC_IE_MIN_BITPOOL_OFFSET]) < A2DP_SBC_IE_MIN_BITPOOL) {
       p_scb->p_cap->codec_info[A2DP_SBC_IE_MIN_BITPOOL_OFFSET] = A2DP_SBC_IE_MIN_BITPOOL;
@@ -2298,7 +2298,7 @@ void bta_av_getcap_results(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   APPL_TRACE_DEBUG("%s: min/max bitpool: %x/%x", __func__,
                      p_scb->p_cap->codec_info[A2DP_SBC_IE_MIN_BITPOOL_OFFSET],
                      p_scb->p_cap->codec_info[A2DP_SBC_IE_MAX_BITPOOL_OFFSET]);
-  A2DP_DumpCodecInfo(p_scb->cfg.codec_info);
+  A2DP_DumpCodecInfo(p_scb->p_cap->codec_info);
 
   /* if codec present and we get a codec configuration */
   if ((p_scb->p_cap->num_codec != 0) && (media_type == p_scb->media_type) &&
@@ -2310,7 +2310,7 @@ void bta_av_getcap_results(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
 
     APPL_TRACE_DEBUG("%s: result: sep_info_idx=%d", __func__,
                      p_scb->sep_info_idx);
-    A2DP_DumpCodecInfo(p_scb->cfg.codec_info);
+    A2DP_DumpCodecInfo(p_scb->p_cap->codec_info);
 
     uuid_int = p_scb->uuid_int;
     APPL_TRACE_DEBUG("%s: initiator UUID = 0x%x", __func__, uuid_int);
