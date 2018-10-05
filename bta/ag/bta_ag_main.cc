@@ -427,6 +427,9 @@ bool bta_ag_other_scb_open(tBTA_AG_SCB* p_curr_scb) {
 
   for (i = 0; i < BTA_AG_MAX_NUM_CLIENTS; i++, p_scb++) {
     if (p_scb->in_use && p_scb != p_curr_scb &&
+#if (TWS_AG_ENABLED == TRUE)
+        p_scb != bta_ag_cb.sec_sm_scb && /*ignore sec tws scb*/
+#endif
         p_scb->state == BTA_AG_OPEN_ST) {
       return true;
     }

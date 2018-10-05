@@ -1381,11 +1381,6 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
     }
     case BTA_AG_LOCAL_EVT_BCC: {
         if (
-#if (TWS_AG_ENABLED == TRUE)
-            /*Allow Incoming SCO requests from non-active devices if it is TWS+
-              device*/
-            !is_twsp_device(p_scb->peer_addr) &&
-#endif
         !bta_ag_sco_is_active_device(p_scb->peer_addr)) {
           LOG(WARNING) << __func__ << ": AT+BCC rejected as " << p_scb->peer_addr
                        << " is not the active device";

@@ -354,9 +354,10 @@ typedef struct {
   tBTA_AG_PARSE_MODE parse_mode;           /* parse/pass-through mode */
   uint8_t max_hf_clients;                 /* max hf clients can be connected */
 #if (TWS_AG_ENABLED == TRUE)
-  tBTA_AG_SCO_CB twsp_sco;                 /* peer Sco detail*/
-  tBTA_AG_SCB* main_sm_scb;                /* SCB attached with main sco sm*/
-  tBTA_AG_SCB* sec_sm_scb;                /* SCB attached with secondary sm*/
+  tBTA_AG_SCO_CB twsp_sec_sco;      /*peer Sco detail*/
+  tBTA_AG_SCB* main_sm_scb;         /*SCB attached with main sco sm for TWS+*/
+  tBTA_AG_SCB* sec_sm_scb;          /*SCB attached with secondary sm for TWS+*/
+  tBTA_AG_SCB* main_sm_legacy_scb;  /*SCB attached with main sm for legacy dev*/
 #endif
 } tBTA_AG_CB;
 

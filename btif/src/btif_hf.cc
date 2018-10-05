@@ -208,7 +208,22 @@ const char* dump_hf_call_state(bthf_call_state_t call_state) {
  * no active device is set (i.e. active_device_addr is empty)
  */
 static bool is_active_device(const RawAddress& bd_addr) {
-  return !active_bda.IsEmpty() && active_bda == bd_addr;
+  bool ret = false;
+#if (TWS_AG_ENABLED == TRUE)
+  RawAddress peer_eb_addr;
+  RawAddress cur_bd_addr = bd_addr;
+  if (btif_is_tws_plus_device(&bd_addr)) {
+      btif_tws_plus_get_peer_eb_addr(&cur_bd_addr, &peer_eb_addr);
+      ret = !active_bda.IsEmpty() &&
+                 (active_bda == bd_addr || peer_eb_addr == active_bda);
+  } else {
+#endif
+      ret = !active_bda.IsEmpty() && active_bda == bd_addr;
+#if (TWS_AG_ENABLED == TRUE)
+  }
+#endif
+  BTIF_TRACE_EVENT("%s: returns: %d", __func__, ret);
+  return ret;
 }
 
 /*******************************************************************************
@@ -469,8 +484,10 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
   int idx;
   bool ignore_rfc_fail = false;
   RawAddress bd_addr;
+#if (TWS_AG_ENABLED == TRUE)
   RawAddress peer_eb_addr;
   int peer_eb_dev_type;
+#endif
 
   BTIF_TRACE_IMP("%s: event=%s", __func__, dump_hf_event(event));
   // for BTA_AG_ENABLE_EVT/BTA_AG_DISABLE_EVT, p_data is NULL
@@ -647,12 +664,13 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
     /* BTA auto-responds, silently discard */
     case BTA_AG_SPK_EVT:
 #if (TWS_AG_ENABLED == TRUE)
-        if (btif_is_tws_plus_device(&btif_hf_cb[idx].connected_bda)) {
+        if (btif_is_tws_plus_device(&btif_hf_cb[idx].connected_bda) &&
+            is_active_device(btif_hf_cb[idx].connected_bda)) {
             tBTA_AG_RES_DATA ag_res;
             int other_idx;
             memset(&ag_res, 0, sizeof(tBTA_AG_RES_DATA));
             ag_res.num = p_data->val.num;
-            other_idx = btif_hf_get_other_connected_index(idx);
+            other_idx = btif_hf_get_other_connected_twsp_index(idx);
             if (other_idx != btif_max_hf_clients) {
                 BTA_AgResult(
                    btif_hf_cb[other_idx].handle,
@@ -1264,7 +1282,7 @@ bt_status_t HeadsetInterface::VolumeControl(bthf_volume_type_t type, int volume,
         &ag_res);
 #if (TWS_AG_ENABLED == TRUE)
     if (btif_is_tws_plus_device(bd_addr) && type == BTHF_VOLUME_TYPE_SPK) {
-        int other_idx = btif_hf_get_other_connected_index(idx);
+        int other_idx = btif_hf_get_other_connected_twsp_index(idx);
         if (other_idx != btif_max_hf_clients) {
             BTA_AgResult(
                 btif_hf_cb[other_idx].handle,

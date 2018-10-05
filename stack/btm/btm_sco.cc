@@ -1145,6 +1145,7 @@ void btm_sco_removed(uint16_t hci_handle, uint8_t reason) {
       p->hci_handle = BTM_INVALID_HCI_HANDLE;
       p->rem_bd_known = false;
       p->esco.p_esco_cback = NULL; /* Deregister eSCO callback */
+      BTM_TRACE_DEBUG("%s: calling disc_cb : %x, idx = %d", __func__, p, xx);
       (*p->p_disc_cb)(xx);
 
       return;
@@ -1178,6 +1179,7 @@ void btm_sco_acl_removed(const RawAddress* bda) {
 
         p->state = SCO_ST_UNUSED;
         p->esco.p_esco_cback = NULL; /* Deregister eSCO callback */
+        BTM_TRACE_DEBUG("%s: calling disc_cb: %x, idx = %d", __func__, p, xx);
         (*p->p_disc_cb)(xx);
       }
     }

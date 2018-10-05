@@ -482,7 +482,9 @@ void bta_ag_rfc_close(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
   /* call close cback */
   (*bta_ag_cb.p_cback)(BTA_AG_CLOSE_EVT, (tBTA_AG*)&close);
 #if (TWS_AG_ENABLED == TRUE)
-  reset_twsp_device(bta_ag_scb_to_idx(p_scb)-1);
+  if (is_twsp_device(p_scb->peer_addr)) {
+      reset_twsp_device(bta_ag_scb_to_idx(p_scb)-1);
+  }
 #endif
 
   /* if not deregistering (deallocating) reopen registered servers */
@@ -577,7 +579,9 @@ void bta_ag_rfc_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
                         BTA_AG_SVC_TIMEOUT_EVT, bta_ag_scb_to_idx(p_scb));
 #if (TWS_AG_ENABLED == TRUE)
     //Update TWS+ data structure
-    update_twsp_device(bta_ag_scb_to_idx(p_scb)-1, p_scb);
+    if (is_twsp_device(p_scb->peer_addr)) {
+        update_twsp_device(bta_ag_scb_to_idx(p_scb)-1, p_scb);
+    }
 #endif
   } else {
     /* else service level conn is open */
@@ -908,10 +912,12 @@ void bta_ag_svc_conn_open(tBTA_AG_SCB* p_scb,
         if (other_scb != NULL) {
             tBTA_AG_SCO_CB *related_sco = NULL;
             if (other_scb == bta_ag_cb.main_sm_scb) {
-                related_sco = &(bta_ag_cb.sco);
+                if (bta_ag_cb.sco.p_curr_scb == bta_ag_cb.main_sm_scb) {
+                    related_sco = &(bta_ag_cb.sco);
+                }
             } else if(other_scb == bta_ag_cb.sec_sm_scb) {
                 APPL_TRACE_DEBUG("%s:TWS+ peer SCO is selected", __func__);
-                related_sco = &(bta_ag_cb.twsp_sco);
+                related_sco = &(bta_ag_cb.twsp_sec_sco);
             } else {
                 APPL_TRACE_ERROR("%s: Invalid SCB", __func__);
             }
