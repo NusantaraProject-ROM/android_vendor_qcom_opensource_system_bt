@@ -1948,7 +1948,10 @@ uint8_t l2cu_process_peer_cfg_req(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg) {
   fcr_ok = (fcr_status == L2CAP_PEER_CFG_OK);
 
   /* Return any unacceptable parameters */
-  if (mtu_ok && flush_to_ok && qos_type_ok && fcr_ok) {
+  if (p_ccb->p_lcb == NULL) {
+    L2CAP_TRACE_ERROR("%s L2CAP - lcb invalid, clear ccb ", __func__);
+    return (L2CAP_PEER_CFG_DISCONNECT);
+  } else if (mtu_ok && flush_to_ok && qos_type_ok && fcr_ok) {
     l2cu_adjust_out_mps(p_ccb);
     return (L2CAP_PEER_CFG_OK);
   } else {
