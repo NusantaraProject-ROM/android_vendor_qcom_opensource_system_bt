@@ -936,8 +936,8 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
   codec_config_.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_NONE;
   switch (codec_user_config_.bits_per_sample) {
     case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16:
-      codec_capability_.bits_per_sample = codec_user_config_.bits_per_sample;
-      codec_config_.bits_per_sample = codec_user_config_.bits_per_sample;
+      codec_capability_.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_NONE;
+      codec_config_.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_NONE;
       break;
 
     case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24:

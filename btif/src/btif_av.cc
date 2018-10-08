@@ -3478,69 +3478,75 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
         cp.bits_per_sample, cp.channel_mode, cp.codec_specific_1,
         cp.codec_specific_2, cp.codec_specific_3, cp.codec_specific_4);
 
-          A2dpCodecConfig* current_codec = bta_av_get_a2dp_current_codec();
-          if (current_codec != nullptr) {
-            btav_a2dp_codec_config_t codec_config;
-            codec_config = current_codec->getCodecConfig();
-            isBitRateChange = false;
-            if ((codec_config.codec_specific_1 != cp.codec_specific_1) &&
-                (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC)) {
-              isBitRateChange = true;
-              switch (cp.codec_specific_1)
-              {
-              case 1000:
-                if ((codec_config.sample_rate == BTAV_A2DP_CODEC_SAMPLE_RATE_44100) ||
+    A2dpCodecConfig* current_codec = bta_av_get_a2dp_current_codec();
+    if (current_codec != nullptr) {
+      btav_a2dp_codec_config_t codec_config;
+      codec_config = current_codec->getCodecConfig();
+      isBitRateChange = false;
+      if ((codec_config.codec_specific_1 != cp.codec_specific_1) &&
+            (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC)) {
+        isBitRateChange = true;
+        switch (cp.codec_specific_1)
+        {
+          case 1000:
+            if ((codec_config.sample_rate == BTAV_A2DP_CODEC_SAMPLE_RATE_44100) ||
+                (codec_config.sample_rate == BTAV_A2DP_CODEC_SAMPLE_RATE_88200))
+              reconfig_a2dp_param_val = 909000;
+            else
+              reconfig_a2dp_param_val = 990000;
+            break;
+          case 1001:
+            if ((codec_config.sample_rate == BTAV_A2DP_CODEC_SAMPLE_RATE_44100) ||
                   (codec_config.sample_rate == BTAV_A2DP_CODEC_SAMPLE_RATE_88200))
-                  reconfig_a2dp_param_val = 909000;
-                else
-                  reconfig_a2dp_param_val = 990000;
-                break;
-              case 1001:
-                if ((codec_config.sample_rate == BTAV_A2DP_CODEC_SAMPLE_RATE_44100) ||
-                  (codec_config.sample_rate == BTAV_A2DP_CODEC_SAMPLE_RATE_88200))
-                  reconfig_a2dp_param_val = 606000;
-                else
-                  reconfig_a2dp_param_val = 660000;
-                break;
-              case 1002:
-                if ((codec_config.sample_rate == BTAV_A2DP_CODEC_SAMPLE_RATE_44100) ||
-                  (codec_config.sample_rate == BTAV_A2DP_CODEC_SAMPLE_RATE_88200))
-                  reconfig_a2dp_param_val = 303000;
-                else
-                  reconfig_a2dp_param_val = 330000;
-                break;
-              case 1003:
-                reconfig_a2dp_param_val = 0;
-                break;
-              }
-              if (cp.codec_specific_1 != 0) {
-                reconfig_a2dp_param_id = BITRATE_PARAM_ID;
-              }
-            } else if ((codec_config.bits_per_sample != cp.bits_per_sample) &&
-                     (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC)) {
-              switch (cp.bits_per_sample)
-              {
-                case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16:
-                  reconfig_a2dp_param_val = 16;
-                  break;
-                case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24:
-                  reconfig_a2dp_param_val = 24;
-                  break;
-                case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_32:
-                  reconfig_a2dp_param_val = 32;
-                  break;
-                case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_NONE:
-                  break;
+              reconfig_a2dp_param_val = 606000;
+            else
+              reconfig_a2dp_param_val = 660000;
+            break;
+          case 1002:
+            if ((codec_config.sample_rate == BTAV_A2DP_CODEC_SAMPLE_RATE_44100) ||
+                (codec_config.sample_rate == BTAV_A2DP_CODEC_SAMPLE_RATE_88200))
+              reconfig_a2dp_param_val = 303000;
+            else
+              reconfig_a2dp_param_val = 330000;
+            break;
+          case 1003:
+            reconfig_a2dp_param_val = 0;
+            break;
+        }
+        if (cp.codec_specific_1 != 0) {
+          reconfig_a2dp_param_id = BITRATE_PARAM_ID;
+        }
+      } else if ((codec_config.bits_per_sample != cp.bits_per_sample) &&
+               (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC)) {
+          switch (cp.bits_per_sample)
+          {
+            case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16:
+              reconfig_a2dp_param_val = 16;
+              break;
+            case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24:
+              reconfig_a2dp_param_val = 24;
+              break;
+            case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_32:
+              reconfig_a2dp_param_val = 32;
+              break;
+            case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_NONE:
+              break;
 
-              }
-              if ((cp.bits_per_sample != 0) && (codec_config.bits_per_sample != 0)) {
-                reconfig_a2dp_param_id = BITSPERSAMPLE_PARAM_ID;
-                isBitsPerSampleChange = true;
-              }
           }
-      }
+          if ((cp.bits_per_sample != 0) && (codec_config.bits_per_sample != 0)) {
+            reconfig_a2dp_param_id = BITSPERSAMPLE_PARAM_ID;
+            isBitsPerSampleChange = true;
+          }
+        }
+    }
 
-    codec_cfg_change = true;
+    if (cp.codec_specific_4 == 0 ||
+         cp.codec_type != BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)
+      codec_cfg_change = true;
+    else {
+      BTIF_TRACE_WARNING("%s: Dont set codec_cfg_change for Aptx mode change call", __func__);
+    }
+
     isDevUiReq = true;
     if (!codec_bda.IsEmpty())
       BTIF_TRACE_DEBUG("%s: previous codec_bda: %s", __func__, codec_bda.ToString().c_str());
