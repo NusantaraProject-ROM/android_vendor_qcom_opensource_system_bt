@@ -244,7 +244,8 @@ void bta_ag_start_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
       rfcomm_conn_status = PORT_GetStateBySCN(p_scb->peer_addr,
                                            bta_ag_cb.profile[i].scn);
       APPL_TRACE_WARNING("%s: rfcomm connection status %d for device %s, scn %x",
-                     __func__, rfcomm_conn_status, p_scb->peer_addr, bta_ag_cb.profile[i].scn);
+             __func__, rfcomm_conn_status, p_scb->peer_addr.ToString().c_str(),
+             bta_ag_cb.profile[i].scn);
 
       if (rfcomm_conn_status == PORT_STATE_OPENED)
         break;
