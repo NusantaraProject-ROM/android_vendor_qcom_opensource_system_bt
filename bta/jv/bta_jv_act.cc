@@ -248,9 +248,9 @@ tBTA_JV_RFC_CB* bta_jv_rfc_port_to_cb(uint16_t port_handle) {
     if (handle && (handle < BTA_JV_MAX_RFC_CONN)) p_cb = &bta_jv_cb.rfc_cb[handle - 1];
   } else {
     APPL_TRACE_WARNING(
-        "bta_jv_rfc_port_to_cb(port_handle:0x%x):jv handle:0x%x not"
+        "bta_jv_rfc_port_to_cb(port_handle:0x%x) not"
         " FOUND",
-        port_handle, bta_jv_cb.port_cb[port_handle - 1].handle);
+        port_handle);
   }
   return p_cb;
 }
