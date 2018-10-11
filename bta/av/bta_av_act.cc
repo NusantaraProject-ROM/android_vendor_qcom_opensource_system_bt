@@ -2168,6 +2168,7 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
       {
           bta_sys_start_timer(p_scb->avrc_ct_timer, AVRC_CONNECT_RETRY_DELAY_MS,
                                  BTA_AV_SDP_AVRC_DISC_EVT,p_scb->hndl);
+          return;
       }
   }
 #if (BTA_AV_SINK_INCLUDED == TRUE)
