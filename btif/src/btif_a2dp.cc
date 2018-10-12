@@ -112,7 +112,7 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
   } else if (pending_start) {
     APPL_TRACE_WARNING("%s: A2DP start request failed: status = %d", __func__,
                        p_av_start->status);
-    if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+    if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
         !strcmp(a2dp_hal_imp, "true")) {
       int index = (hdl & BTA_AV_HNDL_MSK) - 1;
       RawAddress addr = btif_av_get_addr_by_index(index);
@@ -155,7 +155,7 @@ void btif_a2dp_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
     if (btif_a2dp_audio_if_init) {
       if (p_av_suspend != NULL) {
         btif_a2dp_audio_on_stopped(p_av_suspend->status);
-        if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+        if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
             !strcmp(a2dp_hal_imp, "true") && (p_av_suspend->status != BTA_AV_SUCCESS)) {
           int index = ((p_av_suspend->hndl) & BTA_AV_HNDL_MSK) - 1;
           RawAddress addr = btif_av_get_addr_by_index(index);
@@ -185,7 +185,7 @@ void btif_a2dp_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
   } else {
     if (p_av_suspend != NULL) {
       btif_a2dp_audio_on_suspended(p_av_suspend->status);
-      if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+      if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
           !strcmp(a2dp_hal_imp, "true") && (p_av_suspend->status != BTA_AV_SUCCESS)) {
         int index = ((p_av_suspend->hndl) & BTA_AV_HNDL_MSK) - 1;
         RawAddress addr = btif_av_get_addr_by_index(index);

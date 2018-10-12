@@ -753,7 +753,7 @@ void btif_a2dp_source_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
         if ((pending_cmd == A2DP_CTRL_CMD_STOP) ||
             (pending_cmd == A2DP_CTRL_CMD_SUSPEND)) {
           btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
-          if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+          if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
               !strcmp(a2dp_hal_imp, "true")) {
             btif_a2dp_pending_cmds_reset();
             int index = ((p_av_suspend->hndl) & BTA_AV_HNDL_MSK) - 1;
@@ -795,7 +795,7 @@ void btif_a2dp_source_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
         if ((pending_cmd == A2DP_CTRL_CMD_STOP) ||
             (pending_cmd == A2DP_CTRL_CMD_SUSPEND)) {
           btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
-          if (property_get("persist.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
+          if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
               !strcmp(a2dp_hal_imp, "true")) {
             btif_a2dp_pending_cmds_reset();
             int index = ((p_av_suspend->hndl) & BTA_AV_HNDL_MSK) - 1;
