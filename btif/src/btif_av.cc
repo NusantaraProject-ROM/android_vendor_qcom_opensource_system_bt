@@ -2946,64 +2946,273 @@ static void btif_av_check_rc_connection_priority(void *p_data) {
 
 
 void btif_av_event_deep_copy(uint16_t event, char* p_dest, char* p_src) {
-  BTIF_TRACE_DEBUG("%s", __func__);
-  tBTA_AV* av_src = (tBTA_AV*)p_src;
-  tBTA_AV* av_dest = (tBTA_AV*)p_dest;
+  BTIF_TRACE_DEBUG("%s: event: %d", __func__, event);
 
-  // First copy the structure
-  maybe_non_aligned_memcpy(av_dest, av_src, sizeof(*av_src));
+  if (!p_dest || !p_src) {
+    BTIF_TRACE_DEBUG("%s: p_src is null", __func__);
+    return;
+  }
   switch (event) {
-    case BTA_AV_META_MSG_EVT:
-      if (av_src->meta_msg.p_data && av_src->meta_msg.len) {
-        av_dest->meta_msg.p_data = (uint8_t*)osi_calloc(av_src->meta_msg.len);
-        memcpy(av_dest->meta_msg.p_data, av_src->meta_msg.p_data,
-               av_src->meta_msg.len);
+    case BTA_AV_META_MSG_EVT: //17
+      {
+        BTIF_TRACE_DEBUG("%s: BTA_AV_META_MSG_EVT", __func__);
+        tBTA_AV* av_src = (tBTA_AV*)p_src;
+        tBTA_AV* av_dest = (tBTA_AV*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src));
+
+        // First copy the structure
+        maybe_non_aligned_memcpy(av_dest, av_src, sizeof(*av_src));
+        if (av_src->meta_msg.p_data && av_src->meta_msg.len) {
+          av_dest->meta_msg.p_data = (uint8_t*)osi_calloc(av_src->meta_msg.len);
+          memcpy(av_dest->meta_msg.p_data, av_src->meta_msg.p_data,
+                 av_src->meta_msg.len);
+        }
+
+        if (av_src->meta_msg.p_msg) {
+          av_dest->meta_msg.p_msg = (tAVRC_MSG*)osi_calloc(sizeof(tAVRC_MSG));
+          memcpy(av_dest->meta_msg.p_msg, av_src->meta_msg.p_msg,
+                 sizeof(tAVRC_MSG));
+
+          tAVRC_MSG* p_msg_src = av_src->meta_msg.p_msg;
+          tAVRC_MSG* p_msg_dest = av_dest->meta_msg.p_msg;
+
+          BTIF_TRACE_DEBUG("%s: opcode: 0x%x, vendor_len: %d, p_msg_src->browse.browse_len: %d",
+            __func__, p_msg_src->hdr.opcode, p_msg_src->vendor.vendor_len, p_msg_src->browse.browse_len);
+          if ((p_msg_src->hdr.opcode == AVRC_OP_VENDOR) &&
+              (p_msg_src->vendor.p_vendor_data && p_msg_src->vendor.vendor_len)) {
+            BTIF_TRACE_DEBUG("%s: AVRC_OP_VENDOR:", __func__);
+            p_msg_dest->vendor.p_vendor_data =
+                (uint8_t*)osi_calloc(p_msg_src->vendor.vendor_len);
+            memcpy(p_msg_dest->vendor.p_vendor_data,
+                   p_msg_src->vendor.p_vendor_data, p_msg_src->vendor.vendor_len);
+          }
+          if ((p_msg_src->hdr.opcode == AVRC_OP_BROWSE) &&
+              p_msg_src->browse.p_browse_data && p_msg_src->browse.browse_len) {
+            BTIF_TRACE_DEBUG("%s: AVRC_OP_BROWSE:", __func__);
+            p_msg_dest->browse.p_browse_data =
+               (uint8_t*)osi_calloc(p_msg_src->browse.browse_len);
+            memcpy(p_msg_dest->browse.p_browse_data,
+                   p_msg_src->browse.p_browse_data, p_msg_src->browse.browse_len);
+            android_errorWriteLog(0x534e4554, "109699112");
+          }
+        }
+        break;
       }
 
-      if (av_src->meta_msg.p_msg) {
-        av_dest->meta_msg.p_msg = (tAVRC_MSG*)osi_calloc(sizeof(tAVRC_MSG));
-        memcpy(av_dest->meta_msg.p_msg, av_src->meta_msg.p_msg,
-               sizeof(tAVRC_MSG));
-
-        tAVRC_MSG* p_msg_src = av_src->meta_msg.p_msg;
-        tAVRC_MSG* p_msg_dest = av_dest->meta_msg.p_msg;
-
-        if ((p_msg_src->hdr.opcode == AVRC_OP_VENDOR) &&
-            (p_msg_src->vendor.p_vendor_data && p_msg_src->vendor.vendor_len)) {
-          p_msg_dest->vendor.p_vendor_data =
-              (uint8_t*)osi_calloc(p_msg_src->vendor.vendor_len);
-          memcpy(p_msg_dest->vendor.p_vendor_data,
-                 p_msg_src->vendor.p_vendor_data, p_msg_src->vendor.vendor_len);
-        }
-        if ((p_msg_src->hdr.opcode == AVRC_OP_BROWSE) &&
-            p_msg_src->browse.p_browse_data && p_msg_src->browse.browse_len) {
-          p_msg_dest->browse.p_browse_data =
-              (uint8_t*)osi_calloc(p_msg_src->browse.browse_len);
-          memcpy(p_msg_dest->browse.p_browse_data,
-                 p_msg_src->browse.p_browse_data, p_msg_src->browse.browse_len);
-          android_errorWriteLog(0x534e4554, "109699112");
-        }
+    case BTA_AV_PENDING_EVT: //16
+      {
+        tBTA_AV_PEND* av_src_pend = (tBTA_AV_PEND*)p_src;
+        tBTA_AV_PEND* av_dest_pend = (tBTA_AV_PEND*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_pend));
+        maybe_non_aligned_memcpy(av_dest_pend, av_src_pend, sizeof(*av_src_pend));
+        break;
       }
-      break;
+
+    case BTA_AV_ENABLE_EVT: //0
+      {
+        tBTA_AV_ENABLE* av_src_enable = (tBTA_AV_ENABLE*)p_src;
+        tBTA_AV_ENABLE* av_dest_enable = (tBTA_AV_ENABLE*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_enable));
+        maybe_non_aligned_memcpy(av_dest_enable, av_src_enable, sizeof(*av_src_enable));
+        break;
+      }
+
+    case BTA_AV_REGISTER_EVT: //1
+      {
+        tBTA_AV_REGISTER* av_src_reg = (tBTA_AV_REGISTER*)p_src;
+        tBTA_AV_REGISTER* av_dest_reg = (tBTA_AV_REGISTER*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_reg));
+        maybe_non_aligned_memcpy(av_dest_reg, av_src_reg, sizeof(*av_src_reg));
+        break;
+      }
+
+    case BTA_AV_OPEN_EVT: //2
+      {
+        tBTA_AV_OPEN* av_src_open = (tBTA_AV_OPEN*)p_src;
+        tBTA_AV_OPEN* av_dest_open = (tBTA_AV_OPEN*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_open));
+        maybe_non_aligned_memcpy(av_dest_open, av_src_open, sizeof(*av_src_open));
+        break;
+      }
+
+    case BTA_AV_CLOSE_EVT: //3
+      {
+        tBTA_AV_CLOSE* av_src_close = (tBTA_AV_CLOSE*)p_src;
+        tBTA_AV_CLOSE* av_dest_close = (tBTA_AV_CLOSE*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_close));
+        maybe_non_aligned_memcpy(av_dest_close, av_src_close, sizeof(*av_src_close));
+        break;
+      }
+
+    case BTA_AV_START_EVT : //4
+      {
+        tBTA_AV_START* av_src_start = (tBTA_AV_START*)p_src;
+        tBTA_AV_START* av_dest_start = (tBTA_AV_START*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_start));
+        maybe_non_aligned_memcpy(av_dest_start, av_src_start, sizeof(*av_src_start));
+        break;
+      }
+
+    case BTA_AV_PROTECT_REQ_EVT: //6
+      {
+        tBTA_AV_PROTECT_REQ* av_src_protect = (tBTA_AV_PROTECT_REQ*)p_src;
+        tBTA_AV_PROTECT_REQ* av_dest_protect = (tBTA_AV_PROTECT_REQ*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_protect));
+        maybe_non_aligned_memcpy(av_dest_protect, av_src_protect, sizeof(*av_src_protect));
+        break;
+      }
+
+    case BTA_AV_PROTECT_RSP_EVT: //7
+      {
+        tBTA_AV_PROTECT_RSP* av_src_potect_rsp = (tBTA_AV_PROTECT_RSP*)p_src;
+        tBTA_AV_PROTECT_RSP* av_dest_potect_rsp = (tBTA_AV_PROTECT_RSP*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_potect_rsp));
+        maybe_non_aligned_memcpy(av_dest_potect_rsp, av_src_potect_rsp, sizeof(*av_src_potect_rsp));
+        break;
+      }
+
+    case BTA_AV_RC_OPEN_EVT: //8
+      {
+        tBTA_AV_RC_OPEN* av_src_avrc_open = (tBTA_AV_RC_OPEN*)p_src;
+        tBTA_AV_RC_OPEN* av_dest_avrc_open = (tBTA_AV_RC_OPEN*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_avrc_open));
+        maybe_non_aligned_memcpy(av_dest_avrc_open, av_src_avrc_open, sizeof(*av_src_avrc_open));
+        break;
+      }
+
+    case BTA_AV_RC_CLOSE_EVT: //9
+      {
+        tBTA_AV_RC_CLOSE* av_src_avrc_close = (tBTA_AV_RC_CLOSE*)p_src;
+        tBTA_AV_RC_CLOSE* av_dest_avrc_close = (tBTA_AV_RC_CLOSE*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_avrc_close));
+        maybe_non_aligned_memcpy(av_dest_avrc_close, av_src_avrc_close, sizeof(*av_src_avrc_close));
+        break;
+      }
+
+    case BTA_AV_REMOTE_CMD_EVT: //10
+      {
+        tBTA_AV_REMOTE_CMD* av_src_remote_cmd = (tBTA_AV_REMOTE_CMD*)p_src;
+        tBTA_AV_REMOTE_CMD* av_dest_remote_cmd = (tBTA_AV_REMOTE_CMD*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_remote_cmd));
+        maybe_non_aligned_memcpy(av_dest_remote_cmd, av_src_remote_cmd, sizeof(*av_src_remote_cmd));
+        break;
+      }
+
+    case BTA_AV_REMOTE_RSP_EVT: //11
+      {
+        tBTA_AV_REMOTE_RSP* av_src_remote_rsp = (tBTA_AV_REMOTE_RSP*)p_src;
+        tBTA_AV_REMOTE_RSP* av_dest_remote_rsp = (tBTA_AV_REMOTE_RSP*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_remote_rsp));
+        maybe_non_aligned_memcpy(av_dest_remote_rsp, av_src_remote_rsp, sizeof(*av_src_remote_rsp));
+        break;
+      }
+
+    case BTA_AV_VENDOR_CMD_EVT: //12
+    case BTA_AV_VENDOR_RSP_EVT: //13
+      {
+        tBTA_AV_VENDOR* av_src_vendor = (tBTA_AV_VENDOR*)p_src;
+        tBTA_AV_VENDOR* av_dest_vendor = (tBTA_AV_VENDOR*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_vendor));
+        maybe_non_aligned_memcpy(av_dest_vendor, av_src_vendor, sizeof(*av_src_vendor));
+        break;
+      }
+
+    case BTA_AV_RECONFIG_EVT: //14
+      {
+        tBTA_AV_RECONFIG* av_src_reconfig = (tBTA_AV_RECONFIG*)p_src;
+        tBTA_AV_RECONFIG* av_dest_reconfig = (tBTA_AV_RECONFIG*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_reconfig));
+        maybe_non_aligned_memcpy(av_dest_reconfig, av_src_reconfig, sizeof(*av_src_reconfig));
+        break;
+      }
+
+    case BTA_AV_SUSPEND_EVT: //15
+      {
+        tBTA_AV_SUSPEND* av_src_suspend = (tBTA_AV_SUSPEND*)p_src;
+        tBTA_AV_SUSPEND* av_dest_suspend = (tBTA_AV_SUSPEND*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_suspend));
+        maybe_non_aligned_memcpy(av_dest_suspend, av_src_suspend, sizeof(*av_src_suspend));
+        break;
+      }
+
+    case BTA_AV_REJECT_EVT: //18
+      {
+        tBTA_AV_REJECT* av_src_rej = (tBTA_AV_REJECT*)p_src;
+        tBTA_AV_REJECT* av_dest_rej = (tBTA_AV_REJECT*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_rej));
+        maybe_non_aligned_memcpy(av_dest_rej, av_src_rej, sizeof(*av_src_rej));
+        break;
+      }
+
+    case BTA_AV_RC_FEAT_EVT: //19
+      {
+        tBTA_AV_RC_FEAT* av_src_rc_feat = (tBTA_AV_RC_FEAT*)p_src;
+        tBTA_AV_RC_FEAT* av_dest_rc_feat = (tBTA_AV_RC_FEAT*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_rc_feat));
+        maybe_non_aligned_memcpy(av_dest_rc_feat, av_src_rc_feat, sizeof(*av_src_rc_feat));
+        break;
+      }
+
+    case BTA_AV_RC_BROWSE_OPEN_EVT: //23
+      {
+        tBTA_AV_RC_BROWSE_OPEN* av_src_browse_open = (tBTA_AV_RC_BROWSE_OPEN*)p_src;
+        tBTA_AV_RC_BROWSE_OPEN* av_dest_browse_open = (tBTA_AV_RC_BROWSE_OPEN*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_browse_open));
+        maybe_non_aligned_memcpy(av_dest_browse_open, av_src_browse_open, sizeof(*av_src_browse_open));
+        break;
+      }
+
+    case BTA_AV_RC_BROWSE_CLOSE_EVT: //24
+      {
+        tBTA_AV_RC_BROWSE_CLOSE* av_src_browse_close = (tBTA_AV_RC_BROWSE_CLOSE*)p_src;
+        tBTA_AV_RC_BROWSE_CLOSE* av_dest_browse_close = (tBTA_AV_RC_BROWSE_CLOSE*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_browse_close));
+        maybe_non_aligned_memcpy(av_dest_browse_close, av_src_browse_close, sizeof(*av_src_browse_close));
+        break;
+      }
+
+    case BTA_AV_DELAY_REPORT_EVT: //27
+      {
+        tBTA_AV_DELAY_RPT* av_src_delay_rpt = (tBTA_AV_DELAY_RPT*)p_src;
+        tBTA_AV_DELAY_RPT* av_dest_delay_rpt = (tBTA_AV_DELAY_RPT*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_delay_rpt));
+        maybe_non_aligned_memcpy(av_dest_delay_rpt, av_src_delay_rpt, sizeof(*av_src_delay_rpt));
+        break;
+      }
 
     default:
-      break;
+      {
+        tBTA_AV* av_src_default = (tBTA_AV*)p_src;
+        tBTA_AV* av_dest_default = (tBTA_AV*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_default));
+
+        // First copy the structure
+        maybe_non_aligned_memcpy(av_dest_default, av_src_default, sizeof(*av_src_default));
+        break;
+      }
   }
 }
 
 static void btif_av_event_free_data(btif_sm_event_t event, void* p_data) {
+  BTIF_TRACE_DEBUG("%s: event: %d", __func__, event);
   switch (event) {
     case BTA_AV_META_MSG_EVT: {
       tBTA_AV* av = (tBTA_AV*)p_data;
+      BTIF_TRACE_DEBUG("%s: len: %d, opcode: 0x%x",
+                 __func__, av->meta_msg.len, av->meta_msg.p_msg->hdr.opcode);
       if (av->meta_msg.p_data && av->meta_msg.len) {
         osi_free_and_reset((void**)&av->meta_msg.p_data);
       }
 
       if (av->meta_msg.p_msg) {
-        if (av->meta_msg.p_msg->hdr.opcode == AVRC_OP_VENDOR) {
+        BTIF_TRACE_DEBUG("%s: meta_msg.p_msg is not null: vendor_len: %d, browse_len: %d ",
+          __func__, av->meta_msg.p_msg->vendor.vendor_len, av->meta_msg.p_msg->browse.browse_len);
+        if (av->meta_msg.p_msg->hdr.opcode == AVRC_OP_VENDOR &&
+            av->meta_msg.p_msg->vendor.vendor_len) {
           osi_free(av->meta_msg.p_msg->vendor.p_vendor_data);
         }
-        if (av->meta_msg.p_msg->hdr.opcode == AVRC_OP_BROWSE) {
+        if (av->meta_msg.p_msg->hdr.opcode == AVRC_OP_BROWSE &&
+            av->meta_msg.p_msg->browse.browse_len) {
           osi_free(av->meta_msg.p_msg->browse.p_browse_data);
         }
         osi_free_and_reset((void**)&av->meta_msg.p_msg);
@@ -3016,6 +3225,7 @@ static void btif_av_event_free_data(btif_sm_event_t event, void* p_data) {
 }
 
 static void bte_av_callback(tBTA_AV_EVT event, tBTA_AV* p_data) {
+  BTIF_TRACE_DEBUG("%s: event: %d", __func__, event);
   btif_transfer_context(btif_av_handle_event, event, (char*)p_data,
                         sizeof(tBTA_AV), btif_av_event_deep_copy);
 }

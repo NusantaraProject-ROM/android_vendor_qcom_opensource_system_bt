@@ -863,6 +863,7 @@ void avdt_ccb_cong_state(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
  ******************************************************************************/
 void avdt_ccb_ret_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   p_ccb->ret_count++;
+  AVDT_TRACE_DEBUG("%s:  p_ccb->ret_count: %d", __func__, p_ccb->ret_count);
   if (p_ccb->ret_count == AVDT_RET_MAX) {
     /* command failed */
     p_ccb->ret_count = 0;
@@ -905,14 +906,18 @@ void avdt_ccb_ret_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
  ******************************************************************************/
 void avdt_ccb_snd_cmd(tAVDT_CCB* p_ccb, UNUSED_ATTR tAVDT_CCB_EVT* p_data) {
   BT_HDR* p_msg;
+   AVDT_TRACE_DEBUG("%s: p_ccb->cong: %d", __func__, p_ccb->cong);
 
   /* do we have commands to send?  send next command;  make sure we're clear;
   ** not congested, not sending fragment, not waiting for response
   */
   if ((!p_ccb->cong) && (p_ccb->p_curr_msg == NULL) &&
       (p_ccb->p_curr_cmd == NULL)) {
+    AVDT_TRACE_DEBUG("%s: p_ccb->p_curr_msg and p_ccb->p_curr_cmd are null", __func__);
     p_msg = (BT_HDR*)fixed_queue_try_dequeue(p_ccb->cmd_q);
     if (p_msg != NULL) {
+      AVDT_TRACE_DEBUG("%s: p_msg is null: sizeof(BT_HDR): %d, p_msg->offset: %d, p_msg->len: %d",
+                        __func__, sizeof(BT_HDR), p_msg->offset, p_msg->len);
       /* make a copy of buffer in p_curr_cmd */
       p_ccb->p_curr_cmd = (BT_HDR*)osi_malloc(AVDT_CMD_BUF_SIZE);
       memcpy(p_ccb->p_curr_cmd, p_msg,
@@ -934,16 +939,19 @@ void avdt_ccb_snd_cmd(tAVDT_CCB* p_ccb, UNUSED_ATTR tAVDT_CCB_EVT* p_data) {
  ******************************************************************************/
 void avdt_ccb_snd_msg(tAVDT_CCB* p_ccb, UNUSED_ATTR tAVDT_CCB_EVT* p_data) {
   BT_HDR* p_msg;
+  AVDT_TRACE_DEBUG("%s: p_ccb->cong: %d", __func__, p_ccb->cong);
 
   /* if not congested */
   if (!p_ccb->cong) {
     /* are we sending a fragmented message? continue sending fragment */
     if (p_ccb->p_curr_msg != NULL) {
+      AVDT_TRACE_DEBUG("%s: p_curr_msg is null:", __func__);
       avdt_msg_send(p_ccb, NULL);
     }
     /* do we have responses to send?  send them */
     else if (!fixed_queue_is_empty(p_ccb->rsp_q)) {
       while ((p_msg = (BT_HDR*)fixed_queue_try_dequeue(p_ccb->rsp_q)) != NULL) {
+        AVDT_TRACE_DEBUG("%s: calling avdt_msg_send()", __func__);
         if (avdt_msg_send(p_ccb, p_msg) == true) {
           /* break out if congested */
           break;
