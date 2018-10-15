@@ -41,7 +41,7 @@
 #define AVDT_VERSION_SYNC 0x0103
 
 /* Maximum size in bytes of the codec capabilities information element. */
-#define AVDT_CODEC_SIZE 20
+#define AVDT_CODEC_SIZE 45
 
 /* API function return value result codes. */
 #define AVDT_SUCCESS 0      /* Function successful */

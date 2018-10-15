@@ -718,7 +718,7 @@ typedef struct {
   uint8_t ch_mode; //None:0 Left:1 Right:2
   uint16_t ttp; //time to play
 //#endif
-  uint8_t codec_info[20];
+  uint8_t codec_info[AVDT_CODEC_SIZE];
   tBTA_AV_SCB* p_scb;
 }tBT_VENDOR_A2DP_OFFLOAD;
 
