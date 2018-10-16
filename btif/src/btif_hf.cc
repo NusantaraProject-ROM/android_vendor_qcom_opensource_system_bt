@@ -617,6 +617,13 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       btif_hf_cb[idx].connected_bda = RawAddress::kAny;
       btif_hf_cb[idx].peer_feat = 0;
       clear_phone_state_multihf(idx);
+      //If the active device is disconnected, clear the active device
+      if (is_active_device(bd_addr)) {
+        active_bda = RawAddress::kEmpty;
+        BTIF_TRACE_IMP("%s: Active device is disconnected, clear the active device %s",
+            __func__, active_bda.ToString().c_str());
+        BTA_AgSetActiveDevice(active_bda);
+      }
       /* If AG_OPEN was received but SLC was not setup in a specified time (10
        *seconds),
        ** then AG_CLOSE may be received. We need to advance the queue here
@@ -2040,6 +2047,14 @@ bt_status_t HeadsetInterface::SetActiveDevice(RawAddress* active_device_addr) {
   CHECK_BTHF_INIT();
 
   if (!active_device_addr->IsEmpty()) {
+    //If the app is setting a device as active, which is already active in stack,
+    //return success
+    if (*active_device_addr == active_bda) {
+      BTIF_TRACE_IMP(
+        "%s: Allow app to set device: %s as active, which is already active in stack",
+         __func__, active_device_addr->ToString().c_str());
+      return BT_STATUS_SUCCESS;
+    }
     // if SCO is setting up, don't allow active device switch
     for (int i = 0; i < btif_max_hf_clients; i++) {
       if (btif_hf_cb[i].audio_state == BTHF_AUDIO_STATE_CONNECTING) {
