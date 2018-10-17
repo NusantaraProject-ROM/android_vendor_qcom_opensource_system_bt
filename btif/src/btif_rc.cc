@@ -303,7 +303,6 @@ typedef struct {
 } rc_transaction_t;
 
 typedef struct {
-  std::recursive_mutex lbllock;
   rc_transaction_t transaction[MAX_TRANSACTIONS_PER_SESSION];
 } rc_device_t;
 
@@ -314,7 +313,10 @@ typedef struct {
 
 typedef struct { uint8_t handle; } btif_rc_handle_t;
 
-rc_device_t device;
+typedef struct {
+  std::recursive_mutex lbllock;
+  rc_device_t *rc_index;
+} btif_rc_index;
 
 static bool isShoMcastEnabled = false;
 static void sleep_ms(period_ms_t timeout_ms);
@@ -361,11 +363,11 @@ static void send_metamsg_rsp(btif_rc_device_cb_t* p_dev, int index,
                              tAVRC_RESPONSE* pmetamsg_resp);
 static void register_volumechange(uint8_t label, btif_rc_device_cb_t* p_dev);
 static void lbl_init();
-static void init_all_transactions();
+static void init_all_transactions(int index);
 static void btif_rc_init_txn_label_queue(btif_rc_device_cb_t *p_dev);
-static bt_status_t get_transaction(rc_transaction_t** ptransaction);
-static void release_transaction(uint8_t label);
-static rc_transaction_t* get_transaction_by_lbl(uint8_t label);
+static bt_status_t get_transaction(rc_transaction_t** ptransaction, int index);
+static void release_transaction(uint8_t label, int index);
+static rc_transaction_t* get_transaction_by_lbl(uint8_t label, int index);
 static void handle_rc_metamsg_rsp(tBTA_AV_META_MSG* pmeta_msg,
                                   btif_rc_device_cb_t* p_dev);
 
@@ -444,6 +446,7 @@ static bt_status_t set_volume(uint8_t volume, RawAddress*bd_addr);
  *  Static variables
  *****************************************************************************/
 static rc_cb_t btif_rc_cb;
+static btif_rc_index device;
 static btrc_callbacks_t* bt_rc_callbacks = NULL;
 static btrc_ctrl_callbacks_t* bt_rc_ctrl_callbacks = NULL;
 static btrc_vendor_ctrl_callbacks_t* bt_rc_vendor_ctrl_callbacks = NULL;
@@ -726,17 +729,22 @@ void handle_rc_features(btif_rc_device_cb_t* p_dev) {
       p_dev->rc_features & BTA_AV_FEAT_RCTG) {
     rc_transaction_t* p_transaction = NULL;
     bt_status_t status = BT_STATUS_NOT_READY;
+    int idx = btif_rc_get_idx_by_bda(&p_dev->rc_addr);
+    if (idx == -1) {
+      BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+      return;
+    }
     if (MAX_LABEL == p_dev->rc_vol_label) {
-      status = get_transaction(&p_transaction);
+      status = get_transaction(&p_transaction, idx);
     } else {
-      p_transaction = get_transaction_by_lbl(p_dev->rc_vol_label);
+      p_transaction = get_transaction_by_lbl(p_dev->rc_vol_label, idx);
       if (NULL != p_transaction) {
         BTIF_TRACE_DEBUG(
             "%s: register_volumechange already in progress for label: %d",
             __func__, p_dev->rc_vol_label);
         return;
       }
-      status = get_transaction(&p_transaction);
+      status = get_transaction(&p_transaction, idx);
     }
     if (BT_STATUS_SUCCESS == status && NULL != p_transaction) {
       p_dev->rc_vol_label = p_transaction->lbl;
@@ -952,7 +960,13 @@ void handle_rc_disconnect(tBTA_AV_RC_CLOSE* p_rc_close) {
     list_clear(p_dev->rc_supported_event_list);
     p_dev->rc_supported_event_list = NULL;
   }
-
+  int idx = btif_rc_get_idx_by_bda(&p_dev->rc_addr);
+  if (idx == -1) {
+    BTIF_TRACE_ERROR("Invalid index device");
+    return;
+  }
+  BTIF_TRACE_DEBUG("%s: Closing handle", __func__);
+  init_all_transactions(idx);
   /* check if there is another device connected */
   if (p_dev->rc_state == BTRC_CONNECTION_STATE_CONNECTED) {
     p_dev->rc_handle = BTIF_RC_HANDLE_NONE;
@@ -973,11 +987,6 @@ void handle_rc_disconnect(tBTA_AV_RC_CLOSE* p_rc_close) {
     p_dev->rc_addr = RawAddress::kEmpty;
     btif_rc_init_txn_label_queue(p_dev);
   }
-  if (get_num_connected_devices() == 0) {
-    BTIF_TRACE_DEBUG("%s: Closing all handles", __func__);
-    init_all_transactions();
-  }
-
   p_dev->rc_addr = RawAddress::kEmpty;
   /* report connection state if device is AVRCP target */
   if (bt_rc_ctrl_callbacks != NULL) {
@@ -1272,8 +1281,12 @@ void handle_rc_passthrough_rsp(tBTA_AV_REMOTE_RSP* p_remote_rsp) {
   const char* status = (p_remote_rsp->key_state == 1) ? "released" : "pressed";
   BTIF_TRACE_DEBUG("%s: rc_id: %d state: %s", __func__, p_remote_rsp->rc_id,
                    status);
-
-  release_transaction(p_remote_rsp->label);
+  int idx = btif_rc_get_idx_by_bda(&p_dev->rc_addr);
+  if (idx == -1) {
+      BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+      return;
+  }
+  release_transaction(p_remote_rsp->label, idx);
   if (bt_rc_ctrl_callbacks != NULL) {
     HAL_CBACK(bt_rc_ctrl_callbacks, passthrough_rsp_cb, &rc_addr,
               p_remote_rsp->rc_id, p_remote_rsp->key_state);
@@ -1317,8 +1330,12 @@ void handle_rc_vendorunique_rsp(tBTA_AV_REMOTE_RSP* p_remote_rsp) {
     }
     BTIF_TRACE_DEBUG("%s: vendor_id: %d status: %s", __func__, vendor_id,
                      status);
-
-    release_transaction(p_remote_rsp->label);
+    int idx = btif_rc_get_idx_by_bda(&p_dev->rc_addr);
+    if (idx == -1) {
+      BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+      return;
+    }
+    release_transaction(p_remote_rsp->label, idx);
     HAL_CBACK(bt_rc_ctrl_callbacks, groupnavigation_rsp_cb, vendor_id,
               key_state);
   } else {
@@ -1373,11 +1390,15 @@ void handle_rc_metamsg_cmd(tBTA_AV_META_MSG* pmeta_msg) {
                        pmeta_msg->p_msg->hdr.opcode, pmeta_msg->len);
     return;
   }
-
+  int idx = btif_rc_get_idx_by_bda(&p_dev->rc_addr);
+  if (idx == -1) {
+      BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+      return;
+  }
   if (pmeta_msg->code >= AVRC_RSP_NOT_IMPL) {
     {
       rc_transaction_t* transaction = NULL;
-      transaction = get_transaction_by_lbl(pmeta_msg->label);
+      transaction = get_transaction_by_lbl(pmeta_msg->label, idx);
       if (transaction != NULL) {
         handle_rc_metamsg_rsp(pmeta_msg, p_dev);
       } else {
@@ -3828,7 +3849,7 @@ static bt_status_t set_volume_sho_mcast(uint8_t volume, RawAddress* bd_addr) {
   avrc_cmd.volume.volume = volume;
 
   if (AVRC_BldCommand(&avrc_cmd, &p_msg) == AVRC_STS_NO_ERROR) {
-    bt_status_t tran_status = get_transaction(&p_transaction);
+    bt_status_t tran_status = get_transaction(&p_transaction, idx);
 
     if (BT_STATUS_SUCCESS == tran_status && NULL != p_transaction) {
       BTIF_TRACE_DEBUG("%s: msgreq being sent out with label: %d",
@@ -3911,7 +3932,7 @@ static bt_status_t set_volume(uint8_t volume, RawAddress*bd_addr) {
           avrc_cmd.volume.volume = volume;
 
           if (AVRC_BldCommand(&avrc_cmd, &p_msg) == AVRC_STS_NO_ERROR) {
-            bt_status_t tran_status = get_transaction(&p_transaction);
+            bt_status_t tran_status = get_transaction(&p_transaction, idx);
 
             if (BT_STATUS_SUCCESS == tran_status && NULL != p_transaction) {
               BTIF_TRACE_DEBUG("%s: msgreq being sent out with label: %d",
@@ -3991,7 +4012,7 @@ static void register_volumechange(uint8_t lbl, btif_rc_device_cb_t* p_dev) {
 
   BldResp = AVRC_BldCommand(&avrc_cmd, &p_msg);
   if (AVRC_STS_NO_ERROR == BldResp && p_msg) {
-    p_transaction = get_transaction_by_lbl(lbl);
+    p_transaction = get_transaction_by_lbl(lbl, index);
     if (p_transaction != NULL) {
       BTA_AvMetaCmd(p_dev->rc_handle, p_transaction->lbl, AVRC_CMD_NOTIF,
                     p_msg);
@@ -4020,9 +4041,12 @@ static void handle_rc_metamsg_rsp(tBTA_AV_META_MSG* pmeta_msg,
   tAVRC_RESPONSE avrc_response = {0};
   uint8_t scratch_buf[512] = {0};
   tAVRC_STS status = BT_STATUS_UNSUPPORTED;
-
   BTIF_TRACE_DEBUG("%s: ", __func__);
-
+  int idx = btif_rc_get_idx_by_bda(&p_dev->rc_addr);
+  if (idx == -1) {
+      BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+      return;
+  }
   if (AVRC_OP_VENDOR == pmeta_msg->p_msg->hdr.opcode &&
       (AVRC_RSP_CHANGED == pmeta_msg->code ||
        AVRC_RSP_INTERIM == pmeta_msg->code ||
@@ -4040,9 +4064,9 @@ static void handle_rc_metamsg_rsp(tBTA_AV_META_MSG* pmeta_msg,
           AVRC_EVT_VOLUME_CHANGE == avrc_response.reg_notif.event_id &&
           p_dev->rc_vol_label == pmeta_msg->label) {
         p_dev->rc_vol_label = MAX_LABEL;
-        release_transaction(p_dev->rc_vol_label);
+        release_transaction(p_dev->rc_vol_label, idx);
       } else if (AVRC_PDU_SET_ABSOLUTE_VOLUME == avrc_response.rsp.pdu) {
-        release_transaction(pmeta_msg->label);
+        release_transaction(pmeta_msg->label, idx);
       }
       return;
     }
@@ -4083,7 +4107,7 @@ static void handle_rc_metamsg_rsp(tBTA_AV_META_MSG* pmeta_msg,
     register_volumechange(p_dev->rc_vol_label, p_dev);
   } else if (AVRC_PDU_SET_ABSOLUTE_VOLUME == avrc_response.rsp.pdu) {
     /* free up the label here */
-    release_transaction(pmeta_msg->label);
+    release_transaction(pmeta_msg->label, idx);
   }
 
   BTIF_TRACE_EVENT("%s: Passing received metamsg response to app. pdu: %s",
@@ -4197,13 +4221,17 @@ static void btif_rc_status_cmd_timeout_handler(UNUSED_ATTR uint16_t event,
   tAVRC_RESPONSE avrc_response = {0};
   tBTA_AV_META_MSG meta_msg;
   btif_rc_device_cb_t* p_dev = NULL;
-
   p_context = (btif_rc_timer_context_t*)data;
   memset(&meta_msg, 0, sizeof(tBTA_AV_META_MSG));
   p_dev = btif_rc_get_device_by_bda(&p_context->rc_addr);
   if (p_dev == NULL) {
     BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
     return;
+  }
+  int idx = btif_rc_get_idx_by_bda(&p_dev->rc_addr);
+  if (idx == -1) {
+      BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+      return;
   }
   meta_msg.rc_handle = p_dev->rc_handle;
 
@@ -4252,7 +4280,7 @@ static void btif_rc_status_cmd_timeout_handler(UNUSED_ATTR uint16_t event,
       handle_get_playstatus_response(&meta_msg, &avrc_response.get_play_status);
       break;
   }
-  release_transaction(p_context->rc_status_cmd.label);
+  release_transaction(p_context->rc_status_cmd.label, idx);
 }
 
 /***************************************************************************
@@ -4290,7 +4318,11 @@ static void btif_rc_control_cmd_timeout_handler(UNUSED_ATTR uint16_t event,
     BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
     return;
   }
-
+  int idx = btif_rc_get_idx_by_bda(&p_dev->rc_addr);
+  if (idx == -1) {
+      BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+      return;
+  }
   memset(&meta_msg, 0, sizeof(tBTA_AV_META_MSG));
   meta_msg.rc_handle = p_dev->rc_handle;
 
@@ -4300,7 +4332,7 @@ static void btif_rc_control_cmd_timeout_handler(UNUSED_ATTR uint16_t event,
       handle_set_app_attr_val_response(&meta_msg, &avrc_response.set_app_val);
       break;
   }
-  release_transaction(p_context->rc_control_cmd.label);
+  release_transaction(p_context->rc_control_cmd.label, idx);
 }
 
 /***************************************************************************
@@ -4404,7 +4436,12 @@ void rc_stop_play_status_timer(btif_rc_device_cb_t* p_dev) {
 static void register_for_event_notification(btif_rc_supported_event_t* p_event,
                                             btif_rc_device_cb_t* p_dev) {
   rc_transaction_t* p_transaction = NULL;
-  bt_status_t status = get_transaction(&p_transaction);
+  int idx = btif_rc_get_idx_by_bda(&p_dev->rc_addr);
+  if (idx == -1) {
+      BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+      return;
+  }
+  bt_status_t status = get_transaction(&p_transaction, idx);
   if (status != BT_STATUS_SUCCESS) {
     BTIF_TRACE_ERROR("%s: no more transaction labels: %d", __func__, status);
     return;
@@ -4415,7 +4452,7 @@ static void register_for_event_notification(btif_rc_supported_event_t* p_event,
   if (status != BT_STATUS_SUCCESS) {
     BTIF_TRACE_ERROR("%s: Error in Notification registration: %d", __func__,
                      status);
-    release_transaction(p_transaction->lbl);
+    release_transaction(p_transaction->lbl, idx);
     return;
   }
 
@@ -4451,7 +4488,6 @@ static void start_control_command_timer(uint8_t pdu_id, rc_transaction_t* p_txn,
   p_context->rc_control_cmd.label = p_txn->lbl;
   p_context->rc_control_cmd.pdu_id = pdu_id;
   p_context->rc_addr = p_dev->rc_addr;
-
   alarm_free(p_txn->txn_timer);
   p_txn->txn_timer = alarm_new("btif_rc.control_command_txn_timer");
   alarm_set_on_mloop(p_txn->txn_timer, BTIF_TIMEOUT_RC_CONTROL_CMD_MS,
@@ -4461,8 +4497,13 @@ static void start_control_command_timer(uint8_t pdu_id, rc_transaction_t* p_txn,
 bt_status_t build_and_send_vendor_cmd(tAVRC_COMMAND* avrc_cmd,
                                       tBTA_AV_CODE cmd_code,
                                       btif_rc_device_cb_t* p_dev) {
+  int idx = btif_rc_get_idx_by_bda(&p_dev->rc_addr);
+  if (idx == -1) {
+      BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+      return BT_STATUS_FAIL;
+  }
   rc_transaction_t* p_transaction = NULL;
-  bt_status_t tran_status = get_transaction(&p_transaction);
+  bt_status_t tran_status = get_transaction(&p_transaction, idx);
   if (BT_STATUS_SUCCESS != tran_status) return BT_STATUS_FAIL;
 
   BT_HDR* p_msg = NULL;
@@ -5604,10 +5645,10 @@ static void handle_set_browsed_player_response(tBTA_AV_META_MSG* pmeta_msg,
  * Returns          None
  *
  **************************************************************************/
-static void clear_cmd_timeout(uint8_t label) {
+static void clear_cmd_timeout(uint8_t label, int index) {
   rc_transaction_t* p_txn;
 
-  p_txn = get_transaction_by_lbl(label);
+  p_txn = get_transaction_by_lbl(label, index);
   if (p_txn == NULL) {
     BTIF_TRACE_ERROR("%s: Error in transaction label lookup", __func__);
     return;
@@ -5630,7 +5671,17 @@ static void handle_avk_rc_metamsg_rsp(tBTA_AV_META_MSG* pmeta_msg) {
   uint8_t scratch_buf[512] = {0};  // this variable is unused
   uint16_t buf_len;
   tAVRC_STS status;
-
+  btif_rc_device_cb_t* p_dev = NULL;
+  p_dev = btif_rc_get_device_by_handle(pmeta_msg->rc_handle);
+  if (p_dev == NULL) {
+    BTIF_TRACE_ERROR("%s: p_dev is NULL", __func__);
+    return;
+  }
+  int idx = btif_rc_get_idx_by_bda(&p_dev->rc_addr);
+  if (idx == -1) {
+    BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+    return;
+  }
   BTIF_TRACE_DEBUG("%s: opcode: %d rsp_code: %d  ", __func__,
                    pmeta_msg->p_msg->hdr.opcode, pmeta_msg->code);
 
@@ -5648,7 +5699,7 @@ static void handle_avk_rc_metamsg_rsp(tBTA_AV_META_MSG* pmeta_msg) {
         handle_notification_response(pmeta_msg, &avrc_response.reg_notif);
         if (pmeta_msg->code == AVRC_RSP_INTERIM) {
           /* Don't free the transaction Id */
-          clear_cmd_timeout(pmeta_msg->label);
+          clear_cmd_timeout(pmeta_msg->label, idx);
           return;
         }
         break;
@@ -5720,7 +5771,7 @@ static void handle_avk_rc_metamsg_rsp(tBTA_AV_META_MSG* pmeta_msg) {
     return;
   }
   BTIF_TRACE_DEBUG("XX __func__ release transaction %d", pmeta_msg->label);
-  release_transaction(pmeta_msg->label);
+  release_transaction(pmeta_msg->label, idx);
 }
 
 /***************************************************************************
@@ -6033,7 +6084,11 @@ static bt_status_t change_folder_path_cmd(RawAddress* bd_addr,
   CHECK_BR_CONNECTED(p_dev);
 
   tAVRC_COMMAND avrc_cmd = {0};
-
+  int idx = btif_rc_get_idx_by_bda(bd_addr);
+  if (idx == -1) {
+    BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+    return BT_STATUS_FAIL;
+  }
   avrc_cmd.chg_path.pdu = AVRC_PDU_CHANGE_PATH;
   avrc_cmd.chg_path.status = AVRC_STS_NO_ERROR;
   // TODO(sanketa): Improve for database aware clients.
@@ -6051,7 +6106,7 @@ static bt_status_t change_folder_path_cmd(RawAddress* bd_addr,
   }
 
   rc_transaction_t* p_transaction = NULL;
-  bt_status_t tran_status = get_transaction(&p_transaction);
+  bt_status_t tran_status = get_transaction(&p_transaction, idx);
   if (tran_status != BT_STATUS_SUCCESS || p_transaction == NULL) {
     osi_free(p_msg);
     BTIF_TRACE_ERROR("%s: failed to obtain transaction details. status: 0x%02x",
@@ -6086,7 +6141,11 @@ static bt_status_t set_browsed_player_cmd(RawAddress* bd_addr, uint16_t id) {
   }
   CHECK_RC_CONNECTED(p_dev);
   CHECK_BR_CONNECTED(p_dev);
-
+  int idx = btif_rc_get_idx_by_bda(bd_addr);
+  if (idx == -1) {
+    BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+    return BT_STATUS_FAIL;
+  }
   rc_transaction_t* p_transaction = NULL;
 
   tAVRC_COMMAND avrc_cmd = {0};
@@ -6102,7 +6161,7 @@ static bt_status_t set_browsed_player_cmd(RawAddress* bd_addr, uint16_t id) {
     return BT_STATUS_FAIL;
   }
 
-  bt_status_t tran_status = get_transaction(&p_transaction);
+  bt_status_t tran_status = get_transaction(&p_transaction, idx);
   if (tran_status != BT_STATUS_SUCCESS || p_transaction == NULL) {
     osi_free(p_msg);
     BTIF_TRACE_ERROR("%s: failed to obtain transaction details. status: 0x%02x",
@@ -6138,7 +6197,11 @@ static bt_status_t set_addressed_player_cmd(RawAddress* bd_addr, uint16_t id) {
   }
   CHECK_RC_CONNECTED(p_dev);
   CHECK_BR_CONNECTED(p_dev);
-
+  int idx = btif_rc_get_idx_by_bda(bd_addr);
+  if (idx == -1) {
+    BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+    return BT_STATUS_FAIL;
+  }
   tAVRC_COMMAND avrc_cmd = {0};
   BT_HDR* p_msg = NULL;
 
@@ -6154,7 +6217,7 @@ static bt_status_t set_addressed_player_cmd(RawAddress* bd_addr, uint16_t id) {
   }
 
   rc_transaction_t* p_transaction = NULL;
-  bt_status_t tran_status = get_transaction(&p_transaction);
+  bt_status_t tran_status = get_transaction(&p_transaction, idx);
 
   if (tran_status != BT_STATUS_SUCCESS || p_transaction == NULL) {
     osi_free(p_msg);
@@ -6196,7 +6259,11 @@ static bt_status_t get_folder_items_cmd(RawAddress* bd_addr, uint8_t scope,
   BTIF_TRACE_DEBUG("%s", __func__);
   CHECK_RC_CONNECTED(p_dev);
   CHECK_BR_CONNECTED(p_dev);
-
+  int idx = btif_rc_get_idx_by_bda(bd_addr);
+  if (idx == -1) {
+    BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+    return BT_STATUS_FAIL;
+  }
   tAVRC_COMMAND avrc_cmd = {0};
 
   /* Set the layer specific to point to browse although this should really
@@ -6217,7 +6284,7 @@ static bt_status_t get_folder_items_cmd(RawAddress* bd_addr, uint8_t scope,
   }
 
   rc_transaction_t* p_transaction = NULL;
-  bt_status_t tran_status = get_transaction(&p_transaction);
+  bt_status_t tran_status = get_transaction(&p_transaction, idx);
   if (tran_status != BT_STATUS_SUCCESS || p_transaction == NULL) {
     osi_free(p_msg);
     BTIF_TRACE_ERROR("%s: failed to obtain transaction details. status: 0x%02x",
@@ -6561,11 +6628,15 @@ static bt_status_t send_groupnavigation_cmd(RawAddress* bd_addr,
     BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
     return BT_STATUS_FAIL;
   }
-
+  int idx = btif_rc_get_idx_by_bda(bd_addr);
+  if (idx == -1) {
+    BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+    return BT_STATUS_FAIL;
+  }
   CHECK_RC_CONNECTED(p_dev);
 
   if (p_dev->rc_features & BTA_AV_FEAT_RCTG) {
-    bt_status_t tran_status = get_transaction(&p_transaction);
+    bt_status_t tran_status = get_transaction(&p_transaction, idx);
     if ((BT_STATUS_SUCCESS == tran_status) && (NULL != p_transaction)) {
       uint8_t buffer[AVRC_PASS_THRU_GROUP_LEN] = {0};
       uint8_t* start = buffer;
@@ -6608,14 +6679,18 @@ static bt_status_t send_passthrough_cmd(RawAddress* bd_addr, uint8_t key_code,
     BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
     return BT_STATUS_FAIL;
   }
-
+  int idx = btif_rc_get_idx_by_bda(bd_addr);
+  if (idx == -1) {
+    BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+    return BT_STATUS_FAIL;
+  }
   CHECK_RC_CONNECTED(p_dev);
 
   rc_transaction_t* p_transaction = NULL;
   BTIF_TRACE_DEBUG("%s: key-code: %d, key-state: %d", __func__, key_code,
                    key_state);
   if (p_dev->rc_features & BTA_AV_FEAT_RCTG) {
-    bt_status_t tran_status = get_transaction(&p_transaction);
+    bt_status_t tran_status = get_transaction(&p_transaction, idx);
     if (BT_STATUS_SUCCESS == tran_status && NULL != p_transaction) {
       BTA_AvRemoteCmd(p_dev->rc_handle, p_transaction->lbl,
                       (tBTA_AV_RC)key_code, (tBTA_AV_STATE)key_state);
@@ -6813,15 +6888,15 @@ const btrc_ctrl_interface_t* btif_rc_ctrl_get_interface(void) {
  *
  *      Returns          void
  ******************************************************************************/
-static void initialize_transaction(int lbl) {
-  std::unique_lock<std::recursive_mutex>(device.lbllock);
+static void initialize_transaction(int lbl, int idx) {
+  std::unique_lock<std::recursive_mutex> lock(device.lbllock);
   if (lbl < MAX_TRANSACTIONS_PER_SESSION) {
-    if (alarm_is_scheduled(device.transaction[lbl].txn_timer)) {
-      clear_cmd_timeout(lbl);
+    if (alarm_is_scheduled(device.rc_index[idx].transaction[lbl].txn_timer)) {
+      clear_cmd_timeout(lbl, idx);
     }
-    device.transaction[lbl].lbl = lbl;
-    device.transaction[lbl].in_use = false;
-    device.transaction[lbl].handle = 0;
+    device.rc_index[idx].transaction[lbl].lbl = lbl;
+    device.rc_index[idx].transaction[lbl].in_use = false;
+    device.rc_index[idx].transaction[lbl].handle = 0;
   }
 }
 
@@ -6833,8 +6908,13 @@ static void initialize_transaction(int lbl) {
  *      Returns         void
  ******************************************************************************/
 void lbl_init() {
-  memset(&device.transaction, 0, sizeof(device.transaction));
-  init_all_transactions();
+   device.rc_index = (rc_device_t *)
+                   osi_malloc(btif_max_rc_clients * sizeof(rc_device_t));
+  for (int idx = 0; idx < btif_max_rc_clients; idx++) {
+    BTIF_TRACE_DEBUG("%s: lbl_init", __func__);
+    memset(&device.rc_index[idx].transaction, 0, sizeof(device.rc_index[idx].transaction));
+    init_all_transactions(idx);
+  }
 }
 
 /*******************************************************************************
@@ -6845,10 +6925,10 @@ void lbl_init() {
  *
  * Returns          void
  ******************************************************************************/
-void init_all_transactions() {
+void init_all_transactions(int index) {
   uint8_t txn_indx = 0;
   for (txn_indx = 0; txn_indx < MAX_TRANSACTIONS_PER_SESSION; txn_indx++) {
-    initialize_transaction(txn_indx);
+    initialize_transaction(txn_indx, index);
   }
 }
 
@@ -6861,16 +6941,16 @@ void init_all_transactions() {
  *
  * Returns          bt_status_t
  ******************************************************************************/
-rc_transaction_t* get_transaction_by_lbl(uint8_t lbl) {
+rc_transaction_t* get_transaction_by_lbl(uint8_t lbl, int index) {
   rc_transaction_t* transaction = NULL;
   std::unique_lock<std::recursive_mutex> lock(device.lbllock);
 
   /* Determine if this is a valid label */
   if (lbl < MAX_TRANSACTIONS_PER_SESSION) {
-    if (false == device.transaction[lbl].in_use) {
+    if (false == device.rc_index[index].transaction[lbl].in_use) {
       transaction = NULL;
     } else {
-      transaction = &(device.transaction[lbl]);
+      transaction = &(device.rc_index[index].transaction[lbl]);
       BTIF_TRACE_DEBUG("%s: Got transaction.label: %d", __func__, lbl);
     }
   }
@@ -6887,16 +6967,16 @@ rc_transaction_t* get_transaction_by_lbl(uint8_t lbl) {
  * Returns          bt_status_t
  ******************************************************************************/
 
-static bt_status_t get_transaction(rc_transaction_t** ptransaction) {
+static bt_status_t get_transaction(rc_transaction_t** ptransaction, int index) {
   std::unique_lock<std::recursive_mutex> lock(device.lbllock);
 
   // Check for unused transactions
   for (uint8_t i = 0; i < MAX_TRANSACTIONS_PER_SESSION; i++) {
-    if (false == device.transaction[i].in_use) {
+    if (false == device.rc_index[index].transaction[i].in_use) {
       BTIF_TRACE_DEBUG("%s: Got transaction.label: %d", __func__,
-                       device.transaction[i].lbl);
-      device.transaction[i].in_use = true;
-      *ptransaction = &(device.transaction[i]);
+                       device.rc_index[index].transaction[i].lbl);
+      device.rc_index[index].transaction[i].in_use = true;
+      *ptransaction = &(device.rc_index[index].transaction[i]);
       return BT_STATUS_SUCCESS;
     }
   }
@@ -6911,14 +6991,14 @@ static bt_status_t get_transaction(rc_transaction_t** ptransaction) {
  *
  * Returns          bt_status_t
  ******************************************************************************/
-void release_transaction(uint8_t lbl) {
+void release_transaction(uint8_t lbl, int index) {
   BTIF_TRACE_DEBUG("%s %d", __func__, lbl);
-  rc_transaction_t* transaction = get_transaction_by_lbl(lbl);
+  rc_transaction_t* transaction = get_transaction_by_lbl(lbl, index);
 
   /* If the transaction is in use... */
   if (transaction != NULL) {
     BTIF_TRACE_DEBUG("%s: lbl: %d", __func__, lbl);
-    initialize_transaction(lbl);
+    initialize_transaction(lbl, index);
   }
 }
 
