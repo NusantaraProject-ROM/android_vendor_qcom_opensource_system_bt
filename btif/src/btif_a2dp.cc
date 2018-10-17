@@ -45,11 +45,11 @@ extern tBTIF_A2DP_SOURCE_VSC btif_a2dp_src_vsc;
 extern void btif_av_reset_reconfig_flag();
 static char a2dp_hal_imp[PROPERTY_VALUE_MAX] = "false";
 
-void btif_a2dp_on_idle(int index) {
-  APPL_TRACE_EVENT("## ON A2DP IDLE ## peer_sep = %d", btif_av_get_peer_sep(index));
-  if (btif_av_get_peer_sep(index) == AVDT_TSEP_SNK) {
+void btif_a2dp_on_idle() {
+  APPL_TRACE_EVENT("## ON A2DP IDLE ## peer_sep = %d", btif_av_get_peer_sep());
+  if (btif_av_get_peer_sep() == AVDT_TSEP_SNK) {
     btif_a2dp_source_on_idle();
-  } else if (btif_av_get_peer_sep(index) == AVDT_TSEP_SRC) {
+  } else if (btif_av_get_peer_sep() == AVDT_TSEP_SRC) {
     btif_a2dp_sink_on_idle();
   }
 }
@@ -144,8 +144,7 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
 void btif_a2dp_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
   APPL_TRACE_WARNING("## ON A2DP STOPPED ##");
 
-  int idx = btif_av_get_latest_playing_device_idx();
-  if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SRC) {
+  if (btif_av_get_peer_sep() == AVDT_TSEP_SRC) {
     btif_a2dp_sink_on_stopped(p_av_suspend);
     return;
   }
@@ -175,9 +174,8 @@ void btif_a2dp_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
 
 void btif_a2dp_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
   APPL_TRACE_EVENT("## ON A2DP SUSPENDED ##");
-  int idx = btif_av_get_latest_playing_device_idx();
   if (!btif_av_is_split_a2dp_enabled()) {
-    if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SRC) {
+    if (btif_av_get_peer_sep() == AVDT_TSEP_SRC) {
       btif_a2dp_sink_on_suspended(p_av_suspend);
     } else {
       btif_a2dp_source_on_suspended(p_av_suspend);

@@ -277,7 +277,6 @@ int btif_av_idx_by_bdaddr(RawAddress *bd_addr);
 static int btif_av_get_valid_idx_for_rc_events(RawAddress bd_addr, int rc_handle);
 static int btif_get_conn_state_of_device(RawAddress address);
 static bt_status_t connect_int(RawAddress *bd_addr, uint16_t uuid);
-void btif_av_update_current_playing_device(int index);
 static void btif_av_check_rc_connection_priority(void *p_data);
 static bt_status_t connect_int(RawAddress* bd_addr, uint16_t uuid);
 int btif_get_is_remote_started_idx();
@@ -330,7 +329,7 @@ extern void btif_rc_clear_priority(RawAddress address);
 extern void btif_rc_send_pause_command(RawAddress bda);
 extern uint16_t btif_dm_get_br_edr_links();
 extern uint16_t btif_dm_get_le_links();
-extern void btif_a2dp_on_idle(int index);
+extern void btif_a2dp_on_idle();
 extern fixed_queue_t* btu_general_alarm_queue;
 extern void btif_media_send_reset_vendor_state();
 extern tBTIF_A2DP_SOURCE_VSC btif_a2dp_src_vsc;
@@ -350,7 +349,7 @@ int btif_av_get_other_connected_idx(int current_index);
 void btif_av_reset_reconfig_flag();
 bool btif_av_is_device_disconnecting();
 tBTA_AV_HNDL btif_av_get_reconfig_dev_hndl();
-void btif_av_reset_codec_reconfig_flag();
+void btif_av_reset_codec_reconfig_flag(RawAddress address);
 void btif_av_reinit_audio_interface();
 bool btif_av_is_suspend_stop_pending_ack();
 static void allow_connection(int is_valid, RawAddress *bd_addr); // gghai
@@ -758,7 +757,7 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       if (!btif_av_is_connected()) {
         BTIF_TRACE_EVENT("reset A2dp states in IDLE ");
         bta_av_co_init(btif_av_cb[index].codec_priorities);
-        btif_a2dp_on_idle(index);
+        btif_a2dp_on_idle();
       } else {
         //There is another AV connection, update current playin
         BTIF_TRACE_EVENT("idle state for index %d init_co", index);
@@ -4489,21 +4488,6 @@ bool btif_av_is_playing_on_other_idx(int current_index)
   return false;
 }
 
-/*******************************************************************************
- *
- * Function         btif_av_update_current_playing_device
- *
- * Description      Update the next connected device as playing
- *
- * Returns          void
- *
- ******************************************************************************/
-void btif_av_update_current_playing_device(int index) {
-  int i;
-  for (i = 0; i < btif_max_av_clients; i++)
-    if (i != index)
-      btif_av_cb[i].current_playing = true;
-}
 
 /*******************************************************************************
  *
@@ -4642,7 +4626,7 @@ bool btif_av_is_44p1kFreq_supported() {
   return false;
 }
 
-uint8_t btif_av_get_peer_sep(int index) {
+uint8_t btif_av_get_peer_sep() {
   if (isA2dpSink == true)
     return AVDT_TSEP_SNK;
   else
@@ -5109,12 +5093,18 @@ tBTA_AV_HNDL btif_av_get_reconfig_dev_hndl() {
 **
 ** Returns         void
 ********************************************************************************/
-void btif_av_reset_codec_reconfig_flag() {
+void btif_av_reset_codec_reconfig_flag(RawAddress address) {
   int i;
   BTIF_TRACE_DEBUG("%s",__func__);
-  for (i = 0; i < btif_max_av_clients; i++) {
+  i = btif_av_idx_by_bdaddr(&address);
+  if (i < btif_max_av_clients) {
     if (btif_av_cb[i].reconfig_pending)
-     btif_av_cb[i].reconfig_pending = false;
+      btif_av_cb[i].reconfig_pending = false;
+  } else {
+  /*clearing all reconfig_pending when address will not match */
+    for (i = 0; i < btif_max_av_clients; i++)
+      if (btif_av_cb[i].reconfig_pending)
+        btif_av_cb[i].reconfig_pending = false;
   }
 }
 

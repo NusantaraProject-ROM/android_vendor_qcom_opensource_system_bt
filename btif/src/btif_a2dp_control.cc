@@ -412,7 +412,7 @@ static void btif_a2dp_recv_ctrl_data(void) {
           if (cur_idx <  btif_max_av_clients &&
               btif_av_is_state_opened(cur_idx)) {
             btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-            if (btif_av_get_peer_sep(cur_idx) == AVDT_TSEP_SRC)
+            if (btif_av_get_peer_sep() == AVDT_TSEP_SRC)
               btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
           break;
           }
@@ -420,8 +420,7 @@ static void btif_a2dp_recv_ctrl_data(void) {
           APPL_TRACE_DEBUG("%s: Entertain Audio Start after stream open", __func__);
           UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb);
           btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-          int idx = btif_av_get_latest_device_idx_to_start();
-          if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SRC)
+          if (btif_av_get_peer_sep() == AVDT_TSEP_SRC)
             btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
           break;
         }
@@ -432,8 +431,7 @@ static void btif_a2dp_recv_ctrl_data(void) {
         break;
 
       case A2DP_CTRL_CMD_STOP: {
-        int idx = btif_av_get_latest_playing_device_idx();
-        if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SNK &&
+        if (btif_av_get_peer_sep() == AVDT_TSEP_SNK &&
                 !btif_a2dp_source_is_streaming()) {
           /* We are already stopped, just ack back */
           btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
@@ -720,7 +718,7 @@ void btif_a2dp_snd_ctrl_cmd(tA2DP_CTRL_CMD cmd) {
         if (cur_idx <  btif_max_av_clients &&
                 btif_av_is_state_opened(cur_idx)) {
           btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-          if (btif_av_get_peer_sep(cur_idx) == AVDT_TSEP_SRC)
+          if (btif_av_get_peer_sep() == AVDT_TSEP_SRC)
             btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
           break;
         }
@@ -728,8 +726,7 @@ void btif_a2dp_snd_ctrl_cmd(tA2DP_CTRL_CMD cmd) {
         APPL_TRACE_DEBUG("%s: Entertain Audio Start after stream open", __func__);
         UIPC_Open(UIPC_CH_ID_AV_AUDIO, btif_a2dp_data_cb);
         btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-        int idx = btif_av_get_latest_device_idx_to_start();
-        if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SRC)
+        if (btif_av_get_peer_sep() == AVDT_TSEP_SRC)
           btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
         break;
       }
@@ -740,8 +737,7 @@ void btif_a2dp_snd_ctrl_cmd(tA2DP_CTRL_CMD cmd) {
       break;
 
     case A2DP_CTRL_CMD_STOP: {
-      int idx = btif_av_get_latest_playing_device_idx();
-      if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SNK &&
+      if (btif_av_get_peer_sep() == AVDT_TSEP_SNK &&
               !btif_a2dp_source_is_streaming()) {
         /* We are already stopped, just ack back */
         btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
@@ -851,8 +847,7 @@ static void btif_a2dp_data_cb(UNUSED_ATTR tUIPC_CH_ID ch_id,
       UIPC_Ioctl(UIPC_CH_ID_AV_AUDIO, UIPC_SET_READ_POLL_TMO,
                  reinterpret_cast<void*>(A2DP_DATA_READ_POLL_MS));
 
-      int idx = btif_av_get_latest_playing_device_idx();
-      if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SNK) {
+      if (btif_av_get_peer_sep() == AVDT_TSEP_SNK) {
         /* Start the media task to encode the audio */
         btif_a2dp_source_start_audio_req();
       }

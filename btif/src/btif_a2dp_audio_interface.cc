@@ -983,8 +983,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
             audio_start_awaited = false;
             btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
             status = A2DP_CTRL_ACK_PENDING;
-            int idx = btif_av_get_latest_device_idx_to_start();
-            if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SRC)
+            if (btif_av_get_peer_sep() == AVDT_TSEP_SRC)
               status = A2DP_CTRL_ACK_SUCCESS;
             break;
           }
@@ -1055,7 +1054,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
           if (idx < btif_max_av_clients &&
               btif_av_is_state_opened(idx)) {
             btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-            if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SRC) {
+            if (btif_av_get_peer_sep() == AVDT_TSEP_SRC) {
               status = A2DP_CTRL_ACK_SUCCESS;
               break;
             }
@@ -1077,15 +1076,14 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
           status = A2DP_CTRL_ACK_PENDING;
           break;
         }
-        int idx = btif_av_get_latest_playing_device_idx();
         if (deinit_pending) {
           APPL_TRACE_WARNING("%s:deinit pending return disconnected",__func__);
           status = A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS;
           break;
         }
-        if ((!btif_av_is_split_a2dp_enabled() && btif_av_get_peer_sep(idx) == AVDT_TSEP_SNK &&
+        if ((!btif_av_is_split_a2dp_enabled() && btif_av_get_peer_sep() == AVDT_TSEP_SNK &&
             !btif_a2dp_source_is_streaming()) ||
-            (btif_av_is_split_a2dp_enabled() && btif_av_get_peer_sep(idx) == AVDT_TSEP_SNK &&
+            (btif_av_is_split_a2dp_enabled() && btif_av_get_peer_sep() == AVDT_TSEP_SNK &&
             btif_a2dp_src_vsc.tx_started == FALSE)) {
           /* We are already stopped, just ack back */
           status = A2DP_CTRL_ACK_SUCCESS;
@@ -1357,8 +1355,7 @@ uint8_t btif_a2dp_audio_snd_ctrl_cmd(uint8_t cmd)
           audio_start_awaited = false;
           btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
           status = A2DP_CTRL_ACK_PENDING;
-          int idx = btif_av_get_latest_device_idx_to_start();
-          if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SRC)
+          if (btif_av_get_peer_sep() == AVDT_TSEP_SRC)
             status = A2DP_CTRL_ACK_SUCCESS;
           break;
         }
@@ -1411,7 +1408,7 @@ uint8_t btif_a2dp_audio_snd_ctrl_cmd(uint8_t cmd)
         if (idx < btif_max_av_clients &&
                 btif_av_is_state_opened(idx)) {
           btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
-          if (btif_av_get_peer_sep(idx) == AVDT_TSEP_SRC) {
+          if (btif_av_get_peer_sep() == AVDT_TSEP_SRC) {
             status = A2DP_CTRL_ACK_SUCCESS;
             break;
           }
@@ -1434,15 +1431,14 @@ uint8_t btif_a2dp_audio_snd_ctrl_cmd(uint8_t cmd)
             status = A2DP_CTRL_ACK_PENDING;
             break;
         }
-        int idx = btif_av_get_latest_playing_device_idx();
         if (deinit_pending) {
           APPL_TRACE_WARNING("%s:deinit pending return disconnected",__func__);
           status = A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS;
           break;
         }
-        if ((!btif_av_is_split_a2dp_enabled() && btif_av_get_peer_sep(idx) == AVDT_TSEP_SNK &&
+        if ((!btif_av_is_split_a2dp_enabled() && btif_av_get_peer_sep() == AVDT_TSEP_SNK &&
             !btif_a2dp_source_is_streaming()) ||
-            (btif_av_is_split_a2dp_enabled() && btif_av_get_peer_sep(idx) == AVDT_TSEP_SNK &&
+            (btif_av_is_split_a2dp_enabled() && btif_av_get_peer_sep() == AVDT_TSEP_SNK &&
             btif_a2dp_src_vsc.tx_started == FALSE)) {
           /* We are already stopped, just ack back */
           status = A2DP_CTRL_ACK_SUCCESS;

@@ -202,7 +202,7 @@ static bool bta_av_co_set_codec_ota_config(tBTA_AV_CO_PEER* p_peer,
 /* externs */
 extern int btif_max_av_clients;
 extern tBTA_AV_HNDL btif_av_get_reconfig_dev_hndl();
-extern void btif_av_reset_codec_reconfig_flag();
+extern void btif_av_reset_codec_reconfig_flag(RawAddress address);
 extern bool bt_split_a2dp_enabled;
 /*******************************************************************************
  **
@@ -1484,7 +1484,7 @@ done:
   }
   if (!success || !restart_output) {
     APPL_TRACE_DEBUG("%s:reseting codec reconfig flag",__func__);
-    btif_av_reset_codec_reconfig_flag();
+    btif_av_reset_codec_reconfig_flag(bt_addr);
   }
   return success;
 }

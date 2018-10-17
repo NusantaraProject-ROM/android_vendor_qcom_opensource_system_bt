@@ -29,7 +29,7 @@
 #include "bta_av_api.h"
 
 // Process 'idle' request from the BTIF state machine during initialization.
-void btif_a2dp_on_idle(int index);
+void btif_a2dp_on_idle();
 
 // Process 'start' request from the BTIF state machine to prepare for A2DP
 // streaming.

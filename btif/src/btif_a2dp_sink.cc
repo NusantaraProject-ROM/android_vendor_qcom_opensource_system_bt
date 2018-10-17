@@ -349,8 +349,7 @@ static void btif_a2dp_sink_handle_inc_media(tBT_SBC_HDR* p_msg) {
   uint32_t sbc_frame_len = p_msg->len - 1;
   availPcmBytes = sizeof(btif_a2dp_sink_pcm_data);
 
-  int idx = btif_av_get_latest_playing_device_idx();
-  if ((btif_av_get_peer_sep(idx) == AVDT_TSEP_SNK) ||
+  if ((btif_av_get_peer_sep() == AVDT_TSEP_SNK) ||
       (btif_a2dp_sink_cb.rx_flush)) {
     APPL_TRACE_DEBUG("State Changed happened in this tick");
     return;
