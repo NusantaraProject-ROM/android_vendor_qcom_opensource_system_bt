@@ -115,7 +115,7 @@ static list_t* commands_pending_response;
 static std::recursive_mutex commands_pending_response_mutex;
 
 // The hand-off point for data going to a higher layer, set by the higher layer
-static base::Callback<void(const tracked_objects::Location&, BT_HDR*)>
+static base::Callback<void(const base::Location&, BT_HDR*)>
     send_data_upwards;
 
 static bool filter_incoming_event(BT_HDR* packet);
@@ -147,7 +147,7 @@ void initialization_complete() {
       FROM_HERE, base::Bind(&event_finish_startup, nullptr));
 }
 
-void hci_event_received(const tracked_objects::Location& from_here,
+void hci_event_received(const base::Location& from_here,
                         BT_HDR* packet) {
   btsnoop->capture(packet, true);
 
@@ -319,7 +319,7 @@ EXPORT_SYMBOL extern const module_t hci_module = {
 // Interface functions
 
 static void set_data_cb(
-    base::Callback<void(const tracked_objects::Location&, BT_HDR*)>
+    base::Callback<void(const base::Location&, BT_HDR*)>
         send_data_cb) {
   send_data_upwards = std::move(send_data_cb);
 }

@@ -19,7 +19,7 @@
 #pragma once
 
 #include <base/bind.h>
-#include <base/tracked_objects.h>
+#include <base/location.h>
 #include <stdbool.h>
 
 #include "bt_types.h"
@@ -70,7 +70,7 @@ typedef void (*command_status_cb)(uint8_t status, BT_HDR* command,
 typedef struct hci_t {
   // Set the callback that the HCI layer uses to send data upwards
   void (*set_data_cb)(
-      base::Callback<void(const tracked_objects::Location&, BT_HDR*)>
+      base::Callback<void(const base::Location&, BT_HDR*)>
           send_data_cb);
 
   // Send a command through the HCI layer
@@ -91,7 +91,7 @@ const hci_t* hci_layer_get_test_interface(
     const btsnoop_t* btsnoop_interface,
     const packet_fragmenter_t* packet_fragmenter_interface);
 
-void post_to_hci_message_loop(const tracked_objects::Location& from_here,
+void post_to_hci_message_loop(const base::Location& from_here,
                               BT_HDR* p_msg);
 
 void hci_layer_cleanup_interface();

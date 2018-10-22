@@ -99,7 +99,7 @@ extern void btu_hci_msg_process(BT_HDR* p_msg);
  * Returns          None
  *
  *****************************************************************************/
-void post_to_hci_message_loop(const tracked_objects::Location& from_here,
+void post_to_hci_message_loop(const base::Location& from_here,
                               BT_HDR* p_msg) {
   base::MessageLoop* hci_message_loop = get_message_loop();
   if (!hci_message_loop || !hci_message_loop->task_runner().get()) {

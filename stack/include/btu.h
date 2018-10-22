@@ -42,7 +42,7 @@ extern uint8_t btu_trace_level;
 */
 void btu_hcif_process_event(uint8_t controller_id, BT_HDR* p_buf);
 void btu_hcif_send_cmd(uint8_t controller_id, BT_HDR* p_msg);
-void btu_hcif_send_cmd_with_cb(const tracked_objects::Location& posted_from,
+void btu_hcif_send_cmd_with_cb(const base::Location& posted_from,
                                uint16_t opcode, uint8_t* params,
                                uint8_t params_len,
                                base::Callback<void(uint8_t*, uint16_t)> cb);

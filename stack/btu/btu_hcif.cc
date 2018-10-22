@@ -50,7 +50,7 @@
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 
-using tracked_objects::Location;
+using base::Location;
 
 extern void bte_main_disable(void);
 extern void btm_process_cancel_complete(uint8_t status, uint8_t mode);
@@ -129,7 +129,7 @@ static void btu_ble_rc_param_req_evt(uint8_t* p);
 static void btu_ble_proc_enhanced_conn_cmpl(uint8_t* p, uint16_t evt_len);
 #endif
 
-static void do_in_hci_thread(const tracked_objects::Location& from_here,
+static void do_in_hci_thread(const base::Location& from_here,
                              const base::Closure& task) {
   base::MessageLoop* hci_message_loop = get_message_loop();
   if (!hci_message_loop || !hci_message_loop->task_runner().get()) {
@@ -488,7 +488,7 @@ static void btu_hcif_command_status_evt_with_cb(uint8_t status, BT_HDR* command,
 /* This function is called to send commands to the Host Controller. |cb| is
  * called when command status event is called with error code, or when the
  * command complete event is received. */
-void btu_hcif_send_cmd_with_cb(const tracked_objects::Location& posted_from,
+void btu_hcif_send_cmd_with_cb(const base::Location& posted_from,
                                uint16_t opcode, uint8_t* params,
                                uint8_t params_len, hci_cmd_cb cb) {
   BT_HDR* p = (BT_HDR*)osi_malloc(HCI_CMD_BUF_SIZE);

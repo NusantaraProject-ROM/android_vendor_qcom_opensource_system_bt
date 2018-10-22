@@ -132,7 +132,7 @@ void DoNothing2(uint8_t, uint8_t) {}
 
 struct closure_data {
   base::Closure user_task;
-  tracked_objects::Location posted_from;
+  base::Location posted_from;
 };
 
 static void alarm_closure_cb(void* p) {
@@ -143,7 +143,7 @@ static void alarm_closure_cb(void* p) {
 }
 
 // Periodic alarms are not supported, because we clean up data in callback
-void alarm_set_closure(const tracked_objects::Location& posted_from,
+void alarm_set_closure(const base::Location& posted_from,
                        alarm_t* alarm, period_ms_t interval_ms,
                        base::Closure user_task) {
   closure_data* data = new closure_data;

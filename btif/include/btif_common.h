@@ -23,7 +23,7 @@
 #include <stdlib.h>
 
 #include <base/bind.h>
-#include <base/tracked_objects.h>
+#include <base/location.h>
 #include <hardware/bluetooth.h>
 
 #include "bt_types.h"
@@ -175,7 +175,7 @@ typedef struct {
  ******************************************************************************/
 
 extern bt_status_t do_in_jni_thread(const base::Closure& task);
-extern bt_status_t do_in_jni_thread(const tracked_objects::Location& from_here,
+extern bt_status_t do_in_jni_thread(const base::Location& from_here,
                                     const base::Closure& task);
 /**
  * This template wraps callback into callback that will be executed on jni
@@ -183,9 +183,9 @@ extern bt_status_t do_in_jni_thread(const tracked_objects::Location& from_here,
  */
 template <typename R, typename... Args>
 base::Callback<R(Args...)> jni_thread_wrapper(
-    const tracked_objects::Location& from_here, base::Callback<R(Args...)> cb) {
+    const base::Location& from_here, base::Callback<R(Args...)> cb) {
   return base::Bind(
-      [](const tracked_objects::Location& from_here,
+      [](const base::Location& from_here,
          base::Callback<R(Args...)> cb, Args... args) {
         do_in_jni_thread(from_here,
                          base::Bind(cb, std::forward<Args>(args)...));

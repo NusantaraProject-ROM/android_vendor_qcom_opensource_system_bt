@@ -30,7 +30,7 @@
  * for how to handle dynamic memory ownership/smart pointers with base::Owned(),
  * base::Passed(), base::ConstRef() and others.
  */
-void do_in_bta_thread(const tracked_objects::Location& from_here,
+void do_in_bta_thread(const base::Location& from_here,
                       const base::Closure& task);
 
 #endif /* BTA_CLOSURE_API_H */

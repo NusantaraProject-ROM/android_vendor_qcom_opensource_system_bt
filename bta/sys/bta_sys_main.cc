@@ -547,7 +547,7 @@ void bta_sys_sendmsg(void* p_msg) {
  * Returns          void
  *
  ******************************************************************************/
-void do_in_bta_thread(const tracked_objects::Location& from_here,
+void do_in_bta_thread(const base::Location& from_here,
                       const base::Closure& task) {
   base::MessageLoop* bta_message_loop = get_message_loop();
 
