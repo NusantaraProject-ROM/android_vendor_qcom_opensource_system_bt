@@ -50,12 +50,12 @@ void LogCommand(const char* command) {
 
 // Functions used by JSONValueConverter to read stringified JSON into Properties
 // object.
-bool ParseUint8t(const base::StringPiece& value, uint8_t* field) {
+bool ParseUint8t(base::StringPiece value, uint8_t* field) {
   *field = std::stoi(value.as_string());
   return true;
 }
 
-bool ParseUint16t(const base::StringPiece& value, uint16_t* field) {
+bool ParseUint16t(base::StringPiece value, uint16_t* field) {
   *field = std::stoi(value.as_string());
   return true;
 }

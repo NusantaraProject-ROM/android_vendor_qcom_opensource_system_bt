@@ -20,6 +20,7 @@
 #define BLE_ADVERTISER_HCI_INTERFACE_H
 
 #include <base/bind.h>
+#include <base/callback.h>
 #include <vector>
 #include "stack/include/bt_types.h"
 

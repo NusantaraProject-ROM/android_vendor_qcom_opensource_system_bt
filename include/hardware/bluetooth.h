@@ -22,6 +22,7 @@
 #include <sys/cdefs.h>
 #include <sys/types.h>
 
+#include <hardware/avrcp/avrcp.h>
 #include <bluetooth/uuid.h>
 #include <raw_address.h>
 
@@ -571,6 +572,15 @@ typedef struct {
     void (*dump)(int fd, const char **arguments);
 
     /**
+     * Native support for metrics protobuf dumping. The dumping format will be
+     * raw byte array
+     *
+     * @param output an externally allocated string to dump serialized protobuf
+     */
+    void (*dumpMetrics)(std::string* output);
+
+
+    /**
      * Clear /data/misc/bt_config.conf and erase all stored connections
      */
     int (*config_clear)(void);
@@ -586,6 +596,11 @@ typedef struct {
      * NOTE: |feature| has to match an item defined in interop_feature_t (interop.h).
      */
     void (*interop_database_add)(uint16_t feature, const RawAddress *addr, size_t len);
+
+    /**
+     * Get the AvrcpTarget Service interface to interact with the Avrcp Service
+     */
+    bluetooth::avrcp::ServiceInterface* (*get_avrcp_service)(void);
 } bt_interface_t;
 
 #define BLUETOOTH_INTERFACE_STRING "bluetoothInterface"

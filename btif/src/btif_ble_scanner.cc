@@ -380,7 +380,7 @@ class BleScannerInterfaceImpl : public BleScannerInterface {
 
 // gghai : added this function to adapt to Google's HAL changes
   void ScanFilterAdd(int filter_index, std::vector<ApcfCommand> filters,
-                     FilterConfigCallback cb) override {
+                     FilterConfigCallback cb) {
     int action = 0;
     for (ApcfCommand filter : filters) {
       if(filter.type == BTM_BLE_PF_LOCAL_NAME)

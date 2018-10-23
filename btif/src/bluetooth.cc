@@ -32,6 +32,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <hardware/avrcp/avrcp.h>
 #include <hardware/bluetooth.h>
 #include <hardware/bt_av.h>
 #include <hardware/bt_gatt.h>

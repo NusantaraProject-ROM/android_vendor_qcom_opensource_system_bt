@@ -27,6 +27,7 @@
 #define LOG_TAG "bt_btif_gatt"
 
 #include <base/bind.h>
+#include <base/callback.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
