@@ -1344,9 +1344,9 @@ uint8_t btif_a2dp_audio_snd_ctrl_cmd(uint8_t cmd)
           status = A2DP_CTRL_ACK_PENDING;
           break;
         } else if (btif_a2dp_src_vsc.tx_started == FALSE) {
-          int idx = btif_get_is_remote_started_idx();
+          int idx = btif_av_get_latest_playing_device_idx();
           uint8_t hdl = 0;
-          APPL_TRACE_DEBUG("%s: remote started idx = %d",__func__, idx);
+          APPL_TRACE_DEBUG("%s: latest playing idx = %d",__func__, idx);
           if (idx < btif_max_av_clients) {
             hdl = btif_av_get_av_hdl_from_idx(idx);
             APPL_TRACE_DEBUG("%s: hdl = %d, enc_update_in_progress = %d",__func__, hdl,
