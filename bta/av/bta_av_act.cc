@@ -655,11 +655,15 @@ void bta_av_rc_opened(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
       rc_open.peer_features |= BTA_AV_FEAT_RCCT;
 
     if (bta_av_cb.disc != 0) {
-      /* AVRC discover db is in use */
-      APPL_TRACE_IMP("%s avrcp sdp is in progress, sdhl=%d, disc=%d", __func__, shdl, disc);
-      if (shdl != 0 && disc != 0)
-        bta_sys_start_timer(p_scb->avrc_ct_timer, BTA_AV_RC_DISC_RETRY_DELAY_MS,
-                            BTA_AV_AVRC_RETRY_DISC_EVT, disc);
+      if ((bta_av_cb.disc & BTA_AV_HNDL_MSK) != (disc & BTA_AV_HNDL_MSK)) {
+        /* AVRC discover db is in use */
+        APPL_TRACE_IMP("%s avrcp sdp is in progress, sdhl=%d, disc=%d", __func__, shdl, disc);
+        if (shdl != 0 && disc != 0)
+          bta_sys_start_timer(p_scb->avrc_ct_timer, BTA_AV_RC_DISC_RETRY_DELAY_MS,
+                              BTA_AV_AVRC_RETRY_DISC_EVT, disc);
+      } else {
+        APPL_TRACE_DEBUG("%s: avrcp sdp is in progress for same handle, skip sdp", __func__);
+      }
     } else {
       bta_av_rc_disc(disc);
     }
