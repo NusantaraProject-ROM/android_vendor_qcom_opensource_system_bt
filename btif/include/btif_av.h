@@ -286,6 +286,17 @@ bool btif_av_is_multicast_supported();
  *******************************************************************************/
 void btif_av_get_peer_addr(RawAddress *peer_bda);
 
+/*******************************************************************************
+ *
+ * Function         btif_av_clear_remote_start_timer
+ *
+ * Description      Clear latest av start timer
+ *
+ * Returns          bool
+ *
+ ******************************************************************************/
+void  btif_av_clear_remote_start_timer(int index);
+
 /******************************************************************************
  *
  * Function         btif_get_latest_playing_device_idx
@@ -295,6 +306,17 @@ void btif_av_get_peer_addr(RawAddress *peer_bda);
  * Returns          index
  *******************************************************************************/
 int btif_av_get_latest_playing_device_idx();
+
+/******************************************************************************
+ *
+ * Function         btif_get_latest_playing_device_idx
+ *
+ * Description      Get the index of AV where streaming is happening but not
+                    remote started index
+ *
+ * Returns          index
+ *******************************************************************************/
+int btif_av_get_latest_stream_device_idx();
 
 /******************************************************************************
  *
@@ -338,7 +360,7 @@ int btif_av_get_latest_playing_device_idx();
  * Returns          void
  *
  ******************************************************************************/
-void btif_av_trigger_dual_handoff(bool handoff, RawAddress address);
+void btif_av_trigger_dual_handoff(bool handoff, int current_active_index, int previous_active_index);
 
 /*******************************************************************************
  *

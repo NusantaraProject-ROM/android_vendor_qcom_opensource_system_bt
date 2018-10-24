@@ -373,7 +373,7 @@ static void btif_a2dp_recv_ctrl_data(void) {
             btif_a2dp_source_cancel_remote_start();
             if (rs_idx != btif_max_av_clients)
               btif_dispatch_sm_event(
-                      BTIF_AV_RESET_REMOTE_STARTED_FLAG_UPDATE_AUDIO_STATE_EVT, NULL, 0);
+                      BTIF_AV_RESET_REMOTE_STARTED_FLAG_UPDATE_AUDIO_STATE_EVT, &rs_idx, sizeof(rs_idx));
                       APPL_TRACE_WARNING("%s: Cancel RS timer for the current index",
                       __func__);
             } else {
@@ -680,7 +680,7 @@ void btif_a2dp_snd_ctrl_cmd(tA2DP_CTRL_CMD cmd) {
           btif_a2dp_source_cancel_remote_start();
           if (rs_idx != btif_max_av_clients)
             btif_dispatch_sm_event(BTIF_AV_RESET_REMOTE_STARTED_FLAG_UPDATE_AUDIO_STATE_EVT,
-                    NULL, 0);
+                    &rs_idx, sizeof(rs_idx));
           APPL_TRACE_WARNING("%s: Cancel RS timer for the current index", __func__);
         } else {
           APPL_TRACE_WARNING("%s: RS timer running on other index, ignore",

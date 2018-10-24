@@ -91,7 +91,10 @@ bool btif_a2dp_source_is_streaming(void);
 bool btif_a2dp_source_is_remote_start(void);
 
 // Cancel remote start alarm
-void btif_a2dp_source_cancel_remote_start(void);
+void btif_a2dp_source_cancel_remote_start();
+
+//return last remote started index
+int btif_a2dp_source_last_remote_start_index();
 
 void btif_a2dp_source_cancel_unblock_audio_start(void);
 
@@ -153,7 +156,7 @@ void btif_a2dp_source_update_metrics(void);
 // This function will start a 3 second timer. If the a2dp streaming is
 // started within this time, then the timer will be cancelled. Else-If
 // timer expires, avdpt suspend will be issued to the remote
-void btif_a2dp_source_on_remote_start(void);
+void btif_a2dp_source_on_remote_start(struct alarm_t *remote_start_alarm, int index);
 
 void btif_trigger_unblock_audio_start_recovery_timer(void);
 #endif /* BTIF_A2DP_SOURCE_H */

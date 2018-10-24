@@ -174,6 +174,8 @@ typedef struct {
   period_ms_t encoder_interval_ms; /* Local copy of the encoder interval */
   btif_media_stats_t stats;
   btif_media_stats_t accumulated_stats;
+  int last_remote_started_index;
+  int *last_started_index_pointer;
 } tBTIF_A2DP_SOURCE_CB;
 
 static tBTIF_A2DP_SOURCE_CB btif_a2dp_source_cb;
@@ -284,7 +286,8 @@ bool btif_a2dp_source_startup(void) {
 
   memset(&btif_a2dp_source_cb, 0, sizeof(btif_a2dp_source_cb));
   btif_a2dp_source_state = BTIF_A2DP_SOURCE_STATE_STARTING_UP;
-
+  btif_a2dp_source_cb.last_remote_started_index = -1;
+  btif_a2dp_source_cb.last_started_index_pointer = NULL;
   APPL_TRACE_EVENT("## A2DP SOURCE START MEDIA THREAD ##");
 
   /* Start A2DP Source media task */
@@ -388,41 +391,66 @@ bool btif_a2dp_source_is_remote_start(void) {
   return alarm_is_scheduled(btif_a2dp_source_cb.remote_start_alarm);
 }
 
-void btif_a2dp_source_cancel_remote_start(void) {
+int btif_a2dp_source_last_remote_start_index() {
+    APPL_TRACE_DEBUG("%s:remote started set for device index %d", __func__, btif_a2dp_source_cb.last_remote_started_index);
+    return btif_a2dp_source_cb.last_remote_started_index;
+}
+
+void btif_a2dp_source_cancel_remote_start() {
   if (btif_a2dp_source_cb.remote_start_alarm != NULL) {
     alarm_free(btif_a2dp_source_cb.remote_start_alarm);
     btif_a2dp_source_cb.remote_start_alarm = NULL;
+    btif_av_clear_remote_start_timer(btif_a2dp_source_cb.last_remote_started_index);
+    APPL_TRACE_DEBUG("%s: cancel remote start on AV index %d", __func__, btif_a2dp_source_cb.last_remote_started_index);
+    btif_a2dp_source_cb.last_remote_started_index = -1;
+    if(btif_a2dp_source_cb.last_started_index_pointer)
+      osi_free(btif_a2dp_source_cb.last_started_index_pointer);
+    btif_a2dp_source_cb.last_started_index_pointer = NULL;
   }
   return;
 }
 
 static void btif_media_remote_start_alarm_cb(UNUSED_ATTR void *context) {
   thread_post(btif_a2dp_source_cb.worker_thread,
-              btif_a2dp_source_remote_start_timeout, NULL);
+              btif_a2dp_source_remote_start_timeout, context);
 }
 
 static void btif_a2dp_source_remote_start_timeout(UNUSED_ATTR void* context) {
-  APPL_TRACE_DEBUG("%s: Suspend stream request to Av", __func__);
-  alarm_free(btif_a2dp_source_cb.remote_start_alarm);
-  btif_a2dp_source_cb.remote_start_alarm = NULL;
-  btif_dispatch_sm_event(BTIF_AV_REMOTE_SUSPEND_STREAM_REQ_EVT, NULL, 0);
+  int *arg = (int *)context;
+  int index = *arg;
+  APPL_TRACE_DEBUG("%s: Suspend stream request to Av index %d", __func__, *arg);
+  if (btif_a2dp_source_cb.remote_start_alarm != NULL &&
+      index == btif_a2dp_source_cb.last_remote_started_index) {
+    alarm_free(btif_a2dp_source_cb.remote_start_alarm);
+    btif_a2dp_source_cb.remote_start_alarm = NULL;
+    btif_a2dp_source_cb.last_remote_started_index = -1;
+    btif_a2dp_source_cb.last_started_index_pointer = NULL;
+  }
+  btif_dispatch_sm_event(BTIF_AV_REMOTE_SUSPEND_STREAM_REQ_EVT, &index, sizeof(index));
+  if(arg) {
+    osi_free(arg);
+  }
   return;
 }
 
-void btif_a2dp_source_on_remote_start() {
-  // cancel any existing remote start timer
-  btif_a2dp_source_cancel_remote_start();
-
-  // initiate remote start timer
-  btif_a2dp_source_cb.remote_start_alarm = alarm_new("btif.remote_start_task");
-  if (!btif_a2dp_source_cb.remote_start_alarm) {
+void btif_a2dp_source_on_remote_start(struct alarm_t *remote_start_alarm, int index) {
+  // initiate remote start timer for index basis
+  int *arg = NULL;
+  arg = (int *) osi_malloc(sizeof(int));
+  remote_start_alarm = alarm_new("btif.remote_start_task");
+  if (!remote_start_alarm || !arg) {
     LOG_ERROR(LOG_TAG,"%s:unable to allocate media alarm",__func__);
-    btif_dispatch_sm_event(BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL, 0);
+    btif_av_clear_remote_start_timer(index);
+    btif_dispatch_sm_event(BTIF_AV_SUSPEND_STREAM_REQ_EVT, &index, sizeof(index));
     return;
   }
-  alarm_set(btif_a2dp_source_cb.remote_start_alarm, BTIF_REMOTE_START_TOUT,
-            btif_media_remote_start_alarm_cb, NULL);
-  APPL_TRACE_DEBUG("%s: Remote start timer started", __func__);
+  *arg = index;
+  alarm_set(remote_start_alarm, BTIF_REMOTE_START_TOUT,
+            btif_media_remote_start_alarm_cb, (void *)arg);
+  btif_a2dp_source_cb.remote_start_alarm = remote_start_alarm;
+  btif_a2dp_source_cb.last_remote_started_index = index;
+  btif_a2dp_source_cb.last_started_index_pointer = arg;
+  APPL_TRACE_DEBUG("%s: Remote start timer started index %d arg %d", __func__, index, *arg);
 }
 
 static void btif_media_unblock_audio_start_alarm_cb(UNUSED_ATTR void *context) {

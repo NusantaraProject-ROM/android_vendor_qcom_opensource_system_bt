@@ -165,6 +165,7 @@ typedef struct {
   tBTIF_CBACK* p_cb; /* context switch callback */
 
   /* parameters passed to callback */
+  uint16_t len;        /*length is to check whether p_param has data or not*/
   uint16_t event;                          /* message event id */
   char __attribute__((aligned)) p_param[]; /* parameter area needs to be last */
 } tBTIF_CONTEXT_SWITCH_CBACK;
