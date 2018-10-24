@@ -226,6 +226,12 @@ static void a2dp_sbc_encoder_update(uint16_t peer_mtu,
   min_bitpool = A2DP_GetMinBitpoolSbc(p_codec_info);
   max_bitpool = A2DP_GetMaxBitpoolSbc(p_codec_info);
 
+  LOG_DEBUG(LOG_TAG, "%s: min/max bitpool values = %d/%d", __func__, min_bitpool, max_bitpool);
+  if ((min_bitpool < 0) || (max_bitpool < 0)) {
+    LOG_DEBUG(LOG_TAG, "%s: min or max bit pool value is negative.", __func__);
+    return;
+  }
+
   // The feeding parameters
   tA2DP_FEEDING_PARAMS* p_feeding_params = &a2dp_sbc_encoder_cb.feeding_params;
   p_feeding_params->sample_rate = A2DP_GetTrackSampleRateSbc(p_codec_info);
