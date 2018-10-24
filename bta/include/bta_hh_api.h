@@ -214,6 +214,12 @@ typedef struct {
   tBTA_HH_DEV_DESCR descriptor;
 } tBTA_HH_DEV_DSCP_INFO;
 
+/* Dev Handle & report descriptor information */
+typedef struct {
+    uint8_t dev_handle;        /* device handle */
+    tBTA_HH_DEV_DSCP_INFO *dscp_info;
+} tBTA_HH_DEV_HANDLE_DSCP_INFO;
+
 /* callback event data for BTA_HH_OPEN_EVT */
 typedef struct {
   RawAddress bda;        /* HID device bd address    */
@@ -294,7 +300,7 @@ typedef union {
                                 BTA_HH_UPDATE_SCPP_EVT */
 
   tBTA_HH_STATUS status;           /* BTA_HH_ENABLE_EVT */
-  tBTA_HH_DEV_DSCP_INFO dscp_info; /* BTA_HH_GET_DSCP_EVT */
+  tBTA_HH_DEV_HANDLE_DSCP_INFO h_d_info; /* BTA_HH_GET_DSCP_EVT */
   tBTA_HH_HSDATA hs_data;          /* GET_ transaction callback
                                       BTA_HH_GET_RPT_EVT
                                       BTA_HH_GET_PROTO_EVT

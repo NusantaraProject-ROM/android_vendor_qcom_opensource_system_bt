@@ -908,7 +908,13 @@ void bta_hh_get_dscp_act(tBTA_HH_DEV_CB* p_cb,
     bta_hh_le_get_dscp_act(p_cb);
   } else
 #endif
-    (*bta_hh_cb.p_cback)(BTA_HH_GET_DSCP_EVT, (tBTA_HH*)&p_cb->dscp_info);
+  {
+    tBTA_HH_DEV_HANDLE_DSCP_INFO handle_dscp_info;
+
+    handle_dscp_info.dscp_info = &p_cb->dscp_info;
+    handle_dscp_info.dev_handle = p_cb->hid_handle;
+    (*bta_hh_cb.p_cback)(BTA_HH_GET_DSCP_EVT, (tBTA_HH*)&handle_dscp_info);
+  }
 }
 
 /*******************************************************************************
