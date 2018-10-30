@@ -1673,7 +1673,8 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
             /* Add 500msec offset to timeout if there is an outstanding
              * incoming connection */
             for (uint32_t i = 0; i < BTA_AV_NUM_LINKS; i++) {
-              if ((p_cb->p_scb[i]->coll_mask & BTA_AV_COLL_INC_TMR) && i != xx)
+              if ((p_cb->p_scb[i] != NULL &&
+                  p_cb->p_scb[i]->coll_mask & BTA_AV_COLL_INC_TMR) && i != xx)
                 timeout += 500;
             }
             APPL_TRACE_DEBUG("%s: AV signalling timer started for index = %d", __func__, xx);
