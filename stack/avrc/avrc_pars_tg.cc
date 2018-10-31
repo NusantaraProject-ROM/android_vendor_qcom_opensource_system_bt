@@ -306,6 +306,8 @@ static tAVRC_STS avrc_pars_vendor_cmd(tAVRC_MSG_VENDOR* p_msg,
       if (len != 5) {
         status = AVRC_STS_INTERNAL_ERR;
         AVRC_TRACE_ERROR("%s: length is incorrect, status: %d", __func__, status);
+        BE_STREAM_TO_UINT8(p_result->reg_notif.event_id, p);
+        AVRC_TRACE_DEBUG("avrc_pars_vendor_cmd() event id: %d", p_result->reg_notif.event_id);
       } else {
         BE_STREAM_TO_UINT8(p_result->reg_notif.event_id, p);
         BE_STREAM_TO_UINT32(p_result->reg_notif.param, p);

@@ -316,7 +316,7 @@ typedef struct { uint8_t handle; } btif_rc_handle_t;
 typedef struct {
   std::recursive_mutex lbllock;
   rc_device_t *rc_index;
-} btif_rc_index;
+} btif_rc_index_t;
 
 static bool isShoMcastEnabled = false;
 static void sleep_ms(period_ms_t timeout_ms);
@@ -446,7 +446,7 @@ static bt_status_t set_volume(uint8_t volume, RawAddress*bd_addr);
  *  Static variables
  *****************************************************************************/
 static rc_cb_t btif_rc_cb;
-static btif_rc_index device;
+static btif_rc_index_t device;
 static btrc_callbacks_t* bt_rc_callbacks = NULL;
 static btrc_ctrl_callbacks_t* bt_rc_ctrl_callbacks = NULL;
 static btrc_vendor_ctrl_callbacks_t* bt_rc_vendor_ctrl_callbacks = NULL;
@@ -1395,23 +1395,26 @@ void handle_rc_metamsg_cmd(tBTA_AV_META_MSG* pmeta_msg) {
       BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
       return;
   }
+  status = AVRC_ParsCommand(pmeta_msg->p_msg, &avrc_command, scratch_buf,
+                            sizeof(scratch_buf));
+  BTIF_TRACE_DEBUG("%s: event_id: %d", __func__, avrc_command.reg_notif.event_id);
   if (pmeta_msg->code >= AVRC_RSP_NOT_IMPL) {
-    {
       rc_transaction_t* transaction = NULL;
       transaction = get_transaction_by_lbl(pmeta_msg->label, idx);
       if (transaction != NULL) {
         handle_rc_metamsg_rsp(pmeta_msg, p_dev);
+      } else if (transaction == NULL && AVRC_EVT_VOLUME_CHANGE == avrc_command.reg_notif.event_id) {
+        transaction = get_transaction_by_lbl(p_dev->rc_vol_label, idx);
+        if (transaction != NULL)
+          handle_rc_metamsg_rsp(pmeta_msg, p_dev);
       } else {
         BTIF_TRACE_DEBUG(
             "%s: Discard vendor dependent rsp. code: %d label: %d.", __func__,
             pmeta_msg->code, pmeta_msg->label);
       }
       return;
-    }
   }
 
-  status = AVRC_ParsCommand(pmeta_msg->p_msg, &avrc_command, scratch_buf,
-                            sizeof(scratch_buf));
   BTIF_TRACE_DEBUG("%s: Received vendor command.code,PDU and label: %d, %d, %d",
                    __func__, pmeta_msg->code, avrc_command.cmd.pdu,
                    pmeta_msg->label);
@@ -4068,17 +4071,6 @@ static void handle_rc_metamsg_rsp(tBTA_AV_META_MSG* pmeta_msg,
       } else if (AVRC_PDU_SET_ABSOLUTE_VOLUME == avrc_response.rsp.pdu) {
         release_transaction(pmeta_msg->label, idx);
       }
-      return;
-    }
-
-    if (AVRC_PDU_REGISTER_NOTIFICATION == avrc_response.rsp.pdu &&
-        AVRC_EVT_VOLUME_CHANGE == avrc_response.reg_notif.event_id &&
-        p_dev->rc_vol_label != pmeta_msg->label) {
-      // Just discard the message, if the device sends back with an incorrect
-      // label
-      BTIF_TRACE_DEBUG(
-          "%s: Discarding register notification in rsp.code: %d and label: %d",
-          __func__, pmeta_msg->code, pmeta_msg->label);
       return;
     }
 
