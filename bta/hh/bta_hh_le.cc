@@ -656,7 +656,8 @@ static tBTA_GATTC_DESCRIPTOR* find_descriptor_by_short_uuid(
       BTA_GATTC_GetCharacteristic(conn_id, char_handle);
 
   if (!p_char) {
-    LOG_WARN(LOG_TAG, "%s No such characteristic: %d", __func__, char_handle);
+    LOG_WARN(LOG_TAG, "%s No such characteristic: %d conn_id: %d", __func__,
+      char_handle, conn_id);
     return NULL;
   }
 
@@ -1968,7 +1969,11 @@ static void read_report_cb(uint16_t conn_id, tGATT_STATUS status,
   const tBTA_GATTC_CHARACTERISTIC* p_char =
       BTA_GATTC_GetCharacteristic(conn_id, handle);
 
-  if (p_char == NULL) return;
+  if (p_char == NULL) {
+    LOG_WARN(LOG_TAG, "%s No such characteristic: %d conn_id: %d", __func__,
+      handle, conn_id);
+    return;
+  }
 
   uint16_t char_uuid = p_char->uuid.As16Bit();
 
@@ -2079,6 +2084,12 @@ static void write_report_cb(uint16_t conn_id, tGATT_STATUS status,
 
   const tBTA_GATTC_CHARACTERISTIC* p_char =
       BTA_GATTC_GetCharacteristic(conn_id, handle);
+  if (p_char == NULL) {
+    LOG_WARN(LOG_TAG, "%s No such characteristic: %d conn_id: %d", __func__,
+      handle, conn_id);
+    return;
+  }
+
   uint16_t uuid = p_char->uuid.As16Bit();
   if (uuid != GATT_UUID_HID_REPORT && uuid != GATT_UUID_HID_BT_KB_INPUT &&
       uuid != GATT_UUID_HID_BT_MOUSE_INPUT &&
@@ -2346,6 +2357,12 @@ static void write_scpp_cb(uint16_t conn_id, tGATT_STATUS status,
 
   const tBTA_GATTC_CHARACTERISTIC* p_char =
       BTA_GATTC_GetCharacteristic(conn_id, handle);
+  if (p_char == NULL) {
+    LOG_WARN(LOG_TAG, "%s No such characteristic: %d conn_id : %d", __func__,
+      handle, conn_id);
+    return;
+  }
+
   uint16_t uuid = p_char->uuid.As16Bit();
 
   if (uuid != GATT_UUID_SCAN_INT_WINDOW)
