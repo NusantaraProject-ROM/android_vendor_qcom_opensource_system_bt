@@ -1546,11 +1546,11 @@ bt_status_t HeadsetInterface::ClccResponse(int index, bthf_call_direction_t dir,
           }
         }
         dialnum[newidx] = 0;
-        // Reserve 5 bytes for ["][,][3_digit_type]
-        snprintf(&ag_res.str[res_strlen], rem_bytes - 5, ",\"%s", dialnum);
+        // Reserve 4 bytes for [,][3_digit_type]
+        snprintf(&ag_res.str[res_strlen], rem_bytes - 4, ",\"%s\"", dialnum);
         std::stringstream remaining_string;
-        remaining_string << "\"," << type;
-        strlcat(&ag_res.str[res_strlen], remaining_string.str().c_str(), 5);
+        remaining_string << "," << type;
+        strlcat(&ag_res.str[res_strlen], remaining_string.str().c_str(), 4);
       }
     }
     BTA_AgResult(btif_hf_cb[idx].handle, BTA_AG_CLCC_RES, &ag_res);
