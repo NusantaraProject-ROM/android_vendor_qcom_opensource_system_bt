@@ -144,6 +144,7 @@ static void btif_sendmsg(void* p_msg);
  *  Externs
  ******************************************************************************/
 extern fixed_queue_t* btu_hci_msg_queue;
+extern bool twsplus_enabled;
 
 void btif_dm_execute_service_request(uint16_t event, char* p_param);
 #ifdef BTIF_DM_OOB_TEST
@@ -359,6 +360,14 @@ bt_status_t btif_init_bluetooth() {
   LOG_INFO(LOG_TAG, "%s entered", __func__);
 
   bte_main_boot_entry();
+
+  char twsplus_prop[PROPERTY_VALUE_MAX] = "false";
+  property_get("persist.vendor.btstack.enable.twsplus", twsplus_prop, "false");
+  if(!strcmp(twsplus_prop, "false")) {
+    twsplus_enabled = false;
+  } else {
+    twsplus_enabled = true;
+  }
 
   bt_jni_workqueue_thread = thread_new_sized(BT_JNI_WORKQUEUE_NAME, MAX_JNI_WORKQUEUE_COUNT);
   if (bt_jni_workqueue_thread == NULL) {
