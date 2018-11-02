@@ -293,12 +293,16 @@ bool btif_av_is_tws_suspend_triggered(int index);
 bool btif_av_is_tws_enabled_for_dev(const RawAddress& rc_addr);
 bool btif_av_is_tws_connected(void);
 bool btif_av_current_device_is_tws(void);
+bool btif_av_is_idx_tws_device(int index);
+int btif_av_get_tws_pair_idx(int index);
 #else
 #define btif_av_is_tws_device_playing() 0
 #define btif_av_is_tws_suspend_triggered() 0
 #define btif_av_is_tws_enabled_for_dev() 0
 #define btif_av_is_tws_connected() 0
 #define btif_av_current_device_is_tws() 0
+#define btif_av_is_idx_tws_device() 0
+#define btif_av_get_tws_pair_idx() 0
 #endif
 #ifdef AVK_BACKPORT
 void btif_av_request_audio_focus(bool enable);
@@ -2518,6 +2522,16 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
           return;
       }
       index = btif_av_get_latest_device_idx_to_start();
+#if (TWS_ENABLED == TRUE)
+      if (btif_av_current_device_is_tws()) {
+        int started_index = btif_av_get_latest_playing_device_idx();
+        if (btif_av_stream_started_ready() &&
+          started_index == index) {
+          index = btif_av_get_tws_pair_idx(started_index);
+          BTIF_TRACE_DEBUG("Switching start req from index %d to %d",started_index,index);
+        }
+      }
+#endif
       break;
     case BTIF_AV_STOP_STREAM_REQ_EVT:
     case BTIF_AV_SUSPEND_STREAM_REQ_EVT:
@@ -5145,6 +5159,29 @@ bool btif_av_current_device_is_tws() {
     }
   }
   return false;
+}
+bool btif_av_is_idx_tws_device(int index) {
+  if (index == btif_max_av_clients) {
+    BTIF_TRACE_ERROR("%s:invalid index",__func__);
+    return false;
+  }
+  BTIF_TRACE_DEBUG("%s:%d",__func__, btif_av_cb[index].tws_device);
+  return btif_av_cb[index].tws_device;
+}
+int btif_av_get_tws_pair_idx(int index) {
+  BTIF_TRACE_DEBUG("%s",__func__);
+  int idx = btif_max_av_clients;
+  if (index == btif_max_av_clients) {
+    BTIF_TRACE_ERROR("%s:invalid index",__func__);
+    return false;
+  }
+  for (idx = 0; idx < btif_max_av_clients; idx++) {
+    if (idx != index && btif_av_cb[idx].tws_device) {
+      BTIF_TRACE_DEBUG("%s:found TWS+ pair index %d",__func__,idx);
+      return idx;
+    }
+  }
+  return idx;
 }
 #endif
 /*SPLITA2DP*/

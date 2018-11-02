@@ -117,6 +117,8 @@ extern bool btif_av_is_playing_on_other_idx(int current_index);
 extern int btif_get_is_remote_started_idx();
 extern bool btif_av_current_device_is_tws();
 extern bool btif_av_is_tws_device_playing(int index);
+extern bool btif_av_is_idx_tws_device(int index);
+extern int btif_av_get_tws_pair_idx(int index);
 extern bool reconfig_a2dp;
 extern bool audio_start_awaited;
 bool deinit_pending = false;
@@ -924,12 +926,14 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         }
         break;
 
-      case A2DP_CTRL_CMD_START:
+      case A2DP_CTRL_CMD_START: {
         /*
          * Don't send START request to stack while we are in a call.
          * Some headsets such as "Sony MW600", don't allow AVDTP START
          * while in a call, and respond with BAD_STATE.
          */
+        bool reset_remote_start = false;
+        int remote_start_idx = btif_max_av_clients;
         if (!bluetooth::headset::btif_hf_is_call_vr_idle()) {
           status = A2DP_CTRL_ACK_INCALL_FAILURE;
           break;
@@ -946,11 +950,21 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
           break;
         }
         if (btif_a2dp_source_is_remote_start()) {
-          int remote_start_idx = btif_get_is_remote_started_idx();
           int latest_playing_idx = btif_av_get_latest_device_idx_to_start();
+          remote_start_idx = btif_get_is_remote_started_idx();
+          reset_remote_start = false;
           APPL_TRACE_DEBUG("%s: remote started idx = %d latest playing = %d",__func__,
                            remote_start_idx, latest_playing_idx);
+#if (TWS_ENABLED == TRUE)
+          if (btif_av_current_device_is_tws() &&
+            btif_av_is_idx_tws_device(remote_start_idx)) {
+            APPL_TRACE_DEBUG("%s:Remote started by TWS+ device, force cancel",__func__);
+            reset_remote_start = true;
+          }
+          if (!reset_remote_start && (remote_start_idx < btif_max_av_clients) &&
+#else
           if ((remote_start_idx < btif_max_av_clients) &&
+#endif
             ((latest_playing_idx < btif_max_av_clients && latest_playing_idx != remote_start_idx) ||
              btif_av_is_playing_on_other_idx(remote_start_idx))) {
             APPL_TRACE_WARNING("%s: Already playing on other index, don't cancel remote start timer",__func__);
@@ -1006,6 +1020,24 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
             }
             APPL_TRACE_DEBUG("Start VSC exchange on MM Start when state is remote started on hdl = %d",hdl);
             btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, (char *)&hdl, 1);
+#if (TWS_ENABLED == TRUE)
+            if (btif_av_current_device_is_tws() &&
+              reset_remote_start && !btif_av_is_tws_device_playing(idx)) {
+              int pair_idx = btif_av_get_tws_pair_idx(idx);
+              if (pair_idx < btif_max_av_clients && btif_av_is_state_opened(pair_idx)) {
+                APPL_TRACE_DEBUG("%s:Other TWS+ is not start at idx %d, sending start_req",__func__,pair_idx);
+                btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
+              }
+            }
+            status = A2DP_CTRL_ACK_PENDING;
+            break;
+          } else if (remote_start_idx < btif_max_av_clients &&
+            reset_remote_start && btif_av_current_device_is_tws()) {
+            uint8_t hdl = 0;
+            hdl = btif_av_get_av_hdl_from_idx(remote_start_idx);
+            APPL_TRACE_DEBUG("Start VSC exchange for remote started index of TWS+ device");
+            btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, (char *)&hdl, 1);
+#endif
             status = A2DP_CTRL_ACK_PENDING;
             break;
           }
@@ -1037,7 +1069,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
                 __func__, audio_a2dp_hw_dump_ctrl_event((tA2DP_CTRL_CMD)cmd));
         return A2DP_CTRL_ACK_FAILURE;
         break;
-
+      }
       case A2DP_CTRL_CMD_STOP: {
         if (isBAEnabled())
         {
