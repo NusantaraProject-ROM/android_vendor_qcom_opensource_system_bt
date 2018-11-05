@@ -294,6 +294,12 @@ void bta_ag_scb_dealloc(tBTA_AG_SCB* p_scb) {
 
   APPL_TRACE_DEBUG("bta_ag_scb_dealloc %d", bta_ag_scb_to_idx(p_scb));
 
+  if (p_scb->p_disc_db) {
+    APPL_TRACE_DEBUG(" %s Cancel pending SDP ",__func__);
+    (void)SDP_CancelServiceSearch(p_scb->p_disc_db);
+    bta_ag_free_db(p_scb, NULL);
+  }
+
   /* stop and free timers */
   alarm_free(p_scb->ring_timer);
   alarm_free(p_scb->codec_negotiation_timer);
