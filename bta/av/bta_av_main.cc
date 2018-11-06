@@ -956,6 +956,9 @@ static void bta_av_api_set_tws_earbud_role(tBTA_AV_DATA * p_data)
 {
   APPL_TRACE_DEBUG("bta_av_api_set_earbud_role = %d",p_data->tws_set_earbud_role.chn_mode);
   tBTA_AV_SCB *p_scb = bta_av_hndl_to_scb(p_data->hdr.layer_specific);
+  RawAddress tws_pair_addr;
+  tBTA_AV_SCB *p_scbi;
+  int i;
   if (p_scb == NULL) {
     APPL_TRACE_ERROR("bta_av_api_set_tws_earbud_role: scb not found");
     return;
@@ -964,6 +967,22 @@ static void bta_av_api_set_tws_earbud_role(tBTA_AV_DATA * p_data)
     APPL_TRACE_ERROR("%:already streaming,not overwriting ch role",__func__);
     return;
   }
+
+  for (i = 0; i < BTA_AV_NUM_STRS; i++) {
+    p_scbi = bta_av_cb.p_scb[i];
+    if (p_scbi == NULL || p_scbi == p_scb) continue;
+    APPL_TRACE_DEBUG("%s:p_scbi is tws dev = %d",__func__,p_scbi->tws_device);
+    if (p_scbi->tws_device) {
+      if (BTM_SecGetTwsPlusPeerDev(p_scb->peer_addr,
+                               tws_pair_addr) == true) {
+        if ((tws_pair_addr == p_scbi->peer_addr) && p_scbi->started) {
+          APPL_TRACE_ERROR("%:already streaming in paired earbud,not overwriting ch role",__func__);
+          return;
+        }
+      }
+    }
+  }
+
   p_scb->channel_mode = p_data->tws_set_earbud_role.chn_mode;
   bta_av_set_tws_chn_mode(p_scb, true);
 //  p_scb->tws_device = true;
