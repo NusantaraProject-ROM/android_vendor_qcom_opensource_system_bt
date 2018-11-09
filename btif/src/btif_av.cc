@@ -1313,6 +1313,7 @@ static bool btif_av_state_closing_handler(btif_sm_event_t event, void* p_data, i
              } else {
                 APPL_TRACE_DEBUG("Not playing on other devie: Set Flush");
                 btif_a2dp_source_set_tx_flush(true);
+                btif_a2dp_source_stop_audio_req();
              }
           }
         } else {
