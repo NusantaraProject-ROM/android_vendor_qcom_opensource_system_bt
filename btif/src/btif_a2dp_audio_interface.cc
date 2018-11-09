@@ -73,6 +73,7 @@
 #include <hwbinder/ProcessState.h>
 #include <a2dp_vendor_aptx_adaptive_constants.h>
 #include <a2dp_vendor_ldac_constants.h>
+#include <a2dp_vendor_aptx_hd_constants.h>
 #include <a2dp_vendor.h>
 #include "bta/av/bta_av_int.h"
 #include "btif_bat.h"
@@ -123,6 +124,7 @@ extern bool btif_av_is_idx_tws_device(int index);
 extern int btif_av_get_tws_pair_idx(int index);
 extern bool reconfig_a2dp;
 extern bool audio_start_awaited;
+extern bool tws_defaultmono_supported;
 bool deinit_pending = false;
 static void btif_a2dp_audio_send_start_req();
 static void btif_a2dp_audio_send_suspend_req();
@@ -140,6 +142,8 @@ extern tBTA_AV_HNDL btif_av_get_av_hdl_from_idx(int idx);
 extern void btif_av_reset_reconfig_flag();
 extern tBTIF_A2DP_SOURCE_VSC btif_a2dp_src_vsc;
 extern bool btif_av_is_state_opened(int i);
+extern bool btif_av_is_tws_enable_monocfg();
+
 //extern void bta_av_vendor_offload_stop(void);
 
 #if 0
@@ -797,7 +801,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
           }
         }
         memset(p_codec_info, 0, AVDT_CODEC_SIZE);
-        memset(codec_info, 0, 30);
+        memset(codec_info, 0, 34);
         if (!CodecConfig->copyOutOtaCodecConfig(p_codec_info))
         {
           LOG_INFO(LOG_TAG,"No valid codec config");
@@ -1185,7 +1189,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         len = 0;
         LOG_INFO(LOG_TAG,"A2DP_CTRL_GET_CODEC_CONFIG");
         memset(p_codec_info, 0, AVDT_CODEC_SIZE);
-        memset(codec_info, 0, 30);
+        memset(codec_info, 0, 34);
         if (isBAEnabled())
         {
             getBACodecConfig(p_codec_info);
@@ -1264,6 +1268,14 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         codec_info[len++] = (uint8_t)(((bitrate & 0xFF000000) >> 24) & 0x00FF);
         *(uint32_t *)&codec_info[len] = (uint32_t)bits_per_sample;
         len = len+4;
+        if (strcmp(A2DP_CodecName(p_codec_info), "aptX-TWS") == 0)
+        {
+           if (tws_defaultmono_supported && btif_av_is_tws_enable_monocfg()) {
+               LOG_INFO(LOG_TAG,"tws mono mode config set to 1" );
+               codec_info[len++] = 1;
+           } else
+             codec_info[len++] = 0;
+        }
         if(codec_vendor_id == A2DP_APTX_ADAPTIVE_VENDOR_ID)
         {
           *(uint16_t *)&codec_info[len] = (uint16_t)aptx_mode;

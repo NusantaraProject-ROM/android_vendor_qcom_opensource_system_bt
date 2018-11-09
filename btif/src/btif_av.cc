@@ -241,6 +241,9 @@ bool codec_cfg_change = false;
 bool audio_start_awaited = false;
 extern bool enc_update_in_progress;
 extern bool is_block_hal_start;
+#if (TWS_ENABLED == TRUE)
+bool tws_defaultmono_supported = false;
+#endif
 /*SPLITA2DP */
 /* both interface and media task needs to be ready to alloc incoming request */
 #define CHECK_BTAV_INIT()                                                    \
@@ -303,6 +306,7 @@ bool btif_av_is_tws_connected(void);
 bool btif_av_current_device_is_tws(void);
 bool btif_av_is_idx_tws_device(int index);
 int btif_av_get_tws_pair_idx(int index);
+bool btif_av_is_tws_enable_monocfg(void);
 #else
 #define btif_av_is_tws_device_playing() 0
 #define btif_av_is_tws_suspend_triggered() 0
@@ -311,6 +315,7 @@ int btif_av_get_tws_pair_idx(int index);
 #define btif_av_current_device_is_tws() 0
 #define btif_av_is_idx_tws_device() 0
 #define btif_av_get_tws_pair_idx() 0
+#define btif_av_is_tws_enable_monocfg() 0
 #endif
 #ifdef AVK_BACKPORT
 void btif_av_request_audio_focus(bool enable);
@@ -3509,7 +3514,11 @@ static bt_status_t init_src(
   osi_property_get("persist.vendor.btstack.enable.splita2dp", value, "true");
   BTIF_TRACE_ERROR("split_a2dp_status = %s",value);
   bt_split_a2dp_enabled = (strcmp(value, "true") == 0);
-  BTIF_TRACE_ERROR("split_a2dp_status = %d",bt_split_a2dp_enabled);
+  BTIF_TRACE_DEBUG("split_a2dp_status = %d",bt_split_a2dp_enabled);
+  osi_property_get("persist.vendor.btstack.twsplus.defaultchannelmode", value, "mono");
+  BTIF_TRACE_DEBUG("tws default channel mode = %s",value);
+  tws_defaultmono_supported = (strcmp(value, "mono") == 0);
+  BTIF_TRACE_DEBUG("default mono channel mode = %d",tws_defaultmono_supported);
 
   if (bt_av_sink_callbacks != NULL)
         // already did btif_av_init()
@@ -5388,6 +5397,25 @@ int btif_av_get_tws_pair_idx(int index) {
     }
   }
   return idx;
+}
+
+bool btif_av_is_tws_enable_monocfg() {
+  int i,index;
+  BTIF_TRACE_DEBUG("%s",__func__);
+  btif_sm_state_t state = BTIF_AV_STATE_IDLE;
+  RawAddress tws_address_peer;
+  i = btif_av_get_latest_playing_device_idx();
+  if (btif_av_cb[i].tws_device) {
+    if (BTM_SecGetTwsPlusPeerDev(btif_av_cb[i].peer_bda,tws_address_peer)== true) {
+          index = btif_av_idx_by_bdaddr(&tws_address_peer);
+          if (index < btif_max_av_clients) {
+            state = btif_sm_get_state(btif_av_cb[index].sm_handle);
+            if (state == BTIF_AV_STATE_STARTED || (btif_av_cb[index].flags & BTIF_AV_FLAG_PENDING_START))
+               return false;
+          }
+       }
+    }
+  return true;
 }
 #endif
 /*SPLITA2DP*/
