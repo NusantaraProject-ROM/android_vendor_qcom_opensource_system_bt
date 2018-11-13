@@ -52,6 +52,7 @@
 #include "osi/include/properties.h"
 #include "sdp_api.h"
 #include "sdpint.h"
+#include "btif/include/btif_config.h"
 //#include "service/logging_helpers.h"
 
 #include <cutils/properties.h>
@@ -540,7 +541,6 @@ static void process_service_search(tCONN_CB* p_ccb, uint16_t trans_num,
     return;
   }
   BE_STREAM_TO_UINT16(max_replies, p_req);
-    
   if (!max_replies) {
     sdpu_build_n_send_error (p_ccb, trans_num, SDP_INVALID_REQ_SYNTAX,
                              SDP_TEXT_BAD_MAX_ATTR_LIST);
@@ -1753,10 +1753,22 @@ void check_and_store_pce_profile_version(tSDP_DISC_REC* p_sdp_rec) {
   FILE *fp;
   bool has_entry = FALSE;
   struct pce_entry entry;
-  uint16_t peer_pce_version;
+  uint16_t peer_pce_version = 0;
 
   RawAddress remote_addr = p_sdp_rec->remote_bd_addr;
   SDP_FindProfileVersionInRec(p_sdp_rec, UUID_SERVCLASS_PHONE_ACCESS, &peer_pce_version);
+  if (peer_pce_version != 0) {
+    APPL_TRACE_DEBUG("%s: peer_pce_version : 0x%x", __func__, peer_pce_version);
+    if (btif_config_set_uint16(remote_addr.ToString().c_str(),
+                      PBAP_PCE_VERSION_CONFIG_KEY,
+                      peer_pce_version)) {
+      btif_config_save();
+    } else {
+      APPL_TRACE_WARNING("%s: Failed to store  peer_pce_version for %s",
+                   __func__, remote_addr.ToString().c_str());
+    }
+  }
+
   bool is_pbap_102_blacklisted = is_device_blacklisted_for_pbap(remote_addr, true);
   APPL_TRACE_DEBUG("%s remote BD Addr: %s peer pce version: %x is_pbap_102_blacklisted = %d",
       __func__, remote_addr.ToString().c_str(), peer_pce_version, is_pbap_102_blacklisted);

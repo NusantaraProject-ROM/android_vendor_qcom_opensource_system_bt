@@ -46,10 +46,12 @@
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 #include "sdp_api.h"
+#include "bta_sdp_api.h"
 #include "utl.h"
 #include "device/include/interop_config.h"
 #include "stack/sdp/sdpint.h"
 #include <inttypes.h>
+#include "btif/include/btif_config.h"
 
 #if (GAP_INCLUDED == TRUE)
 #include "gap_api.h"
@@ -1592,6 +1594,98 @@ void bta_dm_disc_rmt_name(tBTA_DM_MSG* p_data) {
   bta_dm_discover_device(p_data->rem_name.result.disc_res.bd_addr);
 }
 
+static void bta_dm_store_profiles_version() {
+  tSDP_DISC_REC* sdp_rec = NULL;
+  uint16_t profile_version, avdtp_version = 0;
+  uint16_t avrcp_features = 0;
+  tSDP_DISC_ATTR* p_attr;
+  tSDP_PROTOCOL_ELEM elem;
+  int i;
+
+  const UINT16 servclass_uuids[] = {
+    UUID_SERVCLASS_AUDIO_SINK,
+    UUID_SERVCLASS_HF_HANDSFREE,
+    UUID_SERVCLASS_AV_REMOTE_CONTROL,
+    UUID_SERVCLASS_AV_REM_CTRL_TARGET,
+  };
+
+  const UINT16 btprofile_uuids[] = {
+    UUID_SERVCLASS_ADV_AUDIO_DISTRIBUTION,
+    UUID_SERVCLASS_HF_HANDSFREE,
+    UUID_SERVCLASS_AV_REMOTE_CONTROL,
+    UUID_SERVCLASS_AV_REMOTE_CONTROL,
+  };
+
+  const char* profile_keys[] = {
+    A2DP_VERSION_CONFIG_KEY,
+    HFP_VERSION_CONFIG_KEY,
+    AV_REM_CTRL_VERSION_CONFIG_KEY,
+    AV_REM_CTRL_TG_VERSION_CONFIG_KEY,
+  };
+
+  int profile_num = sizeof(servclass_uuids)/sizeof(servclass_uuids[0]);
+
+  APPL_TRACE_DEBUG("%s", __func__);
+
+  for (i = 0; i < profile_num; i++) {
+    profile_version = 0;
+    if ((sdp_rec =
+         SDP_FindServiceInDb(bta_dm_search_cb.p_sdp_db, servclass_uuids[i], NULL))
+         == NULL)
+      continue;
+
+    if (SDP_FindAttributeInRec(sdp_rec, ATTR_ID_BT_PROFILE_DESC_LIST) == NULL)
+      continue;
+    /* get profile version (if failure, version parameter is not updated) */
+    SDP_FindProfileVersionInRec(sdp_rec, btprofile_uuids[i], &profile_version);
+    if (profile_version != 0) {
+      if (btif_config_set_uint16(sdp_rec->remote_bd_addr.ToString().c_str(),
+                              profile_keys[i],
+                              profile_version)) {
+        btif_config_save();
+      } else {
+        APPL_TRACE_WARNING("%s: Failed to store peer profile version for %s",
+                           __func__, sdp_rec->remote_bd_addr.ToString().c_str());
+      }
+    }
+
+    if (servclass_uuids[i] == UUID_SERVCLASS_AUDIO_SINK) {
+      /* get peer AVDTP version */
+      if (SDP_FindProtocolListElemInRec(sdp_rec, UUID_PROTOCOL_AVDTP, &elem)) {
+        avdtp_version = elem.params[0];
+        if (avdtp_version != 0) {
+          if (btif_config_set_uint16(sdp_rec->remote_bd_addr.ToString().c_str(),
+                              AVDTP_VERSION_CONFIG_KEY,
+                              avdtp_version)) {
+            btif_config_save();
+          } else {
+            APPL_TRACE_WARNING("%s: Failed to store avdtp_version version for %s",
+                           __func__, sdp_rec->remote_bd_addr.ToString().c_str());
+          }
+        }
+      }
+    }
+    /* find peer supported features for avrcp profile*/
+    if (servclass_uuids[i] == UUID_SERVCLASS_AV_REMOTE_CONTROL) {
+      p_attr = SDP_FindAttributeInRec(sdp_rec, ATTR_ID_SUPPORTED_FEATURES);
+      if (p_attr != NULL) {
+        avrcp_features = p_attr->attr_value.v.u16;
+        if (avrcp_features != 0) {
+          APPL_TRACE_DEBUG("avrcp_features: 0x%x", avrcp_features);
+          if (btif_config_set_uint16(sdp_rec->remote_bd_addr.ToString().c_str(),
+                           AV_REM_CTRL_FEATURES_CONFIG_KEY,
+                           avrcp_features)) {
+            btif_config_save();
+          } else {
+            APPL_TRACE_WARNING("%s: Failed to store avrcp_features for %s",
+                                __func__, sdp_rec->remote_bd_addr.ToString().c_str());
+          }
+        }
+      }
+    }
+  }
+}
+
 /*******************************************************************************
  *
  * Function         bta_dm_sdp_result
@@ -1633,13 +1727,9 @@ void bta_dm_sdp_result(tBTA_DM_MSG* p_data) {
             bta_service_id_to_uuid_lkup_tbl[bta_dm_search_cb.service_index - 1];
         p_sdp_rec =
             SDP_FindServiceInDb(bta_dm_search_cb.p_sdp_db, service, p_sdp_rec);
-        // for PBAP PCE UUID, check remote PBAP PCE Profile Version
-        if (service == UUID_SERVCLASS_PBAP_PCE) {
-          APPL_TRACE_DEBUG("%s: remote PBAP PCE reord", __func__);
-          if (p_sdp_rec != NULL)
-            check_and_store_pce_profile_version(p_sdp_rec);
-        }
+
       }
+
       /* finished with BR/EDR services, now we check the result for GATT based
        * service UUID */
       if (bta_dm_search_cb.service_index == BTA_MAX_SERVICE_ID) {
@@ -1721,6 +1811,10 @@ void bta_dm_sdp_result(tBTA_DM_MSG* p_data) {
           }
         }
       } while (p_sdp_rec);
+
+      if (bta_dm_search_cb.services_to_search == 0)
+         bta_dm_store_profiles_version();
+
     }
     /* if there are more services to search for */
     if (bta_dm_search_cb.services_to_search) {
@@ -2119,6 +2213,10 @@ static void bta_dm_find_services(const RawAddress& bd_addr) {
         bta_dm_search_cb.service_index = BTA_MAX_SERVICE_ID;
 
       } else {
+        if (uuid == Uuid::From16Bit(UUID_PROTOCOL_L2CAP)) {
+          LOG_DEBUG(LOG_TAG, "%s SDP search for PBAP Client ", __func__);
+          BTA_SdpSearch(bd_addr, Uuid::From16Bit(UUID_SERVCLASS_PBAP_PCE));
+        }
         if ((bta_dm_search_cb.service_index == BTA_BLE_SERVICE_ID &&
              bta_dm_search_cb.uuid_to_search == 0) ||
             bta_dm_search_cb.service_index != BTA_BLE_SERVICE_ID)

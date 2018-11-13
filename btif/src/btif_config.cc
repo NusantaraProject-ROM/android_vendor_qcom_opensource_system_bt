@@ -270,6 +270,19 @@ bool btif_config_get_int(const char* section, const char* key, int* value) {
   return ret;
 }
 
+bool btif_config_get_uint16(const char* section, const char* key, uint16_t* value) {
+  CHECK(config != NULL);
+  CHECK(section != NULL);
+  CHECK(key != NULL);
+  CHECK(value != NULL);
+
+  std::unique_lock<std::mutex> lock(config_lock);
+  bool ret = config_has_key(config, section, key);
+  if (ret) *value = config_get_uint16(config, section, key, *value);
+
+  return ret;
+}
+
 bool btif_config_set_int(const char* section, const char* key, int value) {
   CHECK(config != NULL);
   CHECK(section != NULL);
@@ -277,6 +290,17 @@ bool btif_config_set_int(const char* section, const char* key, int value) {
 
   std::unique_lock<std::mutex> lock(config_lock);
   config_set_int(config, section, key, value);
+
+  return true;
+}
+
+bool btif_config_set_uint16(const char* section, const char* key, uint16_t value) {
+  CHECK(config != NULL);
+  CHECK(section != NULL);
+  CHECK(key != NULL);
+
+  std::unique_lock<std::mutex> lock(config_lock);
+  config_set_uint16(config, section, key, value);
 
   return true;
 }
@@ -479,6 +503,7 @@ static void btif_config_remove_unpaired(config_t* conf) {
           !config_has_key(conf, section, "LE_KEY_PCSRK") &&
           !config_has_key(conf, section, "LE_KEY_LENC") &&
           !config_has_key(conf, section, "LE_KEY_LCSRK") &&
+          !config_has_key(conf, section, "AvrcpFeatures") &&
           !config_has_key(conf, section, "TwsPlusPeerAddr")) {
         snode = config_section_next(snode);
         config_remove_section(conf, section);

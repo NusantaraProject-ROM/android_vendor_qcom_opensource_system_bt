@@ -68,6 +68,13 @@ bool config_has_key(const config_t* config, const char* section,
 int config_get_int(const config_t* config, const char* section, const char* key,
                    int def_value);
 
+// Returns the unsigned short integer value for a given |key| in |section|. If |section|
+// or |key| do not exist, or the value cannot be fully converted to an unsigned short
+// integer, this function returns |def_value|. |config|, |section|, and |key| must not
+// be NULL.
+unsigned short int config_get_uint16(const config_t* config, const char* section,
+                   const char* key,unsigned short int def_value);
+
 // Returns the boolean value for a given |key| in |section|. If |section|
 // or |key| do not exist, or the value cannot be converted to a boolean, this
 // function returns |def_value|. |config|, |section|, and |key| must not be
@@ -87,6 +94,12 @@ const char* config_get_string(const config_t* config, const char* section,
 // must not be NULL.
 void config_set_int(config_t* config, const char* section, const char* key,
                     int value);
+
+// Sets an unsigned short integer value for the |key| in |section|. If |key| or
+// |section| do not already exist, this function creates them. |config|, |section|,
+// and |key| must not be NULL.
+void config_set_uint16(config_t* config, const char* section, const char* key,
+                    unsigned short int value);
 
 // Sets a boolean value for the |key| in |section|. If |key| or |section| do
 // not already exist, this function creates them. |config|, |section|, and |key|

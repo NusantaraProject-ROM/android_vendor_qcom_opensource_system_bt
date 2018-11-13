@@ -867,6 +867,36 @@ bt_status_t btif_storage_remove_bonded_device(
     ret &= btif_config_remove(bdstr, "PinLength");
   if (btif_config_exist(bdstr, "LinkKey"))
     ret &= btif_config_remove(bdstr, "LinkKey");
+  if (btif_config_exist(bdstr, "Timestamp"))
+    ret &= btif_config_remove(bdstr, "Timestamp");
+  if (btif_config_exist(bdstr, "DevClass"))
+    ret &= btif_config_remove(bdstr, "DevClass");
+  if (btif_config_exist(bdstr, "DevType"))
+    ret &= btif_config_remove(bdstr, "DevType");
+  if (btif_config_exist(bdstr, "AddrType"))
+    ret &= btif_config_remove(bdstr, "AddrType");
+  if (btif_config_exist(bdstr, "Manufacturer"))
+    ret &= btif_config_remove(bdstr, "Manufacturer");
+  if (btif_config_exist(bdstr, "LmpVer"))
+    ret &= btif_config_remove(bdstr, "LmpVer");
+  if (btif_config_exist(bdstr, "LmpSubVer"))
+    ret &= btif_config_remove(bdstr, "LmpSubVer");
+  if (btif_config_exist(bdstr, "Service"))
+    ret &= btif_config_remove(bdstr, "Service");
+  if (btif_config_exist(bdstr, "A2dpVersion"))
+    ret &= btif_config_remove(bdstr, "A2dpVersion");
+  if (btif_config_exist(bdstr, "AvdtpVersion"))
+    ret &= btif_config_remove(bdstr, "AvdtpVersion");
+  if (btif_config_exist(bdstr, "HfpVersion"))
+    ret &= btif_config_remove(bdstr, "HfpVersion");
+  if (btif_config_exist(bdstr, "AvrcpCtVersion"))
+    ret &= btif_config_remove(bdstr, "AvrcpCtVersion");
+  if (btif_config_exist(bdstr, "AvrcpTgVersion"))
+    ret &= btif_config_remove(bdstr, "AvrcpTgVersion");
+  if (btif_config_exist(bdstr, "PbapPceVersion"))
+    ret &= btif_config_remove(bdstr, "PbapPceVersion");
+  /* Retaining  AvrcpFeatures and TwsPlusPeerAddr
+     as these are needed even after unpair */
   /* write bonded info immediately */
   btif_config_flush();
   return ret ? BT_STATUS_SUCCESS : BT_STATUS_FAIL;

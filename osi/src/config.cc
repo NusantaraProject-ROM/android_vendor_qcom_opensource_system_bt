@@ -36,6 +36,7 @@
 #include "osi/include/log.h"
 #include "osi/include/compat.h"
 #include "log/log.h"
+#include <inttypes.h>
 
 typedef struct {
   char* key;
@@ -164,6 +165,20 @@ int config_get_int(const config_t* config, const char* section, const char* key,
   return (*endptr == '\0') ? ret : def_value;
 }
 
+unsigned short int config_get_uint16(const config_t* config, const char* section, const char* key,
+                   uint16_t def_value) {
+  CHECK(config != NULL);
+  CHECK(section != NULL);
+  CHECK(key != NULL);
+
+  entry_t* entry = entry_find(config, section, key);
+  if (!entry) return def_value;
+
+  char* endptr;
+  uint16_t ret = (uint16_t)strtoumax(entry->value, &endptr, 0);
+  return (*endptr == '\0') ? ret : def_value;
+}
+
 bool config_get_bool(const config_t* config, const char* section,
                      const char* key, bool def_value) {
   CHECK(config != NULL);
@@ -199,6 +214,17 @@ void config_set_int(config_t* config, const char* section, const char* key,
 
   char value_str[32] = {0};
   snprintf(value_str, sizeof(value_str), "%d", value);
+  config_set_string(config, section, key, value_str);
+}
+
+void config_set_uint16(config_t* config, const char* section, const char* key,
+                    uint16_t value) {
+  CHECK(config != NULL);
+  CHECK(section != NULL);
+  CHECK(key != NULL);
+
+  char value_str[16] = {0};
+  snprintf(value_str, sizeof(value_str), "%u", value);
   config_set_string(config, section, key, value_str);
 }
 
