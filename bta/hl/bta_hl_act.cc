@@ -1506,7 +1506,7 @@ static void bta_hl_sdp_cback(uint8_t sdp_oper, uint8_t app_idx, uint8_t mcl_idx,
             if (sup_feature.list_elem[i].p_mdep_desp != NULL) {
               strlcpy(p_hdp_rec->mdep_cfg[i].mdep_desp,
                       sup_feature.list_elem[i].p_mdep_desp,
-                      BTA_HL_MDEP_DESP_LEN);
+                      BTA_HL_MDEP_DESP_LEN + 1);
             } else {
               APPL_TRACE_ERROR(
                   "bta_hl_sdp_cback Incorrect Mdep[%d] Description (Null ptr)",

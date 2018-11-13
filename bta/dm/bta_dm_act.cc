@@ -1652,7 +1652,7 @@ void bta_dm_sdp_result(tBTA_DM_MSG* p_data) {
               /* send result back to app now, one by one */
               result.disc_ble_res.bd_addr = bta_dm_search_cb.peer_bdaddr;
               strlcpy((char*)result.disc_ble_res.bd_name, bta_dm_get_remname(),
-                      BD_NAME_LEN);
+                      BD_NAME_LEN + 1);
 
               result.disc_ble_res.service = service_uuid;
               bta_dm_search_cb.p_search_cback(BTA_DM_DISC_BLE_RES_EVT, &result);

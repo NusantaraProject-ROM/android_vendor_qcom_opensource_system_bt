@@ -114,18 +114,18 @@ void BTA_HlUpdate(uint8_t app_id, tBTA_HL_REG_PARAM* p_reg_param,
         (p_reg_param->sec_mask | BTA_SEC_AUTHENTICATE | BTA_SEC_ENCRYPT);
     p_buf->p_cback = p_cback;
     if (p_reg_param->p_srv_name)
-      strlcpy(p_buf->srv_name, p_reg_param->p_srv_name, BTA_SERVICE_NAME_LEN);
+      strlcpy(p_buf->srv_name, p_reg_param->p_srv_name, BTA_SERVICE_NAME_LEN + 1);
     else
       p_buf->srv_name[0] = 0;
 
     if (p_reg_param->p_srv_desp)
-      strlcpy(p_buf->srv_desp, p_reg_param->p_srv_desp, BTA_SERVICE_DESP_LEN);
+      strlcpy(p_buf->srv_desp, p_reg_param->p_srv_desp, BTA_SERVICE_DESP_LEN + 1);
     else
       p_buf->srv_desp[0] = 0;
 
     if (p_reg_param->p_provider_name)
       strlcpy(p_buf->provider_name, p_reg_param->p_provider_name,
-              BTA_PROVIDER_NAME_LEN);
+              BTA_PROVIDER_NAME_LEN + 1);
     else
       p_buf->provider_name[0] = 0;
   }
@@ -159,18 +159,18 @@ void BTA_HlRegister(uint8_t app_id, tBTA_HL_REG_PARAM* p_reg_param,
   p_buf->p_cback = p_cback;
 
   if (p_reg_param->p_srv_name)
-    strlcpy(p_buf->srv_name, p_reg_param->p_srv_name, BTA_SERVICE_NAME_LEN);
+    strlcpy(p_buf->srv_name, p_reg_param->p_srv_name, BTA_SERVICE_NAME_LEN + 1);
   else
     p_buf->srv_name[0] = 0;
 
   if (p_reg_param->p_srv_desp)
-    strlcpy(p_buf->srv_desp, p_reg_param->p_srv_desp, BTA_SERVICE_DESP_LEN);
+    strlcpy(p_buf->srv_desp, p_reg_param->p_srv_desp, BTA_SERVICE_DESP_LEN + 1);
   else
     p_buf->srv_desp[0] = 0;
 
   if (p_reg_param->p_provider_name)
     strlcpy(p_buf->provider_name, p_reg_param->p_provider_name,
-            BTA_PROVIDER_NAME_LEN);
+            BTA_PROVIDER_NAME_LEN + 1);
   else
     p_buf->provider_name[0] = 0;
 
