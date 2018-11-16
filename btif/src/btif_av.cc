@@ -1247,14 +1247,23 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
       btif_report_connection_state_to_ba(BTAV_CONNECTION_STATE_DISCONNECTED);
       } break;
 
-    case BTIF_AV_DISCONNECT_REQ_EVT:
+    case BTIF_AV_DISCONNECT_REQ_EVT: {
+       uint8_t peer_handle = BTRC_HANDLE_NONE;
        btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED,
            &(btif_av_cb[index].peer_bda));
+       if (!btif_av_cb[index].peer_bda.IsEmpty())
+         peer_handle = btif_rc_get_connected_peer_handle(btif_av_cb[index].peer_bda);
+
+       if (peer_handle != BTRC_HANDLE_NONE) {
+         BTIF_TRACE_WARNING("%s: RC connected to %s, disc RC too since AV is being aborted",
+                 __func__, btif_av_cb[index].peer_bda.ToString().c_str());
+         BTA_AvCloseRc(peer_handle);
+       }
        BTA_AvClose(btif_av_cb[index].bta_handle);
        btif_queue_advance();
        btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_IDLE);
        btif_report_connection_state_to_ba(BTAV_CONNECTION_STATE_DISCONNECTED);
-       break;
+       } break;
 
     case BTA_AV_RC_OPEN_EVT:
        btif_rc_handler(event, (tBTA_AV*)p_data);;
