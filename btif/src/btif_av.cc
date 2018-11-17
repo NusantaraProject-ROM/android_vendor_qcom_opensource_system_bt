@@ -2439,6 +2439,11 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
           active_device_selected = true;
 
       index = btif_av_idx_by_bdaddr(bt_addr);
+      if (index == btif_max_av_clients) {
+        //Device is disconnected before setting it as active device
+        BTIF_TRACE_IMP("%s:Invalid index to set active device",__func__);
+        break;
+      }
       if (active_device_selected == false)
       {
         BTIF_TRACE_IMP("For Null -> Device set current playing and don't trigger handoff");
