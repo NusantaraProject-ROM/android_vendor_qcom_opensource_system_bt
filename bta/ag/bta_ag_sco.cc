@@ -1082,6 +1082,10 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           /* sco open is not started yet. just go back to listening */
           p_sco->state = BTA_AG_SCO_LISTEN_ST;
 
+          if (p_sco->p_curr_scb) {
+             p_sco->p_curr_scb->sco_idx = BTM_INVALID_SCO_INDEX;
+             p_sco->p_curr_scb = NULL;
+          }
           /* call app callback so that btif and app state
           /  go back to audio disconnected state */
           APPL_TRACE_WARNING("%s: SCO close during codec negotiation", __func__);
