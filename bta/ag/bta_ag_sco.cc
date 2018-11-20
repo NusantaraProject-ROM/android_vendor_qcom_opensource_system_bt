@@ -2343,7 +2343,11 @@ void bta_ag_api_set_active_device(tBTA_AG_DATA* p_data) {
     APPL_TRACE_ERROR("%s: empty device", __func__);
     return;
   }
+  //When HFP active device is changes, exit sniff for the new active device
   active_device_addr = p_data->api_set_active_device.active_device_addr;
+  tBTA_AG_SCB* p_scb = bta_ag_scb_by_idx(bta_ag_idx_by_bdaddr(&(active_device_addr)));
+  bta_sys_busy(BTA_ID_AG, p_scb->app_id, active_device_addr);
+  bta_sys_idle(BTA_ID_AG, p_scb->app_id, active_device_addr);
 }
 
 /*******************************************************************************
