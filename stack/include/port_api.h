@@ -677,8 +677,9 @@ extern const char* PORT_GetResultString(const uint8_t result_code);
  *
  * Parameters:      SCN     - Server Channel of the port
  *                  bd_addr    - bd_addr of the peer
+ *                  is_server  - listening port or not
  *
  ******************************************************************************/
-extern int PORT_GetStateBySCN(const RawAddress& bd_addr, uint32_t scn_id);
+extern int PORT_GetStateBySCN(const RawAddress& bd_addr, uint32_t scn_id, bool is_server);
 
 #endif /* PORT_API_H */

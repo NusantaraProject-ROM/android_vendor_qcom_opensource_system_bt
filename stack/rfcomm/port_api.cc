@@ -1794,9 +1794,10 @@ const char* PORT_GetResultString(const uint8_t result_code) {
  *
  * Parameters:      SCN     - Server Channel of the port
  *                  bd_addr    - bd_addr of the peer
+ *                  is_server  - listening port or not
  *
  ******************************************************************************/
-int PORT_GetStateBySCN(const RawAddress& bd_addr, uint32_t scn_id) {
+int PORT_GetStateBySCN(const RawAddress& bd_addr, uint32_t scn_id, bool is_server) {
   uint8_t xx, yy;
   tRFC_MCB* p_mcb = NULL;
   tPORT* p_port;
@@ -1819,7 +1820,8 @@ int PORT_GetStateBySCN(const RawAddress& bd_addr, uint32_t scn_id) {
     p_port = &rfc_cb.port.port[0];
 
     for (yy = 0; yy < MAX_RFC_PORTS; yy++, p_port++) {
-      if ((p_port->rfc.p_mcb == p_mcb) && (p_port->scn == scn_id)){
+      if ((p_port->rfc.p_mcb == p_mcb) && (p_port->scn == scn_id) &&
+          (p_port->is_server == is_server)) {
         found_port = true;
         break;
       }
