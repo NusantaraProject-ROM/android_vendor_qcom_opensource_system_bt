@@ -1594,8 +1594,8 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
         (btif_av_cb[index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING)) {
         /* Susupend initiated after start to earbuds but in some scenario
          * if one of the earbuds took more time to respond to start req or
-         * earbud suspended for dut initiate start and then sent start againg
-         * We have to suspne stream
+         * earbud sent suspend for dut initiated start and then sent start again
+         * We have to suspend stream
          */
         BTIF_TRACE_DEBUG("%s:Suspending pending for TWS pair",__func__);
         btif_dispatch_sm_event(BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL, 0);
@@ -2001,7 +2001,14 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
         //TODO check for tws pair
         for(i = 0; i < btif_max_av_clients; i++) {
           state = btif_sm_get_state(btif_av_cb[i].sm_handle);
-          if (state == BTIF_AV_STATE_STARTED)
+          if (state == BTIF_AV_STATE_STARTED
+#if (TWS_ENABLED == TRUE)
+            //Will reach here if TWS+ pair is not in started state
+            || (btif_av_cb[index].tws_device &&
+               i != index && btif_av_cb[i].tws_device &&
+               (btif_av_cb[i].flags & BTIF_AV_FLAG_PENDING_START))
+#endif
+             )
             btif_av_cb[i].flags |= BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING;
         }
       } else {
