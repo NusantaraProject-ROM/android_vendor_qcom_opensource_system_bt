@@ -49,6 +49,7 @@
 #include "utl.h"
 #include "device/include/interop_config.h"
 #include "stack/sdp/sdpint.h"
+#include <inttypes.h>
 
 #if (GAP_INCLUDED == TRUE)
 #include "gap_api.h"
@@ -2054,8 +2055,8 @@ static void bta_dm_find_services(const RawAddress& bd_addr) {
                        bta_dm_search_cb.services);
       /* try to search all services by search based on L2CAP UUID */
       if (bta_dm_search_cb.services == BTA_ALL_SERVICE_MASK) {
-        LOG_INFO(LOG_TAG, "%s services_to_search=%08x", __func__,
-                 bta_dm_search_cb.services_to_search);
+        LOG_INFO(LOG_TAG, " %s services_to_search= 0x%" PRIx64, __func__,
+                bta_dm_search_cb.services_to_search);
         if (bta_dm_search_cb.services_to_search & BTA_RES_SERVICE_MASK) {
           uuid = Uuid::From16Bit(bta_service_id_to_uuid_lkup_tbl[0]);
           bta_dm_search_cb.services_to_search &= ~BTA_RES_SERVICE_MASK;

@@ -1201,9 +1201,9 @@ bt_status_t btif_enable_service(tBTA_SERVICE_ID service_id) {
    * Otherwise, we just set the flag. On BT_Enable, the DM will trigger
    * enable for the profiles that have been enabled */
 
-  btif_enabled_services |= (1 << service_id);
+  btif_enabled_services |= ((tBTA_SERVICE_MASK)1 << service_id);
 
-  BTIF_TRACE_DEBUG("%s: current services:0x%x", __func__,
+  BTIF_TRACE_DEBUG("%s: current services:0x%" PRIx64, __func__,
                    btif_enabled_services);
 
   if (btif_is_enabled()) {
@@ -1227,7 +1227,7 @@ bt_status_t btif_enable_service(tBTA_SERVICE_ID service_id) {
  ******************************************************************************/
 bt_status_t btif_reset_service(tBTA_SERVICE_ID service_id) {
 
-  btif_enabled_services &= (tBTA_SERVICE_MASK)(~(1 << service_id));
+  btif_enabled_services &= ~((tBTA_SERVICE_MASK)1 << service_id);
   return BT_STATUS_SUCCESS;
 }
 /*******************************************************************************
@@ -1250,9 +1250,9 @@ bt_status_t btif_disable_service(tBTA_SERVICE_ID service_id) {
    * be triggerred. Otherwise, we just need to clear the service_id in the mask
    */
 
-  btif_enabled_services &= (tBTA_SERVICE_MASK)(~(1 << service_id));
+  btif_enabled_services &= ~((tBTA_SERVICE_MASK)1 << service_id);
 
-  BTIF_TRACE_DEBUG("%s: Current Services:0x%x", __func__,
+  BTIF_TRACE_DEBUG("%s: Current Services:0x%" PRIx64, __func__,
                    btif_enabled_services);
 
   if (btif_is_enabled()) {

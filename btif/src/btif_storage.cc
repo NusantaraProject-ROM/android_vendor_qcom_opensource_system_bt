@@ -53,6 +53,7 @@
 #include "osi/include/config.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
+#include <inttypes.h>
 
 using bluetooth::Uuid;
 
@@ -659,7 +660,7 @@ bt_status_t btif_storage_get_adapter_property(bt_property_t* property) {
     uint32_t i;
 
     tBTA_SERVICE_MASK service_mask = btif_get_enabled_services_mask();
-    LOG_INFO(LOG_TAG, "%s service_mask:0x%x", __func__, service_mask);
+    LOG_INFO(LOG_TAG, "%s service_mask:0x%" PRIx64, __func__,service_mask);
     for (i = 0; i < BTA_MAX_SERVICE_ID; i++) {
       /* This should eventually become a function when more services are enabled
        */
