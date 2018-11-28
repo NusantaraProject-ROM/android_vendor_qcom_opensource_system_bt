@@ -1331,3 +1331,17 @@ void AVDT_UpdateLinkPktType(uint8_t hdl, uint16_t packet_type) {
         if (p_acl_cb != NULL)
                 btm_set_packet_types(p_acl_cb, packet_type);
 }
+
+/*******************************************************************************
+ *
+ * Function         AVDT_AssociateScb
+ *
+ * Description      Associate BTA layer index with avdt sep indecies
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void AVDT_AssociateScb(uint8_t hdl, const RawAddress& bd_addr) {
+  AVDT_TRACE_DEBUG("%s: hdl: %d remote_bda: %s", __func__, hdl, bd_addr.ToString().c_str());
+  avdt_associate_scb(hdl,bd_addr);
+}

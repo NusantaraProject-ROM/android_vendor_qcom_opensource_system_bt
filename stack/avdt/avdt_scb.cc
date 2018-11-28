@@ -761,7 +761,8 @@ const tAVDT_SCB_ST_TBL avdt_scb_st_tbl[] = {
     avdt_scb_st_open, avdt_scb_st_stream, avdt_scb_st_closing};
 
 uint8_t max_av_clients = 1;
-
+extern int avdt_ccb_get_num_allocated_seps();
+#define AVDT_AV_HNDL_MSK 0x40
 /*******************************************************************************
  *
  * Function         avdt_scb_event
@@ -923,6 +924,29 @@ tAVDT_SCB* avdt_scb_by_hdl(uint8_t hdl) {
 
 /*******************************************************************************
  *
+ * Function         avdt_scb_by_peer_addr
+ *
+ * Description      Retrieve p_scb associated with peer_addr
+ *
+ * Returns          pointer to scb if address is associated otherwise NULL
+ *
+ ******************************************************************************/
+tAVDT_SCB* avdt_scb_by_peer_addr(RawAddress& peer_addr) {
+  tAVDT_SCB* p_scb = &avdt_cb.scb[0];
+  AVDT_TRACE_DEBUG("%s: addr: %s",__func__, peer_addr.ToString().c_str());
+  int num_conn = avdt_scb_get_max_av_client();
+  int num_codecs = (avdt_ccb_get_num_allocated_seps())/num_conn;
+  for (int i = 0; i < num_conn; i++, p_scb+= (num_codecs)) {
+    AVDT_TRACE_DEBUG("%s: hdl = %d",__func__, avdt_scb_to_hdl(p_scb));
+    if (p_scb->allocated && p_scb->peer_addr == peer_addr) {
+      AVDT_TRACE_DEBUG("%s:found p_scb for hdl: %d",__func__, avdt_scb_to_hdl(p_scb));
+      return p_scb;
+    }
+  }
+  return NULL;
+}
+/*******************************************************************************
+ *
  * Function         avdt_scb_verify
  *
  * Description      Verify the condition of a list of scbs.
@@ -1025,4 +1049,24 @@ void avdt_scb_set_max_av_client(uint8_t max_clients) {
  ******************************************************************************/
 uint8_t avdt_scb_get_max_av_client() {
     return max_av_clients;
+}
+
+/*******************************************************************************
+ *
+ * Function        avdt_sssociate_scb
+ *
+ * Description      Associate BTA layer index with avdt sep indecies
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void avdt_associate_scb(uint8_t hdl, const RawAddress& bd_addr) {
+  tAVDT_SCB* p_scb;
+  int num_codecs = (avdt_ccb_get_num_allocated_seps())/(avdt_scb_get_max_av_client());
+  int index = ((hdl-1) % AVDT_AV_HNDL_MSK) * (num_codecs);
+  p_scb = &avdt_cb.scb[index];
+  if (p_scb != NULL) {
+    p_scb->peer_addr = bd_addr;
+    AVDT_TRACE_DEBUG("%s:num_codecs: %d hdl: %d, addr: %s",__func__, num_codecs,hdl,p_scb->peer_addr.ToString().c_str());
+  }
 }

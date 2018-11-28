@@ -981,4 +981,14 @@ extern void AVDT_UpdateLinkPktType(uint8_t hdl, uint16_t packet_type);
  *****************************************************************************/
 extern uint8_t AVDT_SetTraceLevel(uint8_t new_level);
 
+/*******************************************************************************
+ *
+ * Function         AVDT_AssociateScb
+ *
+ * Description      Associate BTA layer index with avdt sep indecies
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+extern void AVDT_AssociateScb(uint8_t handle, const RawAddress& bd_addr);
 #endif /* AVDT_API_H */

@@ -43,6 +43,7 @@
 #include "device/include/interop.h"
 #include "btif/include/btif_storage.h"
 
+int avdt_ccb_get_num_allocated_seps();
 /*******************************************************************************
  *
  * Function         avdt_ccb_clear_ccb
@@ -145,7 +146,7 @@ void avdt_ccb_chk_close(tAVDT_CCB* p_ccb, UNUSED_ATTR tAVDT_CCB_EVT* p_data) {
  * Returns          int
  *
  ******************************************************************************/
-static int avdt_ccb_get_num_allocated_seps() {
+int avdt_ccb_get_num_allocated_seps() {
   tAVDT_SCB* p_scb = &avdt_cb.scb[0];
   int num_seps = 0;
   /* Num allocated SEPs vary between split and non-split mode
@@ -205,9 +206,14 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
       return;
     }
   }
-  p_scb = &avdt_cb.scb[0];
+  //p_scb = &avdt_cb.scb[0];
+  p_scb = avdt_scb_by_peer_addr(p_ccb->peer_addr);
+  if (p_scb == NULL)
+    p_scb = &avdt_cb.scb[0];
+  i = (avdt_scb_to_hdl(p_scb) - 1);
   /* for all allocated scbs */
-  for (i = 0; i < AVDT_NUM_SEPS; i++, p_scb++) {
+  //for (i = 0; i < AVDT_NUM_SEPS; i++, p_scb++) {
+  for (; i < AVDT_NUM_SEPS; i++, p_scb++) {
     if (effective_num_seps == num_codecs)
       break;
     if ((p_scb->allocated) && (!p_scb->in_use)) {

@@ -489,6 +489,7 @@ typedef struct {
   uint8_t curr_evt;   /* current event; set only by state machine */
   bool cong;          /* Whether media transport channel is congested */
   uint8_t close_code; /* Error code received in close response */
+  RawAddress peer_addr;
 } tAVDT_SCB;
 
 /* type for action functions */
@@ -593,13 +594,14 @@ extern tAVDT_SCB* avdt_scb_alloc(tAVDT_CS* p_cs);
 extern void avdt_scb_dealloc(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data);
 extern uint8_t avdt_scb_to_hdl(tAVDT_SCB* p_scb);
 extern tAVDT_SCB* avdt_scb_by_hdl(uint8_t hdl);
+extern tAVDT_SCB* avdt_scb_by_peer_addr(RawAddress& peer_addr);
 extern uint8_t avdt_scb_verify(tAVDT_CCB* p_ccb, uint8_t state, uint8_t* p_seid,
                                uint16_t num_seid, uint8_t* p_err_code);
 extern void avdt_scb_peer_seid_list(tAVDT_MULTI* p_multi);
 extern uint32_t avdt_scb_gen_ssrc(tAVDT_SCB* p_scb);
 extern void avdt_scb_set_max_av_client(uint8_t num_clients);
 extern uint8_t avdt_scb_get_max_av_client(void);
-
+extern void avdt_associate_scb(uint8_t hdl, const RawAddress& bd_addr);
 /* SCB action functions */
 extern void avdt_scb_hdl_abort_cmd(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data);
 extern void avdt_scb_hdl_abort_rsp(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data);

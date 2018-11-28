@@ -1697,7 +1697,7 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
             p_cb->p_scb[xx]->use_rc =
                 true; /* allowing RC for incoming connection */
             bta_av_ssm_execute(p_cb->p_scb[xx], BTA_AV_ACP_CONNECT_EVT, p_data);
-
+            AVDT_AssociateScb(p_cb->p_scb[xx]->hndl,  p_cb->p_scb[xx]->peer_addr);
             /* The Pending Event should be sent as soon as the L2CAP signalling
              * channel
              * is set up, which is NOW. Earlier this was done only after
