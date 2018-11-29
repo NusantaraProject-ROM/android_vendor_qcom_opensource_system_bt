@@ -629,7 +629,11 @@ bool A2dpCodecConfigAptxAdaptive::init() {
       LOG_ERROR(LOG_TAG, "%s: APTX-Adaptive disabled in offload mode", __func__);
       return false;
     }
+  } else {
+    LOG_ERROR(LOG_TAG, "%s: APTX-ADAPTIVE is not supported in Non-Split mode", __func__);
+    return false;
   }
+
   // Load the encoder
   if (!A2DP_VendorLoadEncoderAptxAdaptive()) {
     LOG_ERROR(LOG_TAG, "%s: cannot load the encoder", __func__);

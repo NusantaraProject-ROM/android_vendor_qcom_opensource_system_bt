@@ -834,6 +834,54 @@ void btm_vendor_specific_evt(uint8_t* p, uint8_t evt_len) {
 }
 
 /*******************************************************************************
+**
+** Function         btm_enable_soc_iot_info_report
+**
+** Description      enable/disable bt soc iot info report.
+**
+** Returns          void
+**
+*******************************************************************************/
+void btm_enable_soc_iot_info_report(bool enable) {
+  uint8_t param[40] = {0};
+  uint8_t sub_opcode = 0x15;
+  uint32_t event_mask = 0;
+  uint8_t *p_param = param;
+
+  BTM_TRACE_WARNING("%s, enable=%d", __func__, enable);
+
+  if (enable) {
+    event_mask = 1 << SOC_ERROR_AUDIO_GLITCH | 1 << SOC_ERROR_SCO_MISSES |
+                 1 << SOC_ERROR_LSTO | 1 << SOC_ERROR_CONN_FAIL;
+  }
+
+  UINT8_TO_STREAM(p_param, sub_opcode);
+  UINT32_TO_STREAM(p_param, event_mask);
+
+  if (enable) {
+    // A2dp glitch ID = 3
+    UINT8_TO_STREAM(p_param, 3);
+    // A2dp glitch config data length
+    UINT8_TO_STREAM(p_param, 4);
+    // A2dp glitch report interval
+    UINT16_TO_STREAM(p_param, A2DP_GLITCH_REPORT_INTERVAL_MS);
+    // A2dp glitch threshold
+    UINT16_TO_STREAM(p_param, A2DP_GLITCH_THRESHOLD);
+
+    // Sco glitch ID = 4
+    UINT8_TO_STREAM(p_param, 4);
+    // Sco glitch config data length
+    UINT8_TO_STREAM(p_param, 4);
+    // Sco glitch report interval
+    UINT16_TO_STREAM(p_param, SCO_GLITCH_REPORT_INTERVAL_MS);
+    // Sco glitch threshold
+    UINT16_TO_STREAM(p_param, SCO_GLITCH_THRESHOLD);
+  }
+
+  BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE, p_param - param, param, NULL);
+}
+
+/*******************************************************************************
  *
  * Function         BTM_WritePageTimeout
  *

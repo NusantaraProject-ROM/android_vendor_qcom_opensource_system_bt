@@ -53,6 +53,7 @@ typedef enum {
     BT_SOC_AR3K,
     BT_SOC_ROME,
     BT_SOC_CHEROKEE,
+    BT_SOC_HASTINGS,
     /* Add chipset type here */
     BT_SOC_RESERVED
 } bt_soc_type;
@@ -65,5 +66,6 @@ void raise_priority_a2dp(tHIGH_PRIORITY_TASK high_task);
 bool is_device_present(char* header, unsigned char* device_details);
 bt_soc_type get_soc_type();
 uint32_t bt_devclass_to_uint(DEV_CLASS dev_class);
+bool is_iot_info_report_enabled();
 
 #endif /* BT_UTILS_H */

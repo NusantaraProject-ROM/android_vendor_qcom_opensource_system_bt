@@ -2331,7 +2331,9 @@ void bta_av_setconfig_rej(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   APPL_TRACE_DEBUG("%s: sep_idx: %d", __func__, p_scb->sep_idx);
   AVDT_ConfigRsp(p_scb->avdt_handle, p_scb->avdt_label, AVDT_ERR_UNSUP_CFG, 0);
 
-  reject.bd_addr = p_data->str_msg.bd_addr;
+  APPL_TRACE_DEBUG("%s peer_address: %s, handle: %d", __func__, p_scb->peer_addr.ToString().c_str(), p_scb->hndl);
+  //reject.bd_addr = p_data->str_msg.bd_addr;
+  reject.bd_addr = p_scb->peer_addr;
   reject.hndl = p_scb->hndl;
 
   tBTA_AV bta_av_data;
@@ -3889,10 +3891,11 @@ static void bta_av_vendor_offload_select_codec(tBTA_AV_SCB* p_scb)
 
 void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
 {
-  uint8_t param[48];// codec_type;//index = 0;
+  uint16_t len = sizeof(tBT_VENDOR_A2DP_OFFLOAD);
+  uint8_t param[len];// codec_type;//index = 0;
   const char *codec_name;
   codec_name = A2DP_CodecName(p_scb->cfg.codec_info);
-  APPL_TRACE_DEBUG("bta_av_vendor_offload_start");
+  APPL_TRACE_DEBUG("bta_av_vendor_offload_start param size %ld", sizeof(param));
   APPL_TRACE_DEBUG("%s: enc_update_in_progress = %d", __func__, enc_update_in_progress);
   APPL_TRACE_DEBUG("%s: Last cached VSC command: 0x0%x", __func__, last_sent_vsc_cmd);
   APPL_TRACE_IMP("bta_av_vendor_offload_start: vsc flags:-"

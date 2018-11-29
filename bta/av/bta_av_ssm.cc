@@ -614,9 +614,11 @@ bool bta_av_is_scb_opening(tBTA_AV_SCB* p_scb) {
  *
  ******************************************************************************/
 bool bta_av_is_scb_incoming(tBTA_AV_SCB* p_scb) {
+  APPL_TRACE_IMP("%s: peer BDA: %s", __func__, p_scb->peer_addr.ToString().c_str());
   bool is_incoming = false;
 
   if (p_scb) {
+    APPL_TRACE_DEBUG("%s: p_scb->state: %d", __func__, p_scb->state);
     if (p_scb->state == BTA_AV_INCOMING_SST) is_incoming = true;
   }
 

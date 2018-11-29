@@ -181,12 +181,6 @@ void bta_ag_deregister(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
   /* set dealloc */
   p_scb->dealloc = true;
 
-  if (p_scb->p_disc_db) {
-    APPL_TRACE_DEBUG(" %s Cancel pending SDP ",__func__);
-    (void)SDP_CancelServiceSearch(p_scb->p_disc_db);
-    bta_ag_free_db(p_scb, NULL);
-  }
-
   /* remove sdp records */
   bta_ag_del_records(p_scb, p_data);
 
@@ -242,7 +236,7 @@ void bta_ag_start_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
     /* if service is set in mask */
     if (services & 1) {
       rfcomm_conn_status = PORT_GetStateBySCN(p_scb->peer_addr,
-                                           bta_ag_cb.profile[i].scn);
+                                           bta_ag_cb.profile[i].scn, true);
       APPL_TRACE_WARNING("%s: rfcomm connection status %d for device %s, scn %x",
              __func__, rfcomm_conn_status, p_scb->peer_addr.ToString().c_str(),
              bta_ag_cb.profile[i].scn);

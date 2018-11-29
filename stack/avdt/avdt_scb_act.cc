@@ -204,6 +204,7 @@ void avdt_scb_hdl_open_cmd(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
  *
  ******************************************************************************/
 void avdt_scb_hdl_open_rej(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
+  AVDT_TRACE_WARNING("%s:", __func__);
   /* do exactly same as setconfig reject */
   avdt_scb_hdl_setconfig_rej(p_scb, p_data);
 }
@@ -661,6 +662,7 @@ void avdt_scb_hdl_setconfig_cmd(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
     } else {
       p_data->msg.hdr.err_code = AVDT_ERR_UNSUP_CFG;
       p_data->msg.hdr.err_param = 0;
+      AVDT_TRACE_DEBUG("%s: called avdt_msg_send_rej()", __func__);
       avdt_msg_send_rej(avdt_ccb_by_idx(p_data->msg.hdr.ccb_idx),
                         p_data->msg.hdr.sig_id, &p_data->msg);
     }
@@ -682,6 +684,7 @@ void avdt_scb_hdl_setconfig_cmd(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
  *
  ******************************************************************************/
 void avdt_scb_hdl_setconfig_rej(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
+  AVDT_TRACE_DEBUG("%s: ", __func__);
   /* clear scb variables */
   avdt_scb_clr_vars(p_scb, p_data);
 
@@ -1383,7 +1386,9 @@ void avdt_scb_snd_security_rsp(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
  *
  ******************************************************************************/
 void avdt_scb_snd_setconfig_rej(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
+  AVDT_TRACE_DEBUG("%s: ", __func__);
   if (p_scb->p_ccb != NULL) {
+    AVDT_TRACE_DEBUG("%s: p_scb->p_ccb is null", __func__);
     avdt_msg_send_rej(p_scb->p_ccb, AVDT_SIG_SETCONFIG, &p_data->msg);
 
     /* clear scb variables */
@@ -1514,6 +1519,7 @@ void avdt_scb_cong_state(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
  *
  ******************************************************************************/
 void avdt_scb_rej_state(UNUSED_ATTR tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
+  AVDT_TRACE_DEBUG("%s: ", __func__);
   p_data->msg.hdr.err_code = AVDT_ERR_BAD_STATE;
   p_data->msg.hdr.err_param = 0;
   avdt_msg_send_rej(avdt_ccb_by_idx(p_data->msg.hdr.ccb_idx),
@@ -1531,6 +1537,7 @@ void avdt_scb_rej_state(UNUSED_ATTR tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
  *
  ******************************************************************************/
 void avdt_scb_rej_in_use(UNUSED_ATTR tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
+  AVDT_TRACE_DEBUG("%s: ", __func__);
   p_data->msg.hdr.err_code = AVDT_ERR_IN_USE;
   p_data->msg.hdr.err_param = 0;
   avdt_msg_send_rej(avdt_ccb_by_idx(p_data->msg.hdr.ccb_idx),
@@ -1549,6 +1556,7 @@ void avdt_scb_rej_in_use(UNUSED_ATTR tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
  ******************************************************************************/
 void avdt_scb_rej_not_in_use(UNUSED_ATTR tAVDT_SCB* p_scb,
                              tAVDT_SCB_EVT* p_data) {
+  AVDT_TRACE_DEBUG("%s: ", __func__);
   p_data->msg.hdr.err_code = AVDT_ERR_NOT_IN_USE;
   p_data->msg.hdr.err_param = 0;
   avdt_msg_send_rej(avdt_ccb_by_idx(p_data->msg.hdr.ccb_idx),
@@ -1690,6 +1698,7 @@ void avdt_scb_transport_channel_timer(tAVDT_SCB* p_scb,
  *
  ******************************************************************************/
 void avdt_scb_clr_vars(tAVDT_SCB* p_scb, UNUSED_ATTR tAVDT_SCB_EVT* p_data) {
+  AVDT_TRACE_DEBUG("%s:", __func__);
   avdt_set_scbs_free(p_scb);
   p_scb->in_use = false;
   p_scb->p_ccb = NULL;

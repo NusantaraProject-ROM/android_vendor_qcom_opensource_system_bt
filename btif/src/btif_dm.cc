@@ -246,6 +246,8 @@ typedef struct {
 /* This flag will be true if HCI_Inquiry is in progress */
 static bool btif_dm_inquiry_in_progress = false;
 
+bool twsplus_enabled = false;
+
 /*******************************************************************************
  *  Static variables
  ******************************************************************************/
@@ -1536,11 +1538,13 @@ static void btif_dm_search_devices_evt(uint16_t event, char* p_param) {
         /* Callback to notify upper layer of device */
         HAL_CBACK(bt_hal_cbacks, device_found_cb, num_properties, properties);
 
-        if( btif_tws_plus_process_eir( p_search_data, &peer_eb_bdaddr) ) {
+        if(twsplus_enabled == true) {
+          if( btif_tws_plus_process_eir( p_search_data, &peer_eb_bdaddr)) {
             BTIF_TRACE_DEBUG("%s() %s \n", __func__,
-                   peer_eb_bdaddr.ToString().c_str());
+                     peer_eb_bdaddr.ToString().c_str());
 
-          btif_tws_plus_set_peer_eb_addr(&bdaddr, &peer_eb_bdaddr);
+            btif_tws_plus_set_peer_eb_addr(&bdaddr, &peer_eb_bdaddr);
+          }
         }
       }
     } break;
@@ -1654,7 +1658,18 @@ static void btif_dm_search_services_evt(uint16_t event, char* p_param) {
           bond_state_changed(BT_STATUS_SUCCESS, bd_addr, BT_BOND_STATE_BONDING);
 
         if((is_tws_plus_device = btif_is_tws_plus_device(&bd_addr))) {
-            btif_tws_plus_get_services(&bd_addr);
+            if(twsplus_enabled == true) {
+               btif_tws_plus_get_services(&bd_addr);
+            } else {
+               RawAddress peer_eb_addr;
+               if(btif_tws_plus_get_peer_eb_addr(&bd_addr, &peer_eb_addr)) {
+                 btif_config_remove(peer_eb_addr.ToString().c_str(),
+                     BTIF_STORAGE_PATH_TWS_PLUS_PEER_ADDR);
+               }
+               btif_config_remove(bd_addr.ToString().c_str(),
+                     BTIF_STORAGE_PATH_TWS_PLUS_PEER_ADDR);
+               bond_state_changed(BT_STATUS_SUCCESS, bd_addr, BT_BOND_STATE_BONDED);
+            }
         } else {
             bond_state_changed(BT_STATUS_SUCCESS, bd_addr, BT_BOND_STATE_BONDED);
         }
@@ -1878,7 +1893,10 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
           btif_in_execute_service_request(i, true);
         }
       }
-      btif_in_execute_service_request(33, true);
+
+      if(twsplus_enabled == true) {
+        btif_in_execute_service_request(BTA_TWS_PLUS_SERVICE_ID, true);
+      }
       /* clear control blocks */
       memset(&pairing_cb, 0, sizeof(btif_dm_pairing_cb_t));
       pairing_cb.bond_type = BOND_TYPE_PERSISTENT;
@@ -1901,7 +1919,9 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
           (tBTA_SERVICE_MASK)(BTA_SERVICE_ID_TO_SERVICE_MASK(BTA_BLE_SERVICE_ID))) {
         btif_in_execute_service_request(BTA_BLE_SERVICE_ID, FALSE);
       }
-      btif_in_execute_service_request(33, false);
+      if(twsplus_enabled == true) {
+        btif_in_execute_service_request(BTA_TWS_PLUS_SERVICE_ID, false);
+      }
       btif_disable_bluetooth_evt();
       break;
 

@@ -128,6 +128,9 @@ static void gatt_read_op_finished(uint16_t conn_id, tGATT_STATUS status,
   GATT_READ_OP_CB tmp_cb = NULL;
   void* tmp_cb_data = NULL;
 
+  APPL_TRACE_WARNING("%s: conn_id: %d handle: %d, len:%d, status: %d",
+     __func__, conn_id, handle, len, status);
+
   tmp = (gatt_read_op_data*)data;
   if (tmp != NULL) {
     tmp_cb = tmp->cb;
@@ -157,6 +160,9 @@ static void gatt_write_op_finished(uint16_t conn_id, tGATT_STATUS status,
   gatt_write_op_data* tmp = NULL;
   GATT_WRITE_OP_CB tmp_cb = NULL;
   void* tmp_cb_data = NULL;
+
+  APPL_TRACE_WARNING("%s: conn_id: %d handle: %d, status: %d",
+     __func__, conn_id, handle, status);
 
   tmp = (gatt_write_op_data*)data;
   if (tmp != NULL) {
@@ -650,7 +656,8 @@ static tBTA_GATTC_DESCRIPTOR* find_descriptor_by_short_uuid(
       BTA_GATTC_GetCharacteristic(conn_id, char_handle);
 
   if (!p_char) {
-    LOG_WARN(LOG_TAG, "%s No such characteristic: %d", __func__, char_handle);
+    LOG_WARN(LOG_TAG, "%s No such characteristic: %d conn_id: %d", __func__,
+      char_handle, conn_id);
     return NULL;
   }
 
@@ -839,6 +846,8 @@ void bta_hh_le_deregister_input_notif(tBTA_HH_DEV_CB* p_dev_cb) {
  *
  ******************************************************************************/
 void bta_hh_le_open_cmpl(tBTA_HH_DEV_CB* p_cb) {
+  APPL_TRACE_WARNING("%s: p_cb->disc_active: %d", __func__, p_cb->disc_active);
+
   if (p_cb->disc_active == BTA_HH_LE_DISC_NONE) {
 #if (BTA_HH_DEBUG == TRUE)
     bta_hh_le_hid_report_dbg(p_cb);
@@ -944,6 +953,8 @@ bool bta_hh_le_write_rpt_clt_cfg(tBTA_HH_DEV_CB* p_cb) {
     bta_hh_le_write_rpt_clt_cfg(p_cb);
     return TRUE;
   }
+
+  APPL_TRACE_WARNING("%s: state: %d", __func__, p_cb->state);
   /* client configuration is completed, send open callback */
   if (p_cb->state == BTA_HH_W4_CONN_ST) {
     p_cb->disc_active &= ~BTA_HH_LE_DISC_HIDS;
@@ -956,6 +967,9 @@ bool bta_hh_le_write_rpt_clt_cfg(tBTA_HH_DEV_CB* p_cb) {
 static void write_proto_mode_cb(uint16_t conn_id, tGATT_STATUS status,
                                 uint16_t handle, void* data) {
   tBTA_HH_DEV_CB* p_dev_cb = (tBTA_HH_DEV_CB*)data;
+
+  APPL_TRACE_WARNING("%s: conn_id: %d handle: %d, status: %d",
+     __func__, conn_id, handle, status);
 
   if (p_dev_cb->state == BTA_HH_CONN_ST) {
     /* Set protocol finished in CONN state*/
@@ -976,8 +990,10 @@ static void write_proto_mode_cb(uint16_t conn_id, tGATT_STATUS status,
   } else if (p_dev_cb->state == BTA_HH_W4_CONN_ST) {
     p_dev_cb->status = (status == BTA_GATT_OK) ? BTA_HH_OK : BTA_HH_ERR_PROTO;
 
-    if ((p_dev_cb->disc_active & BTA_HH_LE_DISC_HIDS) == 0)
+    if ((p_dev_cb->disc_active & BTA_HH_LE_DISC_HIDS) == 0) {
+      APPL_TRACE_WARNING("%s: calling open complete", __func__);
       bta_hh_le_open_cmpl(p_dev_cb);
+    }
   }
 }
 
@@ -1418,7 +1434,7 @@ void bta_hh_le_close(tBTA_GATTC_CLOSE* p_data) {
  *
  ******************************************************************************/
 void bta_hh_le_gatt_disc_cmpl(tBTA_HH_DEV_CB* p_cb, tBTA_HH_STATUS status) {
-  APPL_TRACE_DEBUG("bta_hh_le_gatt_disc_cmpl ");
+  APPL_TRACE_WARNING("bta_hh_le_gatt_disc_cmpl status: %d", status);
 
   /* if open sucessful or protocol mode not desired, keep the connection open
    * but inform app */
@@ -1439,6 +1455,8 @@ void bta_hh_le_gatt_disc_cmpl(tBTA_HH_DEV_CB* p_cb, tBTA_HH_STATUS status) {
 static void read_hid_info_cb(uint16_t conn_id, tGATT_STATUS status,
                              uint16_t handle, uint16_t len, uint8_t* value,
                              void* data) {
+  APPL_TRACE_WARNING("%s: conn_id: %d handle: %d, len:%d, status: %d",
+     __func__, conn_id, handle, len, status);
   if (status != BTA_GATT_OK) {
     APPL_TRACE_ERROR("%s: error: %d", __func__, status);
     return;
@@ -1460,6 +1478,9 @@ static void read_hid_info_cb(uint16_t conn_id, tGATT_STATUS status,
 static void read_hid_report_map_cb(uint16_t conn_id, tGATT_STATUS status,
                                    uint16_t handle, uint16_t len,
                                    uint8_t* value, void* data) {
+  APPL_TRACE_WARNING("%s: conn_id: %d handle: %d, len:%d, status: %d",
+     __func__, conn_id, handle, len, status);
+
   if (status != BTA_GATT_OK) {
     APPL_TRACE_ERROR("%s: error reading characteristic: %d", __func__, status);
     return;
@@ -1483,6 +1504,9 @@ static void read_hid_report_map_cb(uint16_t conn_id, tGATT_STATUS status,
 static void read_ext_rpt_ref_desc_cb(uint16_t conn_id, tGATT_STATUS status,
                                      uint16_t handle, uint16_t len,
                                      uint8_t* value, void* data) {
+  APPL_TRACE_WARNING("%s: conn_id: %d handle: %d, len:%d, status: %d",
+     __func__, conn_id, handle, len, status);
+
   if (status != BTA_GATT_OK) {
     APPL_TRACE_ERROR("%s: error: %d", __func__, status);
     return;
@@ -1509,6 +1533,8 @@ static void read_ext_rpt_ref_desc_cb(uint16_t conn_id, tGATT_STATUS status,
 static void read_report_ref_desc_cb(uint16_t conn_id, tGATT_STATUS status,
                                     uint16_t handle, uint16_t len,
                                     uint8_t* value, void* data) {
+  APPL_TRACE_WARNING("%s: conn_id: %d handle: %d, len:%d, status: %d",
+     __func__, conn_id, handle, len, status);
   if (status != BTA_GATT_OK) {
     APPL_TRACE_ERROR("%s: error: %d", __func__, status);
     return;
@@ -1943,7 +1969,11 @@ static void read_report_cb(uint16_t conn_id, tGATT_STATUS status,
   const tBTA_GATTC_CHARACTERISTIC* p_char =
       BTA_GATTC_GetCharacteristic(conn_id, handle);
 
-  if (p_char == NULL) return;
+  if (p_char == NULL) {
+    LOG_WARN(LOG_TAG, "%s No such characteristic: %d conn_id: %d", __func__,
+      handle, conn_id);
+    return;
+  }
 
   uint16_t char_uuid = p_char->uuid.As16Bit();
 
@@ -2054,6 +2084,12 @@ static void write_report_cb(uint16_t conn_id, tGATT_STATUS status,
 
   const tBTA_GATTC_CHARACTERISTIC* p_char =
       BTA_GATTC_GetCharacteristic(conn_id, handle);
+  if (p_char == NULL) {
+    LOG_WARN(LOG_TAG, "%s No such characteristic: %d conn_id: %d", __func__,
+      handle, conn_id);
+    return;
+  }
+
   uint16_t uuid = p_char->uuid.As16Bit();
   if (uuid != GATT_UUID_HID_REPORT && uuid != GATT_UUID_HID_BT_KB_INPUT &&
       uuid != GATT_UUID_HID_BT_MOUSE_INPUT &&
@@ -2206,11 +2242,15 @@ void bta_hh_le_write_dev_act(tBTA_HH_DEV_CB* p_cb, tBTA_HH_DATA* p_data) {
 void bta_hh_le_get_dscp_act(tBTA_HH_DEV_CB* p_cb) {
   uint8_t i;
   for (i = 0; i < BTA_HH_LE_HID_SRVC_MAX && p_cb->hid_srvc[i].in_use; i ++) {
+    tBTA_HH_DEV_HANDLE_DSCP_INFO handle_dscp_info;
+
+    handle_dscp_info.dscp_info = &p_cb->dscp_info;
+    handle_dscp_info.dev_handle = p_cb->hid_handle;
 
     p_cb->dscp_info.descriptor.dl_len = p_cb->hid_srvc[i].descriptor.dl_len;
     p_cb->dscp_info.descriptor.dsc_list = p_cb->hid_srvc[i].descriptor.dsc_list;
 
-    (*bta_hh_cb.p_cback)(BTA_HH_GET_DSCP_EVT, (tBTA_HH*)&p_cb->dscp_info);
+    (*bta_hh_cb.p_cback)(BTA_HH_GET_DSCP_EVT, (tBTA_HH*)&handle_dscp_info);
   }
 }
 
@@ -2317,6 +2357,12 @@ static void write_scpp_cb(uint16_t conn_id, tGATT_STATUS status,
 
   const tBTA_GATTC_CHARACTERISTIC* p_char =
       BTA_GATTC_GetCharacteristic(conn_id, handle);
+  if (p_char == NULL) {
+    LOG_WARN(LOG_TAG, "%s No such characteristic: %d conn_id : %d", __func__,
+      handle, conn_id);
+    return;
+  }
+
   uint16_t uuid = p_char->uuid.As16Bit();
 
   if (uuid != GATT_UUID_SCAN_INT_WINDOW)

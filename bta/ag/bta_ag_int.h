@@ -421,6 +421,7 @@ extern bool bta_ag_sco_is_open(tBTA_AG_SCB* p_scb);
 extern bool bta_ag_sco_is_opening(tBTA_AG_SCB* p_scb);
 extern void bta_ag_sco_conn_rsp(tBTA_AG_SCB* p_scb,
                                 tBTM_ESCO_CONN_REQ_EVT_DATA* p_data);
+extern void bta_ag_cback_sco(tBTA_AG_SCB* p_scb, uint8_t event);
 
 /* AT command functions */
 extern void bta_ag_at_hsp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd,

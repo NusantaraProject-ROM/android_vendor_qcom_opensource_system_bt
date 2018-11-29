@@ -116,7 +116,7 @@ void BTA_AgRegister(tBTA_SERVICE_MASK services, tBTA_SEC sec_mask,
   p_buf->app_id = app_id;
   for (int i = 0; i < BTA_AG_NUM_IDX; i++) {
     if (p_service_names[i])
-      strlcpy(p_buf->p_name[i], p_service_names[i], BTA_SERVICE_NAME_LEN);
+      strlcpy(p_buf->p_name[i], p_service_names[i], BTA_SERVICE_NAME_LEN + 1);
     else
       p_buf->p_name[i][0] = 0;
   }
