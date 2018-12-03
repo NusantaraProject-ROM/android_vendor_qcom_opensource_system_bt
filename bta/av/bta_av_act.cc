@@ -2480,7 +2480,8 @@ void bta_av_rc_closed(tBTA_AV_DATA* p_data) {
 
   rc_close.rc_handle = BTA_AV_RC_HANDLE_NONE;
   p_scb = NULL;
-  APPL_TRACE_DEBUG("bta_av_rc_closed rc_handle:%d", p_msg->handle);
+  APPL_TRACE_DEBUG("bta_av_rc_closed rc_handle:%d, peer_addr:%s",
+                  p_msg->handle, p_msg->peer_addr.ToString().c_str());
   for (i = 0; i < BTA_AV_NUM_RCB; i++) {
     p_rcb = &p_cb->rcb[i];
     APPL_TRACE_DEBUG("bta_av_rc_closed rcb[%d] rc_handle:%d, status=0x%x", i,
@@ -2543,6 +2544,8 @@ void bta_av_rc_closed(tBTA_AV_DATA* p_data) {
     rc_close.rc_handle = p_msg->handle;
     rc_close.peer_addr = p_msg->peer_addr;
   }
+  APPL_TRACE_DEBUG("bta_av_rc_closed rc_close handle:%d, peer_addr:%s",
+              rc_close.rc_handle, rc_close.peer_addr.ToString().c_str());
   tBTA_AV bta_av_data;
   bta_av_data.rc_close = rc_close;
   (*p_cb->p_cback)(BTA_AV_RC_CLOSE_EVT, &bta_av_data);
