@@ -4638,6 +4638,7 @@ void btm_sec_disconnected(uint16_t handle, uint8_t reason) {
   int result = HCI_ERR_AUTH_FAILURE;
   tBTM_SEC_CALLBACK* p_callback = NULL;
   tBT_TRANSPORT transport = BT_TRANSPORT_BR_EDR;
+  bool trigger_auth_callback = FALSE;
 
   /* If page was delayed for disc complete, can do it now */
   btm_cb.discing = false;
@@ -4685,9 +4686,7 @@ void btm_sec_disconnected(uint16_t handle, uint8_t reason) {
       } else if (old_pairing_flags & BTM_PAIR_FLAGS_WE_STARTED_DD) {
         result = HCI_ERR_HOST_REJECT_SECURITY;
       }
-      (*btm_cb.api.p_auth_complete_callback)(p_dev_rec->bd_addr,
-                                             p_dev_rec->dev_class,
-                                             p_dev_rec->sec_bd_name, result);
+      trigger_auth_callback = true;
     }
   }
 
@@ -4717,19 +4716,38 @@ void btm_sec_disconnected(uint16_t handle, uint8_t reason) {
     p_dev_rec->sec_state = (transport == BT_TRANSPORT_LE)
                                ? BTM_SEC_STATE_DISCONNECTING
                                : BTM_SEC_STATE_DISCONNECTING_BLE;
+    if (btm_cb.api.p_auth_complete_callback && trigger_auth_callback) {
+      trigger_auth_callback = false;
+      (*btm_cb.api.p_auth_complete_callback)(p_dev_rec->bd_addr,
+                                               p_dev_rec->dev_class,
+                                               p_dev_rec->sec_bd_name, result);
+    }
     return;
   }
   p_dev_rec->sec_state = BTM_SEC_STATE_IDLE;
   p_dev_rec->security_required = BTM_SEC_NONE;
 
   p_callback = p_dev_rec->p_callback;
+  RawAddress addr = p_dev_rec->bd_addr;
+  void* data = p_dev_rec->p_ref_data;
+
   p_dev_rec->new_encryption_key_is_p256 = FALSE;
-  /* if security is pending, send callback to clean up the security state */
   if (p_callback) {
     p_dev_rec->p_callback =
         NULL; /* when the peer device time out the authentication before
                  we do, this call back must be reset here */
-    (*p_callback)(&p_dev_rec->bd_addr, transport, p_dev_rec->p_ref_data,
+  }
+
+  if (btm_cb.api.p_auth_complete_callback && trigger_auth_callback) {
+    trigger_auth_callback = false;
+    (*btm_cb.api.p_auth_complete_callback)(p_dev_rec->bd_addr,
+                                           p_dev_rec->dev_class,
+                                           p_dev_rec->sec_bd_name, result);
+  }
+
+  /* if security is pending, send callback to clean up the security state */
+  if (p_callback) {
+    (*p_callback)(&addr, transport, data,
                   BTM_ERR_PROCESSING);
   }
 }
