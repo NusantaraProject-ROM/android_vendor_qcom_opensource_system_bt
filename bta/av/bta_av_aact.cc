@@ -862,6 +862,46 @@ static void bta_av_a2dp_sdp_cback(bool found, tA2DP_Service* p_service) {
 
 /*******************************************************************************
  *
+ * Function         bta_av_a2dp_sdp_cback2
+ *
+ * Description      A2DP service discovery callback2.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void bta_av_a2dp_sdp_cback2(bool found, tA2DP_Service* p_service, tBTA_AV_SCB* p_scb) {
+  if (p_scb == NULL) {
+    APPL_TRACE_ERROR("%s: invalid p_scb", __func__);
+    return;
+  }
+
+  tBTA_AV_SDP_RES* p_msg =
+      (tBTA_AV_SDP_RES*)osi_malloc(sizeof(tBTA_AV_SDP_RES));
+
+  if (!found && (p_scb->skip_sdp == true)) {
+    p_msg->hdr.event = BTA_AV_SDP_DISC_OK_EVT;
+    p_scb->avdt_version = AVDT_VERSION;
+    p_scb->skip_sdp = false;
+    APPL_TRACE_WARNING("%s: Continue AVDTP signaling process for incoming A2dp connection",
+                      __func__);
+  } else {
+    p_msg->hdr.event =
+        (found) ? BTA_AV_SDP_DISC_OK_EVT : BTA_AV_SDP_DISC_FAIL_EVT;
+    if (found && (p_service != NULL))
+      p_scb->avdt_version = p_service->avdt_version;
+    else
+      p_scb->avdt_version = 0x00;
+  }
+  p_msg->hdr.layer_specific = p_scb->hndl;
+
+  bta_sys_sendmsg(p_msg);
+  if (!found)
+    APPL_TRACE_ERROR ("bta_av_a2dp_sdp_cback2 SDP record not found");
+  bta_sys_conn_close(BTA_ID_AV, p_scb->hdi, p_scb->peer_addr);
+}
+
+/*******************************************************************************
+ *
  * Function         bta_av_adjust_seps_idx
  *
  * Description      adjust the sep_idx
@@ -1189,15 +1229,10 @@ void bta_av_do_disc_a2dp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     }
     p_scb->skip_sdp = false;
     p_scb->uuid_int = p_data->api_open.uuid;
-    /* only one A2DP find service is active at a time */
-    bta_av_cb.handle = p_scb->hndl;
     APPL_TRACE_WARNING("%s: Skip Sdp for incoming A2dp connection", __func__);
-    bta_av_a2dp_sdp_cback(true, &a2dp_ser);
+    bta_av_a2dp_sdp_cback2(true, &a2dp_ser, p_scb);
     return;
   } else {
-    /* only one A2D find service is active at a time */
-    bta_av_cb.handle = p_scb->hndl;
-
     /* set up parameters */
     db_params.db_len = BTA_AV_DISC_BUF_SIZE;
     db_params.num_attr = 3;
@@ -1212,12 +1247,16 @@ void bta_av_do_disc_a2dp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     APPL_TRACE_DEBUG("%s: uuid_int 0x%x, Doing SDP For 0x%x", __func__,
                     p_scb->uuid_int, sdp_uuid);
     if (A2DP_FindService(sdp_uuid, p_scb->peer_addr, &db_params,
-                        bta_av_a2dp_sdp_cback) == A2DP_SUCCESS)
+                        bta_av_a2dp_sdp_cback) == A2DP_SUCCESS) {
+      APPL_TRACE_DEBUG("%s: A2DP find service return SUCCESS", __func__);
+      /* only one A2D find service is active at a time */
+      bta_av_cb.handle = p_scb->hndl;
       return;
+    }
 
     /* when the code reaches here, either the DB is NULL
      * or A2DP_FindService is not successful */
-    bta_av_a2dp_sdp_cback(true, NULL);
+    bta_av_a2dp_sdp_cback2(true, NULL, p_scb);
   }
 }
 
