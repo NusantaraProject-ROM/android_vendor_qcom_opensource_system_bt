@@ -645,6 +645,14 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       btif_queue_advance_by_uuid(UUID_SERVCLASS_AG_HANDSFREE, &btif_hf_cb[idx].connected_bda);
       break;
 
+    case BTA_AG_AUDIO_OPENING_EVT:
+      BTIF_TRACE_DEBUG("%s:  Moving the audio_state to CONNECTING for device %s",
+                      __FUNCTION__, btif_hf_cb[idx].connected_bda.ToString().c_str());
+      btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_CONNECTING;
+      HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_CONNECTING,
+                &btif_hf_cb[idx].connected_bda);
+      break;
+
     case BTA_AG_AUDIO_OPEN_EVT:
       BTIF_TRACE_DEBUG("%s: Moving the audio_state to CONNECTED for device %s",
                       __FUNCTION__, btif_hf_cb[idx].connected_bda.ToString().c_str());

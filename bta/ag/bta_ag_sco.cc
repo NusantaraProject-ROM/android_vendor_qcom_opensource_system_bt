@@ -1145,7 +1145,10 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
 #if (TWS_AG_ENABLED == TRUE)
           //Atleast try connecting to 2nd twsp
           if (is_twsp_device(p_scb->peer_addr) && !p_scb->rmt_sco_req) {
-             dispatch_event_twsp_peer_device(p_scb, BTA_AG_SCO_OPEN_E);
+             tBTA_AG_SCB *other_scb = get_other_twsp_scb((p_scb->peer_addr));
+             if (other_scb && twsp_sco_active(other_scb) == false) {
+                 dispatch_event_twsp_peer_device(p_scb, BTA_AG_SCO_OPEN_E);
+             }
           }
           p_scb->rmt_sco_req = FALSE;
 #endif
@@ -1266,8 +1269,11 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
 #if (TWS_AG_ENABLED == TRUE)
           //Once SCO connected
           if (is_twsp_device(p_scb->peer_addr) && !p_scb->rmt_sco_req) {
-              //trigger the secondary SCO connection for TWS
-              dispatch_event_twsp_peer_device(p_scb, BTA_AG_SCO_OPEN_E);
+              tBTA_AG_SCB *other_scb = get_other_twsp_scb((p_scb->peer_addr));
+              if (other_scb && twsp_sco_active(other_scb) == false) {
+                  //trigger the secondary SCO connection for TWS
+                  dispatch_event_twsp_peer_device(p_scb, BTA_AG_SCO_OPEN_E);
+              }
           }
           p_scb->rmt_sco_req = FALSE;
 #endif
@@ -1280,7 +1286,10 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           /* 1st earbud SCO is closed
              atleast try opening the secondary SCO */
           if (is_twsp_device(p_scb->peer_addr)&&!p_scb->rmt_sco_req) {
-             dispatch_event_twsp_peer_device(p_scb, BTA_AG_SCO_OPEN_E);
+              tBTA_AG_SCB *other_scb = get_other_twsp_scb((p_scb->peer_addr));
+              if (other_scb && twsp_sco_active(other_scb) == false) {
+                 dispatch_event_twsp_peer_device(p_scb, BTA_AG_SCO_OPEN_E);
+              }
           }
           p_scb->rmt_sco_req = FALSE;
 #endif

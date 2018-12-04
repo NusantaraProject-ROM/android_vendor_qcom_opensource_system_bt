@@ -291,6 +291,7 @@ struct tBTA_AG_RES_DATA {
 #define BTA_AG_CLOSE_EVT 3       /* AG connection closed */
 #define BTA_AG_CONN_EVT 4        /* Service level connection opened */
 #define BTA_AG_AUDIO_OPEN_EVT 5  /* Audio connection open */
+#define BTA_AG_AUDIO_OPENING_EVT 32  /* Audio connection opening */
 #define BTA_AG_AUDIO_CLOSE_EVT 6 /* Audio connection closed */
 #define BTA_AG_SPK_EVT 7         /* Speaker volume changed */
 #define BTA_AG_MIC_EVT 8         /* Microphone volume changed */
