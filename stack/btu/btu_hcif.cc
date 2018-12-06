@@ -1121,7 +1121,7 @@ static void btu_hcif_hdl_command_status(uint16_t opcode, uint8_t status,
         }
       }
 #endif
-    /* Case Falls Through */
+      FALLTHROUGH;
 
     case HCI_HOLD_MODE:
     case HCI_SNIFF_MODE:

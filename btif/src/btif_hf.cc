@@ -686,6 +686,7 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
             }
         }
 #endif
+        FALLTHROUGH;
     case BTA_AG_MIC_EVT:
       HAL_HF_CBACK(bt_hf_callbacks, VolumeControlCallback,
                 (event == BTA_AG_SPK_EVT) ? BTHF_VOLUME_TYPE_SPK

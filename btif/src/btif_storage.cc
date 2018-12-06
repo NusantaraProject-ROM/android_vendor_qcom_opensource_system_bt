@@ -671,6 +671,7 @@ bt_status_t btif_storage_get_adapter_property(bt_property_t* property) {
                 Uuid::From16Bit(UUID_SERVCLASS_AG_HANDSFREE);
             num_uuids++;
           }
+          FALLTHROUGH;
           /* intentional fall through: Send both BFP & HSP UUIDs if HFP is
            * enabled */
           case BTA_HSP_SERVICE_ID: {
@@ -883,7 +884,7 @@ bt_status_t btif_storage_remove_bonded_device(
 *******************************************************************************/
 bt_status_t btif_storage_is_device_bonded(RawAddress *remote_bd_addr) {
 
-  
+
   char bdstr[18] = {'\0'};
   snprintf(bdstr, sizeof(bdstr), "%02x:%02x:%02x:%02x:%02x:%02x",
                                   remote_bd_addr->address[0],
@@ -1112,6 +1113,7 @@ bt_status_t btif_storage_get_ble_bonding_key(RawAddress* remote_bd_addr,
       break;
     case BTIF_DM_LE_KEY_LID:
       name = "LE_KEY_LID";
+      break;
     default:
       return BT_STATUS_FAIL;
   }

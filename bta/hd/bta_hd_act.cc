@@ -62,6 +62,7 @@ static bool check_descriptor(uint8_t* data, uint16_t length,
 
       case 0x85:  // Report ID
         *has_report_id = TRUE;
+        FALLTHROUGH;
 
       default:
         ptr += (item & 0x03);

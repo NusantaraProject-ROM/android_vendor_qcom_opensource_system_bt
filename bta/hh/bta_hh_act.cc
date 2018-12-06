@@ -641,8 +641,9 @@ void bta_hh_handsk_act(tBTA_HH_DEV_CB* p_cb, tBTA_HH_DATA* p_data) {
     /* GET_ transsaction, handshake indicate unsupported request */
     case BTA_HH_GET_PROTO_EVT:
       hs_data.rsp_data.proto_mode = BTA_HH_PROTO_UNKNOWN;
-    /* fall through */
+      FALLTHROUGH;
     case BTA_HH_GET_RPT_EVT:
+      FALLTHROUGH;
     case BTA_HH_GET_IDLE_EVT:
       hs_data.handle = p_cb->hid_handle;
       /* if handshake gives an OK code for these transaction, fill in UNSUPT */
@@ -656,7 +657,9 @@ void bta_hh_handsk_act(tBTA_HH_DEV_CB* p_cb, tBTA_HH_DATA* p_data) {
 
     /* acknoledgement from HID device for SET_ transaction */
     case BTA_HH_SET_RPT_EVT:
+      FALLTHROUGH;
     case BTA_HH_SET_PROTO_EVT:
+      FALLTHROUGH;
     case BTA_HH_SET_IDLE_EVT:
       cback_data.handle = p_cb->hid_handle;
       cback_data.status = bta_hh_get_trans_status(p_data->hid_cback.data);

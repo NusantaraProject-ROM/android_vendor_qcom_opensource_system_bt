@@ -594,18 +594,22 @@ tGATT_STATUS gatts_write_attr_perm_check(tGATT_SVC_DB* p_db, uint8_t op_code,
     } else if (p_attr->uuid.Is16Bit()) {
       switch (p_attr->uuid.As16Bit()) {
         case GATT_UUID_CHAR_PRESENT_FORMAT: /* should be readable only */
+          FALLTHROUGH;
         case GATT_UUID_CHAR_EXT_PROP:       /* should be readable only */
+          FALLTHROUGH;
         case GATT_UUID_CHAR_AGG_FORMAT:     /* should be readable only */
+          FALLTHROUGH;
         case GATT_UUID_CHAR_VALID_RANGE:
           status = GATT_WRITE_NOT_PERMIT;
           break;
 
         case GATT_UUID_CHAR_CLIENT_CONFIG:
-        /* fall through */
+          FALLTHROUGH;
         case GATT_UUID_CHAR_SRVR_CONFIG:
           max_size = 2;
-        /* fall through */
+          FALLTHROUGH;
         case GATT_UUID_CHAR_DESCRIPTION:
+          FALLTHROUGH;
         default: /* any other must be character value declaration */
           status = GATT_SUCCESS;
           break;

@@ -2662,6 +2662,7 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
         btif_report_audio_state(BTAV_AUDIO_STATE_STARTED, &(btif_av_cb[index].peer_bda));
       }
       btif_av_cb[index].is_device_playing = true;
+      FALLTHROUGH;
     case BTIF_AV_RESET_REMOTE_STARTED_FLAG_EVT:
       btif_av_reset_remote_started_flag();
       return;

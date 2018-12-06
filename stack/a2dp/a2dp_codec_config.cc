@@ -1234,6 +1234,7 @@ int A2DP_GetTrackBitsPerSample(const uint8_t* p_codec_info) {
         return 32;
       }
     }
+     break;
     default:
       break;
   }

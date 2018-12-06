@@ -1333,7 +1333,7 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
           btif_dm_cb_create_bond(bd_addr, BTA_TRANSPORT_UNKNOWN);
           return;
         }
-      /* Fall-through */
+        FALLTHROUGH;
       case HCI_ERR_CONNECTION_TOUT:
         status = BT_STATUS_RMT_DEV_DOWN;
         break;
@@ -1353,15 +1353,24 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
         }
 
       /* map the auth failure codes, so we can retry pairing if necessary */
+        FALLTHROUGH;
       case HCI_ERR_AUTH_FAILURE:
         btif_storage_remove_bonded_device(&bd_addr);
+        FALLTHROUGH;
       case HCI_ERR_HOST_REJECT_SECURITY:
+        FALLTHROUGH;
       case HCI_ERR_ENCRY_MODE_NOT_ACCEPTABLE:
+        FALLTHROUGH;
       case HCI_ERR_UNIT_KEY_USED:
+        FALLTHROUGH;
       case HCI_ERR_PAIRING_WITH_UNIT_KEY_NOT_SUPPORTED:
+        FALLTHROUGH;
       case HCI_ERR_INSUFFCIENT_SECURITY:
+        FALLTHROUGH;
       case HCI_ERR_PEER_USER:
+        FALLTHROUGH;
       case HCI_ERR_UNSPECIFIED:
+        FALLTHROUGH;
       case HCI_ERR_REPEATED_ATTEMPTS:
         BTIF_TRACE_DEBUG(" %s() Authentication fail reason %d",
                 __FUNCTION__, p_auth_cmpl->fail_reason);
@@ -1380,6 +1389,7 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
 
       default:
         status = BT_STATUS_FAIL;
+        break;
     }
     /* Special Handling for HID Devices */
     if (check_cod(&bd_addr, COD_HID_POINTING)) {

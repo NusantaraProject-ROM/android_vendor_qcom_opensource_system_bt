@@ -906,9 +906,11 @@ static void write_rpt_ctl_cfg_cb(uint16_t conn_id, tGATT_STATUS status,
     case GATT_UUID_BATTERY_LEVEL: /* battery level clt cfg registered */
       hid_inst_id = bta_hh_le_find_service_inst_by_battery_inst_id(
           p_dev_cb, srvc_inst_id);
-    /* FALLTHROUGH */
+      FALLTHROUGH;
     case GATT_UUID_HID_BT_KB_INPUT:
+      FALLTHROUGH;
     case GATT_UUID_HID_BT_MOUSE_INPUT:
+      FALLTHROUGH;
     case GATT_UUID_HID_REPORT:
       if (status == BTA_GATT_OK)
         p_dev_cb->hid_srvc[p_dev_cb->cur_srvc_index].report[p_dev_cb->clt_cfg_idx].client_cfg_value =
@@ -919,6 +921,7 @@ static void write_rpt_ctl_cfg_cb(uint16_t conn_id, tGATT_STATUS status,
 
     default:
       APPL_TRACE_ERROR("Unknown char ID clt cfg: 0x%04x", char_uuid);
+      break;
   }
 }
 /*******************************************************************************
