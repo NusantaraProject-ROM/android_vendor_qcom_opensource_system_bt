@@ -1974,6 +1974,14 @@ void bta_ag_sco_open(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
   }
   /* else it is legacy */
   else {
+     if (bta_ag_cb.twsp_sec_sco.state != BTA_AG_SCO_SHUTDOWN_ST &&
+         bta_ag_cb.twsp_sec_sco.state != BTA_AG_SCO_LISTEN_ST) {
+          APPL_TRACE_DEBUG("%s: Ignore SCO connection as secondary EB is not in stable state", __func__);
+          //This should be part of QueryPhoneState where
+          //secondary EB is still not done with Disconnection
+          bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
+          return;
+      }
 #endif
      if (bta_ag_cb.sco.p_curr_scb != NULL && bta_ag_cb.sco.p_curr_scb != p_scb) {
          LOG(INFO) << __func__ << ": tranfer " << bta_ag_cb.sco.p_curr_scb->peer_addr
