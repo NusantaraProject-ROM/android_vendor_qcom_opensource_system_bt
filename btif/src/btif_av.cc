@@ -1594,8 +1594,8 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
         (btif_av_cb[index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING)) {
         /* Susupend initiated after start to earbuds but in some scenario
          * if one of the earbuds took more time to respond to start req or
-         * earbud suspended for dut initiate start and then sent start againg
-         * We have to suspne stream
+         * earbud sent suspend for dut initiated start and then sent start again
+         * We have to suspend stream
          */
         BTIF_TRACE_DEBUG("%s:Suspending pending for TWS pair",__func__);
         btif_dispatch_sm_event(BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL, 0);
@@ -2001,7 +2001,14 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
         //TODO check for tws pair
         for(i = 0; i < btif_max_av_clients; i++) {
           state = btif_sm_get_state(btif_av_cb[i].sm_handle);
-          if (state == BTIF_AV_STATE_STARTED)
+          if (state == BTIF_AV_STATE_STARTED
+#if (TWS_ENABLED == TRUE)
+            //Will reach here if TWS+ pair is not in started state
+            || (btif_av_cb[index].tws_device &&
+               i != index && btif_av_cb[i].tws_device &&
+               (btif_av_cb[i].flags & BTIF_AV_FLAG_PENDING_START))
+#endif
+             )
             btif_av_cb[i].flags |= BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING;
         }
       } else {
@@ -2295,6 +2302,11 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
 
           BTIF_TRACE_WARNING("%s:is_scrambling_enabled %d",__func__,
                                     is_scrambling_enabled);
+
+          bool is_44p1kFreq_supported = btif_av_is_44p1kFreq_supported();
+
+          BTIF_TRACE_WARNING("%s:is_44p1kFreq_supported %d",__func__,
+                                    is_44p1kFreq_supported);
 
           BTA_AvOffloadStart(btif_av_cb[index].bta_handle, is_scrambling_enabled);
       }
@@ -4597,6 +4609,34 @@ bool btif_av_is_scrambling_enabled() {
       if (freqs[i] ==  ( uint8_t ) codec_config.sample_rate ) {
          return true;
       }
+    }
+  }
+  return false;
+}
+
+/******************************************************************************
+**
+** Function        btif_av_is_44p1kFreq_supported
+**
+** Description     get 44p1kFreq is enabled from bluetooth.
+**
+** Returns         bool
+**
+********************************************************************************/
+bool btif_av_is_44p1kFreq_supported() {
+  uint8_t add_on_features_size = 0;
+  const bt_device_features_t * add_on_features_list = NULL;
+
+  add_on_features_list = controller_get_interface()->get_add_on_features(&add_on_features_size);
+  if (add_on_features_size == 0) {
+    BTIF_TRACE_WARNING(
+        "BT controller doesn't add on features");
+    return false;
+  }
+
+  if (add_on_features_list != NULL) {
+    if (HCI_SPLIT_A2DP_44P1KHZ_SAMPLE_FREQ(add_on_features_list->as_array)) {
+      return true;
     }
   }
   return false;
