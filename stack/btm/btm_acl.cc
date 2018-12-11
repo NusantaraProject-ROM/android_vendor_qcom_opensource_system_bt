@@ -58,6 +58,7 @@ static void btm_read_remote_features(uint16_t handle);
 static void btm_read_remote_ext_features(uint16_t handle, uint8_t page_number);
 static void btm_process_remote_ext_features(tACL_CONN* p_acl_cb,
                                             uint8_t num_read_pages);
+static void btm_enable_link_PL10_adaptive_ctrl(uint16_t handle, bool enable);
 
 /* 3 seconds timeout waiting for responses */
 #define BTM_DEV_REPLY_TIMEOUT_MS (3 * 1000)
@@ -273,7 +274,14 @@ void btm_acl_created(const RawAddress& bda, DEV_CLASS dc, BD_NAME bdn,
 
       /* if BR/EDR do something more */
       if (transport == BT_TRANSPORT_BR_EDR) {
+        int soc_type = get_soc_type();
+
         btsnd_hcic_read_rmt_clk_offset(p->hci_handle);
+
+        if ((soc_type == BT_SOC_CHEROKEE) &&
+            interop_match_addr_or_name(INTEROP_ENABLE_PL10_ADAPTIVE_CONTROL, &bda)) {
+          btm_enable_link_PL10_adaptive_ctrl(hci_handle, true);
+        }
       }
       p_dev_rec = btm_find_dev_by_handle(hci_handle);
 
@@ -2709,6 +2717,29 @@ void btm_read_link_quality_complete(uint8_t* p) {
 
     (*p_cb)(&result);
   }
+}
+
+/*******************************************************************************
+ *
+ * Function         btm_enable_link_PL10_adaptive_ctrl
+ *
+ * Description      This function is used to enable/disable power level 10
+ *                  adaptive control
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void btm_enable_link_PL10_adaptive_ctrl(uint16_t handle, bool enable) {
+  uint8_t param[3] = {0};
+  uint8_t *p_param = param;
+  uint8_t enable_val = enable ? 0x01 : 0;
+
+  BTM_TRACE_DEBUG("%s, handle=%d, enable=%d", __func__, handle, enable);
+
+  UINT16_TO_STREAM(p_param, handle);
+  UINT8_TO_STREAM(p_param, enable_val);
+  BTM_VendorSpecificCommand(HCI_VS_LINK_PL10_ADAPTIVE_CTRL_REQ_OPCODE,
+      p_param - param, param, NULL);
 }
 
 /*******************************************************************************
