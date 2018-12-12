@@ -4006,7 +4006,11 @@ static void register_volumechange(uint8_t lbl, btif_rc_device_cb_t* p_dev) {
   rc_transaction_t* p_transaction = NULL;
 
   BTIF_TRACE_DEBUG("%s: label: %d", __func__, lbl);
-  int index = btif_av_idx_by_bdaddr(&p_dev->rc_addr);
+  int index = btif_rc_get_idx_by_bda(&p_dev->rc_addr);
+  if (index == -1) {
+    BTIF_TRACE_ERROR("%s: index is invalid", __func__);
+    return;
+  }
   if (btif_rc_cb.rc_multi_cb[index].rc_connected &&
      !((btif_rc_cb.rc_multi_cb[index].rc_features & BTA_AV_FEAT_ADV_CTRL) &&
      (btif_rc_cb.rc_multi_cb[index].rc_features & BTA_AV_FEAT_RCTG)))
@@ -4023,6 +4027,7 @@ static void register_volumechange(uint8_t lbl, btif_rc_device_cb_t* p_dev) {
 
   BldResp = AVRC_BldCommand(&avrc_cmd, &p_msg);
   if (AVRC_STS_NO_ERROR == BldResp && p_msg) {
+    BTIF_TRACE_DEBUG("%s: get transaction by label: %d, index: %d", __func__, lbl, index);
     p_transaction = get_transaction_by_lbl(lbl, index);
     if (p_transaction != NULL) {
       BTA_AvMetaCmd(p_dev->rc_handle, p_transaction->lbl, AVRC_CMD_NOTIF,
