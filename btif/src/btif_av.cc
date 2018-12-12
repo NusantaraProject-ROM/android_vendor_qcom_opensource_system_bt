@@ -95,6 +95,7 @@ std::condition_variable session_wait_cv;
 bool session_wait;
 RawAddress ba_addr({0xCE, 0xFA, 0xCE, 0xFA, 0xCE, 0xFA});
 
+#define BTIF_AV_ENABLE_MCAST_RESTRICTIONS FALSE
 /*****************************************************************************
  *  Constants & Macros
  *****************************************************************************/
@@ -1449,10 +1450,14 @@ static bool btif_av_state_closing_handler(btif_sm_event_t event, void* p_data, i
          * to get closed which is not required in Dual A2dp.
          * We will stop only when only single A2dp conn is present.*/
         if (btif_av_is_connected_on_other_idx(index)) {
-          if (!btif_av_is_playing()) {
+          if (!btif_av_is_playing() ||
+            (is_multicast_supported && btif_av_cb[index].current_playing)) {
             APPL_TRACE_WARNING("%s: Suspend the AV Data channel", __func__);
             //Stop media task
             btif_a2dp_on_stopped(NULL);
+            if (is_multicast_supported && btif_av_is_playing()) {
+              btif_dispatch_sm_event(BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL, 0);
+            }
           }
         } else {
           /* immediately flush any pending tx frames while suspend is pending */
@@ -1845,11 +1850,16 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
             ((btif_av_cb[index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING) == 0)) {
           /* fake handoff state to switch streaming to other codec device */
           btif_av_cb[index].dual_handoff = true;
-        } else if (!btif_av_is_playing()) {
+        } else if (!btif_av_is_playing() ||
+          (is_multicast_supported && btif_av_cb[index].current_playing)) {
           APPL_TRACE_WARNING("%s: Suspend the AV Data channel", __func__);
           /* ensure tx frames are immediately suspended */
           btif_a2dp_source_set_tx_flush(true);
           btif_a2dp_source_stop_audio_req();
+          if (is_multicast_supported && btif_av_is_playing()) {
+            APPL_TRACE_WARNING("%s:Mcast streaming,suspend other playing device",__func__);
+            btif_dispatch_sm_event(BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL, 0);
+          }
         }
       } else {
         APPL_TRACE_WARNING("%s: Stop the AV Data channel", __func__);
@@ -1864,7 +1874,11 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
           }
         }
 /* SPLITA2DP */
-        btif_a2dp_on_stopped(NULL);
+        if (is_multicast_supported && !btif_av_cb[index].current_playing) {
+          APPL_TRACE_WARNING("%s:Non active device disconnected,continue streaming",__func__);
+        } else {
+          btif_a2dp_on_stopped(NULL);
+        }
       }
 
       /* inform the application that we are disconnected */
@@ -2470,7 +2484,11 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
     case BTA_AV_STOP_EVT:
       btif_av_cb[index].flags |= BTIF_AV_FLAG_PENDING_STOP;
       BTIF_TRACE_DEBUG("%s: Stop the AV Data channel", __func__);
-      btif_a2dp_on_stopped(&p_av->suspend);
+      if (is_multicast_supported && !btif_av_cb[index].current_playing) {
+        APPL_TRACE_WARNING("%s:Non active device disconnected,continue streaming",__func__);
+      } else {
+        btif_a2dp_on_stopped(&p_av->suspend);
+      }
       btif_av_cb[index].is_device_playing = false;
 
       if ((!enable_multicast)&& btif_av_cb[index].is_suspend_for_remote_start
@@ -2822,8 +2840,12 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
                     btif_a2dp_source_restart_session failed");
           }
         }
+        if (is_multicast_supported && btif_av_is_playing_on_other_idx(index)) {
+          BTIF_TRACE_WARNING("Multicast streaming, do not trigger handoff");
+        } else {
           btif_av_trigger_dual_handoff(TRUE, now_active_index,
-                                previous_active_index);
+                                  previous_active_index);
+        }
       }
       else
       {
@@ -3795,13 +3817,14 @@ static bt_status_t init_src(
   BTIF_TRACE_DEBUG("default mono channel mode = %d",tws_defaultmono_supported);
   offload_enabled_codecs_config_ = offload_enabled_codecs;
 
+
   if (bt_av_sink_callbacks != NULL)
         // already did btif_av_init()
         status = BT_STATUS_SUCCESS;
   else {
-    if (a2dp_multicast_state && !btif_av_is_split_a2dp_enabled())
+    if (a2dp_multicast_state)
       is_multicast_supported = true;
-      btif_max_av_clients = max_a2dp_connections;
+    btif_max_av_clients = max_a2dp_connections;
     BTIF_TRACE_EVENT("%s() with max conn changed to = %d", __func__,
                                 btif_max_av_clients);
     if (btif_av_is_split_a2dp_enabled()) {
@@ -3825,7 +3848,7 @@ static bt_status_t init_src(
     int max_connected_audio_devices,
     std::vector<btav_a2dp_codec_config_t> codec_priorities,
     std::vector<btav_a2dp_codec_config_t> offload_enabled_codecs) {
-  int a2dp_multicast_state = 0;
+  int a2dp_multicast_state = controller_get_interface()->is_multicast_enabled();
   if(max_connected_audio_devices > BTIF_AV_NUM_CB) {
     BTIF_TRACE_ERROR("%s: App setting maximum allowable connections(%d) \
               to more than limit(%d)",
@@ -5418,12 +5441,14 @@ tBTA_AV_HNDL btif_av_get_av_hdl_from_idx(int idx)
  * Returns         void
 *****************************************************************************/
 void btif_av_update_multicast_state(int index) {
+#if (BTIF_AV_ENABLE_MCAST_RESTRICTIONS == TRUE)
   uint16_t num_connected_br_edr_devices = 0;
   uint16_t num_connected_le_devices = 0;
-  uint16_t num_av_connected = 0;
   uint16_t i = 0;
   bool is_slave = false;
   bool is_br_hs_connected = false;
+#endif
+  uint16_t num_av_connected = 0;
   bool prev_multicast_state = enable_multicast;
 
   if (!is_multicast_supported) {
@@ -5440,7 +5465,8 @@ void btif_av_update_multicast_state(int index) {
 
   BTIF_TRACE_DEBUG("%s() Multicast previous state : %s", __func__,
     enable_multicast ? "Enabled" : "Disabled" );
-
+  num_av_connected = btif_av_get_num_connected_devices();
+#if (BTIF_AV_ENABLE_MCAST_RESTRICTIONS == TRUE)
   num_connected_br_edr_devices = btif_dm_get_br_edr_links();
   num_connected_le_devices = btif_dm_get_le_links();
   num_av_connected = btif_av_get_num_connected_devices();
@@ -5460,7 +5486,11 @@ void btif_av_update_multicast_state(int index) {
     enable_multicast = true;
   else
     enable_multicast = false;
-
+#endif
+  if (num_av_connected > 1)
+     enable_multicast = true;
+  else
+     enable_multicast = false;
   BTIF_TRACE_DEBUG("%s() Multicast current state : %s", __func__,
         enable_multicast ? "Enabled" : "Disabled" );
 
@@ -5533,10 +5563,7 @@ bool btif_av_get_ongoing_multicast() {
 ** Returns         bool
 ******************************************************************************/
 bool btif_av_is_multicast_supported() {
-  if (!btif_a2dp_source_is_hal_v2_supported())
-    return is_multicast_supported;
-  else
-    return false;
+  return is_multicast_supported;
 }
 
 bool btif_av_check_flag_remote_suspend(int index) {
@@ -5563,6 +5590,10 @@ bool btif_av_check_flag_remote_suspend(int index) {
 bool btif_av_is_split_a2dp_enabled() {
   BTIF_TRACE_DEBUG("btif_a2dp_source_is_hal_v2_supported %d ",
                         btif_a2dp_source_is_hal_v2_supported());
+  if (is_multicast_supported) {
+    BTIF_TRACE_ERROR("%s,Mulitcast enabled, default non-split mode",__func__);
+    return false;
+  }
   if (!btif_a2dp_source_is_hal_v2_supported()) {
     BTIF_TRACE_DEBUG("btif_av_is_split_a2dp_enabled: %d", bt_split_a2dp_enabled);
     return bt_split_a2dp_enabled;

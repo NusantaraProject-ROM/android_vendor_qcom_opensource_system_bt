@@ -163,6 +163,7 @@ const Uuid UUID_HEARING_AID = Uuid::FromString("FDF0");
 
 #define INVALID_MANUFACTURER 0
 
+#define BTIF_DM_ENABLE_MCAST_RESTRICTIONS FALSE
 typedef struct {
   bt_bond_state_t state;
   RawAddress static_bdaddr;
@@ -2031,10 +2032,12 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
        * During active muisc streaming no new connection can happen, hence
        * We will get this only when multistreaming is happening due to tuchtones
        */
+#if (BTIF_DM_ENABLE_MCAST_RESTRICTIONS == TRUE)
       if (btif_av_get_ongoing_multicast()) {
         // trigger a2dp suspend
         btif_av_trigger_suspend();
       }
+#endif
       btif_update_remote_version_property(&bd_addr);
 
       HAL_CBACK(bt_hal_cbacks, acl_state_changed_cb, BT_STATUS_SUCCESS,

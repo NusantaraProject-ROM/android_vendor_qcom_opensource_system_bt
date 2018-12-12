@@ -1872,9 +1872,6 @@ void bta_av_co_init(
 
 /* SPLITA2DP */
   bool isMcastSupported = btif_av_is_multicast_supported();
-  if (a2dp_offload) {
-    isMcastSupported = false;
-  }
   for (size_t i = 0; i < BTA_AV_CO_NUM_ELEMENTS(bta_av_co_cb.peers); i++) {
     p_peer = &bta_av_co_cb.peers[i];
     if (p_peer != NULL)
