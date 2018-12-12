@@ -81,6 +81,7 @@ typedef struct _btif_hf_cb {
   struct timespec connected_timestamp;
   bthf_call_state_t call_setup_state;
   bthf_audio_state_t audio_state;
+  tBTA_SERVICE_ID service_id;
 } btif_hf_cb_t;
 
 extern btif_hf_cb_t btif_hf_cb[BTA_AG_MAX_NUM_CLIENTS];

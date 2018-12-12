@@ -520,11 +520,13 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
     case BTA_AG_OPEN_EVT:
       BTIF_TRACE_DEBUG("%s:p_data->open.status:%d,btif_hf_cb[idx].state:%d,btif_max_hf_clients:%d",
                          __func__, p_data->open.status, btif_hf_cb[idx].state, btif_max_hf_clients);
+      BTIF_TRACE_DEBUG("%s: service_id: %d", __func__, p_data->open.service_id);
       if (p_data->open.status == BTA_AG_SUCCESS) {
         btif_hf_cb[idx].connected_bda = p_data->open.bd_addr;
         btif_hf_cb[idx].state = BTHF_CONNECTION_STATE_CONNECTED;
         btif_hf_cb[idx].peer_feat = 0;
         clear_phone_state_multihf(idx);
+        btif_hf_cb[idx].service_id = p_data->open.service_id;
       } else if (btif_hf_cb[idx].state == BTHF_CONNECTION_STATE_CONNECTING) {
         /* In Multi-hf, if outgoing RFCOMM connection fails due to collision,
          * ignore the failure if HF is already connected.
@@ -1671,7 +1673,8 @@ bt_status_t HeadsetInterface::PhoneStateChange(
         __func__);
 
     memset(&ag_res, 0, sizeof(tBTA_AG_RES_DATA));
-    if (is_active_device(*bd_addr)) {
+    //Change the audio state during the call only for HFP device
+    if (is_active_device(*bd_addr) && btif_hf_cb[idx].service_id == BTA_HFP_SERVICE_ID) {
        // initiate SCO only if it is not connected already
        if (btif_hf_cb[idx].audio_state != BTHF_AUDIO_STATE_CONNECTED) {
            ag_res.audio_handle = control_block.handle;
@@ -1687,7 +1690,7 @@ bt_status_t HeadsetInterface::PhoneStateChange(
        }
     } else {
        ag_res.audio_handle = BTA_AG_HANDLE_SCO_NO_CHANGE;
-       BTIF_TRACE_IMP("%s: Don't create SCO since non-active device is connected",
+       BTIF_TRACE_IMP("%s: Don't create SCO since non-active device or HSP device is connected",
                             __FUNCTION__);
     }
 
