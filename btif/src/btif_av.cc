@@ -3643,7 +3643,7 @@ void btif_get_latest_playing_device(RawAddress *address) {
         //copy bdaddrsss
     *address = btif_av_cb[index].peer_bda;
   else
-    address = nullptr;
+    *address = RawAddress::kEmpty;
 }
 
 /*******************************************************************************
