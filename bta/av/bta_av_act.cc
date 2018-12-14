@@ -57,7 +57,6 @@
  ******************************************************************************/
 
 #define LOG_TAG "bt_bta_av"
-
 #include "bt_target.h"
 
 #include <base/logging.h>
@@ -1881,7 +1880,7 @@ uint16_t bta_get_dut_avrcp_version() {
     uint16_t profile_version = AVRC_REV_1_0;
     char avrcp_version[PROPERTY_VALUE_MAX] = {0};
     osi_property_get(AVRCP_VERSION_PROPERTY, avrcp_version,
-                     AVRCP_1_4_STRING);
+                     AVRCP_1_6_STRING);
 
     if (!strncmp(AVRCP_1_6_STRING, avrcp_version,
                  sizeof(AVRCP_1_6_STRING))) {
@@ -1897,69 +1896,6 @@ uint16_t bta_get_dut_avrcp_version() {
     return profile_version;
 }
 
-bool bta_av_check_store_avrc_tg_version(RawAddress addr, uint16_t ver)
-{
-    bool is_present = FALSE;
-    struct blacklist_entry data;
-    FILE *fp;
-    bool is_file_updated = FALSE;
-    bool feature = false;
-    profile_info_t profile_info = AVRCP_0103_SUPPORT;
-    const profile_t profile = AVRCP_ID;
-
-    APPL_TRACE_DEBUG("%s target BD Addr: %s", __func__,\
-                        addr.ToString().c_str());
-    fp = fopen(AVRC_PEER_VERSION_CONF_FILE, "rb");
-    if (!fp)
-    {
-      APPL_TRACE_ERROR("%s unable to open AVRC Conf file for read: error: (%s)",\
-                                                        __func__, strerror(errno));
-    }
-    else
-    {
-        while (fread(&data, sizeof(data), 1, fp) != 0)
-        {
-            APPL_TRACE_DEBUG("Entry: addr = %x:%x:%x, ver = 0x%x",\
-                    data.addr[0], data.addr[1], data.addr[2], data.ver);
-            if(!memcmp(&addr, data.addr, 3))
-            {
-                is_present = TRUE;
-                APPL_TRACE_DEBUG("Entry alreday present, bailing out");
-                break;
-            }
-        }
-        fclose(fp);
-    }
-
-    if (is_present == FALSE)
-    {
-        fp = fopen(AVRC_PEER_VERSION_CONF_FILE, "ab");
-        if (!fp)
-        {
-            APPL_TRACE_ERROR("%s unable to open AVRC Conf file for write: error: (%s)",\
-                                                              __func__, strerror(errno));
-        }
-        else
-        {
-            data.ver = ver;
-            memcpy(data.addr, &addr, 3);
-            APPL_TRACE_DEBUG("Avrcp version to store = 0x%x", ver);
-            fwrite(&data, sizeof(data), 1, fp);
-            fclose(fp);
-            is_file_updated = TRUE;
-        }
-    }
-    feature = profile_feature_fetch(profile, profile_info);
-    if (feature == true)
-    {
-        APPL_TRACE_ERROR("Force return False as AVRCP version is forced set to 1.3");
-        return false;
-    }
-    else
-    {
-        return is_file_updated;
-    }
-}
 /*******************************************************************************
  *
  * Function         bta_av_check_peer_features
@@ -2047,28 +1983,6 @@ tBTA_AV_FEAT bta_av_check_peer_features(uint16_t service_uuid) {
               APPL_TRACE_DEBUG("peer supports cover art");
           }
         }
-      }
-      if ((peer_rc_version >= AVRC_REV_1_4) &&
-              ((peer_features & BTA_AV_FEAT_BROWSE) || (peer_features & BTA_AV_FEAT_CA)))
-      {
-          bool ret = FALSE;
-          APPL_TRACE_DEBUG("peer version to update: 0x%x", peer_rc_version);
-          uint16_t dut_avrcp_version = bta_get_dut_avrcp_version();
-          uint16_t version_to_store = (dut_avrcp_version > peer_rc_version) ?
-                                             peer_rc_version : dut_avrcp_version;
-          ret = bta_av_check_store_avrc_tg_version(p_rec->remote_bd_addr, version_to_store);
-          /* update UI only in case, if we are less than 1.6 */
-          if ((ret == TRUE) && (dut_avrcp_version < AVRC_REV_1_6))
-          {
-              peer_features |= BTA_AV_FEAT_AVRC_UI_UPDATE;
-              APPL_TRACE_DEBUG("update UI on peer repair request: 0x%x",
-                              peer_features);
-          }
-      }
-      else
-      {
-          APPL_TRACE_DEBUG("No need to store peer version: 0x%x", peer_rc_version);
-          /*No need to update peer version as we send the default version as 1.3*/
       }
     }
   }

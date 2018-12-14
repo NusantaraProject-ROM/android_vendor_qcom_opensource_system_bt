@@ -35,6 +35,7 @@
 #include "bt_utils.h"
 #include "bt_trace.h"
 #include "btu.h"
+#include "avdt_api.h"
 
 #include "hcidefs.h"
 #include "hcimsgs.h"
@@ -165,7 +166,7 @@ uint16_t get_dut_avrcp_version() {
     uint16_t profile_version = AVRC_REV_1_0;
     char avrcp_version[PROPERTY_VALUE_MAX] = {0};
     property_get(AVRCP_VERSION_PROPERTY, avrcp_version,
-                     AVRCP_1_4_STRING);
+                     AVRCP_1_6_STRING);
     SDP_TRACE_DEBUG(" %s AVRCP version used for sdp: \"%s\"",
              __func__,avrcp_version);
 
@@ -180,41 +181,46 @@ uint16_t get_dut_avrcp_version() {
     }
     return profile_version;
 }
+
+/****************************************************************************
+**
+** Function         sdp_get_stored_avrc_tg_version
+**
+** Description      This function is called to fetch stored remote's
+**                  avrcp version
+**
+** Returns          int
+**
+*******************************************************************************/
 int sdp_get_stored_avrc_tg_version(RawAddress addr)
 {
-    int stored_ver = AVRC_REV_INVALID;
-    struct blacklist_entry data;
-    FILE *fp;
-    bool feature = false;
-    profile_info_t profile_info = AVRCP_0103_SUPPORT;
-    const profile_t profile = AVRCP_ID;
-
+    uint16_t avrcp_version = 0;
+    uint16_t avrcp_features = 0;
     SDP_TRACE_DEBUG("%s target BD Addr: %s",\
              __func__, addr.ToString().c_str());
-
-
-    feature = profile_feature_fetch(profile, profile_info);
-    if (feature == true) {
-        SDP_TRACE_ERROR("AVRCP feature flag is set to 1.3 hence aborting");
-        return stored_ver;
+    if (btif_config_get_uint16(addr.ToString().c_str(), AV_REM_CTRL_VERSION_CONFIG_KEY,
+                (uint16_t*)&avrcp_version)) {
+      SDP_TRACE_DEBUG("%s : Entry found in pairing database, remote version: 0x%x", __func__, avrcp_version);
+      if (btif_config_get_uint16(addr.ToString().c_str(), AV_REM_CTRL_FEATURES_CONFIG_KEY, (uint16_t*)&avrcp_features)) {
+        bool CA_AVRC_BIT = ((AVRCP_FEAT_CA_BIT & avrcp_features) == AVRCP_FEAT_CA_BIT);
+        bool BRW_AVRC_BIT = ((AVRCP_FEAT_BRW_BIT & avrcp_features) == AVRCP_FEAT_BRW_BIT);
+        uint16_t dut_avrcp_version = get_dut_avrcp_version();
+        uint16_t ver = (dut_avrcp_version > avrcp_version) ?
+                           avrcp_version : dut_avrcp_version;
+        if (CA_AVRC_BIT)
+          ver = AVRCP_MASK_CA_BIT | ver;
+        if (BRW_AVRC_BIT)
+          ver = AVRCP_MASK_BRW_BIT | ver;
+        SDP_TRACE_DEBUG("%s: return version with (CA+BRW): 0x%x", __func__, ver);
+        return ver;
+      } else {
+        SDP_TRACE_DEBUG("%s: failed to fetch features from pairing database, returning AVRC_1_3", __func__);
+        return AVRC_REV_1_3;
+      }
+    } else {
+      SDP_TRACE_DEBUG("%s: failed to fetch version from pairing database, returning AVRC_1_3", __func__);
+      return AVRC_REV_1_3;
     }
-    fp = fopen(AVRC_PEER_VERSION_CONF_FILE, "rb");
-    if (!fp) {
-       SDP_TRACE_ERROR("%s unable to open AVRC Conf file for read: err: (%s)",\
-                                        __func__, strerror(errno));
-       return stored_ver;
-    }
-    while (fread(&data, sizeof(data), 1, fp) != 0) {
-        SDP_TRACE_DEBUG("Entry: addr = %x:%x:%x, ver = 0x%x",\
-                data.addr[0], data.addr[1], data.addr[2], data.ver);
-        if(!memcmp(&addr, data.addr, 3)) {
-            stored_ver = data.ver;
-            SDP_TRACE_DEBUG("Entry found with version: 0x%x", stored_ver);
-            break;
-        }
-    }
-    fclose(fp);
-    return stored_ver;
 }
 
 /****************************************************************************
@@ -255,73 +261,6 @@ bool sdp_dev_blacklisted_for_avrcp15 (RawAddress addr)
 
 /*************************************************************************************
 **
-** Function        sdp_fallback_avrcp_version
-**
-** Description     Checks if UUID is AV Remote Control, attribute id
-**                 is Profile descriptor list and remote BD address
-**                 matches device blacklist, change Avrcp version to 1.3
-**
-** Returns         bool: if we have to restore value to our local structure
-**
-***************************************************************************************/
-bool sdp_fallback_avrcp_version (tSDP_ATTRIBUTE *p_attr, RawAddress remote_address)
-{
-    char a2dp_role[PROPERTY_VALUE_MAX] = "false";
-    uint16_t dut_profile_version;
-    if ((p_attr->id == ATTR_ID_BT_PROFILE_DESC_LIST) &&
-        (p_attr->len >= SDP_PROFILE_DESC_LENGTH))
-    {
-        /* As per current DB implementation UUID is condidered as 16 bit */
-        if (((p_attr->value_ptr[3] << 8) | (p_attr->value_ptr[4])) ==
-                UUID_SERVCLASS_AV_REMOTE_CONTROL)
-        {
-            int ver;
-            if (sdp_dev_blacklisted_for_avrcp15 (remote_address))
-            {
-                p_attr->value_ptr[PROFILE_VERSION_POSITION] = 0x03; // Update AVRCP version as 1.3
-                SDP_TRACE_ERROR("SDP Change AVRCP Version = 0x%x",
-                         p_attr->value_ptr[PROFILE_VERSION_POSITION]);
-                return TRUE;
-            }
-            property_get("persist.vendor.service.bt.a2dp.sink", a2dp_role, "false");
-            if (!strncmp("false", a2dp_role, 5)) {
-                ver = sdp_get_stored_avrc_tg_version (remote_address);
-                if (ver != AVRC_REV_INVALID)
-                {
-                    SDP_TRACE_DEBUG("Stored AVRC TG version: 0x%x", ver);
-                    p_attr->value_ptr[PROFILE_VERSION_POSITION] = (uint8_t)(ver & 0x00ff);
-                    SDP_TRACE_DEBUG("SDP Change AVRCP Version = 0x%x",
-                                 p_attr->value_ptr[PROFILE_VERSION_POSITION]);
-                    /* we have already written value from file to response and local
-                     * structure */
-                     dut_profile_version = get_dut_avrcp_version();
-                     if((dut_profile_version == AVRC_REV_1_6) && (ver != AVRC_REV_1_6)) {
-                        SDP_TRACE_ERROR(" %s This should not happen ",__func__);
-                        return TRUE;// do fallback to older version in record
-                     }
-                     if((dut_profile_version == AVRC_REV_1_5) && (ver != AVRC_REV_1_5)) {
-                        return TRUE;
-                     }
-                     /*
-                      * We don't have a check for 1.4, because for 1.3 we always write
-                      * AVRC_REV_INVALID, and in that case it falls to below else case
-                      */
-                     return FALSE;
-                }
-                else {
-                    p_attr->value_ptr[PROFILE_VERSION_POSITION] = 0x03; // Update AVRCP ver as 1.3
-                    SDP_TRACE_DEBUG("Device not stored, Change AVRCP Version = 0x%x",
-                             p_attr->value_ptr[PROFILE_VERSION_POSITION]);
-                    return TRUE;
-                }
-            }
-        }
-    }
-    return FALSE;
-}
-
-/*************************************************************************************
-**
 ** Function        sdp_reset_avrcp_browsing_bit
 **
 ** Description     Checks if Service Class ID is AV Remote Control TG, attribute id
@@ -337,7 +276,8 @@ bool sdp_reset_avrcp_browsing_bit (tSDP_ATTRIBUTE attr, tSDP_ATTRIBUTE *p_attr,
     if ((p_attr->id == ATTR_ID_SUPPORTED_FEATURES) && (attr.id == ATTR_ID_SERVICE_CLASS_ID_LIST) &&
         (((attr.value_ptr[1] << 8) | (attr.value_ptr[2])) == UUID_SERVCLASS_AV_REM_CTRL_TARGET))
     {
-        int ver;
+        int version;
+        bool browsing_supported = false;
         if (sdp_dev_blacklisted_for_avrcp15 (remote_address))
         {
             SDP_TRACE_ERROR("Reset Browse feature bitmask");
@@ -346,9 +286,11 @@ bool sdp_reset_avrcp_browsing_bit (tSDP_ATTRIBUTE attr, tSDP_ATTRIBUTE *p_attr,
                     ~AVRCP_MULTI_PLAYER_SUPPORT_BITMASK;
             return TRUE;
         }
-        ver = sdp_get_stored_avrc_tg_version (remote_address);
-        SDP_TRACE_ERROR("Stored AVRC TG version: 0x%x", ver);
-        if ((ver < AVRC_REV_1_4) || (ver == AVRC_REV_INVALID))
+        version = sdp_get_stored_avrc_tg_version (remote_address);
+        browsing_supported = ((AVRCP_MASK_BRW_BIT & version) == AVRCP_MASK_BRW_BIT);
+        version = (AVRCP_VERSION_BIT_MASK & version);
+        SDP_TRACE_ERROR("Stored AVRC TG version: 0x%x", version);
+        if (version < AVRC_REV_1_4 || !browsing_supported)
         {
             SDP_TRACE_ERROR("Reset Browse feature bitmask");
             p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION] &= ~AVRCP_BROWSE_SUPPORT_BITMASK;
@@ -377,10 +319,13 @@ bool sdp_reset_avrcp_cover_art_bit (tSDP_ATTRIBUTE attr, tSDP_ATTRIBUTE *p_attr,
     if ((p_attr->id == ATTR_ID_SUPPORTED_FEATURES) && (attr.id == ATTR_ID_SERVICE_CLASS_ID_LIST) &&
         (((attr.value_ptr[1] << 8) | (attr.value_ptr[2])) == UUID_SERVCLASS_AV_REM_CTRL_TARGET))
     {
-        int ver;
-        ver = sdp_get_stored_avrc_tg_version (remote_address);
-        SDP_TRACE_ERROR("Stored AVRC TG version: 0x%x", ver);
-        if ((ver < AVRC_REV_1_6) || (ver == AVRC_REV_INVALID))
+        int version;
+        bool cover_art_supported = false;
+        version = sdp_get_stored_avrc_tg_version (remote_address);
+        cover_art_supported = ((AVRCP_MASK_CA_BIT & version) == AVRCP_MASK_CA_BIT);
+        version = (AVRCP_VERSION_BIT_MASK & version);
+        SDP_TRACE_ERROR("Stored AVRC TG version: 0x%x", version);
+        if (version < AVRC_REV_1_6 || !cover_art_supported)
         {
             SDP_TRACE_ERROR("Reset Cover Art feature bitmask +1, 0x%x", p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION+1]);
             SDP_TRACE_ERROR("Reset Cover Art feature bitmask -1, 0x%x", p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION-1]);
@@ -660,6 +605,7 @@ static void process_service_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
                                      uint8_t* p_req_end) {
   uint16_t max_list_len, len_to_send, cont_offset;
   int16_t rem_len;
+  char a2dp_role[PROPERTY_VALUE_MAX] = "false";
   tSDP_ATTR_SEQ attr_seq, attr_seq_sav;
   uint8_t *p_rsp, *p_rsp_start, *p_rsp_param_len;
   uint16_t rsp_param_len, xx;
@@ -669,11 +615,9 @@ static void process_service_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
   bool is_cont = false;
   bool is_hfp_fallback = FALSE;
   uint16_t attr_len;
-  bool is_avrcp_fallback = FALSE;
-  bool is_avrcp_browse_bit_reset = FALSE;
-  bool is_avrcp_cover_bit_reset = FALSE;
-  uint16_t dut_profile_version;
-
+  uint16_t profile_version;
+  bool is_avrcp_browse_bit_set = FALSE;
+  bool is_avrcp_cover_bit_set = FALSE;
   if (p_req + sizeof(rec_handle) + sizeof(max_list_len) > p_req_end) {
     android_errorWriteLog(0x534e4554, "69384124");
     sdpu_build_n_send_error(p_ccb, trans_num, SDP_INVALID_SERV_REC_HDL,
@@ -763,8 +707,6 @@ static void process_service_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
     p_ccb->cont_info.next_attr_index = 0;
     p_ccb->cont_info.attr_offset = 0;
   }
-
-  dut_profile_version = get_dut_avrcp_version();
   /* Search for attributes that match the list given to us */
   for (xx = p_ccb->cont_info.next_attr_index; xx < attr_seq.num_attr; xx++) {
     p_attr = sdp_db_find_attr_in_rec(p_rec, attr_seq.attr_entry[xx].start,
@@ -779,15 +721,38 @@ static void process_service_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
       *  There is no point in resetting CA bit, because if DUT 1.6, we have to show 1.6
       *  even if remote misbhevaes. If we DUT is not 1.6 then there would be no ca bit
       */
-    if (dut_profile_version < AVRC_REV_1_6) {
-        is_avrcp_fallback = sdp_fallback_avrcp_version (p_attr, p_ccb->device_address);
-        // check for browse bit will happen always, because minimum DUT version is 1.4 now.
-        is_avrcp_browse_bit_reset = sdp_reset_avrcp_browsing_bit(
-                p_rec->attribute[1], p_attr, p_ccb->device_address);
-        is_avrcp_cover_bit_reset = sdp_reset_avrcp_cover_art_bit(
-                p_rec->attribute[1], p_attr, p_ccb->device_address);
-    }
-
+      if (sdp_reset_avrcp_browsing_bit(p_rec->attribute[1], p_attr, p_ccb->device_address))
+        is_avrcp_browse_bit_set = FALSE;
+      if (sdp_reset_avrcp_cover_art_bit(p_rec->attribute[1], p_attr, p_ccb->device_address))
+        is_avrcp_cover_bit_set = FALSE;
+      if ((p_attr->id == ATTR_ID_BT_PROFILE_DESC_LIST) &&
+             (p_attr->len >= SDP_PROFILE_DESC_LENGTH)) {
+        if (((p_attr->value_ptr[3] << 8) | (p_attr->value_ptr[4])) ==
+                UUID_SERVCLASS_AV_REMOTE_CONTROL) {
+          property_get("persist.vendor.service.bt.a2dp.sink", a2dp_role, "false");
+          if (!strncmp("false", a2dp_role, 5)) {
+            profile_version = sdp_get_stored_avrc_tg_version(p_ccb->device_address);
+            uint16_t ver = (AVRCP_VERSION_BIT_MASK & profile_version);
+            is_avrcp_browse_bit_set = ((AVRCP_MASK_BRW_BIT & profile_version) == AVRCP_MASK_BRW_BIT);
+            is_avrcp_cover_bit_set = ((AVRCP_MASK_CA_BIT & profile_version) == AVRCP_MASK_CA_BIT);
+            if (ver >= AVRC_REV_1_4 &&
+                (is_avrcp_browse_bit_set | is_avrcp_cover_bit_set)) {
+              p_attr->value_ptr[PROFILE_VERSION_POSITION] = (uint8_t)(ver & 0x00ff);
+              SDP_TRACE_DEBUG("%s :Showing AVRCP version in SDP = 0x%x", __func__,
+                               p_attr->value_ptr[PROFILE_VERSION_POSITION]);
+            } else {
+              p_attr->value_ptr[PROFILE_VERSION_POSITION] = 0x03; // Update AVRCP version as 1.3
+              SDP_TRACE_DEBUG("%s : remote doesn't support cover art and browsing, showing AVRCP Version = 0x%x", __func__,
+                                 p_attr->value_ptr[PROFILE_VERSION_POSITION]);
+            }
+            if (sdp_dev_blacklisted_for_avrcp15 (p_ccb->device_address)) {
+              p_attr->value_ptr[PROFILE_VERSION_POSITION] = 0x03; // Update AVRCP version as 1.3
+              SDP_TRACE_DEBUG("%s :Device is blacklisted updating AVRCP Version = 0x%x", __func__,
+                                 p_attr->value_ptr[PROFILE_VERSION_POSITION]);
+            }
+          }
+        }
+      }
       is_hfp_fallback = sdp_change_hfp_version (p_attr, p_ccb->device_address);
       /* Check if attribute fits. Assume 3-byte value type/length */
       rem_len = max_list_len - (int16_t)(p_rsp - &p_ccb->rsp_list[0]);
@@ -844,52 +809,6 @@ static void process_service_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
 
         xx--;
       }
-      if (is_avrcp_fallback) {
-      /* Restore Profile Version */
-          SDP_TRACE_ERROR("Restore Profile version");
-          switch(dut_profile_version) {
-              case AVRC_REV_1_6:
-               SDP_TRACE_ERROR(" %s, DUT version 1.6, avrcp_fallback should not be true", __func__);
-              break;
-              case AVRC_REV_1_5:
-                  p_attr->value_ptr[PROFILE_VERSION_POSITION] = 0x05;
-              break;
-              case AVRC_REV_1_4:
-                  p_attr->value_ptr[PROFILE_VERSION_POSITION] = 0x04;
-              break;
-          }
-          is_avrcp_fallback = FALSE;
-      }
-      if (is_avrcp_browse_bit_reset) {
-          /* Restore Browsing bit */
-          SDP_TRACE_ERROR("Restore Browsing bit");
-          switch(dut_profile_version) {
-              case AVRC_REV_1_6:
-               SDP_TRACE_ERROR(" %s, DUT version 1.6, browse_bit should not be true", __func__);
-              break;
-              case AVRC_REV_1_5:
-              case AVRC_REV_1_4:
-                  p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION]
-                                              |= AVRCP_BROWSE_SUPPORT_BITMASK;
-              break;
-          }
-          is_avrcp_browse_bit_reset = FALSE;
-      }
-      if (is_avrcp_cover_bit_reset) {
-          /* Restore Cover Art bit */
-          SDP_TRACE_ERROR("Restore Cover Art bit");
-          switch(dut_profile_version) {
-              case AVRC_REV_1_6:
-               SDP_TRACE_ERROR(" %s, DUT version 1.6, cover_art_bit should not be true", __func__);
-              break;
-              case AVRC_REV_1_5:
-              case AVRC_REV_1_4:
-                  p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION-1]
-                                              |= AVRCP_CA_SUPPORT_BITMASK;
-              break;
-          }
-          is_avrcp_cover_bit_reset = FALSE;
-      }
       if (is_hfp_fallback) {
           SDP_TRACE_ERROR("Restore HFP version to 1.6");
           /* Update HFP version back to 1.6 */
@@ -897,52 +816,6 @@ static void process_service_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
           is_hfp_fallback = FALSE;
       }
     }
-  }
-  if (is_avrcp_fallback) {
-  /* Restore Profile Version */
-      SDP_TRACE_ERROR("Restore Profile version");
-      switch(dut_profile_version) {
-          case AVRC_REV_1_6:
-           SDP_TRACE_ERROR(" %s, DUT version 1.6, avrcp_fallback should not be true", __func__);
-          break;
-          case AVRC_REV_1_5:
-              p_attr->value_ptr[PROFILE_VERSION_POSITION] = 0x05;
-          break;
-          case AVRC_REV_1_4:
-              p_attr->value_ptr[PROFILE_VERSION_POSITION] = 0x04;
-          break;
-      }
-      is_avrcp_fallback = FALSE;
-  }
-  if (is_avrcp_browse_bit_reset) {
-      /* Restore Browsing bit */
-      SDP_TRACE_ERROR("Restore Browsing bit");
-      switch(dut_profile_version) {
-          case AVRC_REV_1_6:
-           SDP_TRACE_ERROR(" %s, DUT version 1.6, browse_bit should not be true", __func__);
-          break;
-          case AVRC_REV_1_5:
-          case AVRC_REV_1_4:
-              p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION]
-                                          |= AVRCP_BROWSE_SUPPORT_BITMASK;
-          break;
-      }
-      is_avrcp_browse_bit_reset = FALSE;
-  }
-  if (is_avrcp_cover_bit_reset) {
-      /* Restore Cover Art bit */
-      SDP_TRACE_ERROR("Restore Cover Art bit");
-      switch(dut_profile_version) {
-          case AVRC_REV_1_6:
-           SDP_TRACE_ERROR(" %s, DUT version 1.6, cover_art_bit should not be true", __func__);
-          break;
-          case AVRC_REV_1_5:
-          case AVRC_REV_1_4:
-              p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION-1]
-                                          |= AVRCP_CA_SUPPORT_BITMASK;
-          break;
-      }
-      is_avrcp_cover_bit_reset = FALSE;
   }
   if (is_hfp_fallback) {
       SDP_TRACE_ERROR("Restore HFP version to 1.6");
@@ -1035,6 +908,7 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
                                             uint8_t* p_req_end) {
   uint16_t max_list_len;
   int16_t rem_len;
+  char a2dp_role[PROPERTY_VALUE_MAX] = "false";
   uint16_t len_to_send, cont_offset;
   tSDP_UUID_SEQ uid_seq;
   uint8_t *p_rsp, *p_rsp_start, *p_rsp_param_len;
@@ -1047,11 +921,9 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
   uint8_t* p_seq_start = NULL;
   bool is_hfp_fallback = FALSE;
   uint16_t seq_len, attr_len;
-  bool is_avrcp_fallback = FALSE;
-  bool is_avrcp_browse_bit_reset = FALSE;
-  bool is_avrcp_cover_bit_reset = FALSE;
-  uint16_t dut_profile_version;
-
+  uint16_t profile_version;
+  bool is_avrcp_browse_bit_set = FALSE;
+  bool is_avrcp_cover_bit_set = FALSE;
   /* Extract the UUID sequence to search for */
   p_req = sdpu_extract_uid_seq(p_req, param_len, &uid_seq);
 
@@ -1152,9 +1024,6 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
       }
       p_rsp += 3;
     }
-
-    dut_profile_version = get_dut_avrcp_version();
-
     /* Get a list of handles that match the UUIDs given to us */
     for (xx = p_ccb->cont_info.next_attr_index; xx < attr_seq.num_attr; xx++) {
       p_attr = sdp_db_find_attr_in_rec(p_rec, attr_seq.attr_entry[xx].start,
@@ -1169,15 +1038,39 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
           *  There is no point in resetting CA bit, because if DUT 1.6, we have to show 1.6
           *  even if remote misbhevaes. If we DUT is not 1.6 then there would be no ca bit
           */
-        if (dut_profile_version < AVRC_REV_1_6) {
-            is_avrcp_fallback = sdp_fallback_avrcp_version (p_attr, p_ccb->device_address);
-            // check for browse bit will happen always, because minimum DUT version is 1.4 now.
-            is_avrcp_browse_bit_reset = sdp_reset_avrcp_browsing_bit(
-                    p_rec->attribute[1], p_attr, p_ccb->device_address);
-            is_avrcp_cover_bit_reset = sdp_reset_avrcp_cover_art_bit(
-                    p_rec->attribute[1], p_attr, p_ccb->device_address);
-        }
 
+        if (sdp_reset_avrcp_browsing_bit(p_rec->attribute[1], p_attr, p_ccb->device_address))
+          is_avrcp_browse_bit_set = FALSE;
+        if (sdp_reset_avrcp_cover_art_bit(p_rec->attribute[1], p_attr, p_ccb->device_address))
+          is_avrcp_cover_bit_set = FALSE;
+        if ((p_attr->id == ATTR_ID_BT_PROFILE_DESC_LIST) &&
+               (p_attr->len >= SDP_PROFILE_DESC_LENGTH)) {
+          if (((p_attr->value_ptr[3] << 8) | (p_attr->value_ptr[4])) ==
+                  UUID_SERVCLASS_AV_REMOTE_CONTROL) {
+            property_get("persist.vendor.service.bt.a2dp.sink", a2dp_role, "false");
+            if (!strncmp("false", a2dp_role, 5)) {
+              profile_version = sdp_get_stored_avrc_tg_version(p_ccb->device_address);
+              uint16_t ver = (AVRCP_VERSION_BIT_MASK & profile_version);
+              is_avrcp_browse_bit_set = ((AVRCP_MASK_BRW_BIT & profile_version) == AVRCP_MASK_BRW_BIT);
+              is_avrcp_cover_bit_set = ((AVRCP_MASK_CA_BIT & profile_version) == AVRCP_MASK_CA_BIT);
+              if (ver >= AVRC_REV_1_4 &&
+                  (is_avrcp_browse_bit_set | is_avrcp_cover_bit_set)) {
+                p_attr->value_ptr[PROFILE_VERSION_POSITION] = (uint8_t)(ver & 0x00ff);
+                SDP_TRACE_DEBUG("%s : Showing AVRCP version in SDP = 0x%x", __func__,
+                                 p_attr->value_ptr[PROFILE_VERSION_POSITION]);
+              } else {
+                p_attr->value_ptr[PROFILE_VERSION_POSITION] = 0x03; // Update AVRCP version as 1.3
+                SDP_TRACE_DEBUG("%s : remote doesn't support cover art and browsing, showing AVRCP Version = 0x%x", __func__,
+                                   p_attr->value_ptr[PROFILE_VERSION_POSITION]);
+              }
+              if (sdp_dev_blacklisted_for_avrcp15 (p_ccb->device_address)) {
+                p_attr->value_ptr[PROFILE_VERSION_POSITION] = 0x03; // Update AVRCP version as 1.3
+                SDP_TRACE_DEBUG("%s :Device is blacklisted updating AVRCP Version = 0x%x", __func__,
+                                   p_attr->value_ptr[PROFILE_VERSION_POSITION]);
+              }
+            }
+          }
+        }
         is_hfp_fallback = sdp_change_hfp_version (p_attr, p_ccb->device_address);
         /* Check if attribute fits. Assume 3-byte value type/length */
         rem_len = max_list_len - (int16_t)(p_rsp - &p_ccb->rsp_list[0]);
@@ -1238,52 +1131,6 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
 
           xx--;
         }
-        if (is_avrcp_fallback) {
-        /* Restore Profile Version */
-            SDP_TRACE_ERROR("Restore Profile version");
-            switch(dut_profile_version) {
-                case AVRC_REV_1_6:
-                 SDP_TRACE_ERROR(" %s, DUT version 1.6, avrcp_fallback should not be true", __func__);
-                break;
-                case AVRC_REV_1_5:
-                    p_attr->value_ptr[PROFILE_VERSION_POSITION] = 0x05;
-                break;
-                case AVRC_REV_1_4:
-                    p_attr->value_ptr[PROFILE_VERSION_POSITION] = 0x04;
-                break;
-            }
-            is_avrcp_fallback = FALSE;
-        }
-        if (is_avrcp_browse_bit_reset) {
-            /* Restore Browsing bit */
-            SDP_TRACE_ERROR("Restore Browsing bit");
-            switch(dut_profile_version) {
-                case AVRC_REV_1_6:
-                 SDP_TRACE_ERROR(" %s, DUT version 1.6, browse_bit should not be true", __func__);
-                break;
-                case AVRC_REV_1_5:
-                case AVRC_REV_1_4:
-                    p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION]
-                                                |= AVRCP_BROWSE_SUPPORT_BITMASK;
-                break;
-            }
-            is_avrcp_browse_bit_reset = FALSE;
-        }
-        if (is_avrcp_cover_bit_reset) {
-            /* Restore Cover Art bit */
-            SDP_TRACE_ERROR("Restore Cover Art bit");
-            switch(dut_profile_version) {
-                case AVRC_REV_1_6:
-                 SDP_TRACE_ERROR(" %s, DUT version 1.6, cover_art_bit should not be true", __func__);
-                break;
-                case AVRC_REV_1_5:
-                case AVRC_REV_1_4:
-                    p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION-1]
-                                                |= AVRCP_CA_SUPPORT_BITMASK;
-                break;
-            }
-            is_avrcp_cover_bit_reset = FALSE;
-        }
         if (is_hfp_fallback) {
             SDP_TRACE_ERROR("Restore HFP version to 1.6");
             /* Update HFP version back to 1.6 */
@@ -1292,58 +1139,13 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
         }
       }
     }
-    if (is_avrcp_fallback) {
-    /* Restore Profile Version */
-        SDP_TRACE_ERROR("Restore Profile version");
-        switch(dut_profile_version) {
-            case AVRC_REV_1_6:
-             SDP_TRACE_ERROR(" %s, DUT version 1.6, avrcp_fallback should not be true", __func__);
-            break;
-            case AVRC_REV_1_5:
-                p_attr->value_ptr[PROFILE_VERSION_POSITION] = 0x05;
-            break;
-            case AVRC_REV_1_4:
-                p_attr->value_ptr[PROFILE_VERSION_POSITION] = 0x04;
-            break;
-        }
-        is_avrcp_fallback = FALSE;
-    }
-    if (is_avrcp_browse_bit_reset) {
-        /* Restore Browsing bit */
-        SDP_TRACE_ERROR("Restore Browsing bit");
-        switch(dut_profile_version) {
-            case AVRC_REV_1_6:
-             SDP_TRACE_ERROR(" %s, DUT version 1.6, browse_bit should not be true", __func__);
-            break;
-            case AVRC_REV_1_5:
-            case AVRC_REV_1_4:
-                p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION]
-                                            |= AVRCP_BROWSE_SUPPORT_BITMASK;
-            break;
-        }
-        is_avrcp_browse_bit_reset = FALSE;
-    }
-    if (is_avrcp_cover_bit_reset) {
-        /* Restore Cover Art bit */
-        SDP_TRACE_ERROR("Restore Cover Art bit");
-        switch(dut_profile_version) {
-            case AVRC_REV_1_6:
-             SDP_TRACE_ERROR(" %s, DUT version 1.6, cover_art_bit should not be true", __func__);
-            break;
-            case AVRC_REV_1_5:
-            case AVRC_REV_1_4:
-                p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION-1]
-                                            |= AVRCP_CA_SUPPORT_BITMASK;
-            break;
-        }
-        is_avrcp_cover_bit_reset = FALSE;
-    }
     if (is_hfp_fallback) {
         SDP_TRACE_ERROR("Restore HFP version to 1.6");
         /* Update HFP version back to 1.6 */
         p_attr->value_ptr[PROFILE_VERSION_POSITION] = 0x06;
         is_hfp_fallback = FALSE;
     }
+
     /* Go back and put the type and length into the buffer */
     if (p_ccb->cont_info.last_attr_seq_desc_sent == false) {
       seq_len = sdpu_get_attrib_seq_len(p_rec, &attr_seq_sav);

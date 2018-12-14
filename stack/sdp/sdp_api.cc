@@ -32,6 +32,7 @@
 #include "hcidefs.h"
 #include "hcimsgs.h"
 #include "l2cdefs.h"
+#include "avdt_api.h"
 
 #include "btu.h"
 #include "sdp_api.h"
@@ -1200,6 +1201,7 @@ bool SDP_Dev_Blacklisted_For_Avrcp15 (RawAddress addr)
     if (ret != TRUE)
     {
         ver = sdp_get_stored_avrc_tg_version (addr);
+        ver = (AVRCP_VERSION_BIT_MASK & ver);
         SDP_TRACE_ERROR("Stored AVRC TG version: 0x%x", ver);
         if (ver >= AVRC_REV_1_4)
         {
