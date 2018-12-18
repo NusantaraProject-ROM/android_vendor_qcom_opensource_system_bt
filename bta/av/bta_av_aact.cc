@@ -1324,6 +1324,14 @@ void bta_av_cleanup(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
   p_scb->skip_sdp = false;
   p_scb->coll_mask = 0;
 
+  p_scb->cfg.psc_mask = AVDT_PSC_TRANS;
+  if (bta_av_cb.features & BTA_AV_FEAT_DELAY_RPT)
+    p_scb->cfg.psc_mask |= (AVDT_PSC_DELAY_RPT);
+#if (AVDT_REPORTING == TRUE)
+  if (bta_av_cb.features & BTA_AV_FEAT_REPORT)
+    p_scb->cfg.psc_mask |= (AVDT_PSC_REPORT);
+#endif
+
   p_scb->skip_sdp = false;
   if (p_scb->deregistring) {
     /* remove stream */
