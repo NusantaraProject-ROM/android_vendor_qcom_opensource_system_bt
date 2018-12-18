@@ -68,6 +68,10 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <log/log.h>
 
 #include "bta/include/bta_ag_api.h"
+#if (SWB_ENABLED == TRUE)
+#include "bta_ag_swb.h"
+#include <hardware/vendor_hf.h>
+#endif
 #include "bta/include/utl.h"
 #include "bta_ag_api.h"
 #include "btif_common.h"
@@ -804,6 +808,14 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       }
       break;
 
+#if SWB_ENABLED
+    case BTA_AG_SWB_EVT:
+      BTIF_TRACE_DEBUG("%s: AG final selected SWB codec is 0x%02x 0=Q0 4=Q1 6=Q3 7=Q4",
+                       __func__, p_data->val.num);
+      btif_handle_vendor_hf_events(event, p_data->val.num, &btif_hf_cb[idx].connected_bda);
+      break;
+#endif
+
     /* Java needs to send OK/ERROR for these commands */
     case BTA_AG_AT_CHLD_EVT:
       HAL_HF_CBACK(bt_hf_callbacks, AtChldCallback,
@@ -861,6 +873,14 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
               (p_data->val.num == BTA_AG_CODEC_CVSD) ? BTHF_WBS_NO : BTHF_WBS_YES,
               &btif_hf_cb[idx].connected_bda);
       break;
+
+#if (SWB_ENABLED == TRUE)
+    case BTA_AG_AT_QCS_EVT:
+      BTIF_TRACE_DEBUG("%s: AG final selected SWB codec is 0x%02x 0=Q0 4=Q1 6=Q3 7=Q4",
+                       __func__, p_data->val.num);
+      btif_handle_vendor_hf_events(event, p_data->val.num, &btif_hf_cb[idx].connected_bda);
+      break;
+#endif
 
     case BTA_AG_AT_BIND_EVT:
       if (p_data->val.hdr.status == BTA_AG_SUCCESS) {

@@ -1407,6 +1407,9 @@ incoming connection
 #define TWS_AG_ENABLED TRUE
 #endif
 
+#ifndef SWB_ENABLED
+#define SWB_ENABLED FALSE
+#endif
 /******************************************************************************
  *
  * AVRCP

@@ -273,6 +273,17 @@ typedef enum {
   BTA_AG_SCO_MSBC_SETTINGS_T1,
 } tBTA_AG_SCO_MSBC_SETTINGS;
 
+#if (SWB_ENABLED == TRUE)
+typedef enum {
+  BTA_AG_SCO_SWB_SETTINGS_Q0 = 0, /* preferred/default when codec is SWB */
+  BTA_AG_SCO_SWB_SETTINGS_Q1 = 4,
+  BTA_AG_SCO_SWB_SETTINGS_Q2 = 6,
+  BTA_AG_SCO_SWB_SETTINGS_Q3 = 7,
+  BTA_AG_SCO_SWB_SETTINGS_UKNOWN = 0xFFFF,
+} tBTA_AG_SCO_SWB_SETTINGS;
+
+#endif
+
 /* type for each service control block */
 struct tBTA_AG_SCB {
   char clip[BTA_AG_AT_MAX_LEN + 1];     /* number string used for CLIP */
@@ -328,6 +339,13 @@ struct tBTA_AG_SCB {
 #endif
   tBTA_AG_SCO_MSBC_SETTINGS
       codec_msbc_settings; /* settings to be used for the impending eSCO */
+
+#if (SWB_ENABLED == TRUE)
+  tBTA_AG_SCO_SWB_SETTINGS
+      codec_swb_settings; /* settings to be used for the SWB eSCO */
+
+  bool is_swb_codec;      /* Flag to determine SWB codec  */
+#endif
 
   tBTA_AG_HF_IND
       peer_hf_indicators[BTA_AG_MAX_NUM_PEER_HF_IND]; /* Peer supported

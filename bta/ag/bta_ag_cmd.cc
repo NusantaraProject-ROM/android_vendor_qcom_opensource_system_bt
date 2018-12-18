@@ -74,6 +74,9 @@
 #include "bta_ag_twsp.h"
 #include "bta_ag_twsp_dev.h"
 #endif
+#if (SWB_ENABLED == TRUE)
+#include "bta_ag_swb.h"
+#endif
 
 /*****************************************************************************
  *  Constants
@@ -154,6 +157,12 @@ const tBTA_AG_AT_CMD bta_ag_hfp_cmd[] = {
      BTA_AG_AT_SET | BTA_AG_AT_READ | BTA_AG_AT_TEST, BTA_AG_AT_STR, 0, 0},
     {"+BIEV", BTA_AG_AT_BIEV_EVT, BTA_AG_AT_SET, BTA_AG_AT_STR, 0, 0},
     {"+BAC", BTA_AG_AT_BAC_EVT, BTA_AG_AT_SET, BTA_AG_AT_STR, 0, 0},
+
+#if (SWB_ENABLED == TRUE)
+    {"+%QAC", BTA_AG_AT_QAC_EVT, BTA_AG_AT_SET, BTA_AG_AT_STR, 0, 0},
+    {"+%QCS", BTA_AG_AT_QCS_EVT, BTA_AG_AT_SET, BTA_AG_AT_INT, 0,
+     BTA_AG_CMD_MAX_VAL},
+#endif
 #if (TWS_AG_ENABLED == TRUE)
     {"%QMQ", BTA_AG_TWSP_AT_QMQ_EVT, BTA_AG_AT_SET, BTA_AG_AT_INT, TWSPLUS_MIN_MIC_QUALITY, TWSPLUS_MAX_MIC_QUALITY},
     {"%QES", BTA_AG_TWSP_AT_QES_EVT, BTA_AG_AT_SET, BTA_AG_AT_INT, TWSPLUS_EB_STATE_UNKNOWN, TWSPLUS_EB_STATE_INEAR},
@@ -214,6 +223,10 @@ const tBTA_AG_RESULT bta_ag_result_tbl[] = {
     {"+CME ERROR: ", BTA_AG_LOCAL_RES_CMEE, BTA_AG_RES_FMT_INT},
     {"+BCS: ", BTA_AG_LOCAL_RES_BCS, BTA_AG_RES_FMT_INT},
     {"+BIND: ", BTA_AG_BIND_RES, BTA_AG_RES_FMT_STR},
+#if (SWB_ENABLED == TRUE)
+    {"+%QAC: ", BTA_AG_LOCAL_RES_QAC, BTA_AG_RES_FMT_STR},
+    {"+%QCS: ", BTA_AG_LOCAL_RES_QCS, BTA_AG_RES_FMT_INT},
+#endif
 #if (TWS_AG_ENABLED == TRUE)
     {"%QMQ: ", BTA_AG_TWS_QMQ_RES, BTA_AG_RES_FMT_NONE},
     {"%QES: ", BTA_AG_TWS_QES_RES, BTA_AG_RES_FMT_NONE},
@@ -1385,13 +1398,19 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
         p_scb->peer_codecs = bta_ag_parse_bac(p_scb, p_arg, p_end);
         p_scb->codec_updated = true;
 
-        if (p_scb->peer_codecs & BTA_AG_CODEC_MSBC) {
-          p_scb->sco_codec = UUID_CODEC_MSBC;
-          APPL_TRACE_DEBUG("Received AT+BAC, updating sco codec to MSBC");
-        } else {
-          p_scb->sco_codec = UUID_CODEC_CVSD;
-          APPL_TRACE_DEBUG("Received AT+BAC, updating sco codec to CVSD");
+#if (SWB_ENABLED == TRUE)
+        if (p_scb->is_swb_codec == false) {
+#endif
+          if (p_scb->peer_codecs & BTA_AG_CODEC_MSBC) {
+            p_scb->sco_codec = UUID_CODEC_MSBC;
+            APPL_TRACE_DEBUG("Received AT+BAC, updating sco codec to MSBC");
+          } else {
+            p_scb->sco_codec = UUID_CODEC_CVSD;
+            APPL_TRACE_DEBUG("Received AT+BAC, updating sco codec to CVSD");
+          }
+#if (SWB_ENABLED == TRUE)
         }
+#endif
         /* The above logic sets the stack preferred codec based on local and
         peer codec
         capabilities. This can be overridden by the application depending on its
@@ -1459,6 +1478,17 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
       bta_ag_sco_open(p_scb, NULL);
       }
       break;
+#if (SWB_ENABLED == TRUE)
+    case BTA_AG_AT_QAC_EVT:
+        p_scb->peer_codecs |= bta_ag_parse_qac(p_scb, p_arg);
+        bta_ag_swb_handle_vs_at_events(p_scb, cmd, int_arg, val);
+        bta_ag_send_ok(p_scb);
+      break;
+    case BTA_AG_AT_QCS_EVT:
+        bta_ag_send_ok(p_scb);
+        bta_ag_swb_handle_vs_at_events(p_scb, cmd, int_arg, val);
+      break;
+#endif
 #if (TWS_AG_ENABLED == TRUE)
     case BTA_AG_TWSP_AT_QMQ_EVT:
     case BTA_AG_TWSP_AT_QES_EVT:
