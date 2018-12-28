@@ -945,7 +945,9 @@ class HeadsetInterface : Interface {
   bt_status_t PhoneStateChange(int num_active, int num_held,
                                bthf_call_state_t call_setup_state,
                                const char* number,
-                               bthf_call_addrtype_t type, RawAddress* bd_addr) override;
+                               bthf_call_addrtype_t type,
+                               const char* name,
+                               RawAddress* bd_addr) override;
 
   void Cleanup() override;
   bt_status_t SetScoAllowed(bool value) override;
@@ -1591,7 +1593,8 @@ bt_status_t HeadsetInterface::ClccResponse(int index, bthf_call_direction_t dir,
 
 bt_status_t HeadsetInterface::PhoneStateChange(
     int num_active, int num_held, bthf_call_state_t call_setup_state,
-    const char* number, bthf_call_addrtype_t type, RawAddress* bd_addr) {
+    const char* number, bthf_call_addrtype_t type, const char* name,
+    RawAddress* bd_addr) {
   CHECK_BTHF_INIT();
   if (!bd_addr) {
     BTIF_TRACE_WARNING("%s: bd_addr is null", __func__);
