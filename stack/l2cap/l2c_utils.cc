@@ -1603,9 +1603,8 @@ void l2cu_release_ccb(tL2C_CCB* p_ccb) {
   if(p_lcb)
     btm_sec_clr_temp_auth_service(p_lcb->remote_bd_addr);
 
-  /* Free the timer */
-  alarm_free(p_ccb->l2c_ccb_timer);
-  p_ccb->l2c_ccb_timer = NULL;
+  /* Cancel the timer */
+  alarm_cancel(p_ccb->l2c_ccb_timer);
 
   fixed_queue_free(p_ccb->xmit_hold_q, osi_free);
   p_ccb->xmit_hold_q = NULL;

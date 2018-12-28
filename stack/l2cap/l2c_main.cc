@@ -899,8 +899,10 @@ void l2c_init(void) {
   }
 
   /* Put all the channel control blocks on the free queue */
+  /* Start new timers for all ccbs */
   for (xx = 0; xx < MAX_L2CAP_CHANNELS - 1; xx++) {
     l2cb.ccb_pool[xx].p_next_ccb = &l2cb.ccb_pool[xx + 1];
+    l2cb.ccb_pool[xx].l2c_ccb_timer = alarm_new("l2c.l2c_ccb_timer");
   }
 
 #if (L2CAP_NON_FLUSHABLE_PB_INCLUDED == TRUE)
@@ -955,6 +957,11 @@ void l2c_free(void) {
     p_lcb->l2c_lcb_timer = NULL;
     alarm_free(p_lcb->info_resp_timer);
     p_lcb->info_resp_timer = NULL;
+  }
+  /* Free all ccb timers */
+  for (xx = 0; xx < MAX_L2CAP_CHANNELS - 1; xx++) {
+    alarm_free(l2cb.ccb_pool[xx].l2c_ccb_timer);
+    l2cb.ccb_pool[xx].l2c_ccb_timer = NULL;
   }
 
   list_free(l2cb.rcv_pending_q);
