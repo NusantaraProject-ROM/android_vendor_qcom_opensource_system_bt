@@ -79,7 +79,6 @@
 // for the initialization.
 bool mA2dp_offload_status = false;
 bool mA2dp_offload_scrambling_support = false;
-bool mA2dp_offload_44p1kFreq_support = false;
 bool offload_capability = false;
 bool sbc_offload = false;
 bool aac_offload = false;
@@ -372,7 +371,7 @@ bool A2dpCodecConfig::setCodecUserConfig(
 
 bool A2dpCodecConfig::codecConfigIsValid(
     const btav_a2dp_codec_config_t& codec_config) {
-  return
+  return 
 #if (TWS_ENABLED == TRUE)
         (codec_config.codec_type < BTAV_VENDOR_A2DP_CODEC_INDEX_MAX) &&
 #else
@@ -1492,7 +1491,6 @@ void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap, bool scrambli
     };
   }
   mA2dp_offload_scrambling_support = scrambling_support;
-  mA2dp_offload_44p1kFreq_support = is44p1kFreq_support;
 }
 
 bool A2DP_GetOffloadStatus() {
@@ -1501,10 +1499,6 @@ bool A2DP_GetOffloadStatus() {
 
 bool A2DP_IsScramblingSupported() {
   return mA2dp_offload_scrambling_support;
-}
-
-bool A2DP_Is44p1kFreqSupported() {
-  return mA2dp_offload_44p1kFreq_support;
 }
 
 bool A2DP_IsCodecEnabledInOffload(btav_a2dp_codec_index_t codec_index) {

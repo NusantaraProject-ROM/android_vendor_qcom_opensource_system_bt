@@ -1722,25 +1722,6 @@ bool bta_av_co_is_scrambling_enabled() {
   return true;
 }
 
-bool bta_av_co_is_44p1kFreq_enabled() {
-  uint8_t add_on_features_size = 0;
-  const bt_device_features_t * add_on_features_list = NULL;
-
-  add_on_features_list = controller_get_interface()->get_add_on_features(&add_on_features_size);
-  if (add_on_features_size == 0) {
-    BTIF_TRACE_WARNING(
-        "BT controller doesn't add on features");
-    return false;
-  }
-
-  if (add_on_features_list != NULL) {
-    if (HCI_SPLIT_A2DP_44P1KHZ_SAMPLE_FREQ(add_on_features_list->as_array)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 void bta_av_co_init(
     const std::vector<btav_a2dp_codec_config_t>& codec_priorities) {
   APPL_TRACE_DEBUG("%s", __func__);
@@ -1761,9 +1742,8 @@ void bta_av_co_init(
 /* SPLITA2DP */
   bool a2dp_offload = btif_av_is_split_a2dp_enabled();
   bool isScramblingSupported = bta_av_co_is_scrambling_enabled();
-  bool is44p1kFreqSupported = bta_av_co_is_44p1kFreq_enabled();
   osi_property_get("persist.vendor.btstack.a2dp_offload_cap", value, "false");
-  A2DP_SetOffloadStatus(a2dp_offload, value, isScramblingSupported, is44p1kFreqSupported);
+  A2DP_SetOffloadStatus(a2dp_offload, value, isScramblingSupported);
 /* SPLITA2DP */
   bool isMcastSupported = btif_av_is_multicast_supported();
   bool isShoSupported = (btif_max_av_clients > 1) ? true : false;
