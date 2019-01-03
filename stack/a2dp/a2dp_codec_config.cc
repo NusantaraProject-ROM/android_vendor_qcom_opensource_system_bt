@@ -70,8 +70,6 @@
 #include "osi/include/log.h"
 #include "a2dp_vendor_aptx_tws.h"
 #include "bt_vendor_av.h"
-#include "device/include/controller.h"
-#include "btif_av_co.h"
 /* The Media Type offset within the codec info byte array */
 #define A2DP_MEDIA_TYPE_OFFSET 1
 
@@ -1449,12 +1447,10 @@ bool A2DP_InitCodecConfig(btav_a2dp_codec_index_t codec_index,
   return false;
 }
 
-void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap, bool scrambling_support, bool is44p1kFreq_support) {
+void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap, bool scrambling_support) {
   //char value[PROPERTY_VALUE_MAX] = {'\0'};
   char *tok = NULL;
   char *tmp_token = NULL;
-  uint8_t add_on_features_size = 0;
-  bt_device_features_t * add_on_features_list = NULL;
   LOG_INFO(LOG_TAG,"A2dp_SetOffloadStatus:status = %d",
                      offload_status);
   mA2dp_offload_status = offload_status;
@@ -1462,41 +1458,28 @@ void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap, bool scrambli
   if (strcmp(offload_cap,"false") == 0) offload_capability = false;
 
   if (mA2dp_offload_status) {
-    add_on_features_list = (bt_device_features_t *)
-        controller_get_interface()->get_add_on_features(&add_on_features_size);
-    if(add_on_features_size == 0) {
-      BTIF_TRACE_WARNING(
-          "BT controller doesn't have add on features");
-    }
     tok = strtok_r((char*)offload_cap, "-", &tmp_token);
     while (tok != NULL)
     {
-      if (strcmp(tok,"sbc") == 0 && ((add_on_features_size == 0) ||
-          HCI_SPLIT_A2DP_SOURCE_SBC_SUPPORTED(add_on_features_list->as_array))) {
+      if (strcmp(tok,"sbc") == 0) {
         LOG_INFO(LOG_TAG,"%s: SBC offload supported",__func__);
         sbc_offload = true;
-      } else if (strcmp(tok,"aptx") == 0 && ((add_on_features_size == 0) ||
-          HCI_SPLIT_A2DP_SOURCE_APTX_SUPPORTED(add_on_features_list->as_array))) {
+      } else if (strcmp(tok,"aptx") == 0) {
         LOG_INFO(LOG_TAG,"%s: aptX offload supported",__func__);
         aptx_offload = true;
-      } else if (strcmp(tok,"aac") == 0 && ((add_on_features_size == 0) ||
-          HCI_SPLIT_A2DP_SOURCE_AAC_SUPPORTED(add_on_features_list->as_array))) {
+      } else if (strcmp(tok,"aac") == 0) {
         LOG_INFO(LOG_TAG,"%s: AAC offload supported",__func__);
         aac_offload = TRUE;
-      } else if (strcmp(tok,"aptxhd") == 0 && ((add_on_features_size == 0) ||
-          HCI_SPLIT_A2DP_SOURCE_APTX_HD_SUPPORTED(add_on_features_list->as_array))) {
+      } else if (strcmp(tok,"aptxhd") == 0) {
         LOG_INFO(LOG_TAG,"%s: APTXHD offload supported",__func__);
         aptxhd_offload = TRUE;
-      } else if (strcmp(tok,"aptxadaptive") == 0 && ((add_on_features_size == 0) ||
-          HCI_SPLIT_A2DP_SOURCE_APTX__ADAPTIVE_SUPPORTED(add_on_features_list->as_array))) {
+      } else if (strcmp(tok,"aptxadaptive") == 0) {
         LOG_INFO(LOG_TAG,"%s: APTX Adaptive offload supported",__func__);
         aptx_adaptive_offload = TRUE;
-      } else if (strcmp(tok,"ldac") == 0 && ((add_on_features_size == 0) ||
-          HCI_SPLIT_A2DP_SOURCE_LDAC_SUPPORTED(add_on_features_list->as_array))) {
+      } else if (strcmp(tok,"ldac") == 0) {
         LOG_INFO(LOG_TAG,"%s: ldac offload supported",__func__);
         ldac_offload = TRUE;
-      } else if (strcmp(tok,"aptxtws") == 0 && ((add_on_features_size == 0) ||
-          HCI_SPLIT_A2DP_SOURCE_APTX__TWS_PLUS_SUPPORTED(add_on_features_list->as_array))) {
+      } else if (strcmp(tok,"aptxtws") == 0) {
 #if (TWS_ENABLED == TRUE)
         LOG_INFO(LOG_TAG,"%s: APTXTWS offload supported",__func__);
         aptxtws_offload = TRUE;
