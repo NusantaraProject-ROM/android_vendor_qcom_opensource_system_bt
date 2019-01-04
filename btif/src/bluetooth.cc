@@ -74,8 +74,6 @@
 #include "osi/include/wakelock.h"
 #include "stack_manager.h"
 
-/* Test interface includes */
-#include "mca_api.h"
 
 /*******************************************************************************
  *  Static variables
@@ -119,7 +117,6 @@ extern wipower_interface_t *get_wipower_interface();
 #endif
 
 /* List all test interface here */
-extern btmcap_test_interface_t* stack_mcap_get_interface();
 /* vendor  */
 extern btvendor_interface_t *btif_vendor_get_interface();
 /* vendor socket*/
