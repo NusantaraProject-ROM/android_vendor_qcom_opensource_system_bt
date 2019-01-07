@@ -77,11 +77,13 @@
 #include "bt_vendor_av.h"
 #include "btif/include/btif_storage.h"
 #include <hardware/bt_gatt.h>
+#include "btif/include/btif_a2dp_source.h"
 
 #define MAX_2MBPS_AVDTP_MTU 663
 extern const btgatt_interface_t* btif_gatt_get_interface();
 
 bool isDevUiReq = false;
+btav_a2dp_codec_config_t saved_codec_user_config;
 
 /*****************************************************************************
  **  Constants
@@ -144,6 +146,7 @@ typedef struct {
   bool rcfg_pend_getcap;                 /* if reconfig is pending for get_cap */
   bool isIncoming;                       /* to know whether it is incmoming connection */
   btav_a2dp_codec_index_t codecIndextoCompare; /* save codec index when incoming setconfig done */
+  bool getcap_pending;   /* Get_caps for all remote SEPS done or not*/
 } tBTA_AV_CO_PEER;
 
 typedef struct {
@@ -388,6 +391,7 @@ void bta_av_co_audio_disc_res(tBTA_AV_HNDL hndl, uint8_t num_seps,
   p_peer->num_rx_srcs = 0;
   p_peer->num_sup_sinks = 0;
   p_peer->rcfg_pend_getcap = false;
+  p_peer->getcap_pending = false;
   if (uuid_local == UUID_SERVCLASS_AUDIO_SINK)
     p_peer->uuid_to_connect = UUID_SERVCLASS_AUDIO_SOURCE;
   else if (uuid_local == UUID_SERVCLASS_AUDIO_SOURCE)
@@ -598,11 +602,19 @@ tA2DP_STATUS bta_av_co_audio_getconfig(tBTA_AV_HNDL hndl, uint8_t* p_codec_info,
                      *p_num_protect, bta_av_co_cp_scmst);
       p_peer->rcfg_done = true;
     }
+    if (p_peer->getcap_pending) {
+      APPL_TRACE_DEBUG("%s: send event BTIF_MEDIA_SOURCE_ENCODER_USER_CONFIG_UPDATE to update",
+                          __func__);
+      btif_a2dp_source_encoder_user_config_update_req(saved_codec_user_config,
+                                                           p_peer->addr.address);
+      memset(&saved_codec_user_config, 0, sizeof(btav_a2dp_codec_config_t));
+    }
   } else {
     *p_sep_info_idx = p_sink->sep_info_idx;
     memcpy(p_codec_info, p_peer->codec_config, AVDT_CODEC_SIZE);
   }
   p_peer->rcfg_pend_getcap = false;
+  p_peer->getcap_pending = false;
 
   return A2DP_SUCCESS;
 }
@@ -1445,6 +1457,17 @@ bool bta_av_co_set_codec_user_config(
   if (p_sink == nullptr) {
     APPL_TRACE_ERROR("%s: cannot find peer SEP to configure for codec type %d",
                      __func__, codec_user_config.codec_type);
+    //check whether all remote supported SEPs, Get_caps done or not.
+    //So that we need to decide whether we need to trigger this set_codec_user_config
+    // path, by posting BTIF_AV_SOURCE_CONFIG_UPDATED_EVT when DUT done all remote
+    //support SEP SNK capabilities.
+    if ((p_peer->num_rx_sinks != p_peer->num_sinks) &&
+        (p_peer->num_sup_sinks != BTA_AV_CO_NUM_ELEMENTS(p_peer->sinks))) {
+      APPL_TRACE_WARNING("%s: All peer's capabilities have not been retrieved",
+                         __func__);
+      p_peer->getcap_pending = true;
+      saved_codec_user_config = codec_user_config;
+    }
     success = false;
     goto done;
   }
