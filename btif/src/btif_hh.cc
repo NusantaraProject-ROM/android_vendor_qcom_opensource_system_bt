@@ -44,6 +44,8 @@
 #include "l2c_api.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
+#include "osi/include/properties.h"
+
 
 #define BTIF_HH_APP_ID_MI 0x01
 #define BTIF_HH_APP_ID_KB 0x02
@@ -1002,7 +1004,13 @@ static void btif_hh_upstreams_evt(uint16_t event, char* p_param) {
                                 p_data->h_d_info.dscp_info->descriptor.dsc_list)) {
             BTIF_TRACE_ERROR("BTA_HH_GET_DSCP_EVT: Unable to write decriptor, "
                 "disconnecting the device");
-            btif_hh_disconnect(&p_dev->bd_addr);
+            char hogp_pts_support[PROPERTY_VALUE_MAX] = {0};
+            osi_property_get("vendor.bt.pts.certification", hogp_pts_support, "false");
+            if (strcmp(hogp_pts_support, "true")) {
+              /* Skipping the disconnect for PTS certification.
+               * Because PTS is sending dscp_len as '0'.*/
+              btif_hh_disconnect(&p_dev->bd_addr);
+            }
             return;
         }
         if (btif_hh_add_added_dev(p_dev->bd_addr, p_dev->attr_mask)) {
