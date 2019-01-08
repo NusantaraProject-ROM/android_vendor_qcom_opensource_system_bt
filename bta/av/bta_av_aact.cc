@@ -1178,6 +1178,10 @@ void bta_av_do_disc_a2dp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
             if (!interop_match_addr_or_name(INTEROP_DISABLE_ROLE_SWITCH,
                                           &p_scbi->peer_addr)) {
               APPL_TRACE_DEBUG("%s:RS disabled, returning",__func__);
+#if (TWS_ENABLED == TRUE)
+              if (p_scbi->tws_device)
+                AVDT_UpdateServiceBusyState(false);
+#endif
               return;
             }else {
               APPL_TRACE_DEBUG("%s: Other connected remote is blacklisted for RS",__func__);
