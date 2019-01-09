@@ -168,8 +168,10 @@ static bt_status_t wakelock_release_callout(void) {
 }
 
 static bt_status_t wakelock_release_native(void) {
-  if (wake_unlock_fd == INVALID_FD) {
-    LOG_ERROR(LOG_TAG, "%s lock not released, invalid fd", __func__);
+  if ((wake_unlock_fd == INVALID_FD) ||
+      (locked_id_len == -1)) {
+    LOG_ERROR(LOG_TAG, "%s lock not released, invalid fd or invalid locked_id_len",
+              __func__);
     return BT_STATUS_PARM_INVALID;
   }
 
