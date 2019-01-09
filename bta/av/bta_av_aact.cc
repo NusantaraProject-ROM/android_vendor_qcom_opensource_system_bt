@@ -81,6 +81,7 @@
 #include "btif/include/btif_a2dp_source.h"
 #include "btif/include/btif_av.h"
 #include "btif/include/btif_hf.h"
+#include "btif/include/btif_config.h"
 #if (BTA_AR_INCLUDED == TRUE)
 #include "bta_ar_api.h"
 #endif
@@ -1064,6 +1065,7 @@ void bta_av_delay_rpt(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
  ******************************************************************************/
 void bta_av_do_disc_a2dp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   bool ok_continue = false;
+  uint16_t avdtp_version = 0;
   tA2DP_SDP_DB_PARAMS db_params;
   uint16_t attr_list[] = {ATTR_ID_SERVICE_CLASS_ID_LIST,
                           ATTR_ID_PROTOCOL_DESC_LIST,
@@ -1175,9 +1177,16 @@ void bta_av_do_disc_a2dp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
 
   bta_sys_conn_open(BTA_ID_AV, p_scb->hdi, p_scb->peer_addr);
 
-  if (p_scb->skip_sdp == true && (a2dp_get_avdt_sdp_ver() < AVDT_VERSION_SYNC)) {
+  if (p_scb->skip_sdp == true && (btif_config_get_uint16(p_scb->peer_addr.ToString().c_str(), AVDTP_VERSION_CONFIG_KEY,
+           (uint16_t*)&avdtp_version) || (a2dp_get_avdt_sdp_ver() < AVDT_VERSION_SYNC))) {
     tA2DP_Service a2dp_ser;
-    a2dp_ser.avdt_version = AVDT_VERSION;
+    APPL_TRACE_DEBUG("%s: Cached peer avdtp version: 0x%x",__func__, avdtp_version);
+    APPL_TRACE_DEBUG("%s: a2dp_get_avdt_sdp_ver(): 0x%x",__func__, a2dp_get_avdt_sdp_ver());
+    if (a2dp_get_avdt_sdp_ver() < AVDT_VERSION_SYNC) {
+      a2dp_ser.avdt_version = AVDT_VERSION;
+    } else {
+      a2dp_ser.avdt_version = avdtp_version;
+    }
     p_scb->skip_sdp = false;
     p_scb->uuid_int = p_data->api_open.uuid;
     /* only one A2DP find service is active at a time */
