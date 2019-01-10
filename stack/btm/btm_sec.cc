@@ -5149,6 +5149,7 @@ void btm_sec_pin_code_request(const RawAddress& p_bda) {
         "Rec:%x!",
         p_cb->pairing_disabled, p_cb->api.p_pin_callback, p_dev_rec);
 
+    btm_sec_change_pairing_state(BTM_PAIR_STATE_WAIT_AUTH_COMPLETE);
     btsnd_hcic_pin_code_neg_reply(p_bda);
   }
   /* Notify upper layer of PIN request and start expiration timer */
