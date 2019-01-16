@@ -3824,8 +3824,21 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
             break;
           }
 #if (BTA_AV_CO_CP_SCMS_T == TRUE)
-          param[0] = VS_QHCI_A2DP_WRITE_SCMS_T_CP;
-          param[1] = offload_start.cp_flag;
+         if (offload_start.cp_active){
+           param[0] = VS_QHCI_A2DP_WRITE_SCMS_T_CP;
+           param[1] = offload_start.cp_flag;
+         }else{
+            if (last_sent_vsc_cmd == VS_QHCI_START_A2DP_MEDIA) {
+                   APPL_TRACE_DEBUG("%s: START VSC already exchanged.", __func__);
+                   status = 0;
+                   (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
+                   return;
+               }
+               last_sent_vsc_cmd = VS_QHCI_START_A2DP_MEDIA;
+               param[0] = VS_QHCI_START_A2DP_MEDIA;
+               param[1] = 0;
+             }
+
 #else
           if (last_sent_vsc_cmd == VS_QHCI_START_A2DP_MEDIA) {
             APPL_TRACE_DEBUG("%s: START VSC already exchanged.", __func__);
@@ -3846,15 +3859,6 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
           uint8_t param[2];
           APPL_TRACE_DEBUG("VS_QHCI_A2DP_WRITE_SCMS_T_CP successful");
           APPL_TRACE_DEBUG("%s: Last cached VSC command: 0x0%x", __func__, last_sent_vsc_cmd);
-          if (!btif_a2dp_src_vsc.vs_configs_exchanged &&
-              btif_a2dp_src_vsc.tx_start_initiated)
-            btif_a2dp_src_vsc.vs_configs_exchanged = TRUE;
-          else {
-            APPL_TRACE_ERROR("Dont send start, stream suspended update fail to Audio");
-            status = 1;//FAIL
-            (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
-            break;
-          }
           if (last_sent_vsc_cmd == VS_QHCI_START_A2DP_MEDIA) {
             APPL_TRACE_DEBUG("%s: START VSC already exchanged.", __func__);
             status = 0;
