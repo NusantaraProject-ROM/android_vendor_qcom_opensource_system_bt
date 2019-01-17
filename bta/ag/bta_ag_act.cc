@@ -67,6 +67,8 @@
 #include "osi/include/osi.h"
 #include "port_api.h"
 #include "utl.h"
+#include "btif/include/btif_config.h"
+#include "device/include/interop_config.h"
 #include <cutils/properties.h>
 #if (TWS_AG_ENABLED == TRUE)
 #include "bta_ag_twsp_dev.h"
@@ -605,6 +607,7 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
   tBTA_AG_SCB *ag_scb;
   RawAddress dev_addr;
   int status;
+  uint16_t hfp_version = 0;
 
   /* set role */
   p_scb->role = BTA_AG_ACP;
@@ -660,10 +663,8 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
 
   /* determine connected service from port handle */
   for (i = 0; i < BTA_AG_NUM_IDX; i++) {
-    APPL_TRACE_DEBUG(
-        "bta_ag_rfc_acp_open: i = %d serv_handle = %d port_handle = %d", i,
-        p_scb->serv_handle[i], p_data->rfc.port_handle);
-
+    APPL_TRACE_DEBUG("%s: i = %d serv_handle = %d port_handle = %d", __func__, i,
+                      p_scb->serv_handle[i], p_data->rfc.port_handle);
     if (p_scb->serv_handle[i] == p_data->rfc.port_handle) {
       p_scb->conn_service = i;
       p_scb->conn_handle = p_data->rfc.port_handle;
@@ -671,15 +672,35 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
     }
   }
 
-  APPL_TRACE_IMP("bta_ag_rfc_acp_open: conn_service = %d conn_handle = %d",
+  APPL_TRACE_IMP("%s: conn_service = %d conn_handle = %d", __func__,
                    p_scb->conn_service, p_scb->conn_handle);
 
   /* close any unopened server */
   bta_ag_close_servers(
       p_scb, (p_scb->reg_services & ~bta_ag_svc_mask[p_scb->conn_service]));
 
-  /* do service discovery to get features */
-  bta_ag_do_disc(p_scb, bta_ag_svc_mask[p_scb->conn_service]);
+  bool get_version = btif_config_get_uint16(
+                     p_scb->peer_addr.ToString().c_str(), HFP_VERSION_CONFIG_KEY,
+                     &hfp_version);
+  if (p_scb->conn_service == BTA_AG_HFP && get_version) {
+      p_scb->peer_version = hfp_version;
+      APPL_TRACE_DEBUG(
+       "%s: Avoid SDP for HFP device and fetch the peer_version: %04x "
+        "from config file", __func__, p_scb->peer_version);
+      /* Remote supports 1.7, store it in the file */
+      if (p_scb->peer_version == HFP_VERSION_1_7) {
+         APPL_TRACE_DEBUG("%s: version is 1.7, store in a file", __func__);
+         interop_database_add_addr(INTEROP_HFP_1_7_BLACKLIST,
+                          &p_scb->peer_addr, 3);
+      }
+  } else {
+      //do service discovery to get features for HSP and also for HFP
+      //if the peer version can't be fetched from the config file
+      APPL_TRACE_DEBUG(
+      "%s: Do SDP for HSP/version couldn't be fetched from the config file",
+       __func__);
+      bta_ag_do_disc(p_scb, bta_ag_svc_mask[p_scb->conn_service]);
+  }
 
   /* continue with common open processing */
   bta_ag_rfc_open(p_scb, p_data);
