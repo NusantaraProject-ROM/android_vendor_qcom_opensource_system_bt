@@ -49,6 +49,7 @@
 #include "sdp_api.h"
 #include "bta_sdp_api.h"
 #include "stack/gatt/connection_manager.h"
+#include "stack/include/gatt_api.h"
 #include "utl.h"
 #include "device/include/interop_config.h"
 #include "device/include/profile_config.h"
@@ -862,14 +863,15 @@ void bta_dm_remove_device(tBTA_DM_MSG* p_data) {
     /* Take the link down first, and mark the device for removal when
      * disconnected */
     for (int i = 0; i < bta_dm_cb.device_list.count; i++) {
-      if (bta_dm_cb.device_list.peer_device[i].peer_bdaddr == p_dev->bd_addr) {
-        uint8_t transport = BT_TRANSPORT_BR_EDR;
+      auto& peer_device = bta_dm_cb.device_list.peer_device[i];
+      if (peer_device.peer_bdaddr == p_dev->bd_addr) {
+        peer_device.conn_state = BTA_DM_UNPAIRING;
 
-        transport = bta_dm_cb.device_list.peer_device[i].transport;
-        bta_dm_cb.device_list.peer_device[i].conn_state = BTA_DM_UNPAIRING;
-        btm_remove_acl(p_dev->bd_addr, transport);
-        APPL_TRACE_DEBUG("%s:transport = %d", __func__,
-                         bta_dm_cb.device_list.peer_device[i].transport);
+        /* Make sure device is not in white list before we disconnect */
+        GATT_CancelConnect(0, p_dev->bd_addr, false);
+
+        btm_remove_acl(p_dev->bd_addr, peer_device.transport);
+        APPL_TRACE_DEBUG("%s: transport: %d", __func__, peer_device.transport);
 
         /* save the other transport to check if device is connected on
          * other_transport */
@@ -895,14 +897,14 @@ void bta_dm_remove_device(tBTA_DM_MSG* p_data) {
     /* Take the link down first, and mark the device for removal when
      * disconnected */
     for (int i = 0; i < bta_dm_cb.device_list.count; i++) {
-      if ( bta_dm_cb.device_list.peer_device[i].peer_bdaddr == other_address &&
-            ((other_transport && (other_transport == bta_dm_cb.device_list.peer_device[i].transport)) ||
-            !other_transport)) {
-        bta_dm_cb.device_list.peer_device[i].conn_state = BTA_DM_UNPAIRING;
-        APPL_TRACE_DEBUG("%s:transport = %d ,other_transport = %d", __func__,
-                       bta_dm_cb.device_list.peer_device[i].transport, other_transport);
-        btm_remove_acl(other_address,
-                      bta_dm_cb.device_list.peer_device[i].transport);
+      auto& peer_device = bta_dm_cb.device_list.peer_device[i];
+      if (peer_device.peer_bdaddr == other_address) {
+        peer_device.conn_state = BTA_DM_UNPAIRING;
+
+        /* Make sure device is not in white list before we disconnect */
+        GATT_CancelConnect(0, p_dev->bd_addr, false);
+
+        btm_remove_acl(other_address, peer_device.transport);
         break;
       }
     }
@@ -991,6 +993,10 @@ void bta_dm_close_acl(tBTA_DM_MSG* p_data) {
     } else {
       APPL_TRACE_ERROR("unknown device, remove ACL failed");
     }
+
+    /* Make sure device is not in white list before we disconnect */
+    GATT_CancelConnect(0, p_remove_acl->bd_addr, false);
+
     /* Disconnect the ACL link */
     btm_remove_acl(p_remove_acl->bd_addr, p_remove_acl->transport);
   }
