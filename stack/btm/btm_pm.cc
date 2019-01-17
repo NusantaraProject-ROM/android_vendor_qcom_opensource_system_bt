@@ -203,7 +203,7 @@ tBTM_STATUS BTM_SetPowerMode(uint8_t pm_id, const RawAddress& remote_bda,
 #endif  // BTM_PM_DEBUG
     /* Make sure mask is set to BTM_PM_REG_SET */
     btm_cb.pm_reg_db[temp_pm_id].mask |= BTM_PM_REG_SET;
-    *(&p_cb->req_mode[temp_pm_id]) = *((tBTM_PM_PWR_MD*)p_mode);
+    memcpy((&p_cb->req_mode[temp_pm_id]), p_mode, sizeof(tBTM_PM_PWR_MD));
     p_cb->chg_ind = true;
   }
 
@@ -433,7 +433,7 @@ static tBTM_PM_PWR_MD* btm_pm_compare_modes(tBTM_PM_PWR_MD* p_md1,
   uint8_t res;
 
   if (p_md1 == NULL) {
-    *p_res = *p_md2;
+    memcpy(p_res, p_md2, sizeof(tBTM_PM_PWR_MD));
     p_res->mode &= ~BTM_PM_MD_FORCE;
 
     return p_md2;
@@ -445,13 +445,13 @@ static tBTM_PM_PWR_MD* btm_pm_compare_modes(tBTM_PM_PWR_MD* p_md1,
 
   /* check if force bit is involved */
   if (p_md1->mode & BTM_PM_MD_FORCE) {
-    *p_res = *p_md1;
+    memcpy(p_res, p_md1, sizeof(tBTM_PM_PWR_MD));
     p_res->mode &= ~BTM_PM_MD_FORCE;
     return p_res;
   }
 
   if (p_md2->mode & BTM_PM_MD_FORCE) {
-    *p_res = *p_md2;
+    memcpy(p_res, p_md2, sizeof(tBTM_PM_PWR_MD));
     p_res->mode &= ~BTM_PM_MD_FORCE;
     return p_res;
   }
@@ -460,11 +460,11 @@ static tBTM_PM_PWR_MD* btm_pm_compare_modes(tBTM_PM_PWR_MD* p_md1,
   res = btm_pm_md_comp_matrix[res];
   switch (res) {
     case BTM_PM_GET_MD1:
-      *p_res = *p_md1;
+      memcpy(p_res, p_md1, sizeof(tBTM_PM_PWR_MD));
       return p_md1;
 
     case BTM_PM_GET_MD2:
-      *p_res = *p_md2;
+      memcpy(p_res, p_md2, sizeof(tBTM_PM_PWR_MD));
       return p_md2;
 
     case BTM_PM_GET_COMP:
@@ -506,7 +506,7 @@ static tBTM_PM_MODE btm_pm_get_set_mode(uint8_t pm_id, tBTM_PM_MCB* p_cb,
   tBTM_PM_PWR_MD* p_md = NULL;
 
   if (p_mode != NULL && p_mode->mode & BTM_PM_MD_FORCE) {
-    *p_res = *p_mode;
+    memcpy(p_res, p_mode, sizeof(tBTM_PM_PWR_MD));
     p_res->mode &= ~BTM_PM_MD_FORCE;
     return p_res->mode;
   }
@@ -535,7 +535,7 @@ static tBTM_PM_MODE btm_pm_get_set_mode(uint8_t pm_id, tBTM_PM_MCB* p_cb,
    */
   if (p_md == NULL) {
     if (p_mode)
-      *p_res = *((tBTM_PM_PWR_MD*)p_mode);
+      memcpy(p_res , p_mode, sizeof(tBTM_PM_PWR_MD));
     else /* p_mode is NULL when btm_pm_snd_md_req is called from
             btm_pm_proc_mode_change */
       return BTM_PM_MD_ACTIVE;
@@ -563,7 +563,7 @@ static tBTM_STATUS btm_pm_snd_md_req(uint8_t pm_id, int link_ind,
   tBTM_PM_MODE mode;
   tBTM_PM_MCB* p_cb = &btm_cb.pm_mode_db[link_ind];
   bool chg_ind = false;
-
+  memset(&md_res, 0, sizeof(tBTM_PM_PWR_MD));
   mode = btm_pm_get_set_mode(pm_id, p_cb, p_mode, &md_res);
   md_res.mode = mode;
 

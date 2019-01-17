@@ -1376,7 +1376,9 @@ static void btu_hcif_mode_change_evt(uint8_t* p) {
   STREAM_TO_UINT16(interval, p);
   btm_pm_proc_mode_change(status, handle, current_mode, interval);
 #if (BTM_SCO_WAKE_PARKED_LINK == TRUE)
+  if(current_mode == BTM_PM_MD_ACTIVE) {
   btm_sco_chk_pend_unpark(status, handle);
+  }
 #endif
 
 #if (HID_DEV_INCLUDED == TRUE && HID_DEV_PM_INCLUDED == TRUE)
