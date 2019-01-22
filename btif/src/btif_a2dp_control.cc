@@ -266,7 +266,9 @@ static void btif_a2dp_recv_ctrl_data(void) {
         break;
 
       case A2DP_CTRL_GET_PRESENTATION_POSITION: {
-        btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+        local_ack = A2DP_CTRL_ACK_SUCCESS;
+        UIPC_Send(UIPC_CH_ID_AV_CTRL, 0, &local_ack, sizeof(local_ack));
+
         int idx = btif_av_get_current_playing_dev_idx();
 
         APPL_TRACE_DEBUG("Delay Rpt: total bytes read = %d", delay_report_stats.total_bytes_read);
