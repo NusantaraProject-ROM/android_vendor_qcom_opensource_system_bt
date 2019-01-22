@@ -1092,6 +1092,12 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
   for (const auto& iter : p_peer->codecs->orderedSourceCodecs()) {
     APPL_TRACE_DEBUG("%s: updating selectable codec %s", __func__,
                      iter->name().c_str());
+#if (TWS_ENABLED == TRUE)
+    if ((!strcmp(iter->name().c_str(),"aptX-TWS")) && !BTM_SecIsTwsPlusDev(p_peer->addr)) {
+        APPL_TRACE_DEBUG("%s:Non-TWS+ device, skip update selectable aptX-TWS codec",__func__);
+        continue;
+    }
+#endif
     bta_av_co_audio_update_selectable_codec(*iter, p_peer);
   }
 
