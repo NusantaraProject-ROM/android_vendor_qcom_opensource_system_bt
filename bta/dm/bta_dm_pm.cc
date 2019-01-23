@@ -485,7 +485,7 @@ static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
     }
 
     /* If HID connection open is received and SCO is already active.
-       disable snii link policy for some devices */
+       disable sniff link policy for some devices */
     if ((status == BTA_SYS_CONN_OPEN) && (id == BTA_ID_HH) &&
         bta_dm_pm_is_sco_active()) {
       /* Check if DUT is slave on SCO Link to decide if sniff needs to be disabled or not */
@@ -515,11 +515,25 @@ static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
       }
     }
 
-    /* If SCO up/down event is received, then enable/disable SSR on active HID link */
+    /* If SCO up/down event is received, then
+       1. Enable/disable SSR on active HID link
+       2. Disable sniff mode for some HFP devices when SCO is active*/
     if (status == BTA_SYS_SCO_OPEN || status == BTA_SYS_SCO_CLOSE) {
-      const bool bScoActive = (status == BTA_SYS_SCO_OPEN);
-      APPL_TRACE_DEBUG("%s: bta_dm_pm_hid_check with bScoActive = %d", __func__, bScoActive);
-      bta_dm_pm_hid_check(bScoActive);
+       const bool bScoActive = (status == BTA_SYS_SCO_OPEN);
+       APPL_TRACE_DEBUG("%s: bta_dm_pm_hid_check with bScoActive = %d", __func__, bScoActive);
+       bta_dm_pm_hid_check(bScoActive);
+       bool is_blacklisted =
+          interop_match_addr_or_name(INTEROP_DISABLE_SNIFF_LINK_DURING_SCO, &peer_addr);
+       if ((id == BTA_ID_AG) && is_blacklisted) {
+          APPL_TRACE_IMP("%s: The device %s is blacklisted to disable sniff mode during SCO",
+                          __func__, peer_addr.ToString().c_str());
+          tBTA_DM_PEER_DEVICE *p_rem_dev = NULL;
+          p_rem_dev = bta_dm_find_peer_device(peer_addr);
+          if(p_rem_dev) {
+             APPL_TRACE_IMP("%s: BTA_ID_AG with bScoActive = %d", __func__, bScoActive);
+             bta_dm_pm_set_sniff_policy(p_rem_dev, bScoActive);
+          }
+       }
     }
 #endif
 
