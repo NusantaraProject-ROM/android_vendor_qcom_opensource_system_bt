@@ -119,7 +119,11 @@ void hci_initialize() {
   // Block allows allocation of a variable that might be bypassed by goto.
   {
     android::sp<IBluetoothHciCallbacks> callbacks = new BluetoothHciCallbacks();
-    btHci->initialize(callbacks);
+    auto hidl_daemon_status = btHci->initialize(callbacks);
+    if(!hidl_daemon_status.isOk()) {
+      LOG_ERROR(LOG_TAG, "%s: HIDL daemon is dead", __func__);
+      btHci = nullptr;
+    }
   }
 }
 
