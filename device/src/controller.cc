@@ -83,12 +83,15 @@ static uint8_t number_of_scrambling_supported_freqs = 0;
 static bt_device_features_t add_on_features;
 static uint8_t add_on_features_length = 0;
 static uint16_t product_id, response_version;
+static uint8_t simple_pairing_options = 0;
+static uint8_t maximum_encryption_key_size = 0;
 
 static bool readable;
 static bool ble_supported;
 static bool ble_offload_features_supported;
 static bool simple_pairing_supported;
 static bool secure_connections_supported;
+static bool read_simple_pairing_options_supported;
 
 #define AWAIT_COMMAND(command) \
   static_cast<BT_HDR*>(future_await(hci->transmit_command_futured(command)))
@@ -307,6 +310,20 @@ static future_t* start_up(void) {
         AWAIT_COMMAND(packet_factory->make_read_local_supported_codecs());
     packet_parser->parse_read_local_supported_codecs_response(
         response, &number_of_local_supported_codecs, local_supported_codecs);
+  }
+
+  read_simple_pairing_options_supported =
+      HCI_READ_LOCAL_SIMPLE_PAIRING_OPTIONS_SUPPORTED(supported_commands);
+
+  // read local simple pairing options
+  if (read_simple_pairing_options_supported) {
+    LOG_DEBUG(LOG_TAG, "%s read local simple pairing options", __func__);
+    response =
+        AWAIT_COMMAND(packet_factory->make_read_local_simple_pairing_options());
+    packet_parser->parse_read_local_simple_paring_options_response(
+        response, &simple_pairing_options, &maximum_encryption_key_size);
+    LOG_DEBUG(LOG_TAG, "%s simple pairing options is 0x%x", __func__,
+        simple_pairing_options);
   }
 
   //Read HCI_VS_GET_ADDON_FEATURES_SUPPORT
@@ -632,6 +649,19 @@ static uint16_t get_response_version(void) {
   return response_version;
 }
 
+static bool supports_read_simple_pairing_options(void) {
+  CHECK(readable);
+  return read_simple_pairing_options_supported;
+}
+
+static bool performs_remote_public_key_validation(void) {
+  CHECK(readable);
+  if (simple_pairing_options != 0) {
+    return HCI_REMOTE_PUBLIC_KEY_VALIDATION_SUPPORTED(simple_pairing_options);
+  }
+  return false;
+}
+
 static const controller_t interface = {
     get_is_ready,
 
@@ -687,7 +717,10 @@ static const controller_t interface = {
     get_scrambling_supported_freqs,
     get_add_on_features,
     get_product_id,
-    get_response_version};
+    get_response_version,
+    supports_read_simple_pairing_options,
+    performs_remote_public_key_validation,
+};
 
 const controller_t* controller_get_interface() {
   static bool loaded = false;

@@ -92,6 +92,8 @@ typedef struct controller_t {
   const bt_device_features_t* (*get_add_on_features)(uint8_t *add_on_features_len);
   uint16_t (*get_product_id)(void);
   uint16_t (*get_response_version)(void);
+  bool (*supports_read_simple_pairing_options)(void);
+  bool (*performs_remote_public_key_validation)(void);
 } controller_t;
 
 const controller_t* controller_get_interface();
