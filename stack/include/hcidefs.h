@@ -1004,7 +1004,7 @@ constexpr uint8_t HCI_LE_STATES_INIT_MASTER_SLAVE_BIT = 41;
 #define HCI_MITM_PROTECT_REQUIRED 0x01
 
 /* Policy settings status */
-#define HCI_DISABLE_ALL_LM_MODES 0x0000
+#define HCI_POLICY_SETTINGS_DEFAULT_MODE 0x0000
 #define HCI_ENABLE_MASTER_SLAVE_SWITCH 0x0001
 #define HCI_ENABLE_HOLD_MODE 0x0002
 #define HCI_ENABLE_SNIFF_MODE 0x0004
@@ -1012,7 +1012,7 @@ constexpr uint8_t HCI_LE_STATES_INIT_MASTER_SLAVE_BIT = 41;
 
 /* By default allow switch, because host can not allow that */
 /* that until he created the connection */
-#define HCI_DEFAULT_POLICY_SETTINGS HCI_DISABLE_ALL_LM_MODES
+#define HCI_DEFAULT_POLICY_SETTINGS HCI_POLICY_SETTINGS_DEFAULT_MODE
 
 /* Filters that are sent in set filter command */
 #define HCI_FILTER_TYPE_CLEAR_ALL 0x00

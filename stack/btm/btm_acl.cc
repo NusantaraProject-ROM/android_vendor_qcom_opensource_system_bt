@@ -848,7 +848,7 @@ tBTM_STATUS BTM_SetLinkPolicy(const RawAddress& remote_bda,
   /*  BTM_TRACE_API ("%s: requested settings: 0x%04x", __func__, *settings ); */
 
   /* First, check if hold mode is supported */
-  if (*settings != HCI_DISABLE_ALL_LM_MODES) {
+  if (*settings != HCI_POLICY_SETTINGS_DEFAULT_MODE) {
     if ((*settings & HCI_ENABLE_MASTER_SLAVE_SWITCH) &&
         (!HCI_SWITCH_SUPPORTED(localFeatures))) {
       *settings &= (~HCI_ENABLE_MASTER_SLAVE_SWITCH);
