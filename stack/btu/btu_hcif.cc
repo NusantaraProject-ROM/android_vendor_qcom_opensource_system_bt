@@ -803,11 +803,11 @@ static void btu_hcif_read_rmt_version_comp_evt(uint8_t* p) {
 static void btu_hcif_qos_setup_comp_evt(uint8_t* p) {
   uint8_t status;
   uint16_t handle;
-  FLOW_SPEC flow;
+  FLOW_SPEC_CMPL flow;
 
   STREAM_TO_UINT8(status, p);
   STREAM_TO_UINT16(handle, p);
-  STREAM_TO_UINT8(flow.qos_flags, p);
+  STREAM_TO_UINT8(flow.qos_unused, p);
   STREAM_TO_UINT8(flow.service_type, p);
   STREAM_TO_UINT32(flow.token_rate, p);
   STREAM_TO_UINT32(flow.peak_bandwidth, p);
@@ -829,11 +829,11 @@ static void btu_hcif_qos_setup_comp_evt(uint8_t* p) {
 static void btu_hcif_flow_spec_comp_evt(uint8_t* p) {
   uint8_t status;
   uint16_t handle;
-  tBT_FLOW_SPEC flow;
+  tBT_FLOW_SPEC_CMPL flow;
 
   STREAM_TO_UINT8(status, p);
   STREAM_TO_UINT16(handle, p);
-  STREAM_TO_UINT8(flow.qos_flags, p);
+  STREAM_TO_UINT8(flow.qos_unused, p);
   STREAM_TO_UINT8(flow.flow_direction, p);
   STREAM_TO_UINT8(flow.service_type, p);
   STREAM_TO_UINT32(flow.token_rate, p);

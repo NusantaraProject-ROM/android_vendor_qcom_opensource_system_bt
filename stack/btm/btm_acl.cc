@@ -2119,7 +2119,7 @@ void btm_qos_setup_timeout(UNUSED_ATTR void* data) {
  *
  ******************************************************************************/
 void btm_qos_setup_complete(uint8_t status, uint16_t handle,
-                            FLOW_SPEC* p_flow) {
+                            FLOW_SPEC_CMPL* p_flow) {
   tBTM_CMPL_CB* p_cb = btm_cb.devcb.p_qos_setup_cmpl_cb;
   tBTM_QOS_SETUP_CMPL qossu;
 
@@ -2133,7 +2133,7 @@ void btm_qos_setup_complete(uint8_t status, uint16_t handle,
     qossu.status = status;
     qossu.handle = handle;
     if (p_flow != NULL) {
-      qossu.flow.qos_flags = p_flow->qos_flags;
+      qossu.flow.qos_unused = p_flow->qos_unused;
       qossu.flow.service_type = p_flow->service_type;
       qossu.flow.token_rate = p_flow->token_rate;
       qossu.flow.peak_bandwidth = p_flow->peak_bandwidth;
@@ -2157,7 +2157,7 @@ void btm_qos_setup_complete(uint8_t status, uint16_t handle,
  *
  ******************************************************************************/
 void btm_flow_spec_complete(uint8_t status, uint16_t handle,
-                            tBT_FLOW_SPEC* p_flow) {
+                            tBT_FLOW_SPEC_CMPL* p_flow) {
   tBTM_CMPL_CB* p_cb = btm_cb.devcb.p_flow_spec_cmpl_cb;
   tBTM_FLOW_SPEC_CMPL flow_su;
 
@@ -2170,7 +2170,7 @@ void btm_flow_spec_complete(uint8_t status, uint16_t handle,
     flow_su.status = status;
     flow_su.handle = handle;
     if (p_flow != NULL) {
-      flow_su.flow.qos_flags = p_flow->qos_flags;
+      flow_su.flow.qos_unused = p_flow->qos_unused;
       flow_su.flow.service_type = p_flow->service_type;
       flow_su.flow.flow_direction = p_flow->flow_direction;
       flow_su.flow.token_rate = p_flow->token_rate;
