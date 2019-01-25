@@ -76,6 +76,17 @@ bt_status_t btif_disable_bluetooth(void);
 
 /*******************************************************************************
  *
+ * Function         btif_hci_close
+ *
+ * Description      Terminates main stack tasks.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void btif_hci_close(void);
+
+/*******************************************************************************
+ *
  * Function         btif_cleanup_bluetooth
  *
  * Description      Cleanup BTIF state.

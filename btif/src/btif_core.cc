@@ -519,6 +519,25 @@ void btif_disable_bluetooth_evt(void) {
 
 /*******************************************************************************
  *
+ * Function         btif_hci_close
+ *
+ * Description      Terminates main stack tasks.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+
+void btif_hci_close(void) {
+  LOG_INFO(LOG_TAG, "%s entered", __func__);
+
+  bte_main_disable();
+
+  LOG_INFO(LOG_TAG, "%s finished", __func__);
+}
+
+
+/*******************************************************************************
+ *
  * Function         btif_cleanup_bluetooth
  *
  * Description      Cleanup BTIF state.
