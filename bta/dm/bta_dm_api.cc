@@ -281,6 +281,40 @@ void BTA_DmSetWifiState(bool status) {
 }
 
 /*******************************************************************************
+ *
+ * Function         BTA_DmBredrCleanup
+ *
+ * Description      This function do br/edr cleanup
+ *
+ * Returns          void
+ *
+ *******************************************************************************/
+void BTA_DmBredrCleanup(void) {
+  tBTA_DM_API_BREDR_CLEANUP *p_msg =
+      (tBTA_DM_API_BREDR_CLEANUP*)osi_calloc(sizeof(tBTA_DM_API_BREDR_CLEANUP));
+
+  p_msg->hdr.event = BTA_DM_API_BREDR_CLEANUP_EVT;
+  bta_sys_sendmsg(p_msg);
+}
+
+/*******************************************************************************
+ *
+ * Function         BTA_DmBredrStartup
+ *
+ * Description      This function do br/edr startup
+ *
+ * Returns          void
+ *
+ *******************************************************************************/
+void BTA_DmBredrStartup(void) {
+  tBTA_DM_API_BREDR_STARTUP *p_msg =
+      (tBTA_DM_API_BREDR_STARTUP*)osi_calloc(sizeof(tBTA_DM_API_BREDR_STARTUP));
+
+  p_msg->hdr.event = BTA_DM_API_BREDR_STARTUP_EVT;
+  bta_sys_sendmsg(p_msg);
+}
+
+/*******************************************************************************
 **
  * Function         BTA_DmDiscover
  *

@@ -610,9 +610,19 @@ static void bta_dm_disable_timer_cback(void* data) {
   bool trigger_disc = false;
   uint32_t param = PTR_TO_UINT(data);
 
-  APPL_TRACE_EVENT("%s trial %u", __func__, param);
+  APPL_TRACE_WARNING("%s trial %u", __func__, param);
 
-  if (BTM_GetNumAclLinks() && (param == 0)) {
+  if (param == 2) {
+    if (BTM_GetNumAclLinks()) {
+      for (i = 0; i < bta_dm_cb.device_list.count; i++) {
+        transport = bta_dm_cb.device_list.peer_device[i].transport;
+        if (BT_TRANSPORT_BR_EDR == transport) {
+          btm_remove_acl(bta_dm_cb.device_list.peer_device[i].peer_bdaddr,
+                  transport);
+        }
+      }
+    }
+  }else if (BTM_GetNumAclLinks() && (param == 0)) {
     for (i = 0; i < bta_dm_cb.device_list.count; i++) {
       transport = bta_dm_cb.device_list.peer_device[i].transport;
       btm_remove_acl(bta_dm_cb.device_list.peer_device[i].peer_bdaddr,
@@ -668,6 +678,48 @@ void bta_dm_set_wifi_state(tBTA_DM_MSG *p_data) {
   BTM_SetWifiState((bool)p_data->wifi_state.status);
   if (p_data->wifi_state.status == true)
     bta_dm_adjust_roles(FALSE);
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_dm_bredr_cleanup
+ *
+ * Description      do bredr cleanup
+ *
+ *
+ * Returns          void
+ *
+ *****************************************************************************/
+void bta_dm_bredr_cleanup(tBTA_DM_MSG *p_data) {
+  alarm_set_on_mloop(bta_dm_cb.disable_timer, BTA_DM_DISABLE_TIMER_MS,
+                    bta_dm_disable_timer_cback, UINT_TO_PTR(2));
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_dm_bredr_startup
+ *
+ * Description      do bredr startup
+ *
+ *
+ * Returns          void
+ *
+ *****************************************************************************/
+void bta_dm_bredr_startup(tBTA_DM_MSG *p_data) {
+  uint8_t i;
+  tBT_TRANSPORT transport = BT_TRANSPORT_BR_EDR;
+  if (alarm_is_scheduled(bta_dm_cb.disable_timer)) {
+    alarm_cancel(bta_dm_cb.disable_timer);
+    if (BTM_GetNumAclLinks()) {
+      for (i = 0; i < bta_dm_cb.device_list.count; i++) {
+        transport = bta_dm_cb.device_list.peer_device[i].transport;
+        if (BT_TRANSPORT_BR_EDR == transport) {
+          btm_remove_acl(bta_dm_cb.device_list.peer_device[i].peer_bdaddr,
+                         transport);
+        }
+      }
+    }
+  }
 }
 
 /*******************************************************************************
