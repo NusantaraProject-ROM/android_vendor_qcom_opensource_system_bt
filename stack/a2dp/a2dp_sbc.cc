@@ -40,6 +40,9 @@
 #include "bt_vendor_av.h"
 #define A2DP_SBC_MAX_BITPOOL 53
 
+/* Max bitpool do not result in excess of the max bit rate */
+#define A2DP_SBC_SINK_MAX_BITPOOL 86
+
 /* data type for the SBC Codec Information Element */
 typedef struct {
   uint8_t samp_freq;    /* Sampling frequency */
@@ -86,7 +89,7 @@ static const tA2DP_SBC_CIE a2dp_sbc_sink_caps = {
     (A2DP_SBC_IE_SUBBAND_4 | A2DP_SBC_IE_SUBBAND_8),   /* num_subbands */
     (A2DP_SBC_IE_ALLOC_MD_L | A2DP_SBC_IE_ALLOC_MD_S), /* alloc_method */
     A2DP_SBC_IE_MIN_BITPOOL,                           /* min_bitpool */
-    A2DP_SBC_MAX_BITPOOL,                              /* max_bitpool */
+    A2DP_SBC_SINK_MAX_BITPOOL,                         /* max_bitpool */
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16                 /* bits_per_sample */
 };
 /* Default SBC codec configuration */
