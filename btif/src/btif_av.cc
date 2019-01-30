@@ -730,6 +730,7 @@ static void btif_av_check_and_start_collission_timer(int index) {
 
 static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int index) {
   char a2dp_role[255] = "false";
+  bool other_device_connected = false;
   BTIF_TRACE_IMP("%s event:%s flags %x on index %x", __func__,
                    dump_av_sm_event_name((btif_av_sm_event_t)event),
                    btif_av_cb[index].flags, index);
@@ -769,7 +770,13 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       /* This API will be called twice at initialization
       ** Idle can be moved when device is disconnected too.
       ** Take care of other connected device here.*/
-      if (!btif_av_is_connected()) {
+      for (int i = 0; i < btif_max_av_clients; i++) {
+        if ((i != index) && btif_av_get_valid_idx(i)) {
+          other_device_connected = true;
+          break;
+        }
+      }
+      if (other_device_connected == false) {
         BTIF_TRACE_EVENT("reset A2dp states in IDLE ");
         bta_av_co_init(btif_av_cb[index].codec_priorities);
         btif_a2dp_on_idle();
@@ -777,7 +784,6 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
         //There is another AV connection, update current playin
         BTIF_TRACE_EVENT("idle state for index %d init_co", index);
         bta_av_co_peer_init(btif_av_cb[index].codec_priorities, index);
-
       }
       if (!btif_av_is_playing_on_other_idx(index) &&
            btif_av_is_split_a2dp_enabled()) {
