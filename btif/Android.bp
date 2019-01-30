@@ -103,6 +103,7 @@ cc_library_static {
         "libhwbinder",
         "libutils",
 //        "libdl",
+        "libcrypto",
     ],
     whole_static_libs: [
         "libaudio-a2dp-hw-utils",
@@ -124,6 +125,7 @@ cc_test {
         "liblog",
         "libcutils",
         "libutils",
+        "libcrypto",
     ],
     static_libs: [
         "libbtcore_qti",

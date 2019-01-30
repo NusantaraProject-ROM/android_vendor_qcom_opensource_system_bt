@@ -73,6 +73,7 @@ bt_interface_t fake_bt_iface = {
     nullptr, /* interop_database_clear */
     nullptr, /* interop_database_add */
     nullptr, /* get_avrcp_service */
+    nullptr, /* obfuscate_address */
 };
 
 }  // namespace

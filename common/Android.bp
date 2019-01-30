@@ -6,6 +6,10 @@ cc_library_static {
     srcs: [
         "message_loop_thread.cc",
         "execution_barrier.cc",
+        "address_obfuscator.cc",
+    ],
+    shared_libs: [
+        "libcrypto",
     ],
 }
 
@@ -18,6 +22,11 @@ cc_test {
     srcs : [
         "message_loop_thread_unittest.cc",
         "execution_barrier_unittest.cc",
+        "address_obfuscator_unittest.cc",
+    ],
+    shared_libs: [
+        "libprotobuf-cpp-lite",
+        "libcrypto",
     ],
     static_libs : [
         "libbt-common",
