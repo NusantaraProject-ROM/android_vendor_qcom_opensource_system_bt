@@ -107,6 +107,7 @@ cc_library_static {
     ],
     whole_static_libs: [
         "libaudio-a2dp-hw-utils",
+        "libbt-common-qti",
         //"libbtif_ext",
     ],
     cflags: ["-DBUILDCFG"],
@@ -133,6 +134,7 @@ cc_test {
         "libbt-stack_qti",
         "libbluetooth-types",
         "libosi_qti",
+        "libbt-common-qti",
     ],
     cflags: ["-DBUILDCFG"],
 }
@@ -155,6 +157,7 @@ cc_test {
     static_libs: [
         "libbluetooth-types",
         "libosi_qti",
+        "libbt-common-qti",
     ],
     cflags: ["-DBUILDCFG"],
 }

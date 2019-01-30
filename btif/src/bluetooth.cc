@@ -68,7 +68,6 @@
 #include "btsnoop.h"
 #include "btsnoop_mem.h"
 #include "common/address_obfuscator.h"
-#include "common/metrics.h"
 #include "device/include/interop.h"
 #include "osi/include/alarm.h"
 #include "osi/include/allocation_tracker.h"

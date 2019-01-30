@@ -120,7 +120,6 @@ bool btif_get_address_type(const RawAddress& bda, int* p_addr_type) {
   return true;
 }
 
-static std::mutex config_lock;  // protects operations on |config|.
 static config_t* config;
 /**
  * Read metrics salt from config file, if salt is invalid or does not exist,
@@ -157,7 +156,6 @@ static void read_or_set_metrics_salt() {
 }
 
 static std::recursive_mutex config_lock;  // protects operations on |config|.
-static std::unique_ptr<config_t> config;
 static alarm_t* config_timer;
 
 // Module lifecycle functions
@@ -321,7 +319,7 @@ bool btif_config_get_uint16(const char* section, const char* key, uint16_t* valu
   CHECK(key != NULL);
   CHECK(value != NULL);
 
-  std::unique_lock<std::mutex> lock(config_lock);
+  std::unique_lock<std::recursive_mutex> lock(config_lock);
   bool ret = config_has_key(config, section, key);
   if (ret) *value = config_get_uint16(config, section, key, *value);
 
@@ -335,7 +333,7 @@ bool btif_config_get_uint64(const char* section, const char* key,
   CHECK(section != NULL);
   CHECK(key != NULL);
 
-  std::unique_lock<std::mutex> lock(config_lock);
+  std::unique_lock<std::recursive_mutex> lock(config_lock);
   bool ret = config_has_key(config, section, key);
   if (ret) *value = config_get_uint64(config, section, key, *value);
 
@@ -359,7 +357,7 @@ bool btif_config_set_uint16(const char* section, const char* key, uint16_t value
   CHECK(section != NULL);
   CHECK(key != NULL);
 
-  std::unique_lock<std::mutex> lock(config_lock);
+  std::unique_lock<std::recursive_mutex> lock(config_lock);
   config_set_uint16(config, section, key, value);
 
   return true;
@@ -371,7 +369,7 @@ bool btif_config_set_uint64(const char* section, const char* key,
   CHECK(section != NULL);
   CHECK(key != NULL);
 
-  std::unique_lock<std::mutex> lock(config_lock);
+  std::unique_lock<std::recursive_mutex> lock(config_lock);
   config_set_uint64(config, section, key, value);
 
   return true;
