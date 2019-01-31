@@ -1302,6 +1302,7 @@ void bta_av_co_get_peer_params(tA2DP_ENCODER_INIT_PEER_PARAMS* p_peer_params) {
   uint16_t min_mtu = 0xFFFF;
   int index = btif_max_av_clients;
   const tBTA_AV_CO_PEER* p_peer;
+  char AAC_frame_ctrl_val[PROPERTY_VALUE_MAX] = {'\0'};
 
   APPL_TRACE_DEBUG("%s", __func__);
   CHECK(p_peer_params != nullptr);
@@ -1322,11 +1323,27 @@ void bta_av_co_get_peer_params(tA2DP_ENCODER_INIT_PEER_PARAMS* p_peer_params) {
     p_peer = &bta_av_co_cb.peers[index];
     min_mtu = p_peer->mtu;
     if (min_mtu > BTA_AV_MAX_A2DP_MTU)
-        min_mtu = BTA_AV_MAX_A2DP_MTU;
-    if(min_mtu == 0) {
+      min_mtu = BTA_AV_MAX_A2DP_MTU;
+    if (min_mtu == 0) {
       APPL_TRACE_WARNING("%s min_mtu received as 0, updating to: %d",
                                __func__, MAX_2MBPS_AVDTP_MTU);
       min_mtu = MAX_2MBPS_AVDTP_MTU;
+    }
+    bool is_AAC_frame_ctrl_stack_enable = false;
+    osi_property_get("persist.vendor.btstack.aac_frm_ctl.enabled", AAC_frame_ctrl_val, "false");
+    if (!strcmp(AAC_frame_ctrl_val, "true"))
+      is_AAC_frame_ctrl_stack_enable = true;
+    APPL_TRACE_DEBUG("%s: Stack AAC frame control enabled: %d", __func__, is_AAC_frame_ctrl_stack_enable);
+    if (is_AAC_frame_ctrl_stack_enable && btif_av_is_peer_edr() &&
+                               (btif_av_peer_supports_3mbps() == FALSE)) {
+      // This condition would be satisfied only if the remote device is
+      // EDR and supports only 2 Mbps, but the effective AVDTP MTU size
+      // exceeds the 2DH5 packet size.
+      APPL_TRACE_DEBUG("%s The remote devce is EDR but does not support 3 Mbps", __func__);
+      if (min_mtu > MAX_2MBPS_AVDTP_MTU) {
+        min_mtu = MAX_2MBPS_AVDTP_MTU;
+        APPL_TRACE_WARNING("%s Restricting AVDTP MTU size to %d", __func__, min_mtu);
+      }
     }
     APPL_TRACE_DEBUG("%s updating peer MTU to %d for index %d",
                                     __func__, min_mtu, index);
