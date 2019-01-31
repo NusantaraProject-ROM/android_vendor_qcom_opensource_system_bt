@@ -88,7 +88,6 @@ static const tBTA_OP_FMT bta_ops_obj_fmt[OBEX_PUSH_NUM_FORMATS] = {
 #define RESERVED_SCN_OPS 12
 #define RESERVED_SCN_SAP 16
 #define RESERVED_SCN_PBS 19
-#define RESERVED_SCN_FTP 20
 #define RESERVED_SCN_MNS 22
 #define RESERVED_SCN_DUN 25
 #define RESERVED_SCN_MAP 26
@@ -387,51 +386,6 @@ error:
   return 0;
 }
 
-
-
-static int add_ftp_sdp(const char *name, const int channel)
-{
-  uint16_t service = UUID_SERVCLASS_OBEX_FILE_TRANSFER;
-  APPL_TRACE_DEBUG("add_ftp_sdp: channel %d, service name %s", channel, name);
-
-  int handle = SDP_CreateRecord();
-  if (handle == 0) {
-    APPL_TRACE_ERROR("add_ftp_sdp: failed to create sdp record, "
-                     "service_name: %s", name);
-    return 0;
-  }
-
-  // Create the base SDP record.
-  char *stage = (char *)"create_base_record";
-  if (!create_base_record(handle, name, channel, true /* with_obex */))
-    goto error;
-
-  // Add service class.
-  stage =(char*) "service_class";
-  if (!SDP_AddServiceClassIdList(handle, 1, &service))
-    goto error;
-
-  // Add the FTP profile descriptor.
-  stage = (char*)"profile_descriptor_list";
-  if (!SDP_AddProfileDescriptorList(handle, UUID_SERVCLASS_OBEX_FILE_TRANSFER,
-                                    0x0101))
-    goto error;
-
-  // Notify the system that we've got a new service class UUID.
-  bta_sys_add_uuid(UUID_SERVCLASS_OBEX_FILE_TRANSFER);
-  APPL_TRACE_DEBUG("add_ftp_sdp: service registered successfully, "
-                   "service_name: %s, handle 0x%08x)", name, handle);
-
-  return handle;
-
-error:
-  SDP_DeleteRecord(handle);
-  APPL_TRACE_ERROR("add_ftp_sdp: failed to register FTP service, "
-                   "stage: %s, service_name: %s", stage, name);
-  return 0;
-
-}
-
 static int add_dun_sdp(const char *name, const int channel)
 {
   APPL_TRACE_DEBUG("add_dun_sdp: channel %d, service name %s", channel, name);
@@ -516,8 +470,6 @@ static int add_rfc_sdp_by_uuid(const char* name, const Uuid& uuid,
   } else if (uuid == UUID_MAP_MAS) {
     // Record created by new SDP create record interface
     handle = 0xff;
-  } else if (UUID_FTP == uuid) {
-    handle = add_ftp_sdp(name, final_channel);
   } else if (UUID_DUN == uuid) {
     handle = add_dun_sdp(name, final_channel);
   } else {
@@ -533,7 +485,6 @@ bool is_reserved_rfc_channel(const int channel) {
         case RESERVED_SCN_PBS:
         case RESERVED_SCN_OPS:
         case RESERVED_SCN_SAP:
-        case RESERVED_SCN_FTP:
         case RESERVED_SCN_DUN:
         case RESERVED_SCN_MAP:
         case RESERVED_SCN_MNS:
@@ -557,8 +508,6 @@ int get_reserved_rfc_channel(const bluetooth::Uuid& uuid) {
     return RESERVED_SCN_PBS;
   } else if (uuid == UUID_OBEX_OBJECT_PUSH) {
     return RESERVED_SCN_OPS;
-  } else if (UUID_FTP == uuid) {
-    return RESERVED_SCN_FTP;
   } else if (UUID_DUN == uuid) {
     return RESERVED_SCN_DUN;
   }
@@ -578,10 +527,6 @@ int add_rfc_sdp_rec(const char* name, Uuid uuid, const int channel) {
 
       case RESERVED_SCN_OPS:
         uuid = UUID_OBEX_OBJECT_PUSH;
-        break;
-
-      case RESERVED_SCN_FTP:
-        uuid = UUID_FTP;
         break;
 
       case RESERVED_SCN_DUN:

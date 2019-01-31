@@ -30,7 +30,6 @@ static const bluetooth::Uuid UUID_PBAP_PSE = bluetooth::Uuid::From16Bit(0x112F);
 static const bluetooth::Uuid UUID_MAP_MAS = bluetooth::Uuid::From16Bit(0x1132);
 static const bluetooth::Uuid UUID_SAP = bluetooth::Uuid::From16Bit(0x112D);
 static const bluetooth::Uuid UUID_SPP = bluetooth::Uuid::From16Bit(0x1101);
-static const bluetooth::Uuid UUID_FTP = bluetooth::Uuid::From16Bit(0x1106);
 static const bluetooth::Uuid UUID_DUN = bluetooth::Uuid::From16Bit(0x1103);
 
 int add_rfc_sdp_rec(const char* name, bluetooth::Uuid uuid, int scn);
