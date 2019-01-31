@@ -2732,13 +2732,14 @@ void btm_read_link_quality_complete(uint8_t* p) {
 static void btm_enable_link_PL10_adaptive_ctrl(uint16_t handle, bool enable) {
   uint8_t param[3] = {0};
   uint8_t *p_param = param;
-  uint8_t enable_val = enable ? 0x01 : 0;
+  uint8_t sub_opcode = enable ? HCI_VS_ENABLE_HPA_CONTROL_FOR_CONN_HANDLE :
+                                HCI_VS_DISABLE_HPA_CONTROL_FOR_CONN_HANDLE;
 
   BTM_TRACE_DEBUG("%s, handle=%d, enable=%d", __func__, handle, enable);
 
+  UINT8_TO_STREAM(p_param, sub_opcode);
   UINT16_TO_STREAM(p_param, handle);
-  UINT8_TO_STREAM(p_param, enable_val);
-  BTM_VendorSpecificCommand(HCI_VS_LINK_PL10_ADAPTIVE_CTRL_REQ_OPCODE,
+  BTM_VendorSpecificCommand(HCI_VS_LINK_POWER_CTRL_REQ_OPCODE,
       p_param - param, param, NULL);
 }
 
