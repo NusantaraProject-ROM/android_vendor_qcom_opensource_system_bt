@@ -37,7 +37,9 @@ cc_library_shared {
         "system/bt/embdrv/sbc/decoder/include",
         "vendor/qcom/opensource/commonsys/system/bt/utils/include",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include",
-        "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext"
+        "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext",
+        "system/security/keystore/include",
+        "hardware/interfaces/keymaster/4.0/support/include"
     ],
     logtags: ["../EventLogTags.logtags"],
     shared_libs: [
@@ -57,6 +59,12 @@ cc_library_shared {
         "libz",
         "libcrypto",
         "libbtconfigstore",
+        "android.hardware.keymaster@4.0",
+        "android.hardware.keymaster@3.0",
+        "libkeymaster4support",
+        "libkeystore_aidl",
+        "libkeystore_binder",
+        "libkeystore_parcelables",
     ],
     static_libs: [
         "libbt-sbc-decoder",
