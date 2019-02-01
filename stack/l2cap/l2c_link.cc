@@ -472,8 +472,10 @@ bool l2c_link_hci_disc_comp(uint16_t handle, uint8_t reason) {
 
         btm_acl_removed(p_lcb->remote_bd_addr, BT_TRANSPORT_BR_EDR);
      }
-      if (l2cu_create_conn(p_lcb, transport))
+      if (l2cu_create_conn(p_lcb, transport)) {
         lcb_is_free = false; /* still using this lcb */
+        p_lcb->link_role = HCI_ROLE_MASTER; /* reset to default role */
+      }
     }
 
     p_lcb->p_pending_ccb = NULL;
