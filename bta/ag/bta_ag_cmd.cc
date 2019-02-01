@@ -979,7 +979,14 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
 
     case BTA_AG_AT_BLDN_EVT:
       /* Do not send OK, App will send error or OK depending on
-      ** last dial number enabled or not */
+      ** last dial number enabled or not
+      ** If SLC didn't happen yet, just send ERROR*/
+      if (!p_scb->svc_conn) {
+        event = 0;
+        APPL_TRACE_WARNING("%s: Sending ERROR from stack for BLDN received"\
+                           " before SLC", __func__);
+        bta_ag_send_error(p_scb, BTA_AG_ERR_OP_NOT_SUPPORTED);
+      }
       break;
 
     case BTA_AG_AT_D_EVT:
