@@ -50,20 +50,3 @@ cc_test {
     ],
 }
 
-// Bluetooth test suite for target
-// ========================================================
-cc_test {
-    name: "performance_test",
-    defaults: ["fluoride_defaults"],
-    include_dirs: ["system/bt"],
-    srcs: [
-        "core/thread_performance_test.cc",
-    ],
-    shared_libs: [
-        "liblog",
-    ],
-    static_libs: [
-        "libgmock",
-        "libosi",
-    ],
-}
