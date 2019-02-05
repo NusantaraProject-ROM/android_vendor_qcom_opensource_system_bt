@@ -895,6 +895,8 @@ bt_status_t btif_storage_remove_bonded_device(
     ret &= btif_config_remove(bdstr, "AvrcpTgVersion");
   if (btif_config_exist(bdstr, "PbapPceVersion"))
     ret &= btif_config_remove(bdstr, "PbapPceVersion");
+  if (btif_config_exist(bdstr, MAP_MCE_VERSION_CONFIG_KEY))
+    ret &= btif_config_remove(bdstr, MAP_MCE_VERSION_CONFIG_KEY);
   /* Retaining  AvrcpFeatures and TwsPlusPeerAddr
      as these are needed even after unpair */
   /* write bonded info immediately */

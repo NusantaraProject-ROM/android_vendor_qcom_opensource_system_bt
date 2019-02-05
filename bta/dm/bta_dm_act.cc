@@ -1659,6 +1659,7 @@ static void bta_dm_store_profiles_version() {
     UUID_SERVCLASS_HF_HANDSFREE,
     UUID_SERVCLASS_AV_REMOTE_CONTROL,
     UUID_SERVCLASS_AV_REM_CTRL_TARGET,
+    UUID_SERVCLASS_MESSAGE_NOTIFICATION,
   };
 
   const UINT16 btprofile_uuids[] = {
@@ -1666,6 +1667,7 @@ static void bta_dm_store_profiles_version() {
     UUID_SERVCLASS_HF_HANDSFREE,
     UUID_SERVCLASS_AV_REMOTE_CONTROL,
     UUID_SERVCLASS_AV_REMOTE_CONTROL,
+    UUID_SERVCLASS_MAP_PROFILE,
   };
 
   const char* profile_keys[] = {
@@ -1673,6 +1675,7 @@ static void bta_dm_store_profiles_version() {
     HFP_VERSION_CONFIG_KEY,
     AV_REM_CTRL_VERSION_CONFIG_KEY,
     AV_REM_CTRL_TG_VERSION_CONFIG_KEY,
+    MAP_MCE_VERSION_CONFIG_KEY,
   };
 
   int profile_num = sizeof(servclass_uuids)/sizeof(servclass_uuids[0]);
@@ -1691,6 +1694,11 @@ static void bta_dm_store_profiles_version() {
     /* get profile version (if failure, version parameter is not updated) */
     SDP_FindProfileVersionInRec(sdp_rec, btprofile_uuids[i], &profile_version);
     if (profile_version != 0) {
+      if (servclass_uuids[i] == UUID_SERVCLASS_MESSAGE_NOTIFICATION) {
+        APPL_TRACE_DEBUG("%s MCE record found ", __func__);
+        check_and_store_mce_profile_version(sdp_rec);
+        continue;
+      }
       if (btif_config_set_uint16(sdp_rec->remote_bd_addr.ToString().c_str(),
                               profile_keys[i],
                               profile_version)) {

@@ -30,6 +30,8 @@
 #define AV_REM_CTRL_TG_VERSION_CONFIG_KEY "AvrcpTgVersion"
 #define AV_REM_CTRL_FEATURES_CONFIG_KEY "AvrcpFeatures"
 #define PBAP_PCE_VERSION_CONFIG_KEY "PbapPceVersion"
+#define MAP_MCE_VERSION_CONFIG_KEY "MapMceVersion"
+
 
 static const char BTIF_CONFIG_MODULE[] = "btif_config_module";
 

@@ -45,6 +45,10 @@ typedef enum {
 #ifndef PCE_PEER_VERSION_CONF_FILE
 #define PCE_PEER_VERSION_CONF_FILE "/data/misc/bluedroid/pce_peer_entries.conf"
 #endif
+/* Runtime configuration file to store MCE version file*/
+#ifndef MCE_PEER_VERSION_CONF_FILE
+#define MCE_PEER_VERSION_CONF_FILE "/data/misc/bluedroid/mce_peer_entries.conf"
+#endif
 
 #define LOG_ID_STATS_A2DP      (0x06 << 8) | 0x00
 typedef enum {

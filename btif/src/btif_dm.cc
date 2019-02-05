@@ -663,6 +663,8 @@ void bond_state_changed(bt_status_t status, const RawAddress& bd_addr,
   if (state == BT_BOND_STATE_NONE) {
     // Update Pbap 1.2 entry, set rebonded to true
     update_pce_entry_after_cancelling_bonding(bd_addr);
+    // Update Map 1.4 entry, set rebonded to true
+    update_mce_entry_after_cancelling_bonding(bd_addr);
   }
 }
 

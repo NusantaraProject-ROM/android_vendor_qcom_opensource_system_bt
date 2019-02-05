@@ -50,6 +50,7 @@ static const Uuid UUID_MAP_MNS = Uuid::From16Bit(0x1133);
 static const Uuid UUID_SAP = Uuid::From16Bit(0x112D);
 
 extern void check_and_store_pce_profile_version(tSDP_DISC_REC* p_sdp_rec);
+extern void check_and_store_mce_profile_version(tSDP_DISC_REC* p_sdp_rec);
 
 static void bta_create_mns_sdp_record(bluetooth_sdp_record* record,
                                       tSDP_DISC_REC* p_rec) {
@@ -365,6 +366,7 @@ static void bta_sdp_search_cback(uint16_t result, void* user_data) {
         bta_create_mas_sdp_record(&evt_data.records[count], p_rec);
       } else if (uuid == UUID_MAP_MNS) {
         APPL_TRACE_DEBUG("%s() - found MAP (MNS) uuid", __func__);
+        check_and_store_mce_profile_version(p_rec);
         bta_create_mns_sdp_record(&evt_data.records[count], p_rec);
       } else if (uuid == UUID_PBAP_PSE) {
         APPL_TRACE_DEBUG("%s() - found PBAP (PSE) uuid", __func__);

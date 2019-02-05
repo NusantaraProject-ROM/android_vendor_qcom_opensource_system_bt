@@ -100,6 +100,11 @@ static tSDP_RECORD *sdp_upgrade_pse_record(tSDP_RECORD *p_rec,
 
 static bool check_remote_pbap_version_102(RawAddress remote_addr);
 
+static tSDP_RECORD *sdp_upgrade_mse_record(tSDP_RECORD *p_rec,
+                                      RawAddress remote_address);
+
+static bool check_remote_map_version_104(RawAddress remote_addr);
+
 /******************************************************************************/
 /*                E R R O R   T E X T   S T R I N G S                         */
 /*                                                                            */
@@ -148,13 +153,19 @@ static bool check_remote_pbap_version_102(RawAddress remote_addr);
 
 #define PBAP_1_2 0x0102
 
+#ifndef SDP_ENABLE_PTS_MAP
+#define SDP_ENABLE_PTS_MAP  "vendor.bt.pts.map"
+#endif
+
+#define MAP_1_4 0x0103
+
 struct blacklist_entry
 {
     int ver;
     char addr[3];
 };
 
-struct pce_entry
+struct dynamic_upgrade_entry
 {
     uint16_t ver;
     char addr[3];
@@ -661,6 +672,7 @@ static void process_service_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
                             SDP_TEXT_BAD_HANDLE);
     return;
   }
+  p_rec = sdp_upgrade_mse_record(p_rec, p_ccb->device_address);
   p_rec = sdp_upgrade_pse_record(p_rec, p_ccb->device_address);
 
   /* Free and reallocate buffer */
@@ -1009,6 +1021,7 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
     p_ccb->cont_info.curr_sdp_rec = p_rec;
     /* Store the actual record pointer which would be reused later */
     p_prev_rec = p_rec;
+    p_rec = sdp_upgrade_mse_record(p_rec, p_ccb->device_address);
     p_rec = sdp_upgrade_pse_record(p_rec, p_ccb->device_address);
     /* Allow space for attribute sequence type and length */
     p_seq_start = p_rsp;
@@ -1318,13 +1331,13 @@ static bool is_device_blacklisted_for_pbap (RawAddress remote_address, bool chec
 ***************************************************************************************/
 static bool check_remote_pbap_version_102(RawAddress remote_addr) {
   bool entry_found = FALSE;
-  struct pce_entry entry;
+  struct dynamic_upgrade_entry entry;
   FILE *fp = fopen(PCE_PEER_VERSION_CONF_FILE, "r+b");
   if (!fp) {
     APPL_TRACE_ERROR("%s unable to open PBAP PCE Conf file for read: error: (%s)",\
                                                       __func__, strerror(errno));
   } else {
-    while (fread(&entry, sizeof(pce_entry), 1, fp) != 0)
+    while (fread(&entry, sizeof(dynamic_upgrade_entry), 1, fp) != 0)
     {
       APPL_TRACE_DEBUG("Entry: addr = %x:%x:%x, ver = 0x%x rebonded: %c",\
               entry.addr[0], entry.addr[1], entry.addr[2], entry.ver, entry.rebonded);
@@ -1511,7 +1524,7 @@ static tSDP_RECORD *sdp_upgrade_pse_record(tSDP_RECORD * p_rec,
 ***************************************************************************************/
 void update_pce_entry_after_cancelling_bonding(RawAddress remote_addr) {
   SDP_TRACE_DEBUG("%s", __func__);
-  struct pce_entry entry;
+  struct dynamic_upgrade_entry entry;
   FILE *fp = fopen(PCE_PEER_VERSION_CONF_FILE, "r+b");
   if (!fp) {
     APPL_TRACE_ERROR("%s unable to open PBAP PCE Conf file for read: error: (%s)",\
@@ -1525,7 +1538,7 @@ void update_pce_entry_after_cancelling_bonding(RawAddress remote_addr) {
       {
         APPL_TRACE_DEBUG("remote bd address matched, rebonded = %c", entry.rebonded);
         if (entry.rebonded == 'N') {
-            fseek(fp, -(sizeof(pce_entry)), SEEK_CUR);
+            fseek(fp, -(sizeof(dynamic_upgrade_entry)), SEEK_CUR);
             entry.rebonded = 'Y';
             fwrite(&entry, sizeof(entry), 1, fp);
         }
@@ -1554,7 +1567,7 @@ void update_pce_entry_after_cancelling_bonding(RawAddress remote_addr) {
 void check_and_store_pce_profile_version(tSDP_DISC_REC* p_sdp_rec) {
   FILE *fp;
   bool has_entry = FALSE;
-  struct pce_entry entry;
+  struct dynamic_upgrade_entry entry;
   uint16_t peer_pce_version = 0;
 
   RawAddress remote_addr = p_sdp_rec->remote_bd_addr;
@@ -1599,10 +1612,10 @@ void check_and_store_pce_profile_version(tSDP_DISC_REC* p_sdp_rec) {
             (peer_pce_version >= PBAP_1_2 && entry.ver < PBAP_1_2)) {
           APPL_TRACE_DEBUG("%s: Remote PBAP version is downgraded/Upgraded", __func__);
           // update file pce entry with older version and rebonded = 'N'
-          fseek(fp, -(sizeof(pce_entry)), SEEK_CUR);
+          fseek(fp, -(sizeof(dynamic_upgrade_entry)), SEEK_CUR);
           entry.ver = peer_pce_version;
           entry.rebonded = 'N';
-          fwrite(&entry, sizeof(pce_entry), 1, fp);
+          fwrite(&entry, sizeof(dynamic_upgrade_entry), 1, fp);
         }
         APPL_TRACE_DEBUG("Entry already present, break");
         break;
@@ -1630,6 +1643,235 @@ void check_and_store_pce_profile_version(tSDP_DISC_REC* p_sdp_rec) {
       fclose(fp);
     }
   }
+}
+
+/*************************************************************************************
+**
+** Function        check_remote_map_version_104
+**
+** Description     checks if remote supports MAP 1.4
+**
+** Returns         true/false depending on remote MAP version support found in file.
+**                 Returns false if 1.4 entry is stored but device is not re-paired with
+**                 remote.
+**                 Returns true if 1.4 entry is stored and device is re-paired with
+**                 remote.
+**
+***************************************************************************************/
+static bool check_remote_map_version_104(RawAddress remote_addr) {
+  bool entry_found = FALSE;
+  struct dynamic_upgrade_entry entry;
+  FILE *fp = fopen(MCE_PEER_VERSION_CONF_FILE, "r+b");
+  if (!fp) {
+    APPL_TRACE_ERROR("%s unable to open MCE Conf file for read: reason: (%s)",\
+                                                      __func__, strerror(errno));
+  } else {
+    while (fread(&entry, sizeof(dynamic_upgrade_entry), 1, fp) != 0)
+    {
+      APPL_TRACE_DEBUG("Entry: addr = %x:%x:%x, ver = 0x%x rebonded: %c",\
+              entry.addr[0], entry.addr[1], entry.addr[2], entry.ver, entry.rebonded);
+      if(!memcmp(&remote_addr, entry.addr, 3))
+      {
+          entry_found = (entry.rebonded == 'Y' && entry.ver >= MAP_1_4)? TRUE : FALSE;
+          APPL_TRACE_DEBUG("remote bd address matched, isRebonded=%c entry_found = %d",
+                  entry.rebonded, entry_found);
+          break;
+      }
+    }
+    fclose(fp);
+  }
+  return entry_found;
+}
+
+/*********************************************************************
+ ** Function : check_and_store_mce_profile_version
+ **
+ **  Description :
+ **    This function checks remote MAP profile version. If remote supports
+ **    MAP 1.4, entry will be added to database for this remote.
+ **    address.
+ **    Entry Format: [version, BD_ADDRESS, rebonded]
+ **    Version: Remote MAP Profile Version
+ **    BD_ADDRESS: Bluetooth Address of the remote.
+ **    rebonded: either 'N'/'Y'.
+ **              N - When entry is created.
+ **              Y - When device is rebonded
+ **
+ ********************************************************************/
+void check_and_store_mce_profile_version(tSDP_DISC_REC* m_sdp_rec) {
+  APPL_TRACE_WARNING("%s", __func__);
+  FILE *fp;
+  bool has_entry = FALSE;
+  struct dynamic_upgrade_entry entry;
+  uint16_t peer_mce_version = 0;
+  RawAddress remote_addr = m_sdp_rec->remote_bd_addr;
+  SDP_FindProfileVersionInRec(m_sdp_rec, UUID_SERVCLASS_MAP_PROFILE, &peer_mce_version);
+  if (peer_mce_version != 0) {
+    APPL_TRACE_WARNING("%s: peer_mce_version : 0x%x", __func__,peer_mce_version);
+    if (btif_config_set_uint16(remote_addr.ToString().c_str(),
+                      MAP_MCE_VERSION_CONFIG_KEY,
+                      peer_mce_version)) {
+      btif_config_save();
+    } else {
+      APPL_TRACE_WARNING("%s: Failed to store  peer_mce_version for %s",
+                   __func__, remote_addr.ToString().c_str());
+    }
+  } else {
+    APPL_TRACE_WARNING("%s: peer_mce_version invalid : 0x%x", __func__, peer_mce_version);
+  }
+  fp = fopen(MCE_PEER_VERSION_CONF_FILE, "r+b");
+  if (!fp)
+  {
+    APPL_TRACE_ERROR("%s No existing MAP MCE Conf file for read reason: (%s)",\
+                                                      __func__, strerror(errno));
+  }
+  else
+  {
+    while (fread(&entry, sizeof(entry), 1, fp) != 0)
+    {
+      APPL_TRACE_DEBUG("%s: Entry: addr = %x:%x:%x, ver = 0x%x",\
+              __func__, entry.addr[0], entry.addr[1], entry.addr[2], entry.ver);
+      if(!memcmp(&remote_addr, entry.addr, 3))
+      {
+        has_entry = TRUE;
+        // Remote MAP Version Downgraded from 1.4 to some older version
+        if ((peer_mce_version < MAP_1_4 && entry.ver >= MAP_1_4) ||
+            (peer_mce_version >= MAP_1_4 && entry.ver < MAP_1_4)) {
+          APPL_TRACE_DEBUG("%s: Remote MAP version is downgraded/Upgraded", __func__);
+          // update file mce entry with older version and rebonded = 'N'
+          fseek(fp, -(sizeof(dynamic_upgrade_entry)), SEEK_CUR);
+          entry.ver = peer_mce_version;
+          entry.rebonded = 'N';
+          fwrite(&entry, sizeof(dynamic_upgrade_entry), 1, fp);
+        }
+        APPL_TRACE_DEBUG("Entry already present, break");
+        break;
+      }
+    }
+    fclose(fp);
+  }
+  // Store MCE MAP version
+  if (has_entry == FALSE && peer_mce_version >= MAP_1_4)
+  {
+    fp = fopen(MCE_PEER_VERSION_CONF_FILE, "ab");
+    if (!fp)
+    {
+      APPL_TRACE_ERROR("%s Unable to open/create MCE Conf file for write: reason: (%s)",\
+                                                        __func__, strerror(errno));
+    }
+    else
+    {
+      entry.ver = peer_mce_version;
+      entry.rebonded = 'N';
+      memcpy(entry.addr, &remote_addr, 3);
+      APPL_TRACE_DEBUG("MCE MAP version to store = 0x%x rebonded = %c",
+              peer_mce_version, entry.rebonded);
+      fwrite(&entry, sizeof(entry), 1, fp);
+      fclose(fp);
+    }
+  } else {
+      APPL_TRACE_DEBUG(" %s MCE MAP version not stored =>> 0x%x has_entry = %d",
+                __func__,peer_mce_version, has_entry);
+  }
+}
+
+/*************************************************************************************
+**
+** Function        update_mce_entry_after_cancelling_bonding
+**
+** Description     Update MCE 1.4 entry by setting rebonded to true
+**
+***************************************************************************************/
+void update_mce_entry_after_cancelling_bonding(RawAddress remote_addr) {
+  SDP_TRACE_DEBUG("%s", __func__);
+  struct dynamic_upgrade_entry entry;
+  FILE *fp = fopen(MCE_PEER_VERSION_CONF_FILE, "r+b");
+  if (!fp) {
+    APPL_TRACE_ERROR("%s unable to open MAP MCE Conf file for read: Reason: (%s)",\
+                                                      __func__, strerror(errno));
+  } else {
+    while (fread(&entry, sizeof(entry), 1, fp) != 0)
+    {
+      APPL_TRACE_DEBUG("Entry: addr = %x:%x:%x, ver = 0x%x",\
+              entry.addr[0], entry.addr[1], entry.addr[2], entry.ver);
+      if(!memcmp(&remote_addr, entry.addr, 3))
+      {
+        APPL_TRACE_DEBUG("remote bd address matched, rebonded = %c", entry.rebonded);
+        if (entry.rebonded == 'N') {
+            fseek(fp, -(sizeof(dynamic_upgrade_entry)), SEEK_CUR);
+            entry.rebonded = 'Y';
+            fwrite(&entry, sizeof(entry), 1, fp);
+        }
+        break;
+      }
+    }
+    fclose(fp);
+  }
+}
+
+/*************************************************************************************
+**
+** Function        sdp_upgrade_map_mse_record
+**
+** Description     updates map record to map 1.4 record if remote supports map 1.4
+**
+** Returns         the address of updated record
+**
+***************************************************************************************/
+static tSDP_RECORD *sdp_upgrade_mse_record(tSDP_RECORD * p_rec,
+        RawAddress remote_address) {
+  static bool is_map_104_supported = FALSE;
+  APPL_TRACE_ERROR("%s ",__func__);
+  tSDP_ATTRIBUTE attr = p_rec->attribute[1];
+  if (!((attr.id == ATTR_ID_SERVICE_CLASS_ID_LIST) &&
+      (((attr.value_ptr[1] << 8) | (attr.value_ptr[2])) == UUID_SERVCLASS_MESSAGE_ACCESS))) {
+    // Not a MAP MSE Record
+    return p_rec;
+  }
+  /* Check if remote supports MAP 1.4 */
+  is_map_104_supported = check_remote_map_version_104(remote_address);
+  static bool running_pts = false;
+  char pts_property[6];
+  osi_property_get(SDP_ENABLE_PTS_MAP, pts_property, "false");
+  if (!strncmp("true", pts_property, 4)) {
+    SDP_TRACE_DEBUG("%s pts running= %s", __func__, pts_property);
+    running_pts = true;
+  }
+  APPL_TRACE_ERROR("%s remote BD Addr : %s is_map_104_supported : %d running_pts = %d",
+      __func__,remote_address.ToString().c_str(),is_map_104_supported,running_pts);
+
+  if (!is_map_104_supported && !running_pts) {
+    // Send 1.2 SDP Record
+    APPL_TRACE_ERROR("%s Send MAP 1.2, remote not supporting map 1.4  ",__func__);
+    return p_rec;
+  }
+  tSDP_ATTRIBUTE  *p_attr = &p_rec->attribute[0];
+  static tSDP_RECORD map_104_sdp_rec;
+  bool status = true;
+  uint8_t temp[4];
+  uint8_t* p_temp = temp;
+  memset(&map_104_sdp_rec, 0, sizeof(tSDP_RECORD));
+  uint16_t map_0104 = MAP_1_4; // Profile version
+  uint32_t supported_features = 0x603ff; // MAP 1.4 Features
+  for (int j = 0; j < p_rec->num_attributes; j++, p_attr++) {
+    SDP_AddAttributeToRecord (&map_104_sdp_rec, p_attr->id,
+    p_attr->type, p_attr->len, p_attr->value_ptr);
+  }
+  /* Add in the Bluetooth Profile Descriptor List */
+  status &= SDP_AddProfileDescriptorListToRecord(
+    &map_104_sdp_rec, UUID_SERVCLASS_MAP_PROFILE, map_0104);
+  /* Add MAP 1.4 supported features  */
+  UINT32_TO_BE_STREAM(p_temp, supported_features);
+  status &= SDP_AddAttributeToRecord(&map_104_sdp_rec,  ATTR_ID_MAP_SUPPORTED_FEATURES,
+    UINT_DESC_TYPE, (uint32_t)4, temp);
+  SDP_TRACE_DEBUG("%s update supported_features %x, version : %x"
+    ,__func__, supported_features,map_0104);
+  if (!status) {
+    SDP_TRACE_ERROR("%s: FAILED", __func__);
+    return p_rec;
+  }
+  SDP_TRACE_ERROR("%s: Success changed", __func__);
+  return &map_104_sdp_rec;
 }
 
 #endif /* SDP_SERVER_ENABLED == TRUE */
