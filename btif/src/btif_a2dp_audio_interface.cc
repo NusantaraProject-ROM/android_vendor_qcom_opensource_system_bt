@@ -944,6 +944,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
          * while in a call, and respond with BAD_STATE.
          */
         bool reset_remote_start = false;
+        bool remote_start_flag = false;
         int remote_start_idx = btif_max_av_clients;
         int latest_playing_idx = btif_max_av_clients;
         if (!bluetooth::headset::btif_hf_is_call_vr_idle()) {
@@ -963,6 +964,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         }
         remote_start_idx = btif_get_is_remote_started_idx();
         latest_playing_idx = btif_av_get_latest_device_idx_to_start();
+        remote_start_flag = btif_av_is_remote_started_set(latest_playing_idx);
         if (btif_a2dp_source_is_remote_start()) {
           reset_remote_start = false;
           APPL_TRACE_DEBUG("%s: remote started idx = %d latest playing = %d",__func__,
@@ -1014,14 +1016,12 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
             break;
           } else if (btif_a2dp_src_vsc.tx_started == FALSE) {
             uint8_t hdl = 0;
-            bool remote_start_flag = false;
             APPL_TRACE_DEBUG("%s: latest playing idx = %d",__func__, latest_playing_idx);
             if (latest_playing_idx > btif_max_av_clients || latest_playing_idx < 0) {
                 APPL_TRACE_ERROR("%s: Invalid index",__func__);
                 status = -1;//Invalid status to stop start retry
                 break;
             }
-            remote_start_flag = btif_av_is_remote_started_set(latest_playing_idx);
             if (remote_start_flag) {
               hdl = btif_av_get_av_hdl_from_idx(latest_playing_idx);
               APPL_TRACE_DEBUG("%s: hdl = %d, enc_update_in_progress = %d",__func__, hdl,
@@ -1041,6 +1041,8 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
                 /*Return pending and ack when start stream cfm received from remote*/
                 status = A2DP_CTRL_ACK_PENDING;
               }
+            } else {
+              status = A2DP_CTRL_ACK_FAILURE;
             }
 #if (TWS_ENABLED == TRUE)
             if (btif_av_current_device_is_tws() &&
@@ -1059,8 +1061,8 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
             hdl = btif_av_get_av_hdl_from_idx(remote_start_idx);
             APPL_TRACE_DEBUG("Start VSC exchange for remote started index of TWS+ device");
             btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, (char *)&hdl, 1);
-#endif
             status = A2DP_CTRL_ACK_PENDING;
+#endif
             break;
           }
           btif_av_reset_reconfig_flag();
