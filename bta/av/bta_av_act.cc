@@ -163,7 +163,7 @@ tBTA_AV_RCB* bta_av_get_rcb_by_shdl(uint8_t shdl) {
 static void bta_av_set_peer_browse_active(uint8_t rc_handle) {
   APPL_TRACE_WARNING("%s set browse active for %d and reset others", __func__, rc_handle);
   tBTA_AV_CB *p_cb = &bta_av_cb;
-  if (rc_handle == BTA_AV_RC_HANDLE_NONE) {
+  if (rc_handle < 0 || rc_handle >= BTA_AV_NUM_RCB) {
     APPL_TRACE_WARNING("%s Invalid RC handle", __func__);
     return;
   }
@@ -2264,7 +2264,7 @@ void bta_av_active_browse(tBTA_AV_DATA *p_data) {
   uint8_t browse_evt = p_msg->browse_device_evt;
   APPL_TRACE_WARNING("%s hdl %d, handoff %d", __func__, rc_handle, browse_evt);
   APPL_TRACE_WARNING("%s: Remote Addr: %s", __func__, bd_addr.ToString().c_str());
-  if (rc_handle != BTA_AV_RC_HANDLE_NONE) {
+  if (rc_handle >= 0 && rc_handle < BTA_AV_NUM_RCB) {
     APPL_TRACE_WARNING("%s feature %d isactive %d",__func__,
             p_cb->rcb[rc_handle].peer_features, p_cb->rcb[rc_handle].is_browse_active);
     if (p_cb->rcb[rc_handle].is_browse_active || bd_addr == RawAddress::kEmpty) {
@@ -2308,19 +2308,24 @@ void bta_av_active_browse(tBTA_AV_DATA *p_data) {
             APPL_TRACE_WARNING("%s: close for hdl %d", __func__, rc_handle);
             AVRC_CloseBrowse(rc_handle);
           } else {
+            if (rc_handle >= 0 && rc_handle < BTA_AV_NUM_RCB) {
+              is_active_set = true;
+              bta_av_set_peer_browse_active(rc_handle);
+            }
+          }
+        } else {
+          if (rc_handle >= 0 && rc_handle < BTA_AV_NUM_RCB) {
             is_active_set = true;
             bta_av_set_peer_browse_active(rc_handle);
           }
-        } else {
-          is_active_set = true;
-          bta_av_set_peer_browse_active(rc_handle);
         }
       }
       break;
 
     case BTA_AV_BROWSE_ACTIVE:
       if (device_exist) {
-        if (p_cb->rcb[rc_handle].peer_features & BTA_AV_FEAT_BROWSE) {
+        if (rc_handle >= 0 && rc_handle < BTA_AV_NUM_RCB &&
+            p_cb->rcb[rc_handle].peer_features & BTA_AV_FEAT_BROWSE) {
           int last = device_list_size - 1;
           std::swap(active_device_priority_list[found_idx], active_device_priority_list[last]);
           is_active_set = true;
@@ -2330,7 +2335,8 @@ void bta_av_active_browse(tBTA_AV_DATA *p_data) {
         }
       } else {
         if (rc_handle != BTA_AV_RC_HANDLE_NONE && device_list_size < BTA_AV_NUM_LINKS) {
-          if (p_cb->rcb[rc_handle].peer_features & BTA_AV_FEAT_BROWSE) {
+          if (rc_handle >= 0 && rc_handle < BTA_AV_NUM_RCB &&
+              p_cb->rcb[rc_handle].peer_features & BTA_AV_FEAT_BROWSE) {
             is_active_set = true;
             bta_av_set_peer_browse_active(rc_handle);
           }
@@ -2342,7 +2348,8 @@ void bta_av_active_browse(tBTA_AV_DATA *p_data) {
 
     case BTA_AV_BROWSE_HANDOFF:
       if (device_exist) {
-        if (p_cb->rcb[rc_handle].peer_features & BTA_AV_FEAT_BROWSE) {
+        if (rc_handle >= 0 && rc_handle < BTA_AV_NUM_RCB &&
+            p_cb->rcb[rc_handle].peer_features & BTA_AV_FEAT_BROWSE) {
           int last = device_list_size - 1;
           std::swap(active_device_priority_list[found_idx], active_device_priority_list[last]);
           is_active_set = true;
@@ -2352,7 +2359,8 @@ void bta_av_active_browse(tBTA_AV_DATA *p_data) {
         }
       } else {
         if (rc_handle != BTA_AV_RC_HANDLE_NONE && device_list_size < BTA_AV_NUM_LINKS) {
-          if (p_cb->rcb[rc_handle].peer_features & BTA_AV_FEAT_BROWSE) {
+          if (rc_handle >= 0 && rc_handle < BTA_AV_NUM_RCB &&
+              p_cb->rcb[rc_handle].peer_features & BTA_AV_FEAT_BROWSE) {
             bta_av_set_peer_browse_active(rc_handle);
             is_active_set = true;
           }
