@@ -3128,25 +3128,25 @@ void btif_av_event_deep_copy(uint16_t event, char* p_dest, char* p_src) {
     case BTA_AV_META_MSG_EVT: //17
       {
         BTIF_TRACE_DEBUG("%s: BTA_AV_META_MSG_EVT", __func__);
-        tBTA_AV* av_src = (tBTA_AV*)p_src;
-        tBTA_AV* av_dest = (tBTA_AV*)p_dest;
-        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src));
+        tBTA_AV_META_MSG* av_src_meta_msg = (tBTA_AV_META_MSG*)p_src;
+        tBTA_AV_META_MSG* av_dest_meta_msg = (tBTA_AV_META_MSG*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_meta_msg));
 
         // First copy the structure
-        maybe_non_aligned_memcpy(av_dest, av_src, sizeof(*av_src));
-        if (av_src->meta_msg.p_data && av_src->meta_msg.len) {
-          av_dest->meta_msg.p_data = (uint8_t*)osi_calloc(av_src->meta_msg.len);
-          memcpy(av_dest->meta_msg.p_data, av_src->meta_msg.p_data,
-                 av_src->meta_msg.len);
+        maybe_non_aligned_memcpy(av_dest_meta_msg, av_src_meta_msg, sizeof(*av_src_meta_msg));
+        if (av_src_meta_msg->p_data && av_src_meta_msg->len) {
+            av_dest_meta_msg->p_data = (uint8_t*)osi_calloc(av_src_meta_msg->len);
+          memcpy(av_dest_meta_msg->p_data, av_src_meta_msg->p_data,
+                 av_src_meta_msg->len);
         }
 
-        if (av_src->meta_msg.p_msg) {
-          av_dest->meta_msg.p_msg = (tAVRC_MSG*)osi_calloc(sizeof(tAVRC_MSG));
-          memcpy(av_dest->meta_msg.p_msg, av_src->meta_msg.p_msg,
+        if (av_src_meta_msg->p_msg) {
+          av_dest_meta_msg->p_msg = (tAVRC_MSG*)osi_calloc(sizeof(tAVRC_MSG));
+          memcpy(av_dest_meta_msg->p_msg, av_src_meta_msg->p_msg,
                  sizeof(tAVRC_MSG));
 
-          tAVRC_MSG* p_msg_src = av_src->meta_msg.p_msg;
-          tAVRC_MSG* p_msg_dest = av_dest->meta_msg.p_msg;
+          tAVRC_MSG* p_msg_src = av_src_meta_msg->p_msg;
+          tAVRC_MSG* p_msg_dest = av_dest_meta_msg->p_msg;
 
           BTIF_TRACE_DEBUG("%s: opcode: 0x%x, vendor_len: %d, p_msg_src->browse.browse_len: %d",
             __func__, p_msg_src->hdr.opcode, p_msg_src->vendor.vendor_len, p_msg_src->browse.browse_len);
@@ -3279,7 +3279,7 @@ void btif_av_event_deep_copy(uint16_t event, char* p_dest, char* p_src) {
         break;
       }
 
-    case BTA_AV_VENDOR_CMD_EVT: //12
+    case BTA_AV_VENDOR_CMD_EVT: //12 /* fall through */
     case BTA_AV_VENDOR_RSP_EVT: //13
       {
         tBTA_AV_VENDOR* av_src_vendor = (tBTA_AV_VENDOR*)p_src;
@@ -3298,6 +3298,7 @@ void btif_av_event_deep_copy(uint16_t event, char* p_dest, char* p_src) {
         break;
       }
 
+    case BTA_AV_STOP_EVT: //5 /* fall through */
     case BTA_AV_SUSPEND_EVT: //15
       {
         tBTA_AV_SUSPEND* av_src_suspend = (tBTA_AV_SUSPEND*)p_src;
@@ -3343,6 +3344,16 @@ void btif_av_event_deep_copy(uint16_t event, char* p_dest, char* p_src) {
         break;
       }
 
+    case BTA_AV_ROLE_CHANGED_EVT: //25
+      {
+        tBTA_AV_ROLE_CHANGED* av_src_role_changed = (tBTA_AV_ROLE_CHANGED*)p_src;
+        tBTA_AV_ROLE_CHANGED* av_dest_role_changed = (tBTA_AV_ROLE_CHANGED*)p_dest;
+        BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_role_changed));
+        maybe_non_aligned_memcpy(av_dest_role_changed, av_src_role_changed,
+                                                           sizeof(*av_src_role_changed));
+        break;
+      }
+
     case BTA_AV_DELAY_REPORT_EVT: //27
       {
         tBTA_AV_DELAY_RPT* av_src_delay_rpt = (tBTA_AV_DELAY_RPT*)p_src;
@@ -3350,6 +3361,17 @@ void btif_av_event_deep_copy(uint16_t event, char* p_dest, char* p_src) {
         BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(*av_src_delay_rpt));
         maybe_non_aligned_memcpy(av_dest_delay_rpt, av_src_delay_rpt, sizeof(*av_src_delay_rpt));
         break;
+      }
+
+    case BTA_AV_OFFLOAD_START_RSP_EVT: //22 /* fall through */
+    case BTA_AV_OFFLOAD_STOP_RSP_EVT: //28
+      {
+         tBTA_AV* av_src_offload_start_or_stop_rsp = (tBTA_AV*)p_src;
+         tBTA_AV* av_dest_offload_start_or_stop_rsp = (tBTA_AV*)p_dest;
+         BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(uint8_t));
+         maybe_non_aligned_memcpy(av_dest_offload_start_or_stop_rsp,
+                                     av_src_offload_start_or_stop_rsp, sizeof(uint8_t));
+         break;
       }
 
     default:
