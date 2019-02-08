@@ -581,7 +581,7 @@
 #endif
 
 #ifndef MAX_L2CAP_CHANNELS
-#define MAX_L2CAP_CHANNELS 32 //20
+#define MAX_L2CAP_CHANNELS 32
 #endif
 
 /* The maximum number of simultaneous applications that can register with L2CAP.
@@ -1176,7 +1176,7 @@
 
 /* Number of transport channels setup by AVDT for all media streams */
 #ifndef AVDT_NUM_TC_TBL
-#define AVDT_NUM_TC_TBL 12 //6
+#define AVDT_NUM_TC_TBL 12
 #endif
 
 /* Maximum size in bytes of the content protection information element. */
@@ -1387,12 +1387,15 @@
 
 /* Number of simultaneous ACL links to different peer devices. */
 #ifndef AVCT_NUM_LINKS
-#define AVCT_NUM_LINKS  6//2
+#define AVCT_NUM_LINKS  6
 #endif
 
 /* Number of simultaneous AVCTP connections. */
 #ifndef AVCT_NUM_CONN
-#define AVCT_NUM_CONN 14 // 2 * MaxDevices + 2 macro //3
+/*Number of  links 5 + browsing channel for active device + browsing and control channeli for
+incoming connection
+*/
+#define AVCT_NUM_CONN AVCT_NUM_LINKS + 2
 #endif
 
 #ifndef TWS_AG_ENABLED
