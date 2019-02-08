@@ -366,7 +366,7 @@ tBTA_AV_HNDL btif_av_get_reconfig_dev_hndl();
 void btif_av_reset_codec_reconfig_flag(RawAddress address);
 void btif_av_reinit_audio_interface();
 bool btif_av_is_suspend_stop_pending_ack();
-static void allow_connection(int is_valid, RawAddress *bd_addr); // gghai
+static void allow_connection(int is_valid, RawAddress *bd_addr);
 
 
 const char* dump_av_sm_state_name(btif_av_state_t state) {
@@ -865,7 +865,7 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       if (bt_av_src_callbacks != NULL) {
         BTIF_TRACE_DEBUG("Calling connection priority callback ");
         idle_rc_event = event;
-#ifdef BT_AV_SHO_FEATURE // gghai
+#ifdef BT_AV_SHO_FEATURE
         HAL_CBACK(bt_av_src_callbacks, connection_priority_cb, // call allow_conn for all callbacks
            &(btif_av_cb[index].peer_bda));
 #else
@@ -3571,7 +3571,7 @@ static bt_status_t init_src(
   return status;
 }
 
-static bt_status_t init_src( // gghai
+static bt_status_t init_src(
     btav_source_callbacks_t* callbacks,
     int max_connected_audio_devices,
     std::vector<btav_a2dp_codec_config_t> codec_priorities) {
@@ -5087,7 +5087,7 @@ void btif_av_update_multicast_state(int index) {
 
   if (prev_multicast_state != enable_multicast) {
     BTA_AvEnableMultiCast(enable_multicast, btif_av_cb[index].bta_handle);
-#ifdef BT_AV_SHO_FEATURE // gghai
+#ifdef BT_AV_SHO_FEATURE
     HAL_CBACK(bt_av_src_callbacks, multicast_state_cb, enable_multicast);
 #endif
   }

@@ -444,7 +444,6 @@ static int set_os_callouts(bt_os_callouts_t* callouts) {
   return BT_STATUS_SUCCESS;
 }
 
-// gghai: for JNI HAL compatibility
 static void dumpMetrics(std::string* output) {
   LOG_INFO(LOG_TAG, "%s", __func__);
 }

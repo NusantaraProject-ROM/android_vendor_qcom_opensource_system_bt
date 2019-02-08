@@ -17,7 +17,7 @@
  ******************************************************************************/
 
 #pragma once
-#include "include/bt_logger_lib.h" // gghai, add file
+#include "include/bt_logger_lib.h"
 
 extern bt_logger_interface_t *logger_interface;
 extern bool bt_logger_enabled;

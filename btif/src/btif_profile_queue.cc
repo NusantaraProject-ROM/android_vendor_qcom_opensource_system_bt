@@ -256,7 +256,7 @@ void btif_queue_cleanup(uint16_t uuid) {
  *
  ******************************************************************************/
 void btif_queue_advance() {
-/*    if (thread_is_self(bt_jni_workqueue_thread)) // gghai
+/*    if (thread_is_self(bt_jni_workqueue_thread))
     {
         queue_int_handle_evt(BTIF_QUEUE_ADVANCE_EVT, NULL);
     }

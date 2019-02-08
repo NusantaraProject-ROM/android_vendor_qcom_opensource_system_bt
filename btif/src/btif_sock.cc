@@ -219,7 +219,6 @@ static bt_status_t btsock_connect(const RawAddress* bd_addr, btsock_type_t type,
   return status;
 }
 
-// gghai : For JNI HAL compatibility
 static void btsock_request_max_tx_data_length(const RawAddress& remote_device) {
   LOG_INFO(LOG_TAG, "%s", __func__)
 }

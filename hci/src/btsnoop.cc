@@ -108,7 +108,7 @@ static future_t* start_up(void) {
     delete_btsnoop_files();
   } else {
     open_next_snoop_file();
-    packets_per_file = (//osi_property_get_int32(BTSNOOP_MAX_PACKETS_PROPERTY, // gghai
+    packets_per_file = (//osi_property_get_int32(BTSNOOP_MAX_PACKETS_PROPERTY,
                                               DEFAULT_BTSNOOP_SIZE);
     btsnoop_net_open();
     START_SNOOP_LOGGING();

@@ -1995,7 +1995,7 @@ void HeadsetInterface::Cleanup(void) {
   return BT_STATUS_SUCCESS;
 } */ // commenting temp because of HAL change
 
-#ifdef BT_HF_VOIP_FEATURE //gghai
+#ifdef BT_HF_VOIP_FEATURE
 static void set_voip_network_type_wifi_hci_cmd_complete(tBTM_VSC_CMPL* p_data)
 {
     uint8_t         *stream,  status, subcmd;
