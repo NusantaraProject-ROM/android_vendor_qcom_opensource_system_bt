@@ -751,6 +751,7 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       btif_av_cb[index].remote_started = false;
       btif_av_cb[index].remote_start_alarm = NULL;
       btif_av_cb[index].is_suspend_for_remote_start = false;
+      btif_av_cb[index].retry_rc_connect = false;
 #if (TWS_ENABLED == TRUE)
       BTIF_TRACE_EVENT("reset tws_device flag in IDLE state");
       btif_av_cb[index].tws_device = false;
@@ -1290,7 +1291,6 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
          BTA_AvCloseRc(peer_handle);
        }
        BTA_AvClose(btif_av_cb[index].bta_handle);
-       btif_av_cb[index].retry_rc_connect = false;
        btif_queue_advance();
        btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_IDLE);
        btif_report_connection_state_to_ba(BTAV_CONNECTION_STATE_DISCONNECTED);
@@ -1710,7 +1710,6 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
     } break;
 
     case BTIF_AV_DISCONNECT_REQ_EVT: {
-      btif_av_cb[index].retry_rc_connect = false;
       BTA_AvClose(btif_av_cb[index].bta_handle);
       if (btif_av_cb[index].peer_sep == AVDT_TSEP_SRC) {
         BTA_AvCloseRc(btif_av_cb[index].bta_handle);
@@ -2105,7 +2104,6 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       break;
 
     case BTIF_AV_DISCONNECT_REQ_EVT:
-      btif_av_cb[index].retry_rc_connect = false;
       // Now it is not the current playing
       // request avdtp to close
       BTA_AvClose(btif_av_cb[index].bta_handle);
@@ -2822,7 +2820,8 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
       BTIF_TRACE_DEBUG("%s: BTA_AV_RC_CLOSE_EVT: peer_addr=%s", __func__,
                   p_bta_data->rc_close.peer_addr.ToString().c_str());
       index = btif_av_idx_by_bdaddr(&p_bta_data->rc_close.peer_addr);
-      if (btif_av_cb[index].current_playing == false) {
+      if (btif_av_cb[index].current_playing == false &&
+          btif_av_is_device_connected(p_bta_data->rc_close.peer_addr)) {
         BTIF_TRACE_IMP("Mark retry RC connect for inactive idx = %d drops RC", index);
         btif_av_cb[index].retry_rc_connect = true;
       }
@@ -4095,7 +4094,6 @@ static void allow_connection(int is_valid, RawAddress *bd_addr)
          BTIF_TRACE_IMP("Reject incoming AV connection on Index %d", index);
          btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED,
              &(btif_av_cb[index].peer_bda));
-         btif_av_cb[index].retry_rc_connect = false;
          BTA_AvClose(btif_av_cb[index].bta_handle);
          btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_IDLE);
        }
@@ -5016,7 +5014,6 @@ void btif_av_move_idle(RawAddress bd_addr) {
   if (state == BTIF_AV_STATE_OPENING &&
       (memcmp (&bd_addr, &(btif_av_cb[index].peer_bda), sizeof(bd_addr)) == 0)) {
     BTIF_TRACE_IMP("Moving BTIF State from Opening to Idle due to ACL disconnect");
-    btif_av_cb[index].retry_rc_connect = false;
     btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED, &(btif_av_cb[index].peer_bda));
     BTA_AvClose(btif_av_cb[index].bta_handle);
     btif_av_check_and_start_collission_timer(index);
