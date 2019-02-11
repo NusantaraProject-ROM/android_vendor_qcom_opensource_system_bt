@@ -1322,8 +1322,8 @@ static void btu_hcif_hardware_error_evt(uint8_t* p) {
         ALOGE("SSR: SOC Status is reset\n ");
      }*/
 #if (!defined(SSR_CLEANUP) || (defined(SSR_CLEANUP) && SSR_CLEANUP == FALSE))
-     /* Killing the process to force a restart as part of fault tolerance */
-     kill(getpid(), SIGKILL);
+     /* Notify  to the application to handle SSR properly  */
+     btm_notify_ssr_trigger();
 #endif
   }
 }

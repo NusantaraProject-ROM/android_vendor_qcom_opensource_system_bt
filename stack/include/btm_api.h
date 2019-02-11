@@ -196,6 +196,17 @@ extern tBTM_STATUS BTM_RegisterForVSEvents(tBTM_VS_EVT_CB* p_cb,
 void btm_register_iot_info_cback (tBTM_VS_EVT_CB *p_cb);
 
 /*******************************************************************************
+**
+** Function         btm_register_ssr_cback
+**
+** Description      Register callback to process SSR
+**
+** Returns          void
+**
+*******************************************************************************/
+void btm_register_ssr_cback (tBTM_NOTIFY_SSR_CB *p_cb);
+
+/*******************************************************************************
  *
  * Function         BTM_VendorSpecificCommand
  *

@@ -335,6 +335,7 @@ void bta_dm_init_cb(void) {
     }
   }
   btm_register_iot_info_cback(bta_dm_vnd_info_report_cback);
+  btm_register_ssr_cback(bta_dm_process_ssr);
 }
 
 /*******************************************************************************
@@ -3637,6 +3638,24 @@ void bta_dm_process_iot_report(tBTA_DM_MSG *p_data)
 
   if( bta_dm_cb.p_sec_cback )
     bta_dm_cb.p_sec_cback(BTA_DM_IOT_INFO_EVT, (tBTA_DM_SEC *)&sec_event);
+}
+
+/*******************************************************************************
+**
+** Function         bta_dm_process_ssr
+**
+** Description      Notifies SSR event to application
+**
+**
+** Returns          void
+**
+*******************************************************************************/
+void bta_dm_process_ssr(void)
+{
+  APPL_TRACE_WARNING("bta_dm_process_ssr");
+
+  if( bta_dm_cb.p_sec_cback )
+    bta_dm_cb.p_sec_cback(BTA_DM_SSR_EVT, NULL);
 }
 /*******************************************************************************
  *

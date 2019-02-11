@@ -798,6 +798,18 @@ void btm_register_iot_info_cback (tBTM_VS_EVT_CB *p_cb) {
 }
 
 /*******************************************************************************
+**
+** Function         btm_register_ssr_cback
+**
+** Description      Register callback to process SSR
+**
+** Returns          void
+**
+*******************************************************************************/
+void btm_register_ssr_cback (tBTM_NOTIFY_SSR_CB *p_cb) {
+    btm_cb.devcb.p_ssr_cb = p_cb;
+}
+/*******************************************************************************
  *
  * Function         btm_vendor_specific_evt
  *
@@ -1042,4 +1054,22 @@ void btm_report_device_status(tBTM_DEV_STATUS status) {
 
   /* Call the call back to pass the device status to application */
   if (p_cb) (*p_cb)(status);
+}
+
+/*******************************************************************************
+ *
+ * Function         btm_notify_ssr_trigger
+ *
+ * Description      This function is called when SSR triggered to notify
+ *                  the application to handle SSR
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void btm_notify_ssr_trigger(void) {
+  if (btm_cb.devcb.p_ssr_cb) {
+    BTM_TRACE_DEBUG ("Calling bta_dm_process_ssr");
+    (*btm_cb.devcb.p_ssr_cb)();
+    return;
+  }
 }

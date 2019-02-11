@@ -117,6 +117,8 @@ typedef uint8_t tBTM_DEV_STATUS;
 
 typedef void(tBTM_DEV_STATUS_CB)(tBTM_DEV_STATUS status);
 
+typedef void(tBTM_NOTIFY_SSR_CB)(void);
+
 /* Callback function for when a vendor specific event occurs. The length and
  * array of returned parameter bytes are included. This asynchronous event
  * is enabled/disabled by calling BTM_RegisterForVSEvents().

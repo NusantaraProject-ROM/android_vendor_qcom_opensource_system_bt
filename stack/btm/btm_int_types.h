@@ -195,6 +195,7 @@ typedef struct {
                                 /* itself or peer device doesn't support */
                                 /* secure connections */
   tBTM_VS_EVT_CB *p_vnd_iot_info_cb;
+  tBTM_NOTIFY_SSR_CB * p_ssr_cb;
 } tBTM_DEVCB;
 
 /* Define the structures and constants used for inquiry

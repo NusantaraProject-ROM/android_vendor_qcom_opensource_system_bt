@@ -2270,6 +2270,12 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
       break;
     }
 
+    case BTA_DM_SSR_EVT: {
+      BTIF_TRACE_WARNING("BTA_DM_SSR_EVT");
+      HAL_CBACK(bt_vendor_callbacks, ssr_vendor_cb);
+      break;
+    }
+
     case BTA_DM_REM_NAME_EVT:
       BTIF_TRACE_DEBUG("BTA_DM_REM_NAME_EVT");
 

@@ -877,6 +877,7 @@ extern void bta_dm_bond_cancel(tBTA_DM_MSG* p_data);
 extern void bta_dm_pin_reply(tBTA_DM_MSG* p_data);
 extern void bta_dm_acl_change(tBTA_DM_MSG* p_data);
 extern void bta_dm_process_iot_report(tBTA_DM_MSG *p_data);
+extern void bta_dm_process_ssr(void);
 extern void bta_dm_add_device(tBTA_DM_MSG* p_data);
 extern void bta_dm_remove_device(tBTA_DM_MSG* p_data);
 extern void bta_dm_close_acl(tBTA_DM_MSG* p_data);
