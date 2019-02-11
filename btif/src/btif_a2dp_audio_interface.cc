@@ -1275,6 +1275,9 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
           }
         }
         bits_per_sample = CodecConfig->getAudioBitsPerSample();
+
+        peer_param.peer_mtu = peer_param.peer_mtu - A2DP_HEADER_SIZE;
+
         LOG_INFO(LOG_TAG,"bitrate = %d, bits_per_sample = %d, peer_param.peer_mtu = %d",
                           bitrate, bits_per_sample, peer_param.peer_mtu);
         codec_info[0] = 0; //playing device handle

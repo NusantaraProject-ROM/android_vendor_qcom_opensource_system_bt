@@ -142,6 +142,14 @@ typedef uint8_t tBTA_AV_HNDL;
 #define BTA_AV_MAX_VDP_MTU 1008
 #endif
 
+//Whenever we update peer MTU value, we need to deduct A2DP header, and
+//if SCMS-T enabled it would be 2 bytes else it would be 1 byte.
+#if (BTA_AV_CO_CP_SCMS_T == TRUE)
+#define A2DP_HEADER_SIZE  2
+#else
+#define A2DP_HEADER_SIZE  1
+#endif
+
 /* operation id list for BTA_AvRemoteCmd */
 #define BTA_AV_RC_SELECT AVRC_ID_SELECT         /* select */
 #define BTA_AV_RC_UP AVRC_ID_UP                 /* up */
