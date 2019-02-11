@@ -676,6 +676,28 @@ static void on_l2cap_write_fixed_done(void* req_id, uint16_t len, uint32_t id) {
   uid_set_add_tx(uid_set, app_uid, len);
 }
 
+static void on_l2cap_write_fail(void* req_id, uint16_t len, uint32_t id) {
+  l2cap_socket* sock;
+
+  APPL_TRACE_WARNING("on_l2cap_write_fail: req_id %d ,id %d ", req_id, id);
+  if (req_id != NULL) {
+    osi_free(req_id);  // free the buffer
+  }
+
+  int app_uid = -1;
+  sock = btsock_l2cap_find_by_id_l(id);
+  if (!sock) return;
+
+  app_uid = sock->app_uid;
+  if (!sock->outgoing_congest) {
+    // monitor the fd for any outgoing data
+    APPL_TRACE_DEBUG("on_l2cap_write_fail: adding fd to btsock_thread...");
+    btsock_thread_add_fd(pth, sock->our_fd, BTSOCK_L2CAP, SOCK_THREAD_FD_RD,
+                         sock->id);
+  }
+  uid_set_add_tx(uid_set, app_uid, len);
+}
+
 static void on_l2cap_data_ind(tBTA_JV* evt, uint32_t id) {
   l2cap_socket* sock;
 
@@ -1052,13 +1074,13 @@ void btsock_l2cap_signaled(int fd, int flags, uint32_t user_id) {
                                     PTR_TO_UINT(buffer), btsock_l2cap_cbk,
                                     buffer, count, user_id) != BTA_JV_SUCCESS) {
             // On fail, free the buffer
-            on_l2cap_write_fixed_done(buffer, count, user_id);
+            on_l2cap_write_fail(buffer, count, user_id);
           }
         } else {
           if (BTA_JvL2capWrite(sock->handle, PTR_TO_UINT(buffer), buffer, count,
                                user_id) != BTA_JV_SUCCESS) {
             // On fail, free the buffer
-            on_l2cap_write_done(buffer, count, user_id);
+            on_l2cap_write_fail(buffer, count, user_id);
           }
         }
       }
