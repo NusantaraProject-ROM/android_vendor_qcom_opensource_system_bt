@@ -137,7 +137,10 @@ cc_test {
     name: "net_test_btif_qti",
     defaults: ["fluoride_defaults_qti"],
     include_dirs: btifCommonIncludes,
-    srcs: ["test/btif_storage_test.cc"],
+    srcs: [
+        "test/btif_storage_test.cc",
+        "test/btif_keystore_test.cc"
+    ],
     header_libs: ["libbluetooth_headers"],
     shared_libs: [
         "liblog",
@@ -150,6 +153,7 @@ cc_test {
         "libkeystore_aidl",
         "libkeystore_binder",
         "libkeystore_parcelables",
+        "libbinder",
     ],
     static_libs: [
         "libbtcore_qti",
@@ -160,6 +164,9 @@ cc_test {
         "libbt-common-qti",
     ],
     cflags: ["-DBUILDCFG"],
+    sanitize: {
+        integer_overflow: true,
+    },
 }
 
 // btif profile queue unit tests for target
