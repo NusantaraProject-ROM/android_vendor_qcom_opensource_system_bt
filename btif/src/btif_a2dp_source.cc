@@ -417,6 +417,8 @@ static void btif_media_remote_start_alarm_cb(UNUSED_ATTR void *context) {
 
 static void btif_a2dp_source_remote_start_timeout(UNUSED_ATTR void* context) {
   int *arg = (int *)context;
+  if (!arg)
+    return;
   int index = *arg;
   APPL_TRACE_DEBUG("%s: Suspend stream request to Av index %d", __func__, *arg);
   if (btif_a2dp_source_cb.remote_start_alarm != NULL &&
