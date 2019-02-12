@@ -43,6 +43,10 @@ bool btif_config_get_int(const char* section, const char* key, int* value);
 bool btif_config_set_int(const char* section, const char* key, int value);
 bool btif_config_get_uint16(const char* section, const char* key, uint16_t* value);
 bool btif_config_set_uint16(const char* section, const char* key, uint16_t value);
+bool btif_config_get_uint64(const char* section, const char* key,
+                            uint64_t* value);
+bool btif_config_set_uint64(const char* section, const char* key,
+                            uint64_t value);
 bool btif_config_get_str(const char* section, const char* key, char* value,
                          int* size_bytes);
 bool btif_config_set_str(const char* section, const char* key,

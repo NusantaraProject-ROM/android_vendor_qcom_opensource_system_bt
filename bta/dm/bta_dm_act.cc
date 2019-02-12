@@ -4782,6 +4782,18 @@ void bta_dm_security_grant(tBTA_DM_MSG* p_data) {
   BTM_SecurityGrant(p_data->ble_sec_grant.bd_addr, p_data->ble_sec_grant.res);
 }
 
+/** This function set the preferred connection parameters */
+/*void bta_dm_ble_set_conn_params(const RawAddress& bd_addr,
+                                uint16_t conn_int_min, uint16_t conn_int_max,
+                                uint16_t slave_latency,
+                                uint16_t supervision_tout) {
+  L2CA_AdjustConnectionIntervals(&conn_int_min, &conn_int_max,
+                                 BTM_BLE_CONN_INT_MIN);
+
+  BTM_BleSetPrefConnParams(bd_addr, conn_int_min, conn_int_max, slave_latency,
+                           supervision_tout);
+}*/
+
 /*******************************************************************************
  *
  * Function         bta_dm_ble_set_bg_conn_type

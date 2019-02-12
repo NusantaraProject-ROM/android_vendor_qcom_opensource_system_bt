@@ -79,6 +79,7 @@
 #include "hardware/vendor.h"
 
 #include <hardware/bluetooth.h>
+#include <hardware/bt_hearing_aid.h>
 
 #include "advertise_data_parser.h"
 #include "bt_common.h"
@@ -119,6 +120,8 @@ using bluetooth::Uuid;
  *****************************************************************************/
 #define BTIF_DM_GET_REMOTE_PROP(b,t,v,l,p) \
       {p.type=t;p.val=v;p.len=l;btif_storage_get_remote_device_property(b,&p);}
+
+const Uuid UUID_HEARING_AID = Uuid::FromString("FDF0");
 
 #define COD_MASK 0x07FF
 
@@ -320,6 +323,9 @@ extern void btif_vendor_iot_device_broadcast_event(RawAddress* bd_addr,
                 uint16_t error, uint16_t error_info, uint32_t event_mask,
                 uint8_t power_level, int8_t rssi, uint8_t link_quality,
                 uint16_t glitch_count);
+extern bluetooth::hearing_aid::HearingAidInterface*
+btif_hearing_aid_get_interface();
+
 /******************************************************************************
  *  Functions
  *****************************************************************************/
@@ -1773,8 +1779,9 @@ static void btif_dm_search_services_evt(uint16_t event, char* p_param) {
       BTIF_TRACE_DEBUG("%s: service %s", __func__,
                        p_data->disc_ble_res.service.ToString().c_str());
       int num_properties = 0;
-      if (p_data->disc_ble_res.service.As16Bit() == UUID_SERVCLASS_LE_HID) {
-        BTIF_TRACE_DEBUG("%s: Found HOGP UUID", __func__);
+      if (p_data->disc_ble_res.service.As16Bit() == UUID_SERVCLASS_LE_HID ||
+          p_data->disc_ble_res.service == UUID_HEARING_AID) {
+        BTIF_TRACE_DEBUG("%s: Found HOGP or HEARING AID UUID", __func__);
         bt_property_t prop[2];
         bt_status_t ret;
 
@@ -1973,6 +1980,7 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
 #if (defined(BTA_HD_INCLUDED) && (BTA_HD_INCLUDED == TRUE))
       btif_hd_remove_device(bd_addr);
 #endif
+      btif_hearing_aid_get_interface()->RemoveDevice(bd_addr);
       btif_storage_remove_bonded_device(&bd_addr);
       bond_state_changed(BT_STATUS_SUCCESS, bd_addr, BT_BOND_STATE_NONE);
       break;

@@ -38,6 +38,7 @@
 #include <hardware/bt_gatt.h>
 #include <hardware/bt_hd.h>
 #include <hardware/bt_hf.h>
+#include <hardware/bt_hearing_aid.h>
 #include <hardware/bt_hf_client.h>
 #include <hardware/bt_hh.h>
 #include <hardware/bt_mce.h>
@@ -53,6 +54,7 @@
 #include <hardware/bt_ba.h>
 #include <hardware/bt_vendor_rc.h>
 #include "bt_utils.h"
+#include "bta/include/bta_hearing_aid_api.h"
 #include "bta/include/bta_hf_client_api.h"
 #include "btif/include/btif_debug_btsnoop.h"
 #include "btif/include/btif_debug_conn.h"
@@ -75,6 +77,8 @@
 #include "stack/gatt/connection_manager.h"
 #include "stack_manager.h"
 
+
+using bluetooth::hearing_aid::HearingAidInterface;
 
 /*******************************************************************************
  *  Static variables
@@ -116,6 +120,9 @@ extern btsdp_interface_t* btif_sdp_get_interface();
 #ifdef WIPOWER_SUPPORTED
 extern wipower_interface_t *get_wipower_interface();
 #endif
+
+/*Hearing Aid client*/
+extern HearingAidInterface* btif_hearing_aid_get_interface();
 
 /* List all test interface here */
 /* vendor  */
@@ -398,6 +405,9 @@ static const void* get_profile_interface(const char* profile_id) {
 
   if (is_profile(profile_id, BT_PROFILE_BAT_ID))
     return btif_bat_get_interface();
+
+  if (is_profile(profile_id, BT_PROFILE_HEARING_AID_ID))
+    return btif_hearing_aid_get_interface();
 
   return NULL;
 }

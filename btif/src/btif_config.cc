@@ -283,6 +283,19 @@ bool btif_config_get_uint16(const char* section, const char* key, uint16_t* valu
   return ret;
 }
 
+bool btif_config_get_uint64(const char* section, const char* key,
+                            uint64_t* value) {
+  CHECK(config != NULL);
+  CHECK(value != NULL);
+
+  std::unique_lock<std::mutex> lock(config_lock);
+  bool ret = config_has_key(config, section, key);
+  if (ret) *value = config_get_uint64(config, section, key, *value);
+
+  return ret;
+}
+
+
 bool btif_config_set_int(const char* section, const char* key, int value) {
   CHECK(config != NULL);
   CHECK(section != NULL);
@@ -304,6 +317,17 @@ bool btif_config_set_uint16(const char* section, const char* key, uint16_t value
 
   return true;
 }
+
+bool btif_config_set_uint64(const char* section, const char* key,
+                            uint64_t value) {
+  CHECK(config != NULL);
+
+  std::unique_lock<std::mutex> lock(config_lock);
+  config_set_uint64(config, section, key, value);
+
+  return true;
+}
+
 
 bool btif_config_get_str(const char* section, const char* key, char* value,
                          int* size_bytes) {

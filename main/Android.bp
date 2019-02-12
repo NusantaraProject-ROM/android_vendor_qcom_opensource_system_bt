@@ -62,6 +62,7 @@ cc_library_shared {
         "libbt-sbc-encoder_qti",
         "libFraunhoferAAC",
         "libudrv-uipc_qti",
+        "libg722codec_qti",
     ],
     whole_static_libs: [
         "libbt-bta_qti",

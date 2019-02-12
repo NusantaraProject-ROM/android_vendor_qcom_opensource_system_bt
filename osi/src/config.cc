@@ -179,6 +179,20 @@ unsigned short int config_get_uint16(const config_t* config, const char* section
   return (*endptr == '\0') ? ret : def_value;
 }
 
+uint64_t config_get_uint64(const config_t* config, const char* section, const char* key,
+                   uint64_t def_value) {
+  CHECK(config != NULL);
+  CHECK(section != NULL);
+  CHECK(key != NULL);
+
+  entry_t* entry = entry_find(config, section, key);
+  if (!entry) return def_value;
+
+  char* endptr;
+  uint64_t ret = (uint64_t)strtoull(entry->value, &endptr, 0);
+  return (*endptr == '\0') ? ret : def_value;
+}
+
 bool config_get_bool(const config_t* config, const char* section,
                      const char* key, bool def_value) {
   CHECK(config != NULL);
@@ -225,6 +239,17 @@ void config_set_uint16(config_t* config, const char* section, const char* key,
 
   char value_str[16] = {0};
   snprintf(value_str, sizeof(value_str), "%u", value);
+  config_set_string(config, section, key, value_str);
+}
+
+void config_set_uint64(config_t* config, const char* section, const char* key,
+                    uint64_t value) {
+  CHECK(config != NULL);
+  CHECK(section != NULL);
+  CHECK(key != NULL);
+
+  char value_str[64] = {0};
+  snprintf(value_str, sizeof(value_str), "%" PRIu64, value);
   config_set_string(config, section, key, value_str);
 }
 

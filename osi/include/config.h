@@ -17,6 +17,7 @@
 // - All strings are case sensitive.
 
 #include <stdbool.h>
+#include "stack/include/bt_types.h"
 
 // The default section name to use if a key/value pair is not defined within
 // a section.
@@ -75,6 +76,9 @@ int config_get_int(const config_t* config, const char* section, const char* key,
 unsigned short int config_get_uint16(const config_t* config, const char* section,
                    const char* key,unsigned short int def_value);
 
+uint64_t config_get_uint64(const config_t* config, const char* section, const char* key,
+                   uint64_t def_value);
+
 // Returns the boolean value for a given |key| in |section|. If |section|
 // or |key| do not exist, or the value cannot be converted to a boolean, this
 // function returns |def_value|. |config|, |section|, and |key| must not be
@@ -100,6 +104,9 @@ void config_set_int(config_t* config, const char* section, const char* key,
 // and |key| must not be NULL.
 void config_set_uint16(config_t* config, const char* section, const char* key,
                     unsigned short int value);
+
+void config_set_uint64(config_t* config, const char* section, const char* key,
+                    uint64_t value);
 
 // Sets a boolean value for the |key| in |section|. If |key| or |section| do
 // not already exist, this function creates them. |config|, |section|, and |key|

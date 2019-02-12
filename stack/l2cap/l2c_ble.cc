@@ -27,7 +27,7 @@
 #include <string.h>
 #include "bt_target.h"
 #include "bt_utils.h"
-//#include "bta_hearing_aid_api.h"
+#include "bta_hearing_aid_api.h"
 #include "btm_int.h"
 #include "btu.h"
 #include "device/include/controller.h"
