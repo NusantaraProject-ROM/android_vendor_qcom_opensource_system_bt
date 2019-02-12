@@ -3864,6 +3864,19 @@ static bt_status_t disconnect(const RawAddress& bd_addr) {
 
 /*******************************************************************************
  *
+ * Function         set_silence_device
+ *
+ * Description      Sets the connected device silence state
+ *
+ * Returns          bt_status_t
+ *
+ ******************************************************************************/
+static bt_status_t set_silence_device(const RawAddress& /*bd_addr*/, bool /*silence*/) {
+  return BT_STATUS_UNSUPPORTED;
+}
+
+/*******************************************************************************
+ *
  * Function         set_active_device
  *
  * Description      Tears down the AV signalling channel with the remote headset
@@ -4109,6 +4122,7 @@ static const btav_source_interface_t bt_av_src_interface = {
     init_src,
     src_connect_sink,
     disconnect,
+    set_silence_device,
     set_active_device,
     codec_config_src,
     cleanup_src,
