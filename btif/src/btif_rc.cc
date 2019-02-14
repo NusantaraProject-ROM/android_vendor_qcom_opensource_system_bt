@@ -3253,7 +3253,7 @@ static bt_status_t register_notification_rsp(
 static bt_status_t get_folder_items_list_rsp(RawAddress* bd_addr,
                                              btrc_status_t rsp_status,
                                              uint16_t uid_counter,
-                                             uint8_t num_items,
+                                             uint16_t num_items,
                                              btrc_folder_items_t* p_items) {
   tAVRC_RESPONSE avrc_rsp;
   tAVRC_ITEM item;

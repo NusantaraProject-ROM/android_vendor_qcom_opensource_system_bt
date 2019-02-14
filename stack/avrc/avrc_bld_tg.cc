@@ -1002,6 +1002,8 @@ static tAVRC_STS avrc_bld_get_folder_items_rsp(tAVRC_GET_ITEMS_RSP* p_rsp,
           ARRAY_TO_BE_STREAM(p_data, p_folder->name.p_str,
                              p_folder->name.str_len);
         } else {
+          if (len_left < item_len && item_count > 0)
+            multi_items_add_fail = TRUE;
           p_data = p_item_start;
         }
         break;
