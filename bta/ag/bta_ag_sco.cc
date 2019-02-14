@@ -236,7 +236,8 @@ static void bta_ag_sco_disc_cback(uint16_t sco_idx) {
     /*No codec fallback for TWS+ device*/
     if (is_twsp_device(curr_scb->peer_addr) != true) {
 #endif
-    if (bta_ag_cb.sco.p_curr_scb->inuse_codec == BTA_AG_CODEC_MSBC) {
+    if (bta_ag_cb.sco.p_curr_scb != NULL &&
+           bta_ag_cb.sco.p_curr_scb->inuse_codec == BTA_AG_CODEC_MSBC) {
       /* Bypass vendor specific and voice settings if enhanced eSCO supported */
       if (!(controller_get_interface()
                 ->supports_enhanced_setup_synchronous_connection() &&
