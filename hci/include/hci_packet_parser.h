@@ -85,6 +85,10 @@ typedef struct {
       BT_HDR* response, uint8_t* number_of_scrambling_supported_freqs,
       uint8_t* scrambling_supported_freqs);
 
+  void (*parse_read_add_on_features_supported_response)(
+      BT_HDR* response, bt_device_features_t* Supported_add_on_features,
+      uint8_t *valid_bytes, uint16_t* product_id, uint16_t* response_version);
+
 } hci_packet_parser_t;
 
 const hci_packet_parser_t* hci_packet_parser_get_interface();

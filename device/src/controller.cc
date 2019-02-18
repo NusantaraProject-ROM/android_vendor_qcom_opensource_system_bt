@@ -80,6 +80,9 @@ static uint8_t local_supported_codecs[MAX_LOCAL_SUPPORTED_CODECS_SIZE];
 static uint8_t scrambling_supported_freqs[MAX_SUPPORTED_SCRAMBLING_FREQ_SIZE];
 static uint8_t number_of_local_supported_codecs = 0;
 static uint8_t number_of_scrambling_supported_freqs = 0;
+static bt_device_features_t add_on_features;
+static uint8_t add_on_features_length = 0;
+static uint16_t product_id, response_version;
 
 static bool readable;
 static bool ble_supported;
@@ -306,21 +309,48 @@ static future_t* start_up(void) {
         response, &number_of_local_supported_codecs, local_supported_codecs);
   }
 
-  // read scrambling support from controller incase of cherokee
-  if (soc_type == BT_SOC_CHEROKEE) {
+  //Read HCI_VS_GET_ADDON_FEATURES_SUPPORT
+  if (soc_type == BT_SOC_CHEROKEE || soc_type == BT_SOC_HASTINGS) {
     response =
-          AWAIT_COMMAND(packet_factory->make_read_scrambling_supported_freqs());
-    if(response) {
+          AWAIT_COMMAND(packet_factory->make_read_add_on_features_supported());
+    if (response) {
 
-      LOG_DEBUG(LOG_TAG, "%s sending scrambling support VSC", __func__);
-      packet_parser->parse_read_scrambling_supported_freqs_response(
-          response, &number_of_scrambling_supported_freqs,
-          scrambling_supported_freqs);
+      LOG_DEBUG(LOG_TAG, "%s sending add-on features supported VSC", __func__);
+      packet_parser->parse_read_add_on_features_supported_response(
+          response, &add_on_features, &add_on_features_length, &product_id, &response_version);
+    }
+    if (!add_on_features_length) {
+      // read scrambling support from controller incase of cherokee
+      response =
+            AWAIT_COMMAND(packet_factory->make_read_scrambling_supported_freqs());
+      if (response) {
 
-      LOG_DEBUG(LOG_TAG, "%s number_of_scrambling_supported_freqs %d", __func__,
-                      number_of_scrambling_supported_freqs);
+        LOG_DEBUG(LOG_TAG, "%s sending scrambling support VSC", __func__);
+        packet_parser->parse_read_scrambling_supported_freqs_response(
+            response, &number_of_scrambling_supported_freqs,
+            scrambling_supported_freqs);
+
+        LOG_DEBUG(LOG_TAG, "%s number_of_scrambling_supported_freqs %d", __func__,
+                        number_of_scrambling_supported_freqs);
+      }
+    } else {
+        if (HCI_SPLIT_A2DP_SCRAMBLING_DATA_REQUIRED(add_on_features.as_array))  {
+          if (HCI_SPLIT_A2DP_44P1KHZ_SAMPLE_FREQ(add_on_features.as_array)) {
+            scrambling_supported_freqs[number_of_scrambling_supported_freqs++]
+                                = BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
+            scrambling_supported_freqs[number_of_scrambling_supported_freqs++]
+                                = BTAV_A2DP_CODEC_SAMPLE_RATE_88200;
+          }
+          if (HCI_SPLIT_A2DP_48KHZ_SAMPLE_FREQ(add_on_features.as_array)) {
+            scrambling_supported_freqs[number_of_scrambling_supported_freqs++]
+                                = BTAV_A2DP_CODEC_SAMPLE_RATE_48000;
+            scrambling_supported_freqs[number_of_scrambling_supported_freqs++]
+                                = BTAV_A2DP_CODEC_SAMPLE_RATE_96000;
+          }
+        }
     }
   }
+
 
   readable = true;
   return future_new_immediate(FUTURE_SUCCESS);
@@ -586,6 +616,22 @@ static uint8_t get_le_all_initiating_phys() {
   return phy;
 }
 
+static const bt_device_features_t* get_add_on_features(uint8_t *add_on_features_len) {
+  CHECK(readable);
+  *add_on_features_len = add_on_features_length;
+  return &add_on_features;
+}
+
+static uint16_t  get_product_id(void) {
+  CHECK(readable);
+  return product_id;
+}
+
+static uint16_t get_response_version(void) {
+  CHECK(readable);
+  return response_version;
+}
+
 static const controller_t interface = {
     get_is_ready,
 
@@ -638,7 +684,10 @@ static const controller_t interface = {
     get_local_supported_codecs,
     supports_ble_offload_features,
     get_le_all_initiating_phys,
-    get_scrambling_supported_freqs};
+    get_scrambling_supported_freqs,
+    get_add_on_features,
+    get_product_id,
+    get_response_version};
 
 const controller_t* controller_get_interface() {
   static bool loaded = false;

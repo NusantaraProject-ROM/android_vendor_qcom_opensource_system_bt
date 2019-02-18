@@ -435,7 +435,8 @@ A2dpCodecConfigAptx::A2dpCodecConfigAptx(
     : A2dpCodecConfig(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX, "aptX",
                       codec_priority) {
   // Compute the local capability
-    if (A2DP_GetOffloadStatus() && !A2DP_IsScramblingSupported()) {
+    if (A2DP_GetOffloadStatus() && !(A2DP_IsScramblingSupported() ||
+                                     A2DP_Is44p1kFreqSupported())) {
       a2dp_aptx_caps = a2dp_aptx_offload_caps;
       a2dp_aptx_default_config = a2dp_aptx_offload_default_config;
     } else {

@@ -89,7 +89,9 @@ typedef struct controller_t {
   bool (*supports_ble_offload_features)(void);
   uint8_t (*get_le_all_initiating_phys)(void);
   uint8_t* (*get_scrambling_supported_freqs)(uint8_t* number_of_freqs);
-
+  const bt_device_features_t* (*get_add_on_features)(uint8_t *add_on_features_len);
+  uint16_t (*get_product_id)(void);
+  uint16_t (*get_response_version)(void);
 } controller_t;
 
 const controller_t* controller_get_interface();

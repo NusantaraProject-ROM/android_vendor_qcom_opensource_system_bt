@@ -411,6 +411,8 @@
 /* VOIP Network Wifi OCF */
 #define HCI_VSC_VOIP_NETWORK_WIFI_OCF   (0x001C | HCI_GRP_VENDOR_SPECIFIC)
 
+#define HCI_VS_GET_ADDON_FEATURES_SUPPORT  (0x001D | HCI_GRP_VENDOR_SPECIFIC)
+
 #define HCI_VSC_SPLIT_A2DP_OPCODE  (0x000A | HCI_GRP_VENDOR_SPECIFIC)
 
 /* Link Power Ctrl OCF  */
@@ -421,6 +423,7 @@
 
 #define VS_QHCI_GET_SCRAMBLING_FREQS          0x11
 #define VS_QHCI_SCRAMBLE_A2DP_MEDIA           0x12
+#define HCI_VS_GET_ADDON_FEATURES_EVENT       0x1B
 
 /* Added as part of workaround from stack side for handling no opcode
    command complete events for RX_BURST commands. This needs to be
@@ -1422,6 +1425,42 @@ typedef struct {
 #define HCI_LE_CODED_PHY_SUPPORTED(x) ((x)[1] & 0x08)
 #define HCI_LE_EXTENDED_ADVERTISING_SUPPORTED(x) ((x)[1] & 0x10)
 #define HCI_LE_PERIODIC_ADVERTISING_SUPPORTED(x) ((x)[1] & 0x20)
+
+/* Add_on features encoding - page 0 (the only page for now)*/
+#define HCI_WIPOWER_FASTBOOT_ENABLE(x) ((x)[0] & 0x01)
+#define HCI_SPLIT_A2DP_SCRAMBLING_DATA_REQUIRED(x) ((x)[0] & 0x02)
+#define HCI_SPLIT_A2DP_44P1KHZ_SAMPLE_FREQ(x) ((x)[0] & 0x04)
+#define HCI_SPLIT_A2DP_48KHZ_SAMPLE_FREQ(x) ((x)[0] & 0x08)
+#define HCI_SPLIT_A2DP_SINGLE_VS_COMMAND_SUPPORTED(x) ((x)[0] & 0x10)
+#define HCI_SPLIT_A2DP_SOURCE_SBC_ENCODING_SUPPORTED(x) ((x)[0] & 0x20)
+
+#define HCI_SPLIT_A2DP_SOURCE_SBC_SUPPORTED(x) ((x)[1] & 0x01)
+#define HCI_SPLIT_A2DP_SOURCE_MP3_SUPPORTED(x) ((x)[1] & 0x02)
+#define HCI_SPLIT_A2DP_SOURCE_AAC_SUPPORTED(x) ((x)[1] & 0x04)
+#define HCI_SPLIT_A2DP_SOURCE_LDAC_SUPPORTED(x) ((x)[1] & 0x08)
+#define HCI_SPLIT_A2DP_SOURCE_APTX_SUPPORTED(x) ((x)[1] & 0x10)
+#define HCI_SPLIT_A2DP_SOURCE_APTX_HD_SUPPORTED(x) ((x)[1] & 0x20)
+#define HCI_SPLIT_A2DP_SOURCE_APTX__ADAPTIVE_SUPPORTED(x) ((x)[1] & 0x40)
+#define HCI_SPLIT_A2DP_SOURCE_APTX__TWS_PLUS_SUPPORTED(x) ((x)[1] & 0x80)
+
+#define HCI_SPLIT_A2DP_SINK_SBC_SUPPORTED(x) ((x)[2] & 0x01)
+#define HCI_SPLIT_A2DP_SINK_MP3_SUPPORTED(x) ((x)[2] & 0x02)
+#define HCI_SPLIT_A2DP_SINK_AAC_SUPPORTED(x) ((x)[2] & 0x04)
+#define HCI_SPLIT_A2DP_SINK_LDAC_SUPPORTED(x) ((x)[2] & 0x08)
+#define HCI_SPLIT_A2DP_SINK_APTX_SUPPORTED(x) ((x)[2] & 0x10)
+#define HCI_SPLIT_A2DP_SINK_APTX_HD_SUPPORTED(x) ((x)[2] & 0x20)
+#define HCI_SPLIT_A2DP_SINK_APTX__ADAPTIVE_SUPPORTED(x) ((x)[2] & 0x40)
+#define HCI_SPLIT_A2DP_SINK_APTX__TWS_PLUS_SUPPORTED(x) ((x)[2] & 0x80)
+
+#define HCI_VOICE_DUAL_SCO_SUPPORTED(x) ((x)[3] & 0x01)
+#define HCI_VOICE_TWS_PLUS_DUAL_ESCO_AG_SUPPORTED(x) ((x)[3] & 0x02)
+#define HCI_SWB_VOICE_WITH_APTX_ADAPTIVE_SUPPORTED(x) ((x)[3] & 0x04)
+
+#define HCI_BROADCAST_AUDIO_TX_WITH_EC_2_5(x) ((x)[4] & 0x01)
+#define HCI_BROADCAST_AUDIO_TX_WITH_EC_3_9(x) ((x)[4] & 0x02)
+#define HCI_BROADCAST_AUDIO_RX_WITH_EC_2_5(x) ((x)[4] & 0x04)
+#define HCI_BROADCAST_AUDIO_RX_WITH_EC_3_9(x) ((x)[4] & 0x08)
+
 
 /* Supported Commands*/
 #define HCI_NUM_SUPP_COMMANDS_BYTES 64

@@ -736,17 +736,18 @@ A2dpCodecConfigAac::A2dpCodecConfigAac(
     : A2dpCodecConfig(BTAV_A2DP_CODEC_INDEX_SOURCE_AAC, "AAC", codec_priority) {
 
   if (A2DP_GetOffloadStatus()) {
-    if(!A2DP_IsScramblingSupported()) {
-      a2dp_aac_caps = a2dp_aac_offload_caps;
-      a2dp_aac_default_config = a2dp_aac_default_offload_config;
+    if (A2DP_IsScramblingSupported() || A2DP_Is44p1kFreqSupported() ) {
+        a2dp_aac_caps = a2dp_aac_offload_scram_caps;
+        a2dp_aac_default_config = a2dp_aac_default_offload_scram_config;
     } else {
-      a2dp_aac_caps = a2dp_aac_offload_scram_caps;
-      a2dp_aac_default_config = a2dp_aac_default_offload_scram_config;
+        a2dp_aac_caps = a2dp_aac_offload_caps;
+        a2dp_aac_default_config = a2dp_aac_default_offload_config;
     }
   } else {
     a2dp_aac_caps = a2dp_aac_src_caps;
     a2dp_aac_default_config = a2dp_aac_default_src_config;
   }
+
   // Compute the local capability
   if (a2dp_aac_caps.sampleRate & A2DP_AAC_SAMPLING_FREQ_44100) {
     codec_local_capability_.sample_rate |= BTAV_A2DP_CODEC_SAMPLE_RATE_44100;

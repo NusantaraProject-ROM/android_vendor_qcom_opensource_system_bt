@@ -663,9 +663,10 @@ bool A2DP_InitCodecConfig(btav_a2dp_codec_index_t codec_index,
                           tAVDT_CFG* p_cfg);
 
 void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap,
-                                            bool scrambling_support);
+                          bool scrambling_support, bool is44p1kFreq_support);
 bool A2DP_GetOffloadStatus();
 bool A2DP_IsScramblingSupported();
+bool A2DP_Is44p1kFreqSupported();
 bool A2DP_IsCodecEnabledInOffload(btav_a2dp_codec_index_t codec_index);
 // Decodes and displays A2DP codec info when using |LOG_DEBUG|.
 // |p_codec_info| is a pointer to the codec_info to decode and display.

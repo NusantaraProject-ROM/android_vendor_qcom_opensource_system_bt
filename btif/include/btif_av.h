@@ -436,6 +436,8 @@ bool btif_av_is_under_handoff();
 tBTA_AV_LATENCY btif_av_get_sink_latency();
 
 bool btif_av_is_scrambling_enabled();
+bool btif_av_is_44p1kFreq_supported();
+
 
 /******************************************************************************
 **

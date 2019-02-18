@@ -2359,6 +2359,11 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
           BTIF_TRACE_WARNING("%s:is_scrambling_enabled %d",__func__,
                                     is_scrambling_enabled);
 
+          bool is_44p1kFreq_supported = btif_av_is_44p1kFreq_supported();
+
+          BTIF_TRACE_WARNING("%s:is_44p1kFreq_supported %d",__func__,
+                                    is_44p1kFreq_supported);
+
           BTA_AvOffloadStart(btif_av_cb[index].bta_handle, is_scrambling_enabled);
       }
       else if (btif_av_cb[index].remote_started)
@@ -4840,6 +4845,34 @@ bool btif_av_is_scrambling_enabled() {
       if (freqs[i] ==  ( uint8_t ) codec_config.sample_rate ) {
          return true;
       }
+    }
+  }
+  return false;
+}
+
+/******************************************************************************
+**
+** Function        btif_av_is_44p1kFreq_supported
+**
+** Description     get 44p1kFreq is enabled from bluetooth.
+**
+** Returns         bool
+**
+********************************************************************************/
+bool btif_av_is_44p1kFreq_supported() {
+  uint8_t add_on_features_size = 0;
+  const bt_device_features_t * add_on_features_list = NULL;
+
+  add_on_features_list = controller_get_interface()->get_add_on_features(&add_on_features_size);
+  if (add_on_features_size == 0) {
+    BTIF_TRACE_WARNING(
+        "BT controller doesn't add on features");
+    return false;
+  }
+
+  if (add_on_features_list != NULL) {
+    if (HCI_SPLIT_A2DP_44P1KHZ_SAMPLE_FREQ(add_on_features_list->as_array)) {
+      return true;
     }
   }
   return false;
