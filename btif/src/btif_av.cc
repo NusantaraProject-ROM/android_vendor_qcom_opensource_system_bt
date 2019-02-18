@@ -3542,6 +3542,9 @@ bt_status_t btif_av_init(int service_id) {
         (char*)&service_id, sizeof(int), NULL);
 
     btif_enable_service(service_id);
+    if (BTA_A2DP_SOURCE_SERVICE_ID == service_id) {
+      btif_enable_service(BTA_TWS_PLUS_SERVICE_ID);
+    }
   }
 
   return BT_STATUS_SUCCESS;
@@ -4030,6 +4033,8 @@ static void cleanup(int service_uuid) {
                         (char*)&service_uuid, sizeof(int), NULL);
 
   btif_disable_service(service_uuid);
+
+  btif_disable_service(BTA_TWS_PLUS_SERVICE_ID);
 
   alarm_free(av_open_on_rc_timer);
   av_open_on_rc_timer = NULL;
