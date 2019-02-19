@@ -1687,15 +1687,6 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
       if (btif_av_cb[index].peer_sep == AVDT_TSEP_SRC)
           btif_a2dp_sink_set_rx_flush(false); /*  remove flush state, ready for streaming*/
 #endif
-      if (btif_av_cb[index].peer_sep == AVDT_TSEP_SRC) {
-         bool is_handoff_required = btif_is_a2dp_sink_handoff_required(index);
-         bool other_device_playing = btif_av_is_playing_on_other_idx(index);
-         BTIF_TRACE_DEBUG("%s: is_handoff_required = %d, other_device_playing = %d",
-                __func__, is_handoff_required, other_device_playing);
-         if (is_handoff_required || !other_device_playing) {
-            btif_initiate_sink_handoff(index, true);
-         }
-      }
       btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_STARTED);
     } break;
 
@@ -1971,7 +1962,29 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
             * stage, this should usually be followed by focus grant.
             * see update_audio_focus_state()
             */
-        btif_report_audio_state(BTAV_AUDIO_STATE_STARTED, &(btif_av_cb[index].peer_bda));
+        if (btif_av_cb[index].peer_sep == AVDT_TSEP_SRC) {
+          /** if DUT is in idle then only update the AVDTP_START to App
+            * else don't update to app any kind of touchtone, dialpadtones etc
+            * which will not trigger actual playback
+            */
+          bool is_playing = false;
+          for (int i = 0; i < btif_max_av_clients; i++) {
+            if (btif_av_cb[i].current_playing) {
+              is_playing = true;
+              BTIF_TRACE_DEBUG("%s: current playing index: %d, is_playing: %d",
+                           __func__, btif_av_cb[i].current_playing, is_playing);
+              break;
+            }
+          }
+          BTIF_TRACE_DEBUG("%s: is_playing: %d", __func__, is_playing);
+          if (!is_playing) {
+            BTIF_TRACE_DEBUG("%s: start streaming when both are in opened state", __func__);
+            btif_initiate_sink_handoff(index, true);
+            btif_report_audio_state(BTAV_AUDIO_STATE_STARTED, &(btif_av_cb[index].peer_bda));
+          }
+        } else {
+          btif_report_audio_state(BTAV_AUDIO_STATE_STARTED, &(btif_av_cb[index].peer_bda));
+        }
       }
       btif_av_cb[index].is_device_playing = true;
       btif_report_audio_state_to_ba(BTAV_AUDIO_STATE_STARTED);
@@ -2440,12 +2453,6 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       /* Todo Implement: Delay report during A2dp streaming
        * Update latency to A2dp StateMachine if need support
        * dynamic audio/video sync */
-      break;
-
-    case BTIF_AV_SINK_QUICK_HANDOFF_EVT: {
-        RawAddress* addr = (RawAddress *)p_data;
-        btif_report_audio_state(BTAV_AUDIO_STATE_STARTED, addr);
-      }
       break;
 
       CHECK_RC_EVENT(event, (tBTA_AV*)p_data);
@@ -3476,43 +3483,21 @@ static void bte_av_callback(tBTA_AV_EVT event, tBTA_AV* p_data) {
 static void bte_av_sink_media_callback(tBTA_AV_EVT event,
                                        tBTA_AV_MEDIA* p_data, RawAddress bd_addr) {
   int index = btif_av_idx_by_bdaddr(&bd_addr);
-  int cur_index = btif_av_get_current_playing_dev_idx();
+  int cur_playing_index = btif_av_get_current_playing_dev_idx();
+  BTIF_TRACE_DEBUG("%s: index = %d, cur_playing_index: %d",
+                       __func__, index, cur_playing_index);
 
   switch (event) {
     case BTA_AV_SINK_MEDIA_DATA_EVT: {
       btif_sm_state_t state = btif_sm_get_state(btif_av_cb[index].sm_handle);
       if (((state == BTIF_AV_STATE_STARTED) || (state == BTIF_AV_STATE_OPENED))
-            && (index == cur_index)) {
+            && (index == cur_playing_index)) {
         uint8_t queue_len = btif_a2dp_sink_enqueue_buf((BT_HDR*)p_data);
         BTIF_TRACE_DEBUG("%s: index = %d, packets in sink queue %d", __func__, index, queue_len);
       }
-      /* After Soft-Handoff is completed if previous streaming device again starts streaming
-       * within 3 sec (i.e. even before AVDTP SUSPEND was sent from it) and if its also delaying
-       * EVENT_PLAYBACK_STATUS_CHANGED by 3sec like AVDTP SUSPEND then this quick SHO will be
-       * allowed to go through after 3 sec. If EVENT_PLAYBACK_STATUS_CHANGED
-       * for "PLAYING" is immediatly sent from previous device (within 3 sec), SHO will take place
-       * from avrcp play status changed command in btif_sink_ho_through_avrcp_pback_status().
-       *
-       */
-      if (index != cur_index && !btif_av_cb[index].is_device_playing) {
-        other_device_media_packet_count++;
-        /* Assuming every packet is received in 20ms of time, approx 150 media packets will be
-         * received in 3sec time interval. If packets are still received after 3 sec then probably
-         * previous streaming device has started streaming again and SHO should occur */
-        if (other_device_media_packet_count == QUICK_SINK_SHO_IND_PKT_CNT) {
-          BTIF_TRACE_DEBUG("%s: QUICK SHO Case. pkt_cnt = %d", __func__,
-              other_device_media_packet_count);
-          btif_transfer_context(btif_av_handle_event, BTIF_AV_SINK_QUICK_HANDOFF_EVT,
-                          (char*)&(btif_av_cb[index].peer_bda), sizeof(RawAddress), NULL);
-          btif_initiate_sink_handoff(index, true);
-        }
-      }
-
       break;
     }
     case BTA_AV_SINK_MEDIA_CFG_EVT: {
-      if (btif_is_a2dp_sink_handoff_required(index) && index < btif_max_av_clients)
-        btif_initiate_sink_handoff(index, false);
       btif_av_sink_config_req_t config_req;
 
       /* send a command to BT Media Task */
@@ -4552,7 +4537,7 @@ bt_status_t btif_av_sink_execute_service(bool b_enable) {
      */
 
     osi_property_get("persist.vendor.bt.a2dp.delay_report_sink", value, "false");
-    delay_report_enabled = (strcmp(value, "true") == 0);
+    delay_report_enabled = (strcmp(value, "false") == 0);
     BTIF_TRACE_DEBUG("%s: delay_report_enabled = %d", __func__, delay_report_enabled);
     if (delay_report_enabled)
       feat_delay_rpt = BTA_AV_FEAT_DELAY_RPT;
@@ -5635,7 +5620,7 @@ uint64_t btif_update_reported_delay(uint64_t inst_delay)
 *******************************************************************************/
 bool btif_is_sink_delay_report_supported() {
   int index = 0;
-  BTIF_TRACE_DEBUG("%s: %d" ,__func__, __func__, btif_av_cb[index].avdt_sync);
+  BTIF_TRACE_DEBUG("%s: %d" ,__func__, btif_av_cb[index].avdt_sync);
   return btif_av_cb[index].avdt_sync;
 }
 
@@ -5676,9 +5661,10 @@ bool btif_device_in_sink_role() {
 ** Returns          bool
 *******************************************************************************/
 bool btif_is_a2dp_sink_handoff_required(int idx) {
-  int cur_idx = btif_av_get_current_playing_dev_idx();
-  BTIF_TRACE_DEBUG("%s: index = %d, current_index= %d" ,__func__, idx, cur_idx);
-  if (idx != cur_idx) {
+  int cur_playing_idx = btif_av_get_current_playing_dev_idx();
+  BTIF_TRACE_DEBUG("%s: index = %d, cur_playing_idx= %d",
+                          __func__, idx, cur_playing_idx);
+  if (idx != cur_playing_idx) {
     return true;
   }
   return false;
@@ -5693,8 +5679,9 @@ bool btif_is_a2dp_sink_handoff_required(int idx) {
 ** Returns          void
 *******************************************************************************/
 void btif_initiate_sink_handoff(int idx, bool audio_state_changed) {
-  int cur_idx = btif_av_get_current_playing_dev_idx();
-  BTIF_TRACE_DEBUG("%s: index = %d, Current_index= %d" ,__func__, idx, cur_idx);
+  int cur_playing_idx = btif_av_get_current_playing_dev_idx();
+  BTIF_TRACE_DEBUG("%s: index = %d, cur_playing_idx = %d",
+                       __func__, idx, cur_playing_idx);
 
   // Mark idx as current playing index
   btif_av_cb[idx].current_playing = true;
@@ -5732,8 +5719,10 @@ void btif_initiate_sink_handoff(int idx, bool audio_state_changed) {
 *******************************************************************************/
 void btif_sink_ho_through_avrcp_pback_status(RawAddress bd_addr) {
     int index = btif_av_idx_by_bdaddr(&bd_addr);
-    if (btif_is_a2dp_sink_handoff_required(index)) {
-        BTIF_TRACE_DEBUG("%s, handoff from avrcp playback status change event", __func__);
+    BTIF_TRACE_DEBUG("%s: index: %d", __func__, index);
+    if (btif_is_a2dp_sink_handoff_required(index)){
+        BTIF_TRACE_DEBUG("%s, handoff from avrcp playback status change event on index: %d",
+                              __func__, index);
         btif_initiate_sink_handoff(index, true);
     }
 }
