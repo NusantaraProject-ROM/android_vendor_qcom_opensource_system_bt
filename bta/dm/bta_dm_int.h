@@ -101,6 +101,7 @@ enum {
   BTA_DM_API_IOT_REPORT_EVT,
   BTA_DM_API_BREDR_CLEANUP_EVT,
   BTA_DM_API_BREDR_STARTUP_EVT,
+  BTA_DM_API_RST_PAIR_FLAG_EVT,
   BTA_DM_MAX_EVT
 };
 
@@ -335,6 +336,12 @@ typedef struct {
   RawAddress bd_addr;
 } tBTA_DM_API_REMOVE_DEVICE;
 
+/* data type for BTA_DM_API_RST_PAIR_FLAG_EVT */
+typedef struct {
+  BT_HDR hdr;
+  RawAddress bd_addr;
+} tBTA_DM_API_RST_PAIR_FLAG;
+
 /* data type for BTA_DM_API_SET_WIFI_STATE_EVT */
 typedef struct
 {
@@ -561,6 +568,7 @@ typedef union {
   tBTA_DM_VND_IOT_REPORT iot_info;
   tBTA_DM_API_BREDR_CLEANUP  bredr_cleanup;
   tBTA_DM_API_BREDR_STARTUP  bredr_startup;
+  tBTA_DM_API_RST_PAIR_FLAG pair_state;
 } tBTA_DM_MSG;
 
 #define BTA_DM_NUM_PEER_DEVICE 7
@@ -881,6 +889,7 @@ extern void bta_dm_process_ssr(void);
 extern void bta_dm_add_device(tBTA_DM_MSG* p_data);
 extern void bta_dm_remove_device(tBTA_DM_MSG* p_data);
 extern void bta_dm_close_acl(tBTA_DM_MSG* p_data);
+extern void bta_dm_reset_pairing_flag(tBTA_DM_MSG* p_data);
 
 extern void bta_dm_pm_btm_status(tBTA_DM_MSG* p_data);
 extern void bta_dm_pm_timer(tBTA_DM_MSG* p_data);

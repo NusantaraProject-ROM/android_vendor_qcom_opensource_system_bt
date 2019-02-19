@@ -1598,6 +1598,18 @@ extern tBTM_STATUS BTM_SecBondByTransport(const RawAddress& bd_addr,
  ******************************************************************************/
 extern tBTM_STATUS BTM_SecBondCancel(const RawAddress& bd_addr);
 
+
+/*******************************************************************************
+ *
+ * Function         BTM_SecResetPairingFlag
+ *
+ * Description      This function is called to reset pairing flag
+ *
+ * Parameters:      bd_addr      - Address of the peer device
+  *
+ ******************************************************************************/
+extern tBTM_STATUS BTM_SecResetPairingFlag(const RawAddress& bd_addr);
+
 /*******************************************************************************
  *
  * Function         BTM_SetEncryption

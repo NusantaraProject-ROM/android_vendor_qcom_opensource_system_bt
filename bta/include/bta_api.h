@@ -1339,6 +1339,18 @@ extern void BTA_DmBondCancel(const RawAddress& bd_addr);
 
 /*******************************************************************************
  *
+ * Function         BTA_DmResetPairingflag
+ *
+ * Description      This function reset the pairing flag
+ *
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+extern void BTA_DmResetPairingflag(const RawAddress& bd_addr);
+
+/*******************************************************************************
+ *
  * Function         BTA_DmPinReply
  *
  * Description      This function provides a PIN when one is requested by DM

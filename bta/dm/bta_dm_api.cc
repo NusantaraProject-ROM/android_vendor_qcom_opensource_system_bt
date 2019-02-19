@@ -434,6 +434,27 @@ void BTA_DmBondCancel(const RawAddress& bd_addr) {
   bta_sys_sendmsg(p_msg);
 }
 
+
+/*******************************************************************************
+ *
+ * Function         BTA_DmResetPairingflag
+ *
+ * Description      This function reset pairing flag
+ *
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void BTA_DmResetPairingflag(const RawAddress& bd_addr) {
+  tBTA_DM_API_RST_PAIR_FLAG* p_msg =
+      (tBTA_DM_API_RST_PAIR_FLAG*)osi_malloc(sizeof(tBTA_DM_API_RST_PAIR_FLAG));
+
+  p_msg->hdr.event = BTA_DM_API_RST_PAIR_FLAG_EVT;
+  p_msg->bd_addr = bd_addr;
+
+  bta_sys_sendmsg(p_msg);
+}
+
 /*******************************************************************************
  *
  * Function         BTA_DmPinReply

@@ -1249,6 +1249,43 @@ tBTM_STATUS BTM_SecBondCancel(const RawAddress& bd_addr) {
 
 /*******************************************************************************
  *
+ * Function         BTM_SecResetPairingFlag
+ *
+ * Description      This function is called to reset pairing flag
+ *
+ * Parameters:      bd_addr      - Address of the peer device
+  *
+ ******************************************************************************/
+tBTM_STATUS BTM_SecResetPairingFlag(const RawAddress& bd_addr) {
+  tBTM_SEC_DEV_REC* p_dev_rec;
+  tBTM_STATUS rc;
+
+  BTM_TRACE_API("BTM_SecResetPairingFlag");
+  p_dev_rec = btm_find_dev(bd_addr);
+  if (!p_dev_rec) {
+    return BTM_UNKNOWN_ADDR;
+  }
+
+  tBTM_SEC_CALLBACK* p_callback = p_dev_rec->p_callback;
+
+  if (p_dev_rec->sec_flags & BTM_SEC_PAIRING_IN_PROGRESS) {
+    p_dev_rec->sec_flags &= ~BTM_SEC_PAIRING_IN_PROGRESS;
+
+    rc = btm_sec_execute_procedure(p_dev_rec);
+    if (rc != BTM_CMD_STARTED) {
+      if (p_callback) {
+        p_dev_rec->p_callback = NULL;
+        (*p_callback)(&bd_addr, BT_TRANSPORT_BR_EDR, p_dev_rec->p_ref_data, (uint8_t)rc);
+      }
+    }
+  }
+
+  return (BTM_SUCCESS);
+}
+
+
+/*******************************************************************************
+ *
  * Function         BTM_SecGetDeviceLinkKey
  *
  * Description      This function is called to obtain link key for the device
@@ -5044,6 +5081,7 @@ static void btm_sec_pairing_timeout(UNUSED_ATTR void* data) {
       btm_sec_change_pairing_state(BTM_PAIR_STATE_IDLE);
       break;
   }
+  BTM_SecResetPairingFlag(p_cb->pairing_bda);
 }
 
 /*******************************************************************************
@@ -5361,6 +5399,18 @@ extern tBTM_STATUS btm_sec_execute_procedure(tBTM_SEC_DEV_REC* p_dev_rec) {
       BTM_TRACE_EVENT("Security Manager: Start authorization");
       return (btm_sec_start_authorization(p_dev_rec));
     }
+  }
+
+
+  if ((p_dev_rec->sec_flags & BTM_SEC_PAIRING_IN_PROGRESS) &&
+       (p_dev_rec->hci_handle != BTM_SEC_INVALID_HANDLE)) {
+
+     if ((!p_dev_rec->is_originator &&
+          (p_dev_rec->security_required & BTM_SEC_IN_ENCRYPT)) ||
+         (!p_dev_rec->is_originator &&
+          (p_dev_rec->security_required & BTM_SEC_IN_AUTHENTICATE))) {
+       return (BTM_CMD_STARTED);
+     }
   }
 
   /* All required  security procedures already established */
@@ -5732,6 +5782,7 @@ tBTM_SEC_DEV_REC* btm_sec_find_dev_by_sec_state(uint8_t state) {
  ******************************************************************************/
 static void btm_sec_change_pairing_state(tBTM_PAIRING_STATE new_state) {
   tBTM_PAIRING_STATE old_state = btm_cb.pairing_state;
+  tBTM_SEC_DEV_REC* p_dev_rec;
 
   BTM_TRACE_EVENT("%s()  Old: %s", __func__,
                   btm_pair_state_descr(btm_cb.pairing_state));
@@ -5756,9 +5807,14 @@ static void btm_sec_change_pairing_state(tBTM_PAIRING_STATE new_state) {
     btm_cb.pairing_bda = RawAddress::kAny;
   } else {
     /* If transitioning out of idle, mark the lcb as bonding */
-    if (old_state == BTM_PAIR_STATE_IDLE)
+    if (old_state == BTM_PAIR_STATE_IDLE) {
       l2cu_update_lcb_4_bonding(btm_cb.pairing_bda, true);
 
+      p_dev_rec = btm_find_dev(btm_cb.pairing_bda);
+      if (p_dev_rec) {
+        p_dev_rec->sec_flags |= BTM_SEC_PAIRING_IN_PROGRESS;
+      }
+    }
     alarm_set_on_mloop(btm_cb.pairing_timer, BTM_SEC_TIMEOUT_VALUE * 1000,
                        btm_sec_pairing_timeout, NULL);
   }

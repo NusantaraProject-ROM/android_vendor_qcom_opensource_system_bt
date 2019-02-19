@@ -527,6 +527,7 @@ typedef struct {
 #define BTM_SEC_LE_LINK_KEY_AUTHED 0x2000 /* pairing is done with MITM */
 #define BTM_SEC_16_DIGIT_PIN_AUTHED \
   0x4000 /* pairing is done with 16 digit pin */
+#define BTM_SEC_PAIRING_IN_PROGRESS 0x8000 /* pairing in progress */
 
   uint16_t sec_flags; /* Current device security state      */
 

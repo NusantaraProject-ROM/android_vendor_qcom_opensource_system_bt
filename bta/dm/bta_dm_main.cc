@@ -96,6 +96,7 @@ const tBTA_DM_ACTION bta_dm_action[] = {
     bta_dm_process_iot_report, /*BTA_DM_API_IOT_REPORT_EVT*/
     bta_dm_bredr_cleanup, /* BTA_DM_API_BREDR_CLEANUP_EVT */
     bta_dm_bredr_startup, /* BTA_DM_API_BREDR_STARTUP_EVT */
+    bta_dm_reset_pairing_flag, /*BTA_DM_API_RST_PAIR_FLAG_EVT*/
 };
 
 /* state machine action enumeration list */

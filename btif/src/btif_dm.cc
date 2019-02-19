@@ -793,6 +793,7 @@ static void btif_dm_cb_hid_remote_name(tBTM_REMOTE_DEV_NAME* p_remote_name) {
   BTIF_TRACE_DEBUG("%s: status=%d pairing_cb.state=%d", __func__,
                    p_remote_name->status, pairing_cb.state);
   if (pairing_cb.state == BT_BOND_STATE_BONDING) {
+    BTA_DmResetPairingflag(pairing_cb.bd_addr);
     if (p_remote_name->status == BTM_SUCCESS) {
       bond_state_changed(BT_STATUS_SUCCESS, pairing_cb.bd_addr,
                          BT_BOND_STATE_BONDED);
@@ -1274,6 +1275,7 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
         BTIF_TRACE_DEBUG("%s: sending BT_BOND_STATE_NONE for Temp pairing",
                          __func__);
         btif_storage_remove_bonded_device(&bd_addr);
+        BTA_DmResetPairingflag(bd_addr);
         bond_state_changed(BT_STATUS_SUCCESS, bd_addr, BT_BOND_STATE_NONE);
         return;
       }
@@ -1410,6 +1412,7 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
                        __func__);
       btif_storage_remove_bonded_device(&bd_addr);
     }
+    BTA_DmResetPairingflag(bd_addr);
     bond_state_changed(status, bd_addr, state);
   }
 }
@@ -1673,7 +1676,7 @@ static void btif_dm_search_services_evt(uint16_t event, char* p_param) {
             "%s Remote Service SDP done. Call bond_state_changed_cb BONDED",
             __func__);
         pairing_cb.sdp_attempts = 0;
-
+        BTA_DmResetPairingflag(bd_addr);
         // If bonding occured due to cross-key pairing, send bonding callback
         // for static address now
         if (p_data->disc_res.bd_addr == pairing_cb.static_bdaddr)
@@ -1982,6 +1985,7 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
 #endif
       btif_hearing_aid_get_interface()->RemoveDevice(bd_addr);
       btif_storage_remove_bonded_device(&bd_addr);
+      BTA_DmResetPairingflag(bd_addr);
       bond_state_changed(BT_STATUS_SUCCESS, bd_addr, BT_BOND_STATE_NONE);
       break;
 
@@ -2731,6 +2735,7 @@ void btif_dm_hh_open_failed(RawAddress* bdaddr) {
     BTIF_TRACE_WARNING("%s: remove device security record ", __func__);
     btif_storage_remove_bonded_device(bdaddr);
     BTA_DmRemoveDevice(*bdaddr);
+    BTA_DmResetPairingflag(pairing_cb.bd_addr);
     bond_state_changed(BT_STATUS_FAIL, *bdaddr, BT_BOND_STATE_NONE);
   }
 }

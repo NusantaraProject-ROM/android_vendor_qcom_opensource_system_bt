@@ -723,6 +723,23 @@ void bta_dm_bredr_startup(tBTA_DM_MSG *p_data) {
 
 /*******************************************************************************
  *
+ * Function         bta_dm_reset_pairing_flag
+ *
+ * Description      Reset pairing flag
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void bta_dm_reset_pairing_flag(tBTA_DM_MSG *p_data) {
+  tBTM_STATUS status;
+
+  APPL_TRACE_EVENT(" bta_dm_reset_pairing_flag ");
+  status = BTM_SecResetPairingFlag(p_data->pair_state.bd_addr);
+
+}
+
+/*******************************************************************************
+ *
  * Function         bta_dm_set_visibility
  *
  * Description      Sets discoverability, connectability and pairability
