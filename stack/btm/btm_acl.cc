@@ -54,6 +54,8 @@
 #include "btif_av.h"
 #include <hardware/bt_av.h>
 #include "device/include/device_iot_config.h"
+#include "controller.h"
+#include <btcommon_interface_defs.h>
 
 static void btm_read_remote_features(uint16_t handle);
 static void btm_read_remote_ext_features(uint16_t handle, uint8_t page_number);
@@ -284,11 +286,12 @@ void btm_acl_created(const RawAddress& bda, DEV_CLASS dc, BD_NAME bdn,
 
       /* if BR/EDR do something more */
       if (transport == BT_TRANSPORT_BR_EDR) {
-        int soc_type = get_soc_type();
+        bt_soc_type_t soc_type = controller_get_interface()->get_soc_type();
+        BTM_TRACE_DEBUG("%s: soc_type: %d", __func__, soc_type);
 
         btsnd_hcic_read_rmt_clk_offset(p->hci_handle);
 
-        if ((soc_type == BT_SOC_CHEROKEE) &&
+        if ((soc_type == BT_SOC_TYPE_CHEROKEE) &&
             interop_match_addr_or_name(INTEROP_ENABLE_PL10_ADAPTIVE_CONTROL, &bda)) {
           btm_enable_link_PL10_adaptive_ctrl(hci_handle, true);
         }

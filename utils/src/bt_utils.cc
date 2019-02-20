@@ -50,19 +50,6 @@
 
 #define IOT_INFO_REPORT_ENABLE_PROPERTY "persist.vendor.service.bt.iotinfo.report.enable"
 
-typedef struct {
-  bt_soc_type soc_type;
-  char* soc_name;
-} soc_type_node;
-
-static soc_type_node soc_type_entries[] = {
-                           { BT_SOC_SMD , (char *)"smd" },
-                           { BT_SOC_AR3K , (char *)"ath3k" },
-                           { BT_SOC_ROME , (char *)"rome" },
-                           { BT_SOC_CHEROKEE , (char *)"cherokee" },
-                           { BT_SOC_HASTINGS , (char *)"hastings" },
-                           { BT_SOC_RESERVED , (char *)"" }
-                                       };
 
 /*******************************************************************************
  *  Type definitions for callback functions
@@ -73,9 +60,8 @@ static std::mutex gIdxLock;
 static int g_TaskIdx;
 static int g_TaskIDs[TASK_HIGH_MAX];
 #define INVALID_TASK_ID (-1)
-static bt_soc_type soc_type;
+
 static bool iot_info_report_enabled;
-static void init_soc_type();
 
 static future_t* init(void) {
   int i;
@@ -86,8 +72,6 @@ static future_t* init(void) {
     g_DoSchedulingGroup[i] = true;
     g_TaskIDs[i] = INVALID_TASK_ID;
   }
-
-  init_soc_type();
 
   osi_property_get(IOT_INFO_REPORT_ENABLE_PROPERTY, value, "true");
   iot_info_report_enabled = strncmp(value, "true", 4) == 0;
@@ -178,52 +162,6 @@ void raise_priority_a2dp(tHIGH_PRIORITY_TASK high_task) {
   }
 }
 
-/*****************************************************************************
-**
-** Function        init_soc_type
-**
-** Description     Get Bluetooth SoC type from system setting and stores it
-**                 in soc_type.
-**
-** Returns         void.
-**
-*******************************************************************************/
-static void init_soc_type() {
-  int ret = 0;
-  char bt_soc_type[PROPERTY_VALUE_MAX];
-
-  ALOGI("init_soc_type");
-
-  soc_type = BT_SOC_DEFAULT;
-
-  ALOGI("vendor.bluetooth.soc prop not set");
-  ret = property_get("vendor.bluetooth.soc", bt_soc_type, NULL);
-
-  if (ret != 0) {
-    int i;
-    ALOGI("vendor.qcom.bluetooth.soc set to %s\n", bt_soc_type);
-    for ( i = BT_SOC_AR3K ; i < BT_SOC_RESERVED ; i++ ) {
-      char* soc_name = soc_type_entries[i].soc_name;
-      if (!strcmp(bt_soc_type, soc_name)) {
-        soc_type = soc_type_entries[i].soc_type;
-        break;
-      }
-    }
-  }
-}
-
-/*****************************************************************************
-**
-** Function        get_soc_type
-**
-** Description     This function is used to get the Bluetooth SoC type.
-**
-** Returns         bt_soc_type.
-**
-*******************************************************************************/
-bt_soc_type get_soc_type() {
-  return soc_type;
-}
 
 /*****************************************************************************
 **

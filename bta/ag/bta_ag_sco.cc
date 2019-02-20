@@ -75,6 +75,8 @@
 #include "bta_ag_twsp.h"
 #endif
 
+#include <btcommon_interface_defs.h>
+
 #ifndef BTA_AG_SCO_DEBUG
 #define BTA_AG_SCO_DEBUG FALSE
 #endif
@@ -85,8 +87,6 @@ bool sco_init_rmt_xfer = false;
 #ifndef BTA_AG_CODEC_NEGOTIATION_TIMEOUT_MS
 #define BTA_AG_CODEC_NEGOTIATION_TIMEOUT_MS (5 * 1000) /* 5 seconds */
 #endif
-
-static char value[PROPERTY_VALUE_MAX];
 
 const char* bta_ag_sco_evt_str(uint8_t event);
 const char* bta_ag_sco_state_str(uint8_t state);
@@ -177,6 +177,9 @@ static void bta_ag_sco_conn_cback(uint16_t sco_idx) {
 static void bta_ag_sco_disc_cback(uint16_t sco_idx) {
   uint16_t handle = 0;
   tBTA_AG_SCB* curr_scb;
+  bt_soc_type_t soc_type = controller_get_interface()->get_soc_type();
+
+  APPL_TRACE_DEBUG("%s: soc_type: %d", __func__, soc_type);
 
   APPL_TRACE_IMP(
       "bta_ag_sco_disc_cback(): sco_idx: 0x%x  p_cur_scb: 0x%08x  sco.state: "
@@ -239,10 +242,10 @@ static void bta_ag_sco_disc_cback(uint16_t sco_idx) {
     if (bta_ag_cb.sco.p_curr_scb != NULL &&
            bta_ag_cb.sco.p_curr_scb->inuse_codec == BTA_AG_CODEC_MSBC) {
       /* Bypass vendor specific and voice settings if enhanced eSCO supported */
-      if (!(controller_get_interface()
-                ->supports_enhanced_setup_synchronous_connection() &&
-            (osi_property_get("vendor.bluetooth.soc", value, "qcombtsoc") &&
-            (strcmp(value, "cherokee") == 0 || strcmp(value, "hastings") == 0)))) {
+
+    if (!(controller_get_interface()
+              ->supports_enhanced_setup_synchronous_connection() &&
+          (soc_type == BT_SOC_TYPE_CHEROKEE || soc_type == BT_SOC_TYPE_HASTINGS))) {
 #if (BLUETOOTH_QTI_SW == FALSE) /* This change is not needed.*/
         BTM_WriteVoiceSettings(BTM_VOICE_SETTING_CVSD);
 #endif
@@ -676,6 +679,10 @@ void bta_ag_create_sco(tBTA_AG_SCB* p_scb, bool is_orig) {
 static void bta_ag_create_pending_sco(tBTA_AG_SCB* p_scb, bool is_local) {
   tBTA_AG_PEER_CODEC esco_codec = p_scb->inuse_codec;
   enh_esco_params_t params;
+  bt_soc_type_t soc_type = controller_get_interface()->get_soc_type();
+
+  APPL_TRACE_DEBUG("%s: soc_type: %d", __func__, soc_type);
+
 
 #if (TWS_AG_ENABLED == TRUE)
   if (is_twsp_device(p_scb->peer_addr)) {
@@ -719,8 +726,7 @@ static void bta_ag_create_pending_sco(tBTA_AG_SCB* p_scb, bool is_local) {
     /* Bypass voice settings if enhanced SCO setup command is supported */
     if (!(controller_get_interface()
               ->supports_enhanced_setup_synchronous_connection() &&
-          (osi_property_get("vendor.bluetooth.soc", value, "qcombtsoc") &&
-           (strcmp(value, "cherokee") == 0 || strcmp(value, "hastings") == 0)))) {
+          (soc_type == BT_SOC_TYPE_CHEROKEE || soc_type == BT_SOC_TYPE_HASTINGS))) {
 #if (BLUETOOTH_QTI_SW == FALSE) /* These changes are not needed*/
       if (esco_codec == BTA_AG_CODEC_MSBC)
         BTM_WriteVoiceSettings(BTM_VOICE_SETTING_TRANS);

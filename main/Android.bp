@@ -54,11 +54,12 @@ cc_library_shared {
         "libhwbinder",
         "liblog",
         "libprotobuf-cpp-lite",
-	"libprocessgroup",
+        "libprocessgroup",
         "libutils",
         "libtinyxml2",
         "libz",
         "libcrypto",
+        "libbtconfigstore",
     ],
     static_libs: [
         "libbt-sbc-decoder_qti",

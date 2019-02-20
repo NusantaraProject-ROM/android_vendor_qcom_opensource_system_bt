@@ -33,6 +33,9 @@
 #include "osi/include/log.h"
 #include "utils/include/bt_utils.h"
 #include <hardware/bt_av.h>
+#include "bt_configstore.h"
+#include <dlfcn.h>
+#include <vector>
 
 #define BTSNOOP_ENABLE_PROPERTY "persist.bluetooth.btsnoopenable"
 
@@ -93,13 +96,24 @@ static bool simple_pairing_supported;
 static bool secure_connections_supported;
 static bool read_simple_pairing_options_supported;
 
+//BT features related defines
+static bt_soc_type_t soc_type = BT_SOC_TYPE_DEFAULT;
+static char a2dp_offload_Cap[PROPERTY_VALUE_MAX] = {'\0'};
+static bool spilt_a2dp_supported = true;
+static bool wipower_supported = false;
+static bool aac_frame_ctl_enabled = false;
+
+static bt_configstore_interface_t* bt_configstore_intf = NULL;
+static void *bt_configstore_lib_handle = NULL;
+
+static int load_bt_configstore_lib();
+
 #define AWAIT_COMMAND(command) \
   static_cast<BT_HDR*>(future_await(hci->transmit_command_futured(command)))
 
 // Module lifecycle functions
 
 void send_soc_log_command(bool value) {
-  int soc_type = get_soc_type();
   uint8_t param[5] = {0x10,0x03,0x00,0x00,0x01};
   uint8_t param_cherokee[2] = {0x14, 0x01};
   if (!value) {
@@ -108,11 +122,11 @@ void send_soc_log_command(bool value) {
     param_cherokee[1] = 0x00;
   }
 
-  if (soc_type == BT_SOC_SMD) {
+  if (soc_type == BT_SOC_TYPE_SMD) {
     LOG_INFO(LOG_TAG, "%s for BT_SOC_SMD.", __func__);
     BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE,5,param,NULL);
-  } else if (soc_type == BT_SOC_CHEROKEE || soc_type == BT_SOC_HASTINGS) {
-    LOG_INFO(LOG_TAG, "%s for %s", __func__, soc_type == BT_SOC_CHEROKEE ?
+  } else if (soc_type == BT_SOC_TYPE_CHEROKEE || soc_type == BT_SOC_TYPE_HASTINGS) {
+    LOG_INFO(LOG_TAG, "%s for %s", __func__, soc_type == BT_SOC_TYPE_CHEROKEE ?
                 "BT_SOC_CHEROKEE" : "BT_SOC_HASTINGS");
     BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE, 2, param_cherokee, NULL);
   }
@@ -126,7 +140,67 @@ static bool is_soc_logging_enabled() {
 
 static future_t* start_up(void) {
   BT_HDR* response;
-  int soc_type = get_soc_type();
+
+  load_bt_configstore_lib();
+  if (bt_configstore_intf != NULL) {
+     std::vector<vendor_property_t> vPropList;
+     bt_configstore_intf->get_vendor_properties(BT_PROP_ALL, vPropList);
+
+     for (auto&& vendorProp : vPropList) {
+        switch(vendorProp.type){
+          case BT_PROP_SOC_TYPE:
+            char soc_name[32];
+
+            strlcpy(soc_name, vendorProp.value, sizeof(soc_name));
+            soc_type = bt_configstore_intf->convert_bt_soc_name_to_soc_type(soc_name);
+            LOG_INFO(LOG_TAG, "%s:: soc_name:%s, soc_type = %d", __func__,
+                soc_name, soc_type);
+            break;
+
+          case BT_PROP_A2DP_OFFLOAD_CAP:
+            strlcpy(a2dp_offload_Cap, vendorProp.value, sizeof(a2dp_offload_Cap));
+            LOG_INFO(LOG_TAG, "%s:: a2dp_offload_Cap = %s", __func__,
+                a2dp_offload_Cap);
+            break;
+
+          case BT_PROP_SPILT_A2DP:
+            if (!strncasecmp(vendorProp.value, "true", sizeof("true"))) {
+              spilt_a2dp_supported = true;
+            } else {
+              spilt_a2dp_supported = false;
+            }
+
+            LOG_INFO(LOG_TAG, "%s:: spilt_a2dp_supported = %d", __func__,
+                spilt_a2dp_supported);
+            break;
+
+          case BT_PROP_AAC_FRAME_CTL:
+            if (!strncasecmp(vendorProp.value, "true", sizeof("true"))) {
+              aac_frame_ctl_enabled = true;
+            } else {
+              aac_frame_ctl_enabled = false;
+            }
+
+            LOG_INFO(LOG_TAG, "%s:: aac_frame_ctl_enabled = %d", __func__,
+                aac_frame_ctl_enabled);
+            break;
+
+          case BT_PROP_WIPOWER:
+            if (!strncasecmp(vendorProp.value, "true", sizeof("true"))) {
+              wipower_supported = true;
+            } else {
+              wipower_supported = false;
+            }
+            LOG_INFO(LOG_TAG, "%s:: wipower_supported = %d", __func__,
+                wipower_supported);
+
+           break;
+
+         default:
+            break;
+       }
+    }
+  }
 
   // Send the initial reset command
   response = AWAIT_COMMAND(packet_factory->make_reset());
@@ -150,7 +224,7 @@ static future_t* start_up(void) {
     send_soc_log_command(true);
   }
 
-  if (soc_type == BT_SOC_SMD || soc_type == BT_SOC_CHEROKEE) {
+  if (soc_type == BT_SOC_TYPE_SMD || soc_type == BT_SOC_TYPE_CHEROKEE) {
     btm_enable_soc_iot_info_report(is_iot_info_report_enabled());
   }
 
@@ -327,14 +401,28 @@ static future_t* start_up(void) {
   }
 
   //Read HCI_VS_GET_ADDON_FEATURES_SUPPORT
-  if (soc_type == BT_SOC_CHEROKEE || soc_type == BT_SOC_HASTINGS) {
-    response =
-          AWAIT_COMMAND(packet_factory->make_read_add_on_features_supported());
-    if (response) {
+  if (soc_type == BT_SOC_TYPE_CHEROKEE || soc_type == BT_SOC_TYPE_HASTINGS) {
 
-      LOG_DEBUG(LOG_TAG, "%s sending add-on features supported VSC", __func__);
-      packet_parser->parse_read_add_on_features_supported_response(
-          response, &add_on_features, &add_on_features_length, &product_id, &response_version);
+    if (bt_configstore_intf != NULL) {
+      add_on_features_list_t features_list;
+      if (bt_configstore_intf->get_add_on_features(&features_list)){
+      product_id = features_list.product_id;
+      response_version = features_list.rsp_version;
+      add_on_features_length = features_list.feat_mask_len;
+      memcpy(add_on_features.as_array, features_list.features,
+          sizeof(add_on_features.as_array));
+      }
+    }
+
+    if (!add_on_features_length) {
+      response =
+            AWAIT_COMMAND(packet_factory->make_read_add_on_features_supported());
+      if (response) {
+
+        LOG_DEBUG(LOG_TAG, "%s sending add-on features supported VSC", __func__);
+        packet_parser->parse_read_add_on_features_supported_response(
+            response, &add_on_features, &add_on_features_length, &product_id, &response_version);
+      }
     }
     if (!add_on_features_length) {
       // read scrambling support from controller incase of cherokee
@@ -374,6 +462,11 @@ static future_t* start_up(void) {
 }
 
 static future_t* shut_down(void) {
+  if (bt_configstore_lib_handle) {
+    dlclose(bt_configstore_lib_handle);
+    bt_configstore_lib_handle = NULL;
+    bt_configstore_intf = NULL;
+  }
   readable = false;
   return future_new_immediate(FUTURE_SUCCESS);
 }
@@ -662,6 +755,31 @@ static bool performs_remote_public_key_validation(void) {
   return false;
 }
 
+static bt_soc_type_t get_soc_type() {
+  CHECK(readable);
+  return soc_type;
+}
+
+static const char * get_a2dp_offload_cap() {
+  CHECK(readable);
+  return a2dp_offload_Cap;
+}
+
+static bool supports_spilt_a2dp() {
+  CHECK(readable);
+  return spilt_a2dp_supported;
+}
+
+static bool supports_aac_frame_ctl() {
+  CHECK(readable);
+  return aac_frame_ctl_enabled;
+}
+
+static bool supports_wipower() {
+  CHECK(readable);
+  return wipower_supported;
+}
+
 static const controller_t interface = {
     get_is_ready,
 
@@ -720,6 +838,11 @@ static const controller_t interface = {
     get_response_version,
     supports_read_simple_pairing_options,
     performs_remote_public_key_validation,
+    get_soc_type,
+    get_a2dp_offload_cap,
+    supports_spilt_a2dp,
+    supports_aac_frame_ctl,
+    supports_wipower,
 };
 
 const controller_t* controller_get_interface() {
@@ -744,3 +867,40 @@ const controller_t* controller_get_test_interface(
   packet_parser = packet_parser_interface;
   return &interface;
 }
+
+int load_bt_configstore_lib() {
+  const char* sym = BT_CONFIG_STORE_INTERFACE_STRING;
+
+  bt_configstore_lib_handle = dlopen("libbtconfigstore.so", RTLD_NOW);
+  if (!bt_configstore_lib_handle) {
+    const char* err_str = dlerror();
+    LOG(ERROR) << __func__ << ": failed to load Bt Config store library, error="
+               << (err_str ? err_str : "error unknown");
+    goto error;
+  }
+
+  // Get the address of the bt_configstore_interface_t.
+  bt_configstore_intf = (bt_configstore_interface_t*)dlsym(bt_configstore_lib_handle, sym);
+  if (!bt_configstore_intf) {
+    LOG(ERROR) << __func__ << ": failed to load symbol from bt config store library"
+               << sym;
+    goto error;
+  }
+
+  // Success.
+  LOG(INFO) << __func__ << " loaded HAL: bt_configstore_interface_t=" << bt_configstore_intf
+            << ", bt_configstore_lib_handle=" << bt_configstore_lib_handle;
+
+  return 0;
+
+error:
+  if (bt_configstore_lib_handle) {
+    dlclose(bt_configstore_lib_handle);
+    bt_configstore_lib_handle = NULL;
+    bt_configstore_intf = NULL;
+  }
+
+  return -EINVAL;
+}
+
+

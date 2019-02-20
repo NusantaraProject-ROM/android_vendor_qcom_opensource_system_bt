@@ -78,6 +78,7 @@
 #include <a2dp_vendor.h>
 #include "bta/av/bta_av_int.h"
 #include "btif_bat.h"
+#include "controller.h"
 
 using com::qualcomm::qti::bluetooth_audio::V1_0::IBluetoothAudio;
 using com::qualcomm::qti::bluetooth_audio::V1_0::IBluetoothAudioCallbacks;
@@ -1253,11 +1254,9 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         }
         else if (A2DP_MEDIA_CT_AAC == codec_type)
         {
-          bool is_AAC_frame_ctrl_stack_enable = false;
-          char AAC_frame_ctrl_stack_val[PROPERTY_VALUE_MAX] = {'\0'};
-          osi_property_get("persist.vendor.btstack.aac_frm_ctl.enabled", AAC_frame_ctrl_stack_val, "false");
-          if (!strcmp(AAC_frame_ctrl_stack_val, "true"))
-            is_AAC_frame_ctrl_stack_enable = true;
+          bool is_AAC_frame_ctrl_stack_enable =
+              controller_get_interface()->supports_aac_frame_ctl();
+
           LOG_INFO(LOG_TAG, "Stack AAC frame control enabled: %d", is_AAC_frame_ctrl_stack_enable);
           if (is_AAC_frame_ctrl_stack_enable) {
             int sample_rate = A2DP_GetTrackSampleRate(p_codec_info);

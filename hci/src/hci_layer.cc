@@ -48,10 +48,9 @@
 #include "osi/include/properties.h"
 #include "osi/include/reactor.h"
 #include "packet_fragmenter.h"
+#include "controller.h"
 
 #define BT_HCI_TIMEOUT_TAG_NUM 1010000
-
-bt_soc_type soc_type;
 
 extern void hci_initialize();
 extern bool hci_transmit(BT_HDR* packet);
@@ -750,7 +749,6 @@ static void init_layer_interface() {
   if (!interface_created) {
     // It's probably ok for this to live forever. It's small and
     // there's only one instance of the hci interface.
-    soc_type = get_soc_type();
 
     interface.set_data_cb = set_data_cb;
     interface.transmit_command = transmit_command;

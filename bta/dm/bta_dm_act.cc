@@ -58,6 +58,8 @@
 #include <inttypes.h>
 #include "btif/include/btif_config.h"
 #include "device/include/device_iot_config.h"
+#include <btcommon_interface_defs.h>
+#include <controller.h>
 
 #if (GAP_INCLUDED == TRUE)
 #include "gap_api.h"
@@ -536,7 +538,7 @@ static void bta_dm_sys_hw_cback(tBTA_SYS_HW_EVT status) {
  *
  ******************************************************************************/
 void bta_dm_disable(UNUSED_ATTR tBTA_DM_MSG* p_data) {
-  int soc_type = get_soc_type();
+  bt_soc_type_t soc_type = controller_get_interface()->get_soc_type();
 
   /* Set l2cap idle timeout to 0 (so BTE immediately disconnects ACL link after
    * last channel is closed) */
@@ -559,16 +561,16 @@ void bta_dm_disable(UNUSED_ATTR tBTA_DM_MSG* p_data) {
   connection_manager::reset(false);
 
   /* Disable soc iot info report */
-  if ((soc_type == BT_SOC_SMD || soc_type == BT_SOC_CHEROKEE) &&
+  if ((soc_type == BT_SOC_TYPE_SMD || soc_type == BT_SOC_TYPE_CHEROKEE) &&
       is_iot_info_report_enabled()) {
     btm_enable_soc_iot_info_report(false);
   }
 
   /* Disable SOC Logging */
-  if (soc_type == BT_SOC_SMD) {
+  if (soc_type == BT_SOC_TYPE_SMD) {
     uint8_t param[5] = {0x10,0x02,0x00,0x00,0x01};
     BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE,5,param,NULL);
-  } else if (soc_type == BT_SOC_CHEROKEE || soc_type == BT_SOC_HASTINGS) {
+  } else if (soc_type == BT_SOC_TYPE_CHEROKEE || soc_type == BT_SOC_TYPE_HASTINGS) {
     uint8_t param[2] = {0x14, 0x00};
     BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE, 2, param, NULL);
   }

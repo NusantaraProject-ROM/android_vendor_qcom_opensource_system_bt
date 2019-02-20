@@ -1594,10 +1594,9 @@ bool A2DP_IsHAL2Supported () {
   return property_get_bool("persist.bluetooth.bluetooth_audio_hal.enabled", false);
 }
 
-void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap,
+void A2DP_SetOffloadStatus(bool offload_status, const char *offload_cap,
             bool scrambling_support, bool is44p1kFreq_support,
       std::vector<btav_a2dp_codec_config_t>& offload_enabled_codecs_config) {
-  //char value[PROPERTY_VALUE_MAX] = {'\0'};
   char *tok = NULL;
   char *tmp_token = NULL;
   uint8_t add_on_features_size = 0;
@@ -1607,7 +1606,7 @@ void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap,
                      offload_status);
   mA2dp_offload_status = offload_status;
   offload_capability = true;
-  if (strcmp(offload_cap,"false") == 0) offload_capability = false;
+  if (strcmp(offload_cap,"null") == 0) offload_capability = false;
 
   add_on_features_list = (bt_device_features_t *)
       controller_get_interface()->get_add_on_features(&add_on_features_size);

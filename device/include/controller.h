@@ -27,6 +27,7 @@
 #include "hci_packet_parser.h"
 #include "osi/include/log.h"
 #include "utils/include/bt_utils.h"
+#include <btcommon_interface_defs.h>
 
 static const char CONTROLLER_MODULE[] = "controller_module";
 
@@ -94,6 +95,11 @@ typedef struct controller_t {
   uint16_t (*get_response_version)(void);
   bool (*supports_read_simple_pairing_options)(void);
   bool (*performs_remote_public_key_validation)(void);
+  bt_soc_type_t (*get_soc_type)();
+  const char* (*get_a2dp_offload_cap)();
+  bool (*supports_spilt_a2dp)();
+  bool (*supports_aac_frame_ctl)();
+  bool (*supports_wipower)();
 } controller_t;
 
 const controller_t* controller_get_interface();

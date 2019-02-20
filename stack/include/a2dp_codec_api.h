@@ -675,7 +675,7 @@ const char* A2DP_CodecIndexStr(btav_a2dp_codec_index_t codec_index);
 bool A2DP_InitCodecConfig(btav_a2dp_codec_index_t codec_index,
                           tAVDT_CFG* p_cfg);
 
-void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap,
+void A2DP_SetOffloadStatus(bool offload_status, const char *offload_cap,
                           bool scrambling_support, bool is44p1kFreq_support,
                           std::vector<btav_a2dp_codec_config_t>&
                                 offload_enabled_codecs_config);

@@ -36,6 +36,8 @@ cc_library_static {
         "vendor/qcom/opensource/commonsys/system/bt/stack/include",
         "vendor/qcom/opensource/commonsys/system/bt/utils/include",
         "vendor/qcom/opensource/commonsys/system/bt/bta/include",
+        "vendor/qcom/opensource/commonsys/system/bt/device/include",
+        "vendor/qcom/opensource/commonsys-intf/bluetooth/include",
         "system/libhwbinder/include",
     ],
 }
@@ -56,6 +58,8 @@ cc_test {
         "vendor/qcom/opensource/commonsys/system/bt/osi/test",
         "vendor/qcom/opensource/commonsys/system/bt/stack/include",
         "vendor/qcom/opensource/commonsys/system/bt/utils/include",
+        "vendor/qcom/opensource/commonsys/system/bt/device/include",
+        "vendor/qcom/opensource/commonsys-intf/bluetooth/include",
         "system/libhwbinder/include",
     ],
     srcs: [

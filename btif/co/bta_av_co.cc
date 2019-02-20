@@ -1345,7 +1345,6 @@ void bta_av_co_get_peer_params(tA2DP_ENCODER_INIT_PEER_PARAMS* p_peer_params) {
   uint16_t min_mtu = 0xFFFF;
   int index = btif_max_av_clients;
   const tBTA_AV_CO_PEER* p_peer;
-  char AAC_frame_ctrl_val[PROPERTY_VALUE_MAX] = {'\0'};
 
   APPL_TRACE_DEBUG("%s", __func__);
   CHECK(p_peer_params != nullptr);
@@ -1372,10 +1371,8 @@ void bta_av_co_get_peer_params(tA2DP_ENCODER_INIT_PEER_PARAMS* p_peer_params) {
                                __func__, MAX_2MBPS_AVDTP_MTU);
       min_mtu = MAX_2MBPS_AVDTP_MTU;
     }
-    bool is_AAC_frame_ctrl_stack_enable = false;
-    osi_property_get("persist.vendor.btstack.aac_frm_ctl.enabled", AAC_frame_ctrl_val, "false");
-    if (!strcmp(AAC_frame_ctrl_val, "true"))
-      is_AAC_frame_ctrl_stack_enable = true;
+    bool is_AAC_frame_ctrl_stack_enable = controller_get_interface()->supports_aac_frame_ctl();
+
     APPL_TRACE_DEBUG("%s: Stack AAC frame control enabled: %d", __func__, is_AAC_frame_ctrl_stack_enable);
     if (is_AAC_frame_ctrl_stack_enable && btif_av_is_peer_edr() &&
                                (btif_av_peer_supports_3mbps() == FALSE)) {
@@ -1824,7 +1821,7 @@ void bta_av_co_init(
     std::vector<btav_a2dp_codec_config_t>& offload_enabled_codecs_config) {
   APPL_TRACE_DEBUG("%s", __func__);
   RawAddress bt_addr;
-  char value[PROPERTY_VALUE_MAX] = {'\0'};
+  const char *a2dp_ofload_cap = controller_get_interface()->get_a2dp_offload_cap();
   tBTA_AV_CO_PEER* p_peer;
   /* Protect access to bta_av_co_cb.codec_config */
   mutex_global_lock();
@@ -1841,9 +1838,10 @@ void bta_av_co_init(
   bool a2dp_offload = btif_av_is_split_a2dp_enabled();
   bool isScramblingSupported = bta_av_co_is_scrambling_enabled();
   bool is44p1kFreqSupported = bta_av_co_is_44p1kFreq_enabled();
-  osi_property_get("persist.vendor.btstack.a2dp_offload_cap", value, "false");
-  A2DP_SetOffloadStatus(a2dp_offload, value, isScramblingSupported,
+
+  A2DP_SetOffloadStatus(a2dp_offload, a2dp_ofload_cap, isScramblingSupported,
                        is44p1kFreqSupported, offload_enabled_codecs_config);
+
 /* SPLITA2DP */
   bool isMcastSupported = btif_av_is_multicast_supported();
   if (a2dp_offload) {

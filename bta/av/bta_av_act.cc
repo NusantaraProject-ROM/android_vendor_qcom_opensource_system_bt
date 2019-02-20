@@ -78,6 +78,7 @@
 #include "device/include/interop.h"
 #include "device/include/profile_config.h"
 #include "device/include/device_iot_config.h"
+#include "controller.h"
 
 #if (BTA_AR_INCLUDED == TRUE)
 #include "bta_ar_api.h"
@@ -1315,8 +1316,9 @@ void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started) {
   uint8_t* p_streams;
   bool no_streams = false;
   tBTA_AV_SCB* p_scbi;
-  char splitEnabled[PROPERTY_VALUE_MAX] = {0};
-  osi_property_get("persist.vendor.btstack.enable.splita2dp", splitEnabled, "true");
+  bool bt_split_a2dp_enabled = controller_get_interface()->supports_spilt_a2dp();
+  BTIF_TRACE_DEBUG("split_a2dp_status = %d",bt_split_a2dp_enabled);
+
   started_msk = BTA_AV_HNDL_TO_MSK(p_scb->hdi);
   APPL_TRACE_DEBUG("bta_av_stream_chg started:%d started_msk:x%x chnl:x%x",
                    started, started_msk, p_scb->chnl);
@@ -1327,7 +1329,7 @@ void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started) {
 
   if (started) {
     /* Let L2CAP know this channel is processed with high priority */
-    if (!strcmp(splitEnabled, "false")) {
+    if (bt_split_a2dp_enabled == false) {
       L2CA_SetAclPriority(p_scb->peer_addr, L2CAP_PRIORITY_HIGH);
     }
     (*p_streams) |= started_msk;
@@ -1359,7 +1361,7 @@ void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started) {
                      bta_av_cb.video_streams);
     if (no_streams) {
       /* Let L2CAP know this channel is processed with low priority */
-      if (!strcmp(splitEnabled, "false"))
+      if (bt_split_a2dp_enabled == false)
         L2CA_SetAclPriority(p_scb->peer_addr, L2CAP_PRIORITY_NORMAL);
     }
   }
