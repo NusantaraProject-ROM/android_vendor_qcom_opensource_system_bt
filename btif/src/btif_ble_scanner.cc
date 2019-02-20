@@ -234,7 +234,6 @@ class BleScannerInterfaceImpl : public BleScannerInterface {
             return;
           }
 
-          //btif_gattc_init_dev_cb(); //TODO check in review?
           btif_address_cache_init();
           do_in_bta_thread(
               FROM_HERE, Bind(&BTA_DmBleObserve, true, 0, bta_scan_results_cb));

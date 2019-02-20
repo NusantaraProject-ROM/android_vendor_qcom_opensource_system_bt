@@ -529,6 +529,8 @@ void BTA_DmAddDevice(const RawAddress& bd_addr, DEV_CLASS dev_class,
   p_msg->tm = trusted_mask;
   p_msg->is_trusted = is_trusted;
   p_msg->io_cap = io_cap;
+  p_msg->key_type = key_type;
+  p_msg->link_key_known = true;
   p_msg->link_key = link_key;
 
   /* Load device class if specified */

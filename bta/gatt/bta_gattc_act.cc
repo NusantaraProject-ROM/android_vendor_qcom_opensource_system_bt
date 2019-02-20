@@ -317,7 +317,7 @@ void bta_gattc_open_error(tBTA_GATTC_CLCB* p_clcb,
                           UNUSED_ATTR tBTA_GATTC_DATA* p_data) {
   LOG(ERROR) << "Connection already opened. wrong state";
 
-  bta_gattc_send_open_cback(p_clcb->p_rcb, GATT_SUCCESS, p_clcb->bda,
+  bta_gattc_send_open_cback(p_clcb->p_rcb, GATT_ALREADY_OPEN, p_clcb->bda,
                             p_clcb->bta_conn_id, p_clcb->transport, 0);
 }
 

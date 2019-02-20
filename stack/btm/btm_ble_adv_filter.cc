@@ -631,6 +631,9 @@ void BTM_LE_PF_set(tBTM_BLE_PF_FILT_INDEX filt_index,
 
       case BTM_BLE_PF_SRVC_UUID:
       case BTM_BLE_PF_SRVC_SOL_UUID: {
+        if(cmd.uuid_mask.IsEmpty()) {
+          LOG(INFO) << __func__ <<" UUID MASK is empty ";
+        }
         BTM_LE_PF_uuid_filter(action, filt_index, cmd.type, cmd.uuid,
                               BTM_BLE_PF_LOGIC_AND, cmd.uuid_mask,
                               base::DoNothing());
@@ -638,6 +641,11 @@ void BTM_LE_PF_set(tBTM_BLE_PF_FILT_INDEX filt_index,
       }
 
       case BTM_BLE_PF_LOCAL_NAME: {
+        for (ApcfCommand filter : commands) {
+          if (filter.type == BTM_BLE_PF_LOCAL_NAME)
+            filter.data = filter.name;
+        }
+
         BTM_LE_PF_local_name(action, filt_index, cmd.name, base::DoNothing());
         break;
       }

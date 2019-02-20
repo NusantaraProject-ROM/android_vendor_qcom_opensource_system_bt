@@ -374,7 +374,6 @@ void smp_send_enc_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
   smp_key_distribution(p_cb, NULL);
 }
 
-
 /*******************************************************************************
  * Function     smp_send_id_info
  * Description  send ID information command.
@@ -412,7 +411,6 @@ void smp_send_csrk_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
 
   smp_key_distribution_by_transport(p_cb, NULL);
 }
-
 
 /*******************************************************************************
  * Function     smp_send_ltk_reply

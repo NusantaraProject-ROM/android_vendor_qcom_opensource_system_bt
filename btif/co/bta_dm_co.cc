@@ -28,18 +28,6 @@
 #include "btif_storage.h"
 #include "osi/include/osi.h"
 
-#if 0 //TODO Need to change below if conditions
-#if (defined BTM_NO_MITM_NO_BONDING_INCLUDED && BTM_NO_MITM_NO_BONDING_INCLUDED == TRUE)
-tBTE_APPL_CFG bte_appl_cfg = { 0x0, 0x4, 0x0, 0x0, 0x10 };
-#elif (defined BTM_NO_MITM_INCLUDED && BTM_NO_MITM_INCLUDED == TRUE)
-tBTE_APPL_CFG bte_appl_cfg = { 0x1, 0x4, 0x7, 0x7, 0x10 };
-#else
-tBTE_APPL_CFG bte_appl_cfg = {
-    BTA_LE_AUTH_REQ_SC_MITM_BOND,  // Authentication requirements
-    BTM_LOCAL_IO_CAPS_BLE, BTM_BLE_INITIATOR_KEY_SIZE,
-    BTM_BLE_RESPONDER_KEY_SIZE, BTM_BLE_MAX_KEY_SIZE};
-#endif
-#endif
 // tBTE_APPL_CFG.ble_io_cap is set to BTM_IO_CAP_UNKNOWN at structure
 // initialization since btif_storage isn't ready yet for data to be fetched.
 // This value is initialized properly during first use by fetching properly

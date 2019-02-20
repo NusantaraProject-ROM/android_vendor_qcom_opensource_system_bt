@@ -3843,8 +3843,7 @@ static void bta_dm_adjust_roles(bool delay_role_switch) {
             delayed to avoid the collision with link encryption setup */
 
           if (bta_dm_cb.device_list.peer_device[i].pref_role !=
-                  BTA_SLAVE_ROLE_ONLY &&
-              !delay_role_switch) {
+                  BTA_SLAVE_ROLE_ONLY && !delay_role_switch) {
             BTM_SwitchRole(bta_dm_cb.device_list.peer_device[i].peer_bdaddr,
                            HCI_ROLE_MASTER, NULL);
           } else {
@@ -4633,7 +4632,7 @@ static uint8_t bta_dm_ble_smp_cback(tBTM_LE_EVT event, const RawAddress& bda,
 
       } else {
         sec_event.auth_cmpl.success = true;
-	//TODO review below change needed or not?
+
         sec_event.auth_cmpl.smp_over_br = p_data->complt.smp_over_br;
         if (!p_data->complt.smp_over_br)
           GATT_ConfigServiceChangeCCC(bda, true, BT_TRANSPORT_LE);
@@ -4782,18 +4781,6 @@ void bta_dm_security_grant(tBTA_DM_MSG* p_data) {
   BTM_SecurityGrant(p_data->ble_sec_grant.bd_addr, p_data->ble_sec_grant.res);
 }
 
-/** This function set the preferred connection parameters */
-/*void bta_dm_ble_set_conn_params(const RawAddress& bd_addr,
-                                uint16_t conn_int_min, uint16_t conn_int_max,
-                                uint16_t slave_latency,
-                                uint16_t supervision_tout) {
-  L2CA_AdjustConnectionIntervals(&conn_int_min, &conn_int_max,
-                                 BTM_BLE_CONN_INT_MIN);
-
-  BTM_BleSetPrefConnParams(bd_addr, conn_int_min, conn_int_max, slave_latency,
-                           supervision_tout);
-}*/
-
 /*******************************************************************************
  *
  * Function         bta_dm_ble_set_bg_conn_type
@@ -4804,7 +4791,8 @@ void bta_dm_security_grant(tBTA_DM_MSG* p_data) {
  *
  ******************************************************************************/
 void bta_dm_ble_set_bg_conn_type(tBTA_DM_MSG* p_data) {
-  //TODO Discard this function or Should return error? 
+  //TODO Discard this function or Should return error?
+  LOG(INFO) << __func__ <<" %s Shouldnt get called from application";
 }
 
 /*******************************************************************************

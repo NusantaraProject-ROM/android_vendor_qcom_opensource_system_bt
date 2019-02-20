@@ -299,7 +299,8 @@ bool btm_identity_addr_to_random_pseudo(RawAddress* bd_addr,
   tBTM_SEC_DEV_REC* p_dev_rec =
       btm_find_dev_by_identity_addr(*bd_addr, *p_addr_type);
 
-  BTM_TRACE_EVENT("%s", __func__);
+  BTM_TRACE_EVENT("%s BdAddr : %s Addr type: %d", __func__,
+    bd_addr->ToString().c_str(), *p_addr_type);
   /* evt reported on static address, map static address to random pseudo */
   if (p_dev_rec != NULL) {
     /* if RPA offloading is supported, or 4.2 controller, do RPA refresh */
@@ -312,6 +313,9 @@ bool btm_identity_addr_to_random_pseudo(RawAddress* bd_addr,
       *bd_addr = p_dev_rec->ble.pseudo_addr;
 
     *p_addr_type = p_dev_rec->ble.ble_addr_type;
+
+     BTM_TRACE_EVENT("%s BdAddr : %s AddrType changed to ble: %d", __func__,
+       bd_addr->ToString().c_str(), *p_addr_type);
     return true;
   }
 #endif

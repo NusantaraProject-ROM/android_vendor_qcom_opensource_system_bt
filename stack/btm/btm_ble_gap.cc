@@ -1852,6 +1852,7 @@ void btm_ble_process_adv_addr(RawAddress& bda, uint8_t* addr_type) {
       } else {
         // Assign the original address to be the current report address
         bda = match_rec->ble.pseudo_addr;
+        VLOG(1) << __func__ << " BDA changed to pseudo Addr :: " << bda;
       }
     }
   }
@@ -1911,6 +1912,9 @@ void btm_ble_process_ext_adv_pkt(uint8_t data_len, uint8_t* data) {
       BTM_TRACE_ERROR("%s: bad rssi value in advertising report: %d", __func__,
                       rssi);
     }
+
+    BTM_TRACE_EVENT("%s Address type %d", __func__, addr_type);
+    VLOG(1) << __func__ << ": bda=" << bda;
 
     if (addr_type != BLE_ADDR_ANONYMOUS) {
       btm_ble_process_adv_addr(bda, &addr_type);
@@ -2031,7 +2035,7 @@ static void btm_ble_process_adv_pkt_cont(
 
   if (!data_complete) {
     // If we didn't receive whole adv data yet, don't report the device.
-    DVLOG(1) << "Data not complete yet, waiting for more " << bda;
+    VLOG(1) << "Data not complete yet, waiting for more " << bda;
     return;
   }
 
@@ -2039,12 +2043,12 @@ static void btm_ble_process_adv_pkt_cont(
       btm_cb.ble_ctr_cb.inq_var.scan_type == BTM_BLE_SCAN_MODE_ACTI;
   if (is_active_scan && is_scannable && !is_scan_resp) {
     // If we didn't receive scan response yet, don't report the device.
-    DVLOG(1) << " Waiting for scan response " << bda;
+    VLOG(1) << " Waiting for scan response " << bda;
     return;
   }
 
   if (!AdvertiseDataParser::IsValid(adv_data)) {
-    DVLOG(1) << __func__ << "Dropping bad advertisement packet: "
+    VLOG(1) << __func__ << "Dropping bad advertisement packet: "
              << base::HexEncode(adv_data.data(), adv_data.size());
     return;
   }

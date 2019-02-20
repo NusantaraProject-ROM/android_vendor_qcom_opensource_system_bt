@@ -1602,7 +1602,7 @@ void btif_storage_add_hearing_aid(const RawAddress& address, uint16_t psm,
              uint16_t preparation_delay) {
             std::string addrstr = address.ToString();
             const char* bdstr = addrstr.c_str();
-            
+
             VLOG(2) << "saving hearing aid device: " << bdstr;
             btif_config_set_int(bdstr, HEARING_AID_PSM, psm);
             btif_config_set_int(bdstr, HEARING_AID_CAPABILITIES, capabilities);

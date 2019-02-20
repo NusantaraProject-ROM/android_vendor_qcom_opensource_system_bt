@@ -59,6 +59,10 @@
  ******************************************************************************/
 #include <base/logging.h>
 #include <string.h>
+#include <string>
+#include <vector>
+#include <iostream>
+#include <algorithm>
 
 #include "bt_target.h"
 #include "bt_utils.h"
@@ -607,51 +611,34 @@ bool SMP_CreateLocalSecureConnectionsOobData(tBLE_BD_ADDR* addr_to_send_to) {
  * Description      This function is called to encrypt the data with the
  *                  specified key
  *
- * Parameters:      key                 - Pointer to key key[0] conatins the MSB
- *                  key_len             - key length
- *                  plain_text          - Pointer to data to be encrypted
- *                                        plain_text[0] conatins the MSB
- *                  pt_len              - plain text length
- *                  p_out                - output of the encrypted texts
+ * Parameters:      Bd Addr               Bluetooth Address
+ *                  Key                -  Key which is used to derive
  *
- *  Returns         Boolean - request is successful
+ *  Returns         Octet16 -             Returns key
  ******************************************************************************/
-bool SMP_DeriveBrEdrLinkKey(const RawAddress& peer_eb_addr, const Octet16& key,
-                                                         uint8_t *p_out)
+Octet16 SMP_DeriveBrEdrLinkKey(const RawAddress& peer_eb_addr, const Octet16& key)
 {
-  //TODO Need to rewrite whole thing
 
-  bool status = false;
-#if 0
-  uint8_t TWS_SALT[16];
-  uint8_t intermediate_key[16];
-  Octet16 rev_link_key;
-  uint8_t rev_salt[16], H6_link_key[16];
-  uint8_t* *salt1, *salt2, *temp_H6_link_key;
-  Octet16* p1;
+  Octet16 TWS_SALT;
+  Octet16 intermediate_key;
+  Octet16 rev_link_key, rev_salt;
+  Octet16 temp_H6_link_key;
+  Octet16 p_out;
 
-  /* Reverse link key */
-  p1 = &rev_link_key;
-  REVERSE_ARRAY_TO_STREAM(p1, &key, 16);
+  std::reverse_copy(key.begin(), key.end(), rev_link_key.begin());
 
   /* Reverse TWS salt*/
-  memset(TWS_SALT, 0, 16);
+  std::fill(TWS_SALT.begin(), TWS_SALT.end(), 0);
   memcpy(&TWS_SALT[10], &peer_eb_addr.address[0], 6);
-  salt1 = rev_salt;
-  salt2 = TWS_SALT;
-  REVERSE_ARRAY_TO_STREAM(salt1, salt2, 16);
 
-  memset(intermediate_key, 0, 16);
-  memset(H6_link_key, 0, 16);
-  temp_H6_link_key = H6_link_key;
-  #if 0 //TODO Need to rewrite whole thing
-  if(smp_calculate_h7(rev_salt, rev_link_key, intermediate_key)) {
-    if(smp_calculate_h6(intermediate_key, (uint8_t*)"2swt", temp_H6_link_key)) {
-      status = true;
-    }
-  }
-  #endif
-  REVERSE_ARRAY_TO_STREAM(p_out, temp_H6_link_key, 16);
-#endif
-  return status;
+  std::reverse_copy(TWS_SALT.begin(), TWS_SALT.end(), rev_salt.begin());
+
+  std::fill(temp_H6_link_key.begin(), temp_H6_link_key.end(), 0);
+  std::array<uint8_t, 4> keyid = {'t','w','s','2'};
+
+  intermediate_key = crypto_toolbox::h7(rev_salt, rev_link_key);
+  temp_H6_link_key = crypto_toolbox::h6(intermediate_key, keyid);
+  std::reverse_copy(temp_H6_link_key.begin(), temp_H6_link_key.end(), p_out.begin());
+
+  return p_out;
 }

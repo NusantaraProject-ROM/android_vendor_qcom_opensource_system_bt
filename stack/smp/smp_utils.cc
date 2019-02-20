@@ -1459,7 +1459,6 @@ void smp_save_secure_connections_long_term_key(tSMP_CB* p_cb) {
                       (tBTM_LE_KEY_VALUE*)&le_key, true);
 }
 
-
 /** The function calculates MacKey and LTK and saves them in CB. To calculate
  * MacKey and LTK it calls smp_calc_f5(...). MacKey is used in dhkey
  * calculation, LTK is used to encrypt the link. */

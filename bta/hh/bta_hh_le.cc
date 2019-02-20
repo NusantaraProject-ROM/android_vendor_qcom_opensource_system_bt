@@ -709,7 +709,8 @@ static void write_rpt_ctl_cfg_cb(uint16_t conn_id, tGATT_STATUS status,
     case GATT_UUID_HID_BT_MOUSE_INPUT:
     case GATT_UUID_HID_REPORT:
       if (status == GATT_SUCCESS)
-        p_dev_cb->hid_srvc[p_dev_cb->cur_srvc_index].report[p_dev_cb->clt_cfg_idx].client_cfg_value =
+        p_dev_cb->hid_srvc[p_dev_cb->cur_srvc_index].
+        report[p_dev_cb->clt_cfg_idx].client_cfg_value =
             GATT_CLT_CONFIG_NOTIFICATION;
       p_dev_cb->clt_cfg_idx++;
       bta_hh_le_write_rpt_clt_cfg(p_dev_cb);
@@ -1548,6 +1549,7 @@ void bta_hh_le_srvc_search_cmpl(tBTA_GATTC_SEARCH_CMPL* p_data) {
       }
     } else if (service.uuid == Uuid::From16Bit(UUID_SERVCLASS_BATTERY)) {
     for (const gatt::Characteristic& p_char : service.characteristics) {
+
           if (p_char.uuid.As16Bit()== GATT_UUID_BATTERY_LEVEL) {
             p_dev_cb->hid_srvc[srvc_index].incl_srvc_inst = service.handle;
             p_rpt = bta_hh_le_find_alloc_report_entry(p_dev_cb, service.handle,
@@ -1555,8 +1557,9 @@ void bta_hh_le_srvc_search_cmpl(tBTA_GATTC_SEARCH_CMPL* p_data) {
             if (p_rpt == NULL)
               APPL_TRACE_ERROR("Add battery report entry failed !!!");
 
-            BtaGattQueue::ReadDescriptor(p_dev_cb->conn_id, p_char.value_handle,
+            BtaGattQueue::ReadCharacteristic(p_dev_cb->conn_id, p_char.value_handle,
               read_report_descriptor_ccc_cb, p_dev_cb);
+
             if (p_rpt)
               bta_hh_le_read_char_descriptor(p_dev_cb, p_char.value_handle,
                            GATT_UUID_CHAR_CLIENT_CONFIG,
@@ -1870,8 +1873,9 @@ void bta_hh_le_get_rpt(tBTA_HH_DEV_CB* p_cb, uint8_t srvc_inst, tBTA_HH_RPT_TYPE
        if (rpt_id > 7) {
           char_handle = rpt_id;
           APPL_TRACE_DEBUG("bta_hh_le_get_rpt: read PNP ID char handle = %d\n ",char_handle);
-          BTA_GATTC_ReadCharacteristic(p_cb->conn_id,char_handle, BTA_GATT_AUTH_REQ_NONE,
-                               gatt_read_op_finished, NULL);
+          p_cb->w4_evt = BTA_HH_GET_RPT_EVT;
+          BtaGattQueue::ReadCharacteristic(p_cb->conn_id, char_handle,
+                                          NULL, NULL);
           return;
        }
   }

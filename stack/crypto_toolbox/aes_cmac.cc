@@ -184,12 +184,12 @@ Octet16 aes_cmac(const Octet16& key, const uint8_t* input, uint16_t length) {
   /* n is number of rounds */
   uint16_t n = (length + OCTET16_LEN - 1) / OCTET16_LEN;
 
-  DVLOG(2) << __func__;
+  VLOG(1) << __func__;
 
   if (n == 0) n = 1;
   len = n * OCTET16_LEN;
 
-  DVLOG(2) << "AES128_CMAC started, allocate buffer size=" << len;
+  VLOG(1) << "AES128_CMAC started, allocate buffer size=" << len;
   /* allocate a memory space of multiple of 16 bytes to hold text  */
   cmac_cb.text = (uint8_t*)alloca(len);
   cmac_cb.round = n;

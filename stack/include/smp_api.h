@@ -209,4 +209,8 @@ extern bool smp_proc_ltk_request(const RawAddress& bda);
 // Proceed to send LTK, DIV and ER to master if bonding the devices.
 extern void smp_link_encrypted(const RawAddress& bda, uint8_t encr_enable);
 
+extern Octet16 SMP_DeriveBrEdrLinkKey(const RawAddress& peer_eb_addr,
+  const Octet16& key);
+
+
 #endif /* SMP_API_H */
