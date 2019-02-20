@@ -552,6 +552,7 @@ bt_status_t btif_a2dp_source_setup_codec(tBTA_AV_HNDL hndl) {
       codec_config = current_codec->getCodecConfig();
     } else {
       APPL_TRACE_ERROR("%s: current codec is null, returns fail.", __func__);
+      mutex_global_unlock();
       return BT_STATUS_FAIL;
     }
 
@@ -561,6 +562,7 @@ bt_status_t btif_a2dp_source_setup_codec(tBTA_AV_HNDL hndl) {
     //copy peer codec info to p_codec_info
     if (!current_codec->copyOutOtaCodecConfig(p_codec_info)) {
       APPL_TRACE_ERROR("%s: Fetching peer codec info returns fail.", __func__);
+      mutex_global_unlock();
       return BT_STATUS_FAIL;
     }
 
