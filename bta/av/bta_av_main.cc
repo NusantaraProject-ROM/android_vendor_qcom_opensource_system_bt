@@ -1383,7 +1383,7 @@ bool bta_av_link_role_ok(tBTA_AV_SCB* p_scb, uint8_t bits) {
  *
  ******************************************************************************/
 uint16_t bta_av_chk_mtu(tBTA_AV_SCB* p_scb, UNUSED_ATTR uint16_t mtu) {
-  uint16_t ret_mtu = BTA_AV_MAX_A2DP_MTU;
+  uint16_t ret_mtu = BTA_AV_MAX_A2DP_MTU - AVDT_MEDIA_HDR_SIZE;
   tBTA_AV_SCB* p_scbi;
   int i;
   uint8_t mask;
@@ -1395,11 +1395,13 @@ uint16_t bta_av_chk_mtu(tBTA_AV_SCB* p_scb, UNUSED_ATTR uint16_t mtu) {
 
     if (!is_multicast_enabled)
     {
-        APPL_TRACE_DEBUG("bta_av_chk_mtu Non-multicast, conn_audio:0x%x, ret:%d",
-                                                bta_av_cb.conn_audio, mtu);
-        if (mtu > BTA_AV_MAX_A2DP_MTU)
-            mtu = BTA_AV_MAX_A2DP_MTU;
-        return mtu;
+      APPL_TRACE_DEBUG("%s: Non-multicast, conn_audio:0x%x, ret:%d",
+                                               __func__, bta_av_cb.conn_audio, mtu);
+      if (mtu > (BTA_AV_MAX_A2DP_MTU - AVDT_MEDIA_HDR_SIZE)) {
+        mtu = BTA_AV_MAX_A2DP_MTU - AVDT_MEDIA_HDR_SIZE;
+        APPL_TRACE_DEBUG("%s: After deduction AVDT_header, updated mtu: %d", __func__, mtu);
+      }
+      return mtu;
     }
 
   /* TODO_MV mess with the mtu according to the number of EDR/non-EDR headsets
