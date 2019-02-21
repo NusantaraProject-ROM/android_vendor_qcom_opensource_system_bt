@@ -104,6 +104,8 @@ static tSDP_RECORD *sdp_upgrade_mse_record(tSDP_RECORD *p_rec,
                                       RawAddress remote_address);
 
 static bool check_remote_map_version_104(RawAddress remote_addr);
+static bool is_map_adv_enabled();
+static bool is_pbap_adv_enabled();
 
 /******************************************************************************/
 /*                E R R O R   T E X T   S T R I N G S                         */
@@ -672,9 +674,12 @@ static void process_service_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
                             SDP_TEXT_BAD_HANDLE);
     return;
   }
-  p_rec = sdp_upgrade_mse_record(p_rec, p_ccb->device_address);
-  p_rec = sdp_upgrade_pse_record(p_rec, p_ccb->device_address);
-
+  if (is_map_adv_enabled()) {
+    p_rec = sdp_upgrade_mse_record(p_rec, p_ccb->device_address);
+  }
+  if(is_pbap_adv_enabled()) {
+    p_rec = sdp_upgrade_pse_record(p_rec, p_ccb->device_address);
+  }
   /* Free and reallocate buffer */
   osi_free(p_ccb->rsp_list);
   p_ccb->rsp_list = (uint8_t*)osi_malloc(max_list_len);
@@ -1014,15 +1019,20 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
     p_ccb->cont_info.last_attr_seq_desc_sent = false;
     p_ccb->cont_info.attr_offset = 0;
   }
-
+  bool is_mse_adv_enabled = is_map_adv_enabled();
+  bool is_pse_adv_enabled = is_pbap_adv_enabled();
   /* Get a list of handles that match the UUIDs given to us */
   for (p_rec = sdp_db_service_search(p_ccb->cont_info.prev_sdp_rec, &uid_seq);
        p_rec; p_rec = sdp_db_service_search(p_rec, &uid_seq)) {
     p_ccb->cont_info.curr_sdp_rec = p_rec;
     /* Store the actual record pointer which would be reused later */
     p_prev_rec = p_rec;
-    p_rec = sdp_upgrade_mse_record(p_rec, p_ccb->device_address);
-    p_rec = sdp_upgrade_pse_record(p_rec, p_ccb->device_address);
+    if (is_mse_adv_enabled) {
+      p_rec = sdp_upgrade_mse_record(p_rec, p_ccb->device_address);
+    }
+    if (is_pse_adv_enabled) {
+      p_rec = sdp_upgrade_pse_record(p_rec, p_ccb->device_address);
+    }
     /* Allow space for attribute sequence type and length */
     p_seq_start = p_rsp;
     if (p_ccb->cont_info.last_attr_seq_desc_sent == false) {
@@ -1872,6 +1882,18 @@ static tSDP_RECORD *sdp_upgrade_mse_record(tSDP_RECORD * p_rec,
   }
   SDP_TRACE_ERROR("%s: Success changed", __func__);
   return &map_104_sdp_rec;
+}
+
+static bool is_map_adv_enabled(){
+  bool feature = profile_feature_fetch(MAP_ID, MAP_0104_SUPPORT);
+  APPL_TRACE_ERROR("%s feature : %d",__func__,feature);
+  return feature;
+}
+
+static bool is_pbap_adv_enabled(){
+  bool feature = profile_feature_fetch(PBAP_ID, PBAP_0102_SUPPORT);
+  APPL_TRACE_ERROR("%s feature : %d",__func__,feature);
+  return feature;
 }
 
 #endif /* SDP_SERVER_ENABLED == TRUE */

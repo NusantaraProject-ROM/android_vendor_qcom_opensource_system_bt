@@ -49,6 +49,8 @@
 #include "bta_sdp_api.h"
 #include "utl.h"
 #include "device/include/interop_config.h"
+#include "device/include/profile_config.h"
+#include "device/include/interop.h"
 #include "stack/sdp/sdpint.h"
 #include <inttypes.h>
 #include "btif/include/btif_config.h"
@@ -2274,8 +2276,12 @@ static void bta_dm_find_services(const RawAddress& bd_addr) {
 
       } else {
         if (uuid == Uuid::From16Bit(UUID_PROTOCOL_L2CAP)) {
-          LOG_DEBUG(LOG_TAG, "%s SDP search for PBAP Client ", __func__);
-          BTA_SdpSearch(bd_addr, Uuid::From16Bit(UUID_SERVCLASS_PBAP_PCE));
+          bool feature = profile_feature_fetch(PBAP_ID, PBAP_0102_SUPPORT);
+          LOG_DEBUG(LOG_TAG, " is_pbap_adv_enabled : %d", feature);
+          if (feature) {
+            LOG_DEBUG(LOG_TAG, "%s SDP search for PBAP Client ", __func__);
+            BTA_SdpSearch(bd_addr, Uuid::From16Bit(UUID_SERVCLASS_PBAP_PCE));
+          }
         }
         if ((bta_dm_search_cb.service_index == BTA_BLE_SERVICE_ID &&
              bta_dm_search_cb.uuid_to_search == 0) ||
