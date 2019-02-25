@@ -1384,7 +1384,7 @@ static uint16_t sdp_update_pbap_blacklist_len(tCONN_CB* p_ccb, tSDP_ATTR_SEQ* at
   bool is_pbap_102_supported = check_remote_pbap_version_102(p_ccb->device_address);
   bool is_pbap_101_blacklisted = is_device_blacklisted_for_pbap(p_ccb->device_address, false);
   bool is_pbap_102_blacklisted = is_device_blacklisted_for_pbap(p_ccb->device_address, true);
-  static bool running_pts = false;
+  bool running_pts = false;
   char pts_property[6];
   osi_property_get(SDP_ENABLE_PTS_PBAP, pts_property, "false");
   if (!strncmp("true", pts_property, 4)) {
@@ -1465,9 +1465,9 @@ static tSDP_RECORD *sdp_upgrade_pse_record(tSDP_RECORD * p_rec,
 
   /* Check if remote supports PBAP 1.2 */
   is_pbap_102_supported = check_remote_pbap_version_102(remote_address);
-  static bool is_pbap_101_blacklisted = is_device_blacklisted_for_pbap(remote_address, false);
-  static bool is_pbap_102_blacklisted = is_device_blacklisted_for_pbap(remote_address, true);
-  static bool running_pts = false;
+  bool is_pbap_101_blacklisted = is_device_blacklisted_for_pbap(remote_address, false);
+  bool is_pbap_102_blacklisted = is_device_blacklisted_for_pbap(remote_address, true);
+  bool running_pts = false;
   char pts_property[6];
   osi_property_get(SDP_ENABLE_PTS_PBAP, pts_property, "false");
   if (!strncmp("true", pts_property, 4)) {
@@ -1840,7 +1840,7 @@ static tSDP_RECORD *sdp_upgrade_mse_record(tSDP_RECORD * p_rec,
   }
   /* Check if remote supports MAP 1.4 */
   is_map_104_supported = check_remote_map_version_104(remote_address);
-  static bool running_pts = false;
+  bool running_pts = false;
   char pts_property[6];
   osi_property_get(SDP_ENABLE_PTS_MAP, pts_property, "false");
   if (!strncmp("true", pts_property, 4)) {
