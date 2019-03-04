@@ -698,7 +698,7 @@ void smp_process_pairing_public_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
   if (!ECC_ValidatePoint(pt)) {
     android_errorWriteLog(0x534e4554, "72377774");
     tSMP_INT_DATA smp;
-    smp.status = SMP_PAIR_AUTH_FAIL;
+    smp.status = SMP_DHKEY_CHK_FAIL;
     smp_sm_event(p_cb, SMP_AUTH_CMPL_EVT, &smp);
     return;
   }
