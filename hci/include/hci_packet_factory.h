@@ -48,6 +48,7 @@ typedef struct {
   BT_HDR* (*make_ble_read_offload_features_support)(void);
   BT_HDR* (*make_read_scrambling_supported_freqs)(void);
   BT_HDR* (*make_read_add_on_features_supported)(void);
+  BT_HDR* (*make_read_local_simple_pairing_options)(void);
 } hci_packet_factory_t;
 
 const hci_packet_factory_t* hci_packet_factory_get_interface();

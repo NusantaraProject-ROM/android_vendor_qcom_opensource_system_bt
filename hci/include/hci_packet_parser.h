@@ -89,6 +89,10 @@ typedef struct {
       BT_HDR* response, bt_device_features_t* Supported_add_on_features,
       uint8_t *valid_bytes, uint16_t* product_id, uint16_t* response_version);
 
+  void (*parse_read_local_simple_paring_options_response)(
+      BT_HDR* response, uint8_t* simple_pairing_options,
+      uint8_t* maximum_encryption_key_size);
+
 } hci_packet_parser_t;
 
 const hci_packet_parser_t* hci_packet_parser_get_interface();

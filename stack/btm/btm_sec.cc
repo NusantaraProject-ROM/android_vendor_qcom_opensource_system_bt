@@ -6167,6 +6167,12 @@ static bool btm_sec_use_smp_br_chnl(tBTM_SEC_DEV_REC* p_dev_rec) {
 
   if (!(chnl_mask[0] & L2CAP_FIXED_CHNL_SMP_BR_BIT)) return false;
 
+  if ((controller_get_interface()->supports_read_simple_pairing_options()) &&
+      (!controller_get_interface()->performs_remote_public_key_validation())) {
+    BTM_TRACE_DEBUG("%s() remote public key validation is not performed", __func__);
+    return false;
+  }
+
   return true;
 }
 
