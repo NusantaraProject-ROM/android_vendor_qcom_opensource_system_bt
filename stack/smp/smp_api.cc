@@ -629,12 +629,12 @@ Octet16 SMP_DeriveBrEdrLinkKey(const RawAddress& peer_eb_addr, const Octet16& ke
 
   /* Reverse TWS salt*/
   std::fill(TWS_SALT.begin(), TWS_SALT.end(), 0);
-  memcpy(&TWS_SALT[10], &peer_eb_addr.address[0], 6);
+  std::memcpy(&TWS_SALT[10], &peer_eb_addr.address[0], 6);
 
   std::reverse_copy(TWS_SALT.begin(), TWS_SALT.end(), rev_salt.begin());
 
   std::fill(temp_H6_link_key.begin(), temp_H6_link_key.end(), 0);
-  std::array<uint8_t, 4> keyid = {'t','w','s','2'};
+  std::array<uint8_t, 4> keyid = {'2','s','w','t'};
 
   intermediate_key = crypto_toolbox::h7(rev_salt, rev_link_key);
   temp_H6_link_key = crypto_toolbox::h6(intermediate_key, keyid);
