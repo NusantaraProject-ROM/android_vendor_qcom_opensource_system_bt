@@ -469,6 +469,7 @@ extern bool btif_hf_is_call_vr_idle();
 extern bool check_cod(const RawAddress* remote_bdaddr, uint32_t cod);
 extern bool btif_av_is_split_a2dp_enabled();
 extern int btif_av_idx_by_bdaddr(RawAddress *bd_addr);
+extern bool btif_av_is_peer_silenced(RawAddress *bd_addr);
 extern bool btif_av_check_flag_remote_suspend(int index);
 extern bt_status_t btif_hf_check_if_sco_connected();
 extern fixed_queue_t* btu_general_alarm_queue;
@@ -3188,6 +3189,11 @@ static bt_status_t register_notification_rsp(
         break;
       case BTRC_EVT_PLAY_POS_CHANGED:
         avrc_rsp.reg_notif.param.play_pos = p_param->song_pos;
+        if (type == BTRC_NOTIFICATION_TYPE_CHANGED && btif_av_is_peer_silenced(bd_addr))
+        {
+          BTIF_TRACE_WARNING("%s: Device in silent mode disallow sending play pos change",__func__);
+          return BT_STATUS_UNHANDLED;
+        }
         break;
       case BTRC_EVT_AVAL_PLAYER_CHANGE:
         break;

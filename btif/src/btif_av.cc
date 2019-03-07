@@ -168,6 +168,7 @@ typedef struct {
   bool edr_3mbps;
   bool dual_handoff;
   bool current_playing;
+  bool is_silenced;
   btif_sm_state_t state;
   int service;
   bool is_slave;
@@ -196,6 +197,11 @@ typedef struct {
   RawAddress* target_bda;
   uint16_t uuid;
 } btif_av_connect_req_t;
+
+typedef struct {
+  RawAddress bd_addr;
+  bool is_silent;
+} btif_av_silent_req_t;
 
 typedef struct {
   int sample_rate;
@@ -360,6 +366,7 @@ bool btif_av_get_ongoing_multicast();
 tBTA_AV_HNDL btif_av_get_playing_device_hdl();
 tBTA_AV_HNDL btif_av_get_av_hdl_from_idx(int idx);
 int btif_av_get_other_connected_idx(int current_index);
+bool btif_av_is_peer_silenced(RawAddress *bd_addr);
 void btif_av_reset_reconfig_flag();
 tBTA_AV_HNDL btif_av_get_reconfig_dev_hndl();
 void btif_av_reset_codec_reconfig_flag(RawAddress address);
@@ -2872,7 +2879,17 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
         BTIF_TRACE_WARNING("Device is no longer connected, device switch failed");
       }
       break;
-
+    case BTIF_AV_SET_SILENT_REQ_EVT: {
+      btif_av_silent_req_t *silent_req = (btif_av_silent_req_t *)p_param;
+      RawAddress bt_addr = silent_req->bd_addr;
+      bool is_silent = silent_req->is_silent;
+      int idx = btif_av_idx_by_bdaddr(&bt_addr);
+      if (idx == btif_max_av_clients) {
+        BTIF_TRACE_IMP("%s:Invalid index to set active device",__func__);
+        break;
+      }
+      btif_av_cb[idx].is_silenced = is_silent;
+    } break;
     case BTIF_AV_START_STREAM_REQ_EVT:
       /* Get the last connected device on which START can be issued
        * Get the Dual A2dp Handoff Device first, if none is present,
@@ -4168,8 +4185,15 @@ static bt_status_t disconnect(const RawAddress& bd_addr) {
  * Returns          bt_status_t
  *
  ******************************************************************************/
-static bt_status_t set_silence_device(const RawAddress& /*bd_addr*/, bool /*silence*/) {
-  return BT_STATUS_UNSUPPORTED;
+static bt_status_t set_silence_device(const RawAddress& bd_addr, bool silence) {
+  BTIF_TRACE_EVENT("%s silence = %d", __func__, silence);
+  CHECK_BTAV_INIT();
+
+  btif_av_silent_req_t silent_req;
+  silent_req.bd_addr = bd_addr;
+  silent_req.is_silent = silence;
+  return btif_transfer_context(btif_av_handle_event, BTIF_AV_SET_SILENT_REQ_EVT,
+                               (char *)&silent_req, sizeof(silent_req), NULL);
 }
 
 /*******************************************************************************
@@ -5061,6 +5085,15 @@ bool btif_av_is_playing_on_other_idx(int current_index)
     }
   }
   return false;
+}
+
+bool btif_av_is_peer_silenced(RawAddress *bd_addr)
+{
+  int index = btif_av_idx_by_bdaddr(bd_addr);
+  if (index == btif_max_av_clients) {
+    return false;
+  }
+  return btif_av_cb[index].is_silenced;
 }
 
 /*******************************************************************************
