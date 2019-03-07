@@ -586,7 +586,7 @@ void btsnd_hcic_exit_park_mode(uint16_t handle) {
   btu_hcif_send_cmd(LOCAL_BR_EDR_CONTROLLER_ID, p);
 }
 
-void btsnd_hcic_qos_setup(uint16_t handle, uint8_t flags, uint8_t service_type,
+void btsnd_hcic_qos_setup(uint16_t handle, uint8_t unused, uint8_t service_type,
                           uint32_t token_rate, uint32_t peak, uint32_t latency,
                           uint32_t delay_var) {
   BT_HDR* p = (BT_HDR*)osi_malloc(HCI_CMD_BUF_SIZE);
@@ -599,7 +599,7 @@ void btsnd_hcic_qos_setup(uint16_t handle, uint8_t flags, uint8_t service_type,
   UINT8_TO_STREAM(pp, HCIC_PARAM_SIZE_QOS_SETUP);
 
   UINT16_TO_STREAM(pp, handle);
-  UINT8_TO_STREAM(pp, flags);
+  UINT8_TO_STREAM(pp, unused);
   UINT8_TO_STREAM(pp, service_type);
   UINT32_TO_STREAM(pp, token_rate);
   UINT32_TO_STREAM(pp, peak);
@@ -609,7 +609,7 @@ void btsnd_hcic_qos_setup(uint16_t handle, uint8_t flags, uint8_t service_type,
   btu_hcif_send_cmd(LOCAL_BR_EDR_CONTROLLER_ID, p);
 }
 
-void btsnd_hcic_flow_spec(uint16_t handle, uint8_t flags, uint8_t direction,
+void btsnd_hcic_flow_spec(uint16_t handle, uint8_t unused, uint8_t direction,
                           uint8_t service_type, uint32_t token_rate,
                           uint32_t token_size, uint32_t peak, uint32_t latency){
 
@@ -623,7 +623,7 @@ void btsnd_hcic_flow_spec(uint16_t handle, uint8_t flags, uint8_t direction,
   UINT8_TO_STREAM(pp, HCIC_PARAM_SIZE_FLOW_SPECIFICATION);
 
   UINT16_TO_STREAM(pp, handle);
-  UINT8_TO_STREAM(pp, flags);
+  UINT8_TO_STREAM(pp, unused);
   UINT8_TO_STREAM(pp, direction);
   UINT8_TO_STREAM(pp, service_type);
   UINT32_TO_STREAM(pp, token_rate);

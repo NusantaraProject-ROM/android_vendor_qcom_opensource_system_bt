@@ -2024,7 +2024,7 @@ tBTM_STATUS BTM_RegBusyLevelNotif(tBTM_BL_CHANGE_CB* p_cb, uint8_t* p_level,
 tBTM_STATUS BTM_SetA2dpStreamQoS(const RawAddress& bd, tBTM_CMPL_CB* p_cb) {
   FLOW_SPEC p_flow;
 
-  p_flow.qos_flags = 0;
+  p_flow.qos_unused = 0;
   p_flow.service_type = BEST_EFFORT;
   p_flow.token_rate = 0x00000000;
   p_flow.peak_bandwidth = 0x00000000;
@@ -2058,7 +2058,7 @@ tBTM_STATUS BTM_SetQoS(const RawAddress& bd, FLOW_SPEC* p_flow,
     alarm_set_on_mloop(btm_cb.devcb.qos_setup_timer, BTM_DEV_REPLY_TIMEOUT_MS,
                        btm_qos_setup_timeout, NULL);
 
-    btsnd_hcic_qos_setup(p->hci_handle, p_flow->qos_flags, p_flow->service_type,
+    btsnd_hcic_qos_setup(p->hci_handle, p_flow->qos_unused, p_flow->service_type,
                          p_flow->token_rate, p_flow->peak_bandwidth,
                          p_flow->latency, p_flow->delay_variation);
     return (BTM_CMD_STARTED);
@@ -2081,7 +2081,7 @@ tBTM_STATUS BTM_FlowSpec(const RawAddress& bd, tBT_FLOW_SPEC* p_flow,
   if (p != NULL) {
     btm_cb.devcb.p_flow_spec_cmpl_cb = p_cb;
 
-    btsnd_hcic_flow_spec(p->hci_handle, p_flow->qos_flags, p_flow->flow_direction,
+    btsnd_hcic_flow_spec(p->hci_handle, p_flow->qos_unused, p_flow->flow_direction,
                          p_flow->service_type,
                          p_flow->token_rate, p_flow->token_bucket_size ,
                          p_flow->peak_bandwidth, p_flow->latency);
@@ -2119,7 +2119,7 @@ void btm_qos_setup_timeout(UNUSED_ATTR void* data) {
  *
  ******************************************************************************/
 void btm_qos_setup_complete(uint8_t status, uint16_t handle,
-                            FLOW_SPEC_CMPL* p_flow) {
+                            FLOW_SPEC* p_flow) {
   tBTM_CMPL_CB* p_cb = btm_cb.devcb.p_qos_setup_cmpl_cb;
   tBTM_QOS_SETUP_CMPL qossu;
 
@@ -2157,7 +2157,7 @@ void btm_qos_setup_complete(uint8_t status, uint16_t handle,
  *
  ******************************************************************************/
 void btm_flow_spec_complete(uint8_t status, uint16_t handle,
-                            tBT_FLOW_SPEC_CMPL* p_flow) {
+                            tBT_FLOW_SPEC* p_flow) {
   tBTM_CMPL_CB* p_cb = btm_cb.devcb.p_flow_spec_cmpl_cb;
   tBTM_FLOW_SPEC_CMPL flow_su;
 

@@ -595,7 +595,7 @@ void l2cu_send_peer_config_req(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg) {
   if (p_cfg->qos_present) {
     UINT8_TO_STREAM(p, L2CAP_CFG_TYPE_QOS);
     UINT8_TO_STREAM(p, L2CAP_CFG_QOS_OPTION_LEN);
-    UINT8_TO_STREAM(p, p_cfg->qos.qos_flags);
+    UINT8_TO_STREAM(p, p_cfg->qos.qos_unused);
     UINT8_TO_STREAM(p, p_cfg->qos.service_type);
     UINT32_TO_STREAM(p, p_cfg->qos.token_rate);
     UINT32_TO_STREAM(p, p_cfg->qos.token_bucket_size);
@@ -691,7 +691,7 @@ void l2cu_send_peer_config_rsp(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg) {
   if (p_cfg->qos_present) {
     UINT8_TO_STREAM(p, L2CAP_CFG_TYPE_QOS);
     UINT8_TO_STREAM(p, L2CAP_CFG_QOS_OPTION_LEN);
-    UINT8_TO_STREAM(p, p_cfg->qos.qos_flags);
+    UINT8_TO_STREAM(p, p_cfg->qos.qos_unused);
     UINT8_TO_STREAM(p, p_cfg->qos.service_type);
     UINT32_TO_STREAM(p, p_cfg->qos.token_rate);
     UINT32_TO_STREAM(p, p_cfg->qos.token_bucket_size);

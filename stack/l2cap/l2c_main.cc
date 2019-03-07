@@ -509,7 +509,7 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
                 android_errorWriteLog(0x534e4554, "74202041");
                 return;
               }
-              STREAM_TO_UINT8(cfg_info.qos.qos_flags, p);
+              STREAM_TO_UINT8(cfg_info.qos.qos_unused, p);
               STREAM_TO_UINT8(cfg_info.qos.service_type, p);
               STREAM_TO_UINT32(cfg_info.qos.token_rate, p);
               STREAM_TO_UINT32(cfg_info.qos.token_bucket_size, p);
@@ -640,7 +640,7 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
                 android_errorWriteLog(0x534e4554, "74202041");
                 return;
               }
-              STREAM_TO_UINT8(cfg_info.qos.qos_flags, p);
+              STREAM_TO_UINT8(cfg_info.qos.qos_unused, p);
               STREAM_TO_UINT8(cfg_info.qos.service_type, p);
               STREAM_TO_UINT32(cfg_info.qos.token_rate, p);
               STREAM_TO_UINT32(cfg_info.qos.token_bucket_size, p);

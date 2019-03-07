@@ -609,7 +609,7 @@ typedef uint8_t ACO[ACO_LEN]; /* Authenticated ciphering offset */
 typedef uint8_t COF[COF_LEN]; /* ciphering offset number */
 
 typedef struct {
-  uint8_t qos_flags;          /* TBD */
+  uint8_t qos_unused;         /* UNUSED */
   uint8_t service_type;       /* see below */
   uint32_t token_rate;        /* bytes/second */
   uint32_t token_bucket_size; /* bytes */
@@ -619,7 +619,7 @@ typedef struct {
 } FLOW_SPEC;
 
 typedef struct {
-  uint8_t qos_flags;          /* TBD */
+  uint8_t qos_unused;         /* UNUSED */
   uint8_t flow_direction;       /* flow direction */
   uint8_t service_type;       /* see below */
   uint32_t token_rate;        /* bytes/second */
@@ -627,26 +627,6 @@ typedef struct {
   uint32_t peak_bandwidth;    /* bytes/second */
   uint32_t latency;           /* microseconds */
 } tBT_FLOW_SPEC;
-
-typedef struct {
-  uint8_t qos_unused;         /* UNUSED */
-  uint8_t service_type;       /* see below */
-  uint32_t token_rate;        /* bytes/second */
-  uint32_t token_bucket_size; /* bytes */
-  uint32_t peak_bandwidth;    /* bytes/second */
-  uint32_t latency;           /* microseconds */
-  uint32_t delay_variation;   /* microseconds */
-} FLOW_SPEC_CMPL;
-
-typedef struct {
-  uint8_t qos_unused;         /* UNUSED */
-  uint8_t flow_direction;     /* flow direction */
-  uint8_t service_type;       /* see below */
-  uint32_t token_rate;        /* bytes/second */
-  uint32_t token_bucket_size; /* bytes */
-  uint32_t peak_bandwidth;    /* bytes/second */
-  uint32_t latency;           /* microseconds */
-} tBT_FLOW_SPEC_CMPL;
 
 /* Values for service_type */
 #define NO_TRAFFIC 0

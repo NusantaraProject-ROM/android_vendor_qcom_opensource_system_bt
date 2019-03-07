@@ -306,7 +306,7 @@ extern void btsnd_hcic_park_mode(uint16_t handle, uint16_t beacon_max_interval,
 extern void btsnd_hcic_exit_park_mode(uint16_t handle); /* Exit Park Mode */
 
 /* QoS Setup */
-extern void btsnd_hcic_qos_setup(uint16_t handle, uint8_t flags,
+extern void btsnd_hcic_qos_setup(uint16_t handle, uint8_t unused,
                                  uint8_t service_type, uint32_t token_rate,
                                  uint32_t peak, uint32_t latency,
                                  uint32_t delay_var);
@@ -322,7 +322,7 @@ extern void btsnd_hcic_qos_setup(uint16_t handle, uint8_t flags,
 #define HCI_QOS_DELAY_VAR_OFF 16
 /* QoS Setup */
 
-extern void btsnd_hcic_flow_spec(uint16_t handle, uint8_t flags, uint8_t direction,
+extern void btsnd_hcic_flow_spec(uint16_t handle, uint8_t unused, uint8_t direction,
                           uint8_t service_type, uint32_t token_rate,
                           uint32_t token_size, uint32_t peak, uint32_t latency);
 

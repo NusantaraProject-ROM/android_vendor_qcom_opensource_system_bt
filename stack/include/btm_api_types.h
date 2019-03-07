@@ -776,7 +776,7 @@ typedef struct {
  * in response to BTM_SetQoS call.
 */
 typedef struct {
-  FLOW_SPEC_CMPL flow;
+  FLOW_SPEC flow;
   uint16_t handle;
   uint8_t status;
 } tBTM_QOS_SETUP_CMPL;
@@ -785,7 +785,7 @@ typedef struct {
  * in response to BTM_FlowSpec call.
 */
 typedef struct {
-  tBT_FLOW_SPEC_CMPL flow;
+  tBT_FLOW_SPEC flow;
   uint16_t handle;
   uint8_t status;
 } tBTM_FLOW_SPEC_CMPL;

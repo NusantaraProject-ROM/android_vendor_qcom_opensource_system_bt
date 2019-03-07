@@ -823,7 +823,7 @@ static void btu_hcif_read_rmt_version_comp_evt(uint8_t* p) {
 static void btu_hcif_qos_setup_comp_evt(uint8_t* p) {
   uint8_t status;
   uint16_t handle;
-  FLOW_SPEC_CMPL flow;
+  FLOW_SPEC flow;
 
   STREAM_TO_UINT8(status, p);
   STREAM_TO_UINT16(handle, p);
@@ -849,7 +849,7 @@ static void btu_hcif_qos_setup_comp_evt(uint8_t* p) {
 static void btu_hcif_flow_spec_comp_evt(uint8_t* p) {
   uint8_t status;
   uint16_t handle;
-  tBT_FLOW_SPEC_CMPL flow;
+  tBT_FLOW_SPEC flow;
 
   STREAM_TO_UINT8(status, p);
   STREAM_TO_UINT16(handle, p);
