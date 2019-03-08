@@ -2869,16 +2869,16 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
        * Directly call the RC handler as we cannot
        * associate any AV handle to it.
        */
-      BTIF_TRACE_DEBUG("%s: BTA_AV_RC_CLOSE_EVT: peer_addr=%s", __func__,
-                  p_bta_data->rc_close.peer_addr.ToString().c_str());
       index = btif_av_idx_by_bdaddr(&p_bta_data->rc_close.peer_addr);
+      BTIF_TRACE_DEBUG("%s: BTA_AV_RC_CLOSE_EVT: peer_addr=%s, index=%d", __func__,
+                  p_bta_data->rc_close.peer_addr.ToString().c_str(), index);
       if (btif_av_cb[index].current_playing == false &&
           btif_av_is_device_connected(p_bta_data->rc_close.peer_addr)) {
         BTIF_TRACE_IMP("Mark retry RC connect for inactive idx = %d drops RC", index);
         btif_av_cb[index].retry_rc_connect = true;
       }
 
-      if (index == btif_max_av_clients)
+      if (index == btif_max_av_clients || btif_av_cb[index].sm_handle == NULL)
         btif_rc_handler(event, (tBTA_AV*)p_bta_data);
       break;
 

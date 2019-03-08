@@ -2431,6 +2431,9 @@ void bta_av_rc_closed(tBTA_AV_DATA* p_data) {
           if (p_scb->rc_handle == p_rcb->handle)
             p_scb->rc_handle = BTA_AV_RC_HANDLE_NONE;
           APPL_TRACE_DEBUG("shdl:%d, srch:%d", p_rcb->shdl, p_scb->rc_handle);
+        } else {
+          APPL_TRACE_DEBUG("%s: p_scb is NULL", __func__);
+          rc_close.peer_addr = p_msg->peer_addr;
         }
         p_rcb->shdl = 0;
       } else if (p_rcb->lidx == (BTA_AV_NUM_LINKS + 1)) {
