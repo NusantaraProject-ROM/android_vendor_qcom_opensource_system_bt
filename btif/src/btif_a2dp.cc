@@ -47,6 +47,7 @@ extern tBTIF_A2DP_SOURCE_VSC btif_a2dp_src_vsc;
 extern tBTIF_A2DP_SOURCE_CB btif_a2dp_source_cb;
 extern void btif_av_reset_reconfig_flag();
 static char a2dp_hal_imp[PROPERTY_VALUE_MAX] = "false";
+extern bool btif_av_current_device_is_tws();
 
 void btif_a2dp_on_idle() {
   APPL_TRACE_EVENT("## ON A2DP IDLE ## peer_sep = %d", btif_av_get_peer_sep());
@@ -188,6 +189,13 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
     }
     ack = true;
   }
+#if (TWS_STATE_ENABLED)
+  if (btif_av_current_device_is_tws() &&
+    p_av_start->status != BTA_AV_SUCCESS && p_av_start->role == 0xFF) {
+    if (btif_av_is_split_a2dp_enabled())
+      btif_a2dp_audio_on_started(A2DP_CTRL_ACK_FAILURE);
+  }
+#endif
   return ack;
 }
 

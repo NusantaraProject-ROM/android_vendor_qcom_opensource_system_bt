@@ -1289,6 +1289,9 @@ void bta_av_cleanup(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
   msg.hdr.layer_specific = p_scb->hndl;
   p_scb->started = false;
   p_scb->suspend_local_sent = FALSE;
+#if (TWS_STATE_ENABLED == TRUE)
+  p_scb->start_pending = false;
+#endif
   p_scb->current_codec = nullptr;
   p_scb->cong = false;
   p_scb->role = role;
@@ -2467,6 +2470,9 @@ void bta_av_do_start(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     bta_sys_busy(BTA_ID_AV, p_scb->hdi, p_scb->peer_addr);
 
     AVDT_StartReq(&p_scb->avdt_handle, 1);
+#if (TWS_STATE_ENABLED == TRUE)
+    p_scb->start_pending = true;
+#endif
   } else if (p_scb->started) {
     p_scb->role |= BTA_AV_ROLE_START_INT;
     if (p_scb->wait == 0) {
@@ -2937,6 +2943,9 @@ void bta_av_start_ok(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
                    p_scb->role);
 
   p_scb->started = true;
+#if (TWS_ENABLED == TRUE)
+  p_scb->start_pending = false;
+#endif
   p_scb->current_codec = bta_av_get_a2dp_current_codec();
 
   if (p_scb->sco_suspend) {
@@ -4339,7 +4348,7 @@ void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
                                          tws_pair_addr) == true) {
               APPL_TRACE_DEBUG("%s:TWS pair found",__func__);
               if (tws_pair_addr == p_scb->peer_addr &&
-                !p_scbi->offload_supported) {
+                !p_scbi->offload_supported && p_scbi->eb_state == TWSP_EB_STATE_IN_EAR) {
                 APPL_TRACE_DEBUG("%s:VSC is not exchanged for second earbud",__func__);
                 offload_start.stream_start = false;
               }

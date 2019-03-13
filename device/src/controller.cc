@@ -104,6 +104,7 @@ static bool wipower_supported = false;
 static bool aac_frame_ctl_enabled = false;
 
 static bool a2dp_multicast_enabled = false;
+static bool twsp_state_supported = false;
 static bt_configstore_interface_t* bt_configstore_intf = NULL;
 static void *bt_configstore_lib_handle = NULL;
 
@@ -205,6 +206,15 @@ static future_t* start_up(void) {
             }
             LOG_INFO(LOG_TAG, "%s:: a2dp_multicast_supported = %d", __func__,
                 a2dp_multicast_enabled);
+            break;
+          case BT_PROP_TWSP_STATE:
+            if (!strncasecmp(vendorProp.value, "true", sizeof("true"))) {
+              twsp_state_supported = true;
+            } else {
+              twsp_state_supported = false;
+            }
+            LOG_INFO(LOG_TAG, "%s:: twsp_state_supported = %d", __func__,
+                twsp_state_supported);
            break;
          default:
             break;
@@ -789,6 +799,9 @@ static bool supports_wipower() {
 static bool is_multicast_enabled() {
   return a2dp_multicast_enabled;
 }
+static bool supports_twsp_remote_state() {
+  return twsp_state_supported;
+}
 static const controller_t interface = {
     get_is_ready,
 
@@ -853,6 +866,7 @@ static const controller_t interface = {
     supports_aac_frame_ctl,
     supports_wipower,
     is_multicast_enabled,
+    supports_twsp_remote_state,
 };
 
 const controller_t* controller_get_interface() {
