@@ -43,6 +43,8 @@ static void* listen_fn_(void* context);
 extern int local_snoop_socket_create();
 extern void update_snoop_fd(int snoop_fd);
 
+extern bool is_vndbtsnoop_enabled;
+
 static const char* LISTEN_THREAD_NAME_ = "btsnoop_net_listen";
 static const int LOCALHOST_ = 0x7F000001;
 static const int LISTEN_PORT_ = 8872;
@@ -183,14 +185,15 @@ static void* listen_fn_(UNUSED_ATTR void* context) {
     goto cleanup;
   }
 
-  listen_socket_local_ = local_snoop_socket_create();
-  if (listen_socket_local_ != -1) {
-    if(listen_socket_local_ > fd_max) {
-      fd_max = listen_socket_local_;
+  if (is_vndbtsnoop_enabled) {
+    listen_socket_local_ = local_snoop_socket_create();
+    if (listen_socket_local_ != -1) {
+      if(listen_socket_local_ > fd_max) {
+        fd_max = listen_socket_local_;
+      }
+      FD_SET(listen_socket_local_, &save_sock_fds);
     }
-    FD_SET(listen_socket_local_, &save_sock_fds);
   }
-
   for (;;) {
     int client_socket = -1;
 
