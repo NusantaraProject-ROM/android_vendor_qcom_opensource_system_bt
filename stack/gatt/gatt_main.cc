@@ -176,10 +176,17 @@ void gatt_free(void) {
     gatt_cb.tcb[i].sr_cmd.multi_rsp_q = NULL;
   }
 
-  gatt_cb.hdl_list_info->clear();
-  gatt_cb.hdl_list_info = nullptr;
-  gatt_cb.srv_list_info->clear();
-  gatt_cb.srv_list_info = nullptr;
+  if (gatt_cb.hdl_list_info != nullptr) {
+    gatt_cb.hdl_list_info->clear();
+    delete(gatt_cb.hdl_list_info);
+    gatt_cb.hdl_list_info = nullptr;
+  }
+
+  if (gatt_cb.srv_list_info != nullptr) {
+    gatt_cb.srv_list_info->clear();
+    delete(gatt_cb.srv_list_info);
+    gatt_cb.srv_list_info = nullptr;
+  }
 }
 
 /*******************************************************************************
