@@ -18,7 +18,7 @@
 #define BTIF_BQR_H_
 
 #include "btm_api_types.h"
-#include "common/leaky_bonded_queue.h"
+#include "osi/include/leaky_bonded_queue.h"
 
 namespace bluetooth {
 namespace bqr {

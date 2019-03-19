@@ -1208,7 +1208,7 @@ tBTM_STATUS BTM_BT_Quality_Report_VSE_Register(
 
   if (retval != BTM_SUCCESS) {
     LOG(WARNING) << __func__ << ": Fail to (un)register VSEvents: " << retval
-                 << ", is_register: " << logbool(is_register);
+                 << ", is_register: " << (is_register);
     return retval;
   }
 
@@ -1219,6 +1219,6 @@ tBTM_STATUS BTM_BT_Quality_Report_VSE_Register(
   }
 
   LOG(INFO) << __func__ << ": Success to (un)register VSEvents."
-            << " is_register: " << logbool(is_register);
+            << " is_register: " << (is_register);
   return retval;
 }

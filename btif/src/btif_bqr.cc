@@ -16,14 +16,14 @@
 
 #include "btif_bqr.h"
 #include "btif_dm.h"
-#include "common/leaky_bonded_queue.h"
+#include "osi/include/leaky_bonded_queue.h"
 #include "osi/include/properties.h"
 #include "stack/btm/btm_int.h"
 
 namespace bluetooth {
 namespace bqr {
 
-using bluetooth::common::LeakyBondedQueue;
+using system_bt_osi::LeakyBondedQueue;
 using std::chrono::system_clock;
 
 // The instance of BQR event queue
@@ -188,7 +188,7 @@ void ConfigureBqrCmpl(uint32_t current_evt_mask) {
 }
 
 void EnableBtQualityReport(bool is_enable) {
-  LOG(INFO) << __func__ << ": is_enable: " << logbool(is_enable);
+  LOG(INFO) << __func__ << ": is_enable: " << (is_enable);
 
   char bqr_prop_evtmask[PROPERTY_VALUE_MAX] = {0};
   char bqr_prop_interval_ms[PROPERTY_VALUE_MAX] = {0};
