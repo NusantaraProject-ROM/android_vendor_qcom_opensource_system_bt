@@ -1252,8 +1252,8 @@ class HearingAidImpl : public HearingAid {
       BTA_GATTC_CancelOpen(gatt_if, address, true);
     }
 
-    // cancel autoconnect
-    BTA_GATTC_CancelOpen(gatt_if, address, false);
+    // Removes all registrations for connection.
+    BTA_GATTC_CancelOpen(0, address, false);
 
     DoDisconnectCleanUp(hearingDevice);
 
