@@ -29,6 +29,7 @@
 #include "internal_include/bt_trace.h"
 #include "osi/include/alarm.h"
 #include "stack/btm/btm_ble_bgconn.h"
+#include "gatt_int.h"
 
 #define DIRECT_CONNECT_TIMEOUT (30 * 1000) /* 30 seconds */
 
@@ -186,6 +187,7 @@ void wl_direct_connect_timeout_cb(uint8_t app_id, const RawAddress& address) {
   // TODO: this would free the timer, from within the timer callback, which is
   // bad.
   direct_connect_remove(app_id, address);
+  gatt_cleanup_upon_disc(address, HCI_ERR_CONNECTION_TOUT, BT_TRANSPORT_LE);
 }
 
 /** Add a device to the direcgt connection list.  Returns true if device
