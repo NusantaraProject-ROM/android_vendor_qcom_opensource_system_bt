@@ -18,6 +18,7 @@
 
 #include <stdbool.h>
 #include "stack/include/bt_types.h"
+#include "bt_target.h"
 
 // The default section name to use if a key/value pair is not defined within
 // a section.
@@ -25,6 +26,9 @@
 
 typedef struct config_t config_t;
 typedef struct config_section_node_t config_section_node_t;
+#if (BT_IOT_LOGGING_ENABLED == TRUE)
+typedef int (*compare_func)(const char* first, const char* second);
+#endif
 
 // Creates a new config object with no entries (i.e. not backed by a file).
 // This function returns a config object or NULL on error. Clients must call
@@ -160,6 +164,11 @@ const config_section_node_t* config_section_next(
 // pointer will remain valid until |config_free| is called. |iter| may not be
 // NULL and must not equal the value returned by |config_section_end|.
 const char* config_section_name(const config_section_node_t* iter);
+
+#if (BT_IOT_LOGGING_ENABLED == TRUE)
+// Sorts the entries in each section of config by entry key.
+void config_sections_sort_by_entry_key(config_t* config, compare_func comp);
+#endif
 
 // Saves |config| to a file given by |filename|. Note that this could be a
 // destructive operation: if |filename| already exists, it will be overwritten.

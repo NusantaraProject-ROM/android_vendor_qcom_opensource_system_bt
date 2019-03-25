@@ -36,6 +36,7 @@
 #include "osi/include/log.h"
 #include "osi/include/compat.h"
 #include "log/log.h"
+#include "bt_target.h"
 #include <inttypes.h>
 
 typedef struct {
@@ -344,6 +345,45 @@ const char* config_section_name(const config_section_node_t* node) {
   const section_t* section = (const section_t*)list_node(lnode);
   return section->name;
 }
+
+#if (BT_IOT_LOGGING_ENABLED == TRUE)
+void config_sections_sort_by_entry_key(config_t* config, compare_func comp) {
+  CHECK(config != NULL);
+
+  for (list_node_t* node = list_begin(config->sections);
+      node != list_end(config->sections);
+      node = list_next(node)) {
+    section_t* sec = (section_t*)list_node(node);
+    if (list_length(sec->entries) <= 1)
+      continue;
+    list_node_t* p = list_end(sec->entries);
+    list_node_t* head_next = list_next(list_begin(sec->entries));
+    bool changed = true;
+
+    while (p != head_next && changed) {
+      list_node_t* q = list_begin(sec->entries);
+      changed = false;
+      for (;list_next(q) && list_next(q) != p; q = list_next(q)) {
+        entry_t* first = (entry_t*)list_node(q);
+        entry_t* second = (entry_t*)list_node(list_next(q));
+        char* tmp_key;
+        char* tmp_value;
+        if (comp(first->key, second->key) > 0) {
+          tmp_key = first->key;
+          tmp_value = first->value;
+          first->key = second->key;
+          first->value = second->value;
+          second->key = tmp_key;
+          second->value = tmp_value;
+          changed = true;
+        }
+      }
+      p = q;
+    }
+
+  }
+}
+#endif
 
 bool config_save(const config_t* config, const char* filename) {
   CHECK(config != NULL);
