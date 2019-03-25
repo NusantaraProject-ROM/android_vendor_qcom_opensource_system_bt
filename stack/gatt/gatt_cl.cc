@@ -1122,7 +1122,8 @@ void gatt_client_handle_server_rsp(tGATT_TCB& tcb, uint8_t op_code,
         break;
 
       case GATT_RSP_WRITE:
-        gatt_process_handle_rsp(p_clcb);
+        if(p_clcb->operation == GATTC_OPTYPE_WRITE)
+          gatt_process_handle_rsp(p_clcb);
         break;
 
       case GATT_RSP_PREPARE_WRITE:
