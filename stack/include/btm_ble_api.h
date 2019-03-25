@@ -641,6 +641,20 @@ extern bool BTM_GetLeSecurityState(const RawAddress& bd_addr,
                                    uint8_t* p_le_dev_sec_flags,
                                    uint8_t* p_le_key_size);
 
+#if (BT_IOT_LOGGING_ENABLED == TRUE)
+/*******************************************************************************
+*
+* Function         BTM_GetRemoteDeviceName
+*
+* Description      This function is called to get the dev name of remote device
+*                  from NV
+*
+* Returns          true if success; otherwise failed.
+*
+*******************************************************************************/
+extern bool BTM_GetRemoteDeviceName(const RawAddress& bda, BD_NAME bd_name);
+#endif
+
 /*******************************************************************************
  *
  * Function         BTM_BleSecurityProcedureIsRunning

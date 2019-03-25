@@ -78,6 +78,7 @@
 #include "btif/include/btif_storage.h"
 #include <hardware/bt_gatt.h>
 #include "btif/include/btif_a2dp_source.h"
+#include "device/include/device_iot_config.h"
 
 #define MAX_2MBPS_AVDTP_MTU 663
 extern const btgatt_interface_t* btif_gatt_get_interface();
@@ -502,6 +503,23 @@ static tA2DP_STATUS bta_av_audio_sink_getconfig(
   }
   return result;
 }
+
+#if (BT_IOT_LOGGING_ENABLED == TRUE)
+static void bta_av_co_store_peer_codectype(const tBTA_AV_CO_PEER* p_peer)
+{
+  int index, peer_codec_type = 0;
+  const tBTA_AV_CO_SINK* p_sink;
+  APPL_TRACE_DEBUG("%s", __func__);
+  for (index = 0; index < p_peer->num_sup_sinks; index++) {
+    p_sink = &p_peer->sinks[index];
+    peer_codec_type |= A2DP_IotGetPeerSinkCodecType(p_sink->codec_caps);
+  }
+
+  device_iot_config_addr_set_hex(p_peer->addr,
+          IOT_CONF_KEY_A2DP_CODECTYPE, peer_codec_type, IOT_CONF_BYTE_NUM_1);
+}
+#endif
+
 /*******************************************************************************
  **
  ** Function         bta_av_co_audio_getconfig
@@ -572,6 +590,9 @@ tA2DP_STATUS bta_av_co_audio_getconfig(tBTA_AV_HNDL hndl, uint8_t* p_codec_info,
     return A2DP_FAIL;
   }
   APPL_TRACE_DEBUG("%s: last sink reached", __func__);
+#if (BT_IOT_LOGGING_ENABLED == TRUE)
+  bta_av_co_store_peer_codectype(p_peer);
+#endif
 
   const tBTA_AV_CO_SINK* p_sink = bta_av_co_audio_set_codec(p_peer);
   if (p_sink == NULL) {

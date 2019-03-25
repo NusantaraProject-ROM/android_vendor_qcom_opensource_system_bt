@@ -57,6 +57,7 @@
 #include "stack/sdp/sdpint.h"
 #include <inttypes.h>
 #include "btif/include/btif_config.h"
+#include "device/include/device_iot_config.h"
 
 #if (GAP_INCLUDED == TRUE)
 #include "gap_api.h"
@@ -1693,6 +1694,15 @@ static void bta_dm_store_profiles_version() {
     MAP_MCE_VERSION_CONFIG_KEY,
   };
 
+#if (BT_IOT_LOGGING_ENABLED == TRUE)
+  const char* iot_profile_keys[] = {
+    IOT_CONF_KEY_A2DP_VERSION,
+    IOT_CONF_KEY_HFP_VERSION,
+    IOT_CONF_KEY_AVRCP_CTRL_VERSION,
+    IOT_CONF_KEY_AVRCP_TG_VERSION,
+  };
+#endif
+
   int profile_num = sizeof(servclass_uuids)/sizeof(servclass_uuids[0]);
 
   APPL_TRACE_DEBUG("%s", __func__);
@@ -1722,6 +1732,10 @@ static void bta_dm_store_profiles_version() {
         APPL_TRACE_WARNING("%s: Failed to store peer profile version for %s",
                            __func__, sdp_rec->remote_bd_addr.ToString().c_str());
       }
+#if (BT_IOT_LOGGING_ENABLED == TRUE)
+      device_iot_config_addr_set_hex(sdp_rec->remote_bd_addr,
+          iot_profile_keys[i], profile_version, IOT_CONF_BYTE_NUM_2);
+#endif
     }
 
     if (servclass_uuids[i] == UUID_SERVCLASS_AUDIO_SINK) {

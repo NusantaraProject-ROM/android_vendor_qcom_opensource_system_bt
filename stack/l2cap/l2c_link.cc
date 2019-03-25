@@ -42,6 +42,7 @@
 #include "l2c_int.h"
 #include "l2cdefs.h"
 #include "osi/include/osi.h"
+#include "device/include/device_iot_config.h"
 
 static bool l2c_link_send_to_lower(tL2C_LCB* p_lcb, BT_HDR* p_buf,
                                    tL2C_TX_COMPLETE_CB_INFO* p_cbi);
@@ -343,6 +344,39 @@ void l2c_link_sec_comp2(const RawAddress& p_bda,
   }
 }
 
+#if (BT_IOT_LOGGING_ENABLED == TRUE)
+/*******************************************************************************
+**
+** Function         l2c_link_iot_store_disc_reason
+**
+** Description      iot store disconnection reason to local conf file
+**
+** Returns          void
+**
+*******************************************************************************/
+static void l2c_link_iot_store_disc_reason(RawAddress& bda, uint8_t reason) {
+  const char* disc_keys[] = {
+      IOT_CONF_KEY_GAP_DISC_CONNTIMEOUT_COUNT,
+    };
+  const uint8_t disc_reasons[] = {
+      HCI_ERR_CONNECTION_TOUT,
+    };
+  int i = 0;
+  int num = sizeof(disc_keys)/sizeof(disc_keys[0]);
+
+  if (reason == (uint8_t) -1)
+    return;
+
+  device_iot_config_addr_int_add_one(bda, IOT_CONF_KEY_GAP_DISC_COUNT);
+  for (i = 0; i < num; i++) {
+    if (disc_reasons[i] == reason) {
+      device_iot_config_addr_int_add_one(bda, disc_keys[i]);
+      break;
+    }
+  }
+}
+#endif
+
 /*******************************************************************************
  *
  * Function         l2c_link_hci_disc_comp
@@ -367,6 +401,9 @@ bool l2c_link_hci_disc_comp(uint16_t handle, uint8_t reason) {
   if (!p_lcb) {
     status = false;
   } else {
+#if (BT_IOT_LOGGING_ENABLED == TRUE)
+    l2c_link_iot_store_disc_reason(p_lcb->remote_bd_addr, reason);
+#endif
     /* There can be a case when we rejected PIN code authentication */
     /* otherwise save a new reason */
     if (btm_cb.acl_disc_reason != HCI_ERR_HOST_REJECT_SECURITY)

@@ -33,6 +33,7 @@
 #include <string.h>
 
 #include "btm_int.h" /* Included for UIPC_* macro definitions */
+#include "device/include/device_iot_config.h"
 
 void btsnd_hcic_inquiry(const LAP inq_lap, uint8_t duration,
                         uint8_t response_cnt) {
@@ -125,6 +126,9 @@ void btsnd_hcic_create_conn(const RawAddress& dest, uint16_t packet_types,
   UINT8_TO_STREAM(pp, allow_switch);
 #endif
   btm_acl_paging(p, dest);
+#if (BT_IOT_LOGGING_ENABLED == TRUE)
+  device_iot_config_addr_int_add_one(dest, IOT_CONF_KEY_GAP_CONN_COUNT);
+#endif
 }
 
 void btsnd_hcic_disconnect(uint16_t handle, uint8_t reason) {

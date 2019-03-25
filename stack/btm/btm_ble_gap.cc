@@ -51,6 +51,7 @@
 #include "gattdefs.h"
 #include "l2c_int.h"
 #include "osi/include/log.h"
+#include "device/include/device_iot_config.h"
 
 #define BTM_BLE_NAME_SHORT 0x01
 #define BTM_BLE_NAME_CMPL 0x02
@@ -2449,6 +2450,15 @@ void btm_ble_read_remote_features_complete(uint8_t* p) {
 
   if (status == HCI_SUCCESS) {
     STREAM_TO_ARRAY(btm_cb.acl_db[idx].peer_le_features, p, BD_FEATURES_LEN);
+#if (BT_IOT_LOGGING_ENABLED == TRUE)
+    /* save LE remote supported features to iot conf file */
+    char key[64];
+    snprintf(key, sizeof(key), "%s%s%x", IOT_CONF_KEY_LE_RT_FEATURES,
+            "_", 0);
+
+    device_iot_config_addr_set_bin(btm_cb.acl_db[idx].remote_addr, key,
+            btm_cb.acl_db[idx].peer_le_features, BD_FEATURES_LEN);
+#endif
   }
 
   btsnd_hcic_rmt_ver_req(handle);

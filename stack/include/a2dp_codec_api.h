@@ -39,6 +39,7 @@
 #include "audio_a2dp_hw/include/audio_a2dp_hw.h"
 #include "avdt_api.h"
 #include "osi/include/time.h"
+#include "bt_target.h"
 
 /**
  * Structure used to initialize the A2DP encoder with A2DP peer information
@@ -497,6 +498,12 @@ typedef struct {
   // Set transmit queue length for the A2DP encoder.
   void (*set_transmit_queue_length)(size_t transmit_queue_length);
 } tA2DP_ENCODER_INTERFACE;
+
+// Gets peer sink endpoint codec type.
+// |p_codec_info| contains information about the codec capabilities.
+#if (BT_IOT_LOGGING_ENABLED == TRUE)
+int A2DP_IotGetPeerSinkCodecType(const uint8_t* p_codec_info);
+#endif
 
 // Gets the A2DP codec type.
 // |p_codec_info| contains information about the codec capabilities.

@@ -49,6 +49,7 @@
 #include "l2c_int.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
+#include "device/include/device_iot_config.h"
 
 using base::Location;
 
@@ -614,6 +615,10 @@ static void btu_hcif_connection_comp_evt(uint8_t* p) {
     btm_sec_connected(bda, handle, status, enc_mode);
 
     l2c_link_hci_conn_comp(status, handle, bda);
+#if (BT_IOT_LOGGING_ENABLED == TRUE)
+    if (status != HCI_SUCCESS)
+      device_iot_config_addr_int_add_one(bda, IOT_CONF_KEY_GAP_CONN_FAIL_COUNT);
+#endif
   }
 #if (BTM_SCO_INCLUDED == TRUE)
   else {
@@ -647,6 +652,9 @@ static void btu_hcif_connection_request_evt(uint8_t* p) {
   /* passing request to l2cap */
   if (link_type == HCI_LINK_TYPE_ACL) {
     btm_sec_conn_req(bda, dc);
+#if (BT_IOT_LOGGING_ENABLED == TRUE)
+    device_iot_config_addr_int_add_one(bda, IOT_CONF_KEY_GAP_CONN_COUNT);
+#endif
   }
 #if (BTM_SCO_INCLUDED == TRUE)
   else {
