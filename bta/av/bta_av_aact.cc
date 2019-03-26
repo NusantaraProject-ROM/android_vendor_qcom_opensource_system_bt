@@ -2358,12 +2358,6 @@ void bta_av_getcap_results(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     if (uuid_int == UUID_SERVCLASS_AUDIO_SOURCE) {
       A2DP_AdjustCodec(cfg.codec_info);
     }
-#if (TWS_ENABLED == TRUE)
-    if (strcmp(A2DP_CodecName(cfg.codec_info), "aptX-TWS") == 0) {
-      cfg.psc_mask &= ~AVDT_PSC_DELAY_RPT;
-      APPL_TRACE_DEBUG("%s:resetting delay report flag for tws+ codec",__func__);
-    }
-#endif
     /* open the stream */
     AVDT_OpenReq(p_scb->seps[p_scb->sep_idx].av_handle, p_scb->peer_addr,
                  p_scb->sep_info[p_scb->sep_info_idx].seid, &cfg);
