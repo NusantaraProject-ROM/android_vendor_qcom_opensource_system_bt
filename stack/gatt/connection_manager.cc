@@ -90,6 +90,8 @@ std::set<tAPP_ID> get_apps_connecting_to(const RawAddress& address) {
 /** Add a device from the background connection list.  Returns true if device
  * added to the list, or already in list, false otherwise */
 bool background_connect_add(uint8_t app_id, const RawAddress& address) {
+  VLOG(1) << __func__ << " : address" << address << " : appid " << loghex(app_id);
+
   auto it = bgconn_dev.find(address);
   bool in_white_list = false;
   if (it != bgconn_dev.end()) {
@@ -103,6 +105,12 @@ bool background_connect_add(uint8_t app_id, const RawAddress& address) {
     // Already in white list ?
     if (anyone_connecting(it)) {
       in_white_list = true;
+    }
+
+    if (it->second.doing_direct_conn.count(app_id)) {
+      LOG(INFO) << "direct connect is already present from app_id="
+        << loghex(app_id) << ". Remove direct conn and make it as bg_conn";
+      it->second.doing_direct_conn.erase(app_id);
     }
   }
 
