@@ -1680,7 +1680,7 @@ void bta_av_str_opened(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   p_scb->tws_device = BTM_SecIsTwsPlusDev(p_scb->peer_addr);
   if (p_scb->tws_device == true) {
     char *codec_name = (char *)A2DP_CodecName(p_scb->cfg.codec_info);
-    if (strcmp(codec_name, "aptX-TWS") != 0) {
+    if (strcmp(codec_name, "aptX-TWS") && strcmp(codec_name, "aptX-adaptive")) {
       APPL_TRACE_DEBUG("%s:TWSP device configured with Non-TWSP ocdec", __func__);
       p_scb->tws_device = false;
     }
@@ -4191,7 +4191,13 @@ void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     else if ((strcmp(codec_name,"AAC")) == 0) codec_type = 2;
     else if ((strcmp(codec_name,"aptX")) == 0) codec_type = 8;
     else if ((strcmp(codec_name,"aptX-HD")) == 0) codec_type = 9;
-    else if ((strcmp(codec_name,"aptX-adaptive")) == 0) codec_type = 10;
+    else if ((strcmp(codec_name,"aptX-adaptive")) == 0) {
+      if (BTM_SecIsTwsPlusDev(p_scb->peer_addr)) {
+        codec_type = 12;
+      } else {
+        codec_type = 10;
+      }
+    }
     else if ((strcmp(codec_name,"LDAC")) == 0) codec_type = 4;
     else if ((strcmp(codec_name,"aptX-TWS")) == 0) codec_type = 11;
     if ((codec_type == 8) || (codec_type == 9) || (codec_type == 4)) {

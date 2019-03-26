@@ -580,9 +580,11 @@ static void btif_update_source_codec(void* p_data) {
       codec_config = current_codec->getCodecConfig();
       if(codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE) {
         int index = btif_max_av_clients;
-        const uint16_t ENCODER_MODE_MASK = 0x3000;
+        const uint16_t ENCODER_MODE_MASK = 0x7000;
+        const uint16_t ULL_MODE_MASK = 0x4000;
         const uint16_t LL_MODE_MASK = 0x2000;
         const uint16_t HQ_MODE_MASK = 0x1000;
+        const uint16_t ULL_MODE_SELECT = 0x6000; //ORing of LL and ULL
         uint16_t encoder_mode = req->codec_config.codec_specific_4 & ENCODER_MODE_MASK;
 
         if (btif_av_stream_started_ready())
@@ -599,6 +601,10 @@ static void btif_update_source_codec(void* p_data) {
         } else if (encoder_mode == LL_MODE_MASK) {
           btif_av_cb[index].aptx_mode = LL_MODE_MASK;
           btif_av_cb[index].codec_latency = APTX_LL_LATENCY;
+          btif_a2dp_update_sink_latency_change();
+        } else if (encoder_mode == ULL_MODE_SELECT) {
+          btif_av_cb[index].aptx_mode = ULL_MODE_MASK;
+          btif_av_cb[index].codec_latency = APTX_ULL_LATENCY;
           btif_a2dp_update_sink_latency_change();
         }
         BTIF_TRACE_DEBUG("%s: Aptx Adaptive codec_latency = %d", __func__, btif_av_cb[index].codec_latency);

@@ -41,6 +41,7 @@
 
 #define APTX_HQ_LATENCY 200
 #define APTX_LL_LATENCY 70
+#define APTX_ULL_LATENCY 70
 
 /*******************************************************************************
  *  Type definitions for callback functions

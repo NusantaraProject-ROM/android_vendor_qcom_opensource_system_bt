@@ -184,8 +184,6 @@ static const tBTA_AV_CO_SINK* bta_av_co_find_peer_src_supports_codec(
 static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer);
 static tBTA_AV_CO_SINK* bta_av_co_audio_codec_selected(
     A2dpCodecConfig& codec_config, tBTA_AV_CO_PEER* p_peer);
-static bool bta_av_co_audio_update_selectable_codec(
-    A2dpCodecConfig& codec_config, const tBTA_AV_CO_PEER* p_peer);
 static void bta_av_co_save_new_codec_config(tBTA_AV_CO_PEER* p_peer,
                                             const uint8_t* new_codec_config,
                                             uint8_t num_protect,
@@ -1111,17 +1109,6 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
     APPL_TRACE_ERROR("%s: p_peer->codecs is null", __func__);
     return NULL;
   }
-  for (const auto& iter : p_peer->codecs->orderedSourceCodecs()) {
-    APPL_TRACE_DEBUG("%s: updating selectable codec %s", __func__,
-                     iter->name().c_str());
-#if (TWS_ENABLED == TRUE)
-    if ((!strcmp(iter->name().c_str(),"aptX-TWS")) && !BTM_SecIsTwsPlusDev(p_peer->addr)) {
-        APPL_TRACE_DEBUG("%s:Non-TWS+ device, skip update selectable aptX-TWS codec",__func__);
-        continue;
-    }
-#endif
-    bta_av_co_audio_update_selectable_codec(*iter, p_peer);
-  }
 
   // Select the codec
   for (const auto& iter : p_peer->codecs->orderedSourceCodecs()) {
@@ -1283,49 +1270,6 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_codec_selected(
   return p_sink;
 }
 
-// Update a selectable codec |codec_config| with the corresponding codec
-// information from a peer device |p_peer|.
-// Returns true if the codec is updated, otherwise false.
-static bool bta_av_co_audio_update_selectable_codec(
-    A2dpCodecConfig& codec_config, const tBTA_AV_CO_PEER* p_peer) {
-  uint8_t new_codec_config[AVDT_CODEC_SIZE];
-
-  APPL_TRACE_DEBUG("%s", __func__);
-
-  // Find the peer sink for the codec
-  const tBTA_AV_CO_SINK* p_sink = NULL;
-  for (size_t index = 0; index < p_peer->num_sup_sinks; index++) {
-    btav_a2dp_codec_index_t peer_codec_index =
-        A2DP_SourceCodecIndex(p_peer->sinks[index].codec_caps);
-    APPL_TRACE_DEBUG("%s ind: %d, peer_codec_index : %d :: codec_config.codecIndex() : %d",
-           __func__, index, peer_codec_index, codec_config.codecIndex());
-    if (peer_codec_index != codec_config.codecIndex()) {
-      continue;
-    }
-    if (!bta_av_co_audio_sink_supports_cp(&p_peer->sinks[index])) {
-      APPL_TRACE_DEBUG(
-          "%s: peer sink for codec %s does not support "
-          "Copy Protection",
-          __func__, codec_config.name().c_str());
-      continue;
-    }
-    p_sink = &p_peer->sinks[index];
-    break;
-  }
-  if (p_sink == NULL) {
-    // The peer sink device does not support this codec
-    return false;
-  }
-  if ((p_peer->codecs == nullptr) || !p_peer->codecs->setCodecConfig(
-          p_sink->codec_caps, true /* is_capability */, new_codec_config,
-          false /* select_current_codec */)) {
-    APPL_TRACE_DEBUG("%s: cannot update source codec %s", __func__,
-                     codec_config.name().c_str());
-    return false;
-  }
-  return true;
-}
-
 static void bta_av_co_save_new_codec_config(tBTA_AV_CO_PEER* p_peer,
                                             const uint8_t* new_codec_config,
                                             uint8_t num_protect,
@@ -1453,21 +1397,24 @@ bool bta_av_co_set_codec_user_config(
 
   if(codec_user_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE) {
     if (codec_user_config.codec_specific_4 > 0 ) {
-      const uint16_t ENCODER_MODE_MASK = 0x3000;
+      //ENCODER_BTSCAN_AND_BATTERY_LEVEL_MASK is ORing of
+      //Battery level indication(0x0000-0x000F) and BTcontrol(0x8000)
+      const uint16_t ENCODER_MODE_MASK = 0x7000;
       uint16_t encoder_mode = codec_user_config.codec_specific_4 & ENCODER_MODE_MASK;
       if (encoder_mode > 0) {
         APPL_TRACE_DEBUG("%s: Updating Encoder Mode to: %x", __func__, encoder_mode);
         BTA_AvUpdateEncoderMode(encoder_mode);
       }
 
-      const uint32_t BLESCAN_MASK = 0x060000;
-      const uint32_t BLESCAN_OFF = 0x020000;
-      const uint32_t BLESCAN_ON = 0x040000;
-      uint32_t blescan_mode = codec_user_config.codec_specific_4 & BLESCAN_MASK;
-      if (blescan_mode & BLESCAN_OFF) {
+      const uint16_t BT_SCAN_CONTROL_MASK = 0xB000;
+      const uint16_t BLE_SCAN_ON = 0x9000; //ORing of HQ(0x1000) and BTcontrol(0x8000)
+      const uint16_t BLE_SCAN_OFF = 0xA000;//ORing of LL(0x2000) and BTcontrol(0x8000)
+      uint16_t blescanonoroff = codec_user_config.codec_specific_4 & BT_SCAN_CONTROL_MASK;
+
+      if (blescanonoroff == BLE_SCAN_OFF) {
         APPL_TRACE_DEBUG("%s: Disabling BLE Scanning", __func__);
         btif_gatt_get_interface()->scanner->Scan(false);
-      } else if (blescan_mode & BLESCAN_ON) {
+      } else if (blescanonoroff == BLE_SCAN_ON) {
         APPL_TRACE_DEBUG("%s: Enabling BLE Scanning", __func__);
         //btif_gatt_get_interface()->scanner->Scan(true);
       }
