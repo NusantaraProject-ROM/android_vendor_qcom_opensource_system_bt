@@ -36,6 +36,7 @@ const char *PTS_LE_CONN_NONDISC_ADV_MODE = "PTS_EnableConnNonDiscAdvMode";
 const char* PTS_LE_SEC_REQUEST_DISABLED = "PTS_DisableSecRequest";
 const char* PTS_LE_FRESH_PAIRING_ENABLED = "PTS_EnableFreshPairing";
 const char* PTS_L2CAP_LE_INSUFF_ENCRYP = "PTS_L2capLeInsuffEnc";
+const char* PTS_SMP_GENERATE_INVALID_PUBLIC_KEY = "PTS_GenerateInvalidPublicKey";
 
 static config_t* config;
 
@@ -130,6 +131,11 @@ static int get_pts_l2cap_le_insuff_enc_result(void) {
 }
 
 
+static int get_pts_smp_generate_invalid_public_key(void) {
+  return config_get_int(config, CONFIG_DEFAULT_SECTION,
+                           PTS_SMP_GENERATE_INVALID_PUBLIC_KEY, 0);
+}
+
 static config_t* get_all(void) { return config; }
 
 const stack_config_t interface = {get_trace_config_enabled,
@@ -143,6 +149,7 @@ const stack_config_t interface = {get_trace_config_enabled,
                                   get_pts_le_sec_request_disabled,
                                   get_pts_le_fresh_pairing_enabled,
                                   get_pts_l2cap_le_insuff_enc_result,
+                                  get_pts_smp_generate_invalid_public_key,
                                   get_all};
 
 const stack_config_t* stack_config_get_interface(void) { return &interface; }

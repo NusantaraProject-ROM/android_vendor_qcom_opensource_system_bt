@@ -228,6 +228,13 @@ typedef union {
   tSMP_OOB_DATA_TYPE req_oob_type;
 } tSMP_INT_DATA;
 
+enum {
+  SMP_INVALID_PUBLIC_KEY_TYPE_1 = 1, /* Set public key y-coordinate and DHKey to be 0 */
+  SMP_INVALID_PUBLIC_KEY_TYPE_2,     /* Set public key y-coordinate */
+  SMP_INVALID_PUBLIC_KEY_TYPE_3,     /* Flip a bit in public key y-coordinate  */
+  SMP_INVALID_PUBLIC_KEY_TYPE_4      /* Set public key coordinates to be (0, 0) and DHKey to be 0 */
+};
+
 /* internal status mask */
 #define SMP_PAIR_FLAGS_WE_STARTED_DD (1)
 #define SMP_PAIR_FLAGS_PEER_STARTED_DD (1 << 1)

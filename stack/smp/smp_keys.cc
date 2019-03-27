@@ -38,6 +38,7 @@
 #include "p_256_ecc_pp.h"
 #include "smp_int.h"
 #include "stack/crypto_toolbox/crypto_toolbox.h"
+#include "stack_config.h"
 
 #include <algorithm>
 
@@ -695,6 +696,7 @@ void smp_use_oob_private_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
 void smp_process_private_key(tSMP_CB* p_cb) {
   Point public_key;
   BT_OCTET32 private_key;
+  int generate_invalid_public_key;
 
   SMP_TRACE_DEBUG("%s", __func__);
 
@@ -703,6 +705,31 @@ void smp_process_private_key(tSMP_CB* p_cb) {
                 KEY_LENGTH_DWORDS_P256);
   memcpy(p_cb->loc_publ_key.x, public_key.x, BT_OCTET32_LEN);
   memcpy(p_cb->loc_publ_key.y, public_key.y, BT_OCTET32_LEN);
+
+  generate_invalid_public_key =
+      stack_config_get_interface()->get_pts_smp_generate_invalid_public_key();
+
+  switch (generate_invalid_public_key) {
+    case SMP_INVALID_PUBLIC_KEY_TYPE_1:
+    case SMP_INVALID_PUBLIC_KEY_TYPE_2:
+      SMP_TRACE_DEBUG("%s: set y-coordinate of public key to 0", __func__);
+      memset(p_cb->loc_publ_key.y, 0, BT_OCTET32_LEN);
+      break;
+    case SMP_INVALID_PUBLIC_KEY_TYPE_3:
+      SMP_TRACE_DEBUG("%s: flip a bit in y-coordinate of public key", __func__);
+      if (p_cb->loc_publ_key.y[0] & 0x01)
+        p_cb->loc_publ_key.y[0] = p_cb->loc_publ_key.y[0] & 0xFE;
+      else
+        p_cb->loc_publ_key.y[0] = p_cb->loc_publ_key.y[0] | 0x01;
+      break;
+    case SMP_INVALID_PUBLIC_KEY_TYPE_4:
+      SMP_TRACE_DEBUG("%s: set both coordinates of public key to 0", __func__);
+      memset(p_cb->loc_publ_key.x, 0, BT_OCTET32_LEN);
+      memset(p_cb->loc_publ_key.y, 0, BT_OCTET32_LEN);
+      break;
+    default:
+      SMP_TRACE_DEBUG("%s: generate valid public key", __func__);
+  }
 
   smp_debug_print_nbyte_little_endian(p_cb->private_key, "private",
                                       BT_OCTET32_LEN);
@@ -729,6 +756,7 @@ void smp_process_private_key(tSMP_CB* p_cb) {
 void smp_compute_dhkey(tSMP_CB* p_cb) {
   Point peer_publ_key, new_publ_key;
   BT_OCTET32 private_key;
+  int generate_invalid_public_key;
 
   SMP_TRACE_DEBUG("%s", __func__);
 
@@ -740,6 +768,14 @@ void smp_compute_dhkey(tSMP_CB* p_cb) {
                 KEY_LENGTH_DWORDS_P256);
 
   memcpy(p_cb->dhkey, new_publ_key.x, BT_OCTET32_LEN);
+
+  generate_invalid_public_key =
+      stack_config_get_interface()->get_pts_smp_generate_invalid_public_key();
+  if (generate_invalid_public_key == SMP_INVALID_PUBLIC_KEY_TYPE_1 ||
+      generate_invalid_public_key == SMP_INVALID_PUBLIC_KEY_TYPE_4) {
+    SMP_TRACE_DEBUG("%s: use 0 as DHKey", __func__);
+    memset(p_cb->dhkey, 0, BT_OCTET32_LEN);
+  }
 
   smp_debug_print_nbyte_little_endian(p_cb->dhkey, "Old DHKey", BT_OCTET32_LEN);
 
