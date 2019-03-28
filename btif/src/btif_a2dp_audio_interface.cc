@@ -113,7 +113,6 @@ std::mutex mtx;
 std::mutex mtxBtAudio;
 std::condition_variable mCV;
 /*BTIF AV helper */
-extern bool btif_av_is_device_disconnecting();
 extern int btif_get_is_remote_started_idx();
 extern bool btif_av_is_playing_on_other_idx(int current_index);
 extern bool btif_av_is_local_started_on_other_idx(int current_index);
@@ -135,8 +134,6 @@ static void btif_a2dp_audio_send_codec_config();
 static void btif_a2dp_audio_send_mcast_status();
 static void btif_a2dp_audio_send_num_connected_devices();
 static void btif_a2dp_audio_send_connection_status();
-static void btif_a2dp_audio_send_sink_latency();
-void btif_a2dp_update_sink_latency_change();
 extern int btif_max_av_clients;
 extern bool enc_update_in_progress;
 extern tBTA_AV_HNDL btif_av_get_av_hdl_from_idx(int idx);
@@ -288,9 +285,9 @@ static void* server_thread(UNUSED_ATTR void* arg) {
   return NULL;
 }
 
-uint8_t btif_a2dp_audio_interface_get_pending_cmd() {
+tA2DP_CTRL_CMD btif_a2dp_audio_interface_get_pending_cmd() {
     LOG_INFO(LOG_TAG," pending_cmd = %d", a2dp_cmd_pending);
-    return a2dp_cmd_pending;
+    return (tA2DP_CTRL_CMD)a2dp_cmd_pending;
 }
 
 void btif_a2dp_audio_interface_init() {
@@ -701,10 +698,6 @@ void btif_a2dp_audio_send_sink_latency()
     auto ret = btAudio->a2dp_on_get_sink_latency(sink_latency);
     if (!ret.isOk()) LOG_ERROR(LOG_TAG,"server died");
   }
-}
-
-void btif_a2dp_update_sink_latency_change() {
-  btif_a2dp_audio_send_sink_latency();
 }
 
 void on_hidl_server_died() {

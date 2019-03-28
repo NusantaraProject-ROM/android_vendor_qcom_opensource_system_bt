@@ -41,11 +41,11 @@
 #include "btif_a2dp_audio_interface.h"
 
 #define A2DP_DATA_READ_POLL_MS 10
-#define A2DP_NUM_STRS 2
+#define A2DP_NUM_STRS 5
 
 struct {
   uint64_t total_bytes_read = 0;
-  uint16_t audio_delay[A2DP_NUM_STRS] = {0, 0};
+  uint16_t audio_delay[A2DP_NUM_STRS] = {0, 0, 0, 0, 0};
   struct timespec timestamp = {};
 } delay_report_stats;
 
@@ -966,7 +966,7 @@ void btif_a2dp_command_ack(tA2DP_CTRL_ACK status) {
     UIPC_Send(UIPC_CH_ID_AV_CTRL, 0, &ack, sizeof(ack));
   }
 }
-tA2DP_CTRL_CMD btif_a2dp_get_pending_command() {
+tA2DP_CTRL_CMD btif_a2dp_control_get_pending_command() {
   return a2dp_cmd_pending;
 }
 

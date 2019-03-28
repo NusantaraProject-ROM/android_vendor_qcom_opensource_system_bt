@@ -81,17 +81,16 @@ static tA2DP_APTX_ADAPTIVE_ENCODER_CB a2dp_aptx_adaptive_encoder_cb;
 
 
 bool A2DP_VendorLoadEncoderAptxAdaptive(void) {
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)) {
     LOG_INFO(LOG_TAG,"aptX-Adaptive is running in offload mode");
     return true;
   }
-
 
   return true;
 }
 
 void A2DP_VendorUnloadEncoderAptxAdaptive(void) {
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)) {
     LOG_INFO(LOG_TAG,"aptX-Adaptive is running in offload mode");
     return;
   }
@@ -102,7 +101,7 @@ void a2dp_vendor_aptx_adaptive_encoder_init(
     A2dpCodecConfig* a2dp_codec_config,
     a2dp_source_read_callback_t read_callback,
     a2dp_source_enqueue_callback_t enqueue_callback) {
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)) {
     LOG_INFO(LOG_TAG,"aptX-Adaptive is running in offload mode");
     return;
   }
@@ -130,33 +129,28 @@ bool A2dpCodecConfigAptxAdaptive::updateEncoderUserConfig(
   }
 
 
-   if (!isCodecConfigEmpty(previous_codec_config)) {
-      if (previous_codec_config.codec_priority == codec_config.codec_priority &&
-          previous_codec_config.sample_rate == codec_config.sample_rate &&
-          previous_codec_config.bits_per_sample == codec_config.bits_per_sample &&
-          previous_codec_config.channel_mode == codec_config.channel_mode) {
+  if (!isCodecConfigEmpty(previous_codec_config)) {
+     if (previous_codec_config.codec_priority == codec_config.codec_priority &&
+         previous_codec_config.sample_rate == codec_config.sample_rate &&
+         previous_codec_config.bits_per_sample == codec_config.bits_per_sample &&
+         previous_codec_config.channel_mode == codec_config.channel_mode) {
 
-        if (previous_codec_config.codec_specific_4 != codec_config.codec_specific_4 ) {
-          // this is just our private config that has changed, no need to send
-          // a BTIF_AV_SOURCE_CONFIG_UPDATED_EVT, which restarts split audio
-          *p_config_updated = false;
-        }
-      }
-    }
+       if (previous_codec_config.codec_specific_4 != codec_config.codec_specific_4 ) {
+         // this is just our private config that has changed, no need to send
+         // a BTIF_AV_SOURCE_CONFIG_UPDATED_EVT, which restarts split audio
+         *p_config_updated = false;
+       }
+     }
+  }
 
   previous_codec_config = codec_config;
-
 
   return true;
 }
 
 
-
-
-
-
 void a2dp_vendor_aptx_adaptive_feeding_reset(void) {
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)) {
     LOG_INFO(LOG_TAG,"a2dp_vendor_aptx_adaptive_send_frames"
                                   "aptX-Adaptive is running in offload mode");
     return;
@@ -165,13 +159,11 @@ void a2dp_vendor_aptx_adaptive_feeding_reset(void) {
 
 
 void a2dp_vendor_aptx_adaptive_feeding_flush(void) {
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)) {
     LOG_INFO(LOG_TAG,"a2dp_vendor_aptx_adaptive_send_frames"
                                   "aptX-Adaptive is running in offload mode");
     return;
   }
-
-
 }
 
 period_ms_t a2dp_vendor_aptx_adaptive_get_encoder_interval_ms(void) {
@@ -180,7 +172,7 @@ period_ms_t a2dp_vendor_aptx_adaptive_get_encoder_interval_ms(void) {
 
 
 void a2dp_vendor_aptx_adaptive_send_frames(uint64_t timestamp_us) {
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)) {
     LOG_INFO(LOG_TAG,"a2dp_vendor_aptx_adaptive_send_frames"
         "aptX-Adaptive is running in offload mode");
     return;

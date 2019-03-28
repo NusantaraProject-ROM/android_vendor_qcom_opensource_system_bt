@@ -25,6 +25,17 @@
 #include "a2dp_codec_api.h"
 #include "avdt_api.h"
 
+// data type for the AAC Codec Information Element */
+// NOTE: bits_per_sample is needed only for AAC encoder initialization.
+typedef struct {
+  uint8_t objectType;             /* Object Type */
+  uint16_t sampleRate;            /* Sampling Frequency */
+  uint8_t channelMode;            /* STEREO/MONO */
+  uint8_t variableBitRateSupport; /* Variable Bit Rate Support*/
+  uint32_t bitRate;               /* Bit rate */
+  btav_a2dp_codec_bits_per_sample_t bits_per_sample;
+} tA2DP_AAC_CIE;
+
 class A2dpCodecConfigAac : public A2dpCodecConfig {
  public:
   A2dpCodecConfigAac(btav_a2dp_codec_priority_t codec_priority);
@@ -44,6 +55,10 @@ class A2dpCodecConfigAac : public A2dpCodecConfig {
   void debug_codec_dump(int fd) override;
 };
 
+// parses the given codec info and copies the needed info
+// to Codec Information Element and returns same CIE.
+bool A2DP_GetAacCIE(const uint8_t* p_codec_info,
+                        tA2DP_AAC_CIE *cfg_cie);
 // Checks whether the codec capabilities contain a valid A2DP AAC Source
 // codec.
 // NOTE: only codecs that are implemented are considered valid.

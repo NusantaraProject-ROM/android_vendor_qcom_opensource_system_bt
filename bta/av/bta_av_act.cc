@@ -2258,7 +2258,7 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
                 IOT_CONF_KEY_AVRCP_FEATURES, peer_features, IOT_CONF_BYTE_NUM_2);
 #endif
     }
-  } else {
+  } else if(rc_handle < BTA_AV_NUM_RCB) {
     tBTA_AV_RC_FEAT rc_feat;
     p_cb->rcb[rc_handle].peer_features = peer_features;
     rc_feat.cover_art_psm = cover_art_psm;
@@ -2270,7 +2270,7 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
        * we still need to send RC feature event. So we need to get BD
        * from Message
        */
-      rc_feat.peer_addr = p_cb->lcb[p_cb->rcb[rc_handle].lidx].addr;
+      rc_feat.peer_addr = p_cb->lcb[p_cb->rcb[rc_handle].lidx - 1].addr;
     } else {
       rc_feat.peer_addr = p_scb->peer_addr;
     }

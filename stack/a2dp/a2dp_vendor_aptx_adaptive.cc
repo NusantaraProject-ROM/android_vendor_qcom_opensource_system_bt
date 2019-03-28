@@ -57,28 +57,6 @@
 #include "hardware/bt_av.h"
 
 
-// data type for the aptX-adaptive Codec Information Element */
-
-// This is due to be updated
-typedef struct {
-  uint32_t vendorId;
-  uint16_t codecId;    /* Codec ID for aptX-adaptive */
-  uint8_t sampleRate;  /* Sampling Frequency */
-  uint8_t sourceType;  /* AVRCP CUSTOM, Q2Q OR NQ2Q, RESERVED */
-  uint8_t channelMode;
-  uint8_t ttp_ll_0;
-  uint8_t ttp_ll_1;
-  uint8_t ttp_hq_0;
-  uint8_t ttp_hq_1;
-  uint8_t ttp_tws_0;
-  uint8_t ttp_tws_1;
-  uint8_t eoc0;
-  uint8_t eoc1;
-  uint8_t eoc2;
-  btav_a2dp_codec_bits_per_sample_t bits_per_sample;
-  uint8_t reserved_data[A2DP_APTX_ADAPTIVE_RESERVED_DATA];
-} tA2DP_APTX_ADAPTIVE_CIE;
-
 /* aptX-adaptive Source codec capabilities */
 static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_src_caps = {
     A2DP_APTX_ADAPTIVE_VENDOR_ID,          /* vendorId */
@@ -305,6 +283,11 @@ bool A2DP_IsVendorSourceCodecValidAptxAdaptive(const uint8_t* p_codec_info) {
          (A2DP_ParseInfoAptxAdaptive(&cfg_cie, p_codec_info, true) == A2DP_SUCCESS);
 }
 
+bool A2DP_GetAptxAdaptiveCIE(const uint8_t* p_codec_info,
+                        tA2DP_APTX_ADAPTIVE_CIE *cfg_cie) {
+  return (A2DP_ParseInfoAptxAdaptive(cfg_cie, p_codec_info, false) ==
+          A2DP_SUCCESS);
+}
 bool A2DP_IsVendorPeerSinkCodecValidAptxAdaptive(const uint8_t* p_codec_info) {
   tA2DP_APTX_ADAPTIVE_CIE cfg_cie;
 
@@ -553,15 +536,12 @@ btav_a2dp_codec_index_t A2DP_VendorSourceCodecIndexAptxAdaptive(
 const char* A2DP_VendorCodecIndexStrAptxAdaptive(void) { return "aptX-adaptive"; }
 
 bool A2DP_VendorInitCodecConfigAptxAdaptive(tAVDT_CFG* p_cfg) {
-  if (A2DP_GetOffloadStatus()) {
-    if (!A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)) {
-      LOG_ERROR(LOG_TAG, "%s: APTX-ADAPTIVE disabled in offload mode", __func__);
-      return false;
-    }
-  } else {
-    LOG_ERROR(LOG_TAG, "%s: APTX-ADAPTIVE is not supported in Non-Split mode", __func__);
+  if (!A2DP_IsCodecEnabled(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)) {
+    LOG_ERROR(LOG_TAG, "%s: APTX-ADAPTIVE disabled in both SW and HW mode",
+                                                        __func__);
     return false;
   }
+
   if (A2DP_BuildInfoAptxAdaptive(AVDT_MEDIA_TYPE_AUDIO, &a2dp_aptx_adaptive_caps,
                            p_cfg->codec_info) != A2DP_SUCCESS) {
     return false;
@@ -583,7 +563,7 @@ A2dpCodecConfigAptxAdaptive::A2dpCodecConfigAptxAdaptive(
     : A2dpCodecConfig(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE, "aptX-adaptive",
                       codec_priority) {
   // Compute the local capability
-    if (A2DP_GetOffloadStatus()) {
+    if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)) {
       a2dp_aptx_adaptive_caps = a2dp_aptx_adaptive_offload_caps;
       a2dp_aptx_adaptive_default_config = a2dp_aptx_adaptive_default_offload_config;
     } else {
@@ -621,16 +601,11 @@ A2dpCodecConfigAptxAdaptive::~A2dpCodecConfigAptxAdaptive() {}
 bool A2dpCodecConfigAptxAdaptive::init() {
   if (!isValid()) return false;
 
-  if (A2DP_GetOffloadStatus()) {
-    if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)) {
-      LOG_ERROR(LOG_TAG, "%s: APTX-Adaptive enabled in offload mode", __func__);
-      return true;
-    } else {
-      LOG_ERROR(LOG_TAG, "%s: APTX-Adaptive disabled in offload mode", __func__);
-      return false;
-    }
-  } else {
-    LOG_ERROR(LOG_TAG, "%s: APTX-ADAPTIVE is not supported in Non-Split mode", __func__);
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)) {
+    LOG_ERROR(LOG_TAG, "%s: APTX-Adaptive enabled in HW mode", __func__);
+    return true;
+  } else if(!A2DP_IsCodecEnabledInSoftware(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)){
+    LOG_ERROR(LOG_TAG, "%s: APTX-Adaptive disabled in both SW and HW mode", __func__);
     return false;
   }
 

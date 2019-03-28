@@ -40,17 +40,14 @@ typedef enum {
   A2DP_CTRL_GET_NUM_CONNECTED_DEVICE,
 }tA2DP_CTRL_EXT_CMD;
 
-typedef enum {
-  A2DP_CTRL_ACK_PENDING = 9,
-}tA2DP_CTRL_ACK_EXT;
-
 void btif_a2dp_audio_on_started(tBTA_AV_STATUS status);
 void btif_a2dp_audio_on_stopped(tBTA_AV_STATUS status);
 void btif_a2dp_audio_on_suspended(tBTA_AV_STATUS status);
 void btif_a2dp_audio_interface_init(void);
 void btif_a2dp_audio_interface_deinit(void);
-uint8_t btif_a2dp_audio_interface_get_pending_cmd();
+tA2DP_CTRL_CMD btif_a2dp_audio_interface_get_pending_cmd();
 void btif_a2dp_audio_reset_pending_cmds(void);
-
+void btif_a2dp_audio_interface_end_session(void);
+void btif_a2dp_audio_send_sink_latency();
 #endif /*BTIF_A2DP_AUDIO_INTERFACE_H*/
 

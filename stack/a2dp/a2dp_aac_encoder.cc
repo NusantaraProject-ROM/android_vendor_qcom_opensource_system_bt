@@ -127,7 +127,7 @@ void a2dp_aac_encoder_init(const tA2DP_ENCODER_INIT_PEER_PARAMS* p_peer_params,
                            A2dpCodecConfig* a2dp_codec_config,
                            a2dp_source_read_callback_t read_callback,
                            a2dp_source_enqueue_callback_t enqueue_callback) {
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_AAC)) {
     LOG_INFO(LOG_TAG,"aac is running offload mode");
     return;
   }
@@ -472,7 +472,7 @@ void a2dp_aac_encoder_cleanup(void) {
 
 void a2dp_aac_feeding_reset(void) {
   /* By default, just clear the entire state */
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_AAC)) {
     LOG_INFO(LOG_TAG,"a2dp_aac_feeding_reset:"
                      "aac is running offload mode");
     return;
@@ -492,7 +492,7 @@ void a2dp_aac_feeding_reset(void) {
 }
 
 void a2dp_aac_feeding_flush(void) {
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_AAC)) {
     LOG_INFO(LOG_TAG,"a2dp_aac_feeding_flush:"
                      "aac is running offload mode");
     return;
@@ -501,7 +501,7 @@ void a2dp_aac_feeding_flush(void) {
 }
 
 period_ms_t a2dp_aac_get_encoder_interval_ms(void) {
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_AAC)) {
     LOG_INFO(LOG_TAG,"a2dp_aac_get_encoder_interval_ms:"
                      "aac is running offload mode");
     return 0;
@@ -513,7 +513,7 @@ void a2dp_aac_send_frames(uint64_t timestamp_us) {
   uint8_t nb_frame = 0;
   uint8_t nb_iterations = 0;
 
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_AAC)) {
     LOG_INFO(LOG_TAG,"a2dp_aac_send_frames:"
                      "aac is running offload mode");
     return;

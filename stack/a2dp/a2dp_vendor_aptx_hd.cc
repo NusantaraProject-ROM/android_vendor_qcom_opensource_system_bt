@@ -432,12 +432,12 @@ btav_a2dp_codec_index_t A2DP_VendorSourceCodecIndexAptxHd(
 const char* A2DP_VendorCodecIndexStrAptxHd(void) { return "aptX-HD"; }
 
 bool A2DP_VendorInitCodecConfigAptxHd(tAVDT_CFG* p_cfg) {
-  if (A2DP_GetOffloadStatus()) {
-    if (!A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD)) {
-      LOG_ERROR(LOG_TAG, "%s: APTX-HD disabled in offload mode", __func__);
-      return false;
-    }
+
+  if (!A2DP_IsCodecEnabled(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD)) {
+    LOG_ERROR(LOG_TAG, "%s: APTX-HD disabled in both SW and HW mode", __func__);
+    return false;
   }
+
   if (A2DP_BuildInfoAptxHd(AVDT_MEDIA_TYPE_AUDIO, &a2dp_aptx_hd_caps,
                            p_cfg->codec_info) != A2DP_SUCCESS) {
     return false;
@@ -459,8 +459,8 @@ A2dpCodecConfigAptxHd::A2dpCodecConfigAptxHd(
     : A2dpCodecConfig(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD, "aptX-HD",
                       codec_priority) {
   // Compute the local capability
-    if (A2DP_GetOffloadStatus() && !(A2DP_IsScramblingSupported() ||
-                                     A2DP_Is44p1kFreqSupported())) {
+    if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD) &&
+      !(A2DP_IsScramblingSupported() || A2DP_Is44p1kFreqSupported())) {
       a2dp_aptx_hd_caps = a2dp_aptx_hd_offload_caps;
       a2dp_aptx_hd_default_config = a2dp_aptx_hd_default_offload_config;
     } else {
@@ -487,15 +487,14 @@ A2dpCodecConfigAptxHd::~A2dpCodecConfigAptxHd() {}
 bool A2dpCodecConfigAptxHd::init() {
   if (!isValid()) return false;
 
-  if (A2DP_GetOffloadStatus()) {
-    if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD)) {
-      LOG_ERROR(LOG_TAG, "%s: APTX-HD enabled in offload mode", __func__);
-      return true;
-    } else {
-      LOG_ERROR(LOG_TAG, "%s: APTX-HD disabled in offload mode", __func__);
-      return false;
-    }
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD)) {
+    LOG_ERROR(LOG_TAG, "%s: APTX-HD enabled in HW mode", __func__);
+    return true;
+  } else if(!A2DP_IsCodecEnabledInSoftware(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD)){
+    LOG_ERROR(LOG_TAG, "%s: APTX-HD disabled in both SW and HW mode", __func__);
+    return false;
   }
+
   // Load the encoder
   if (!A2DP_VendorLoadEncoderAptxHd()) {
     LOG_ERROR(LOG_TAG, "%s: cannot load the encoder", __func__);

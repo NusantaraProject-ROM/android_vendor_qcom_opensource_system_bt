@@ -159,4 +159,43 @@ void btif_a2dp_source_update_metrics(void);
 void btif_a2dp_source_on_remote_start(struct alarm_t *remote_start_alarm, int index);
 
 void btif_trigger_unblock_audio_start_recovery_timer(void);
+
+// Return true if the HAL v2 is enabled
+bool btif_a2dp_source_is_hal_v2_enabled(void);
+
+// Return true if the HAL v2 is supported
+bool btif_a2dp_source_is_hal_v2_supported(void);
+
+// returns true incase of restart session needed
+bool btif_a2dp_source_is_restart_session_needed();
+
+// Start the A2DP Source session.
+// This function should be called by the BTIF state machine after
+// btif_a2dp_source_startup() to start the streaming session for |peer_address|.
+bool btif_a2dp_source_start_session(const RawAddress& peer_address);
+
+// Restart the A2DP Source session.
+// This function should be called by the BTIF state machine after
+// btif_a2dp_source_startup() to restart the streaming session.
+// |old_peer_address| is the peer address of the old session. This address
+// can be empty.
+// |new_peer_address| is the peer address of the new session. This address
+// cannot be empty.
+bool btif_a2dp_source_restart_session(const RawAddress& old_peer_address,
+                                      const RawAddress& new_peer_address);
+
+// End the A2DP Source session.
+// This function should be called by the BTIF state machine to end the
+// streaming session for |peer_address|.
+bool btif_a2dp_source_end_session(const RawAddress& peer_address);
+
+// Initialise the a2dp source interface for split
+// This function should be called by the BTIF state machine to init the
+// split source interface.
+void btif_a2dp_source_if_init(void);
+
+// DeInitialise the a2dp source interface for split
+// This function should be called by the BTIF state machine to deinit the
+// split source interface.
+void btif_a2dp_source_if_deinit(void);
 #endif /* BTIF_A2DP_SOURCE_H */

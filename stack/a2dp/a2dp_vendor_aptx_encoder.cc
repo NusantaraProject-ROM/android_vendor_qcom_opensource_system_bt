@@ -171,7 +171,7 @@ void a2dp_vendor_aptx_encoder_init(
     A2dpCodecConfig* a2dp_codec_config,
     a2dp_source_read_callback_t read_callback,
     a2dp_source_enqueue_callback_t enqueue_callback) {
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX)) {
     LOG_INFO(LOG_TAG,"aptX is running in offload mode");
     return;
   }
@@ -366,7 +366,7 @@ static void aptx_update_framing_params(tAPTX_FRAMING_PARAMS* framing_params) {
 }
 
 void a2dp_vendor_aptx_feeding_reset(void) {
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX)) {
     LOG_INFO(LOG_TAG,"a2dp_vendor_aptx_feeding_reset:"
                      "aptX is running in offload mode");
     return;
@@ -375,7 +375,7 @@ void a2dp_vendor_aptx_feeding_reset(void) {
 }
 
 void a2dp_vendor_aptx_feeding_flush(void) {
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX)) {
     LOG_INFO(LOG_TAG,"a2dp_vendor_aptx_feeding_flush:"
                      "aptX is running in offload mode");
     return;
@@ -384,7 +384,7 @@ void a2dp_vendor_aptx_feeding_flush(void) {
 }
 
 period_ms_t a2dp_vendor_aptx_get_encoder_interval_ms(void) {
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX)) {
     LOG_INFO(LOG_TAG,"a2dp_vendor_aptx_get_encoder_interval_ms:"
                      "aptX is running in offload mode");
     return 0;
@@ -393,7 +393,7 @@ period_ms_t a2dp_vendor_aptx_get_encoder_interval_ms(void) {
 }
 
 void a2dp_vendor_aptx_send_frames(uint64_t timestamp_us) {
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX)) {
     LOG_INFO(LOG_TAG,"a2dp_vendor_aptx_send_frames"
                      "aptX is running in offload mode");
     return;

@@ -537,4 +537,16 @@ void btif_initiate_sink_handoff(int idx, bool audio_state_changed);
 *******************************************************************************/
 int btif_get_max_allowable_sink_connections();
 
+/*******************************************************************************
+**
+** Function         btif_av_get_hndl_by_addr
+**
+** Description      Get AV handle for the associated bd_addr
+**
+** Returns          tBTA_AV_HNDL
+*******************************************************************************/
+tBTA_AV_HNDL btif_av_get_hndl_by_addr(RawAddress peer_address);
+
+void btif_av_signal_session_ready();
+
 #endif /* BTIF_AV_H */

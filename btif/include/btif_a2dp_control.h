@@ -34,7 +34,7 @@ void btif_a2dp_control_cleanup(void);
 // |status| is the acknowledement status - see |tA2DP_CTRL_ACK|.
 void btif_a2dp_command_ack(tA2DP_CTRL_ACK status);
 
-tA2DP_CTRL_CMD  btif_a2dp_get_pending_command();
+tA2DP_CTRL_CMD  btif_a2dp_control_get_pending_command();
 
 // Increment the total number audio data bytes that have been encoded since
 // last encoding attempt.

@@ -57,7 +57,7 @@ bool bta_av_co_set_codec_audio_config(
 // Initializes the control block.
 // |codec_priorities| contains the A2DP Source codec priorities to use.
 void bta_av_co_init(
-    const std::vector<btav_a2dp_codec_config_t>& codec_priorities);
+    const std::vector<btav_a2dp_codec_config_t>& codec_priorities, std::vector<btav_a2dp_codec_config_t>& offload_enabled_codecs_config);
 
 void bta_av_co_peer_init(
     const std::vector<btav_a2dp_codec_config_t>& codec_priorities, int index);
@@ -86,6 +86,8 @@ bool bta_av_co_audio_is_aac_wl_enabled(RawAddress *remote_bdaddr);
 bool bta_av_co_audio_device_addr_check_is_enabled(RawAddress *remote_bdaddr);
 
 bool bta_av_co_set_active_peer(const RawAddress& peer_address);
+
+bool bta_av_co_is_active_peer (void);
 
 #ifdef __cplusplus
 }

@@ -300,6 +300,10 @@ static tBTA_AV_CO_PEER* bta_av_co_get_active_peer(void) {
   return &bta_av_co_cb.peers[i];
 }
 
+bool bta_av_co_is_active_peer () {
+  return (bta_av_co_get_active_peer() != NULL);
+}
+
 bool bta_av_co_set_active_peer(const RawAddress& peer_address) {
   bool status = false;
   for (size_t i = 0; i < BTA_AV_CO_NUM_ELEMENTS(bta_av_co_cb.peers); i++) {
@@ -1816,7 +1820,8 @@ bool bta_av_co_is_44p1kFreq_enabled() {
 }
 
 void bta_av_co_init(
-    const std::vector<btav_a2dp_codec_config_t>& codec_priorities) {
+    const std::vector<btav_a2dp_codec_config_t>& codec_priorities,
+    std::vector<btav_a2dp_codec_config_t>& offload_enabled_codecs_config) {
   APPL_TRACE_DEBUG("%s", __func__);
   RawAddress bt_addr;
   char value[PROPERTY_VALUE_MAX] = {'\0'};
@@ -1837,13 +1842,12 @@ void bta_av_co_init(
   bool isScramblingSupported = bta_av_co_is_scrambling_enabled();
   bool is44p1kFreqSupported = bta_av_co_is_44p1kFreq_enabled();
   osi_property_get("persist.vendor.btstack.a2dp_offload_cap", value, "false");
-  A2DP_SetOffloadStatus(a2dp_offload, value, isScramblingSupported, is44p1kFreqSupported);
+  A2DP_SetOffloadStatus(a2dp_offload, value, isScramblingSupported,
+                       is44p1kFreqSupported, offload_enabled_codecs_config);
 /* SPLITA2DP */
   bool isMcastSupported = btif_av_is_multicast_supported();
-  bool isShoSupported = (btif_max_av_clients > 1) ? true : false;
   if (a2dp_offload) {
     isMcastSupported = false;
-    isShoSupported = false;
   }
   for (size_t i = 0; i < BTA_AV_CO_NUM_ELEMENTS(bta_av_co_cb.peers); i++) {
     p_peer = &bta_av_co_cb.peers[i];
@@ -1851,7 +1855,7 @@ void bta_av_co_init(
       p_peer->codecs = new A2dpCodecs(codec_priorities);
 
     if (p_peer->codecs != nullptr)
-      p_peer->codecs->init(isMcastSupported, isShoSupported);
+      p_peer->codecs->init(isMcastSupported);
 
     p_peer->isIncoming = false;
   }
@@ -1873,10 +1877,8 @@ void bta_av_co_peer_init(
   tBTA_AV_CO_PEER* p_peer;
   bool a2dp_offload = btif_av_is_split_a2dp_enabled();
   bool isMcastSupported = btif_av_is_multicast_supported();
-  bool isShoSupported = (btif_max_av_clients > 1) ? true : false;
   if (a2dp_offload) {
     isMcastSupported = false;
-    isShoSupported = false;
   }
 
   p_peer = &bta_av_co_cb.peers[index];
@@ -1884,7 +1886,7 @@ void bta_av_co_peer_init(
     p_peer->codecs = new A2dpCodecs(codec_priorities);
 
   if (p_peer->codecs != nullptr)
-    p_peer->codecs->init(isMcastSupported, isShoSupported);
+    p_peer->codecs->init(isMcastSupported);
 
   p_peer->isIncoming = false;
 }

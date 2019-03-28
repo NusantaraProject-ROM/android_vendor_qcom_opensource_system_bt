@@ -1,0 +1,1401 @@
+/*
+ * Copyright 2019 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "a2dp_encoding.h"
+#include "client_interface.h"
+
+#include "a2dp_sbc_constants.h"
+#include "a2dp_vendor_ldac_constants.h"
+#include "a2dp_vendor_aptx_adaptive.h"
+#include "a2dp_aac.h"
+#include "bta/av/bta_av_int.h"
+#include "btif_a2dp_source.h"
+#include "btif_av.h"
+#include "btif_av_co.h"
+#include "btif_hf.h"
+#include "osi/include/properties.h"
+#include "a2dp_sbc.h"
+#include <a2dp_vendor.h>
+#include "btif_bat.h"
+
+extern int btif_max_av_clients;
+extern int btif_get_is_remote_started_idx();
+extern bool audio_start_awaited;
+extern bool reconfig_a2dp;
+extern bool btif_av_is_remote_started_set(int index);
+extern tBTA_AV_HNDL btif_av_get_av_hdl_from_idx(int idx);
+extern bool enc_update_in_progress;
+extern bool btif_av_is_state_opened(int i);
+extern void btif_av_reset_reconfig_flag();
+extern tBTIF_A2DP_SOURCE_VSC btif_a2dp_src_vsc;
+extern bool btif_av_is_local_started_on_other_idx(int current_index);
+extern bool btif_av_current_device_is_tws();
+extern bool btif_av_is_tws_device_playing(int index);
+
+#define AAC_SAMPLE_SIZE  1024
+#define AAC_LATM_HEADER  12
+
+namespace {
+
+using vendor::qti::hardware::bluetooth_audio::V2_0::AacObjectType;
+using vendor::qti::hardware::bluetooth_audio::V2_0::AacVariableBitRate;
+using vendor::qti::hardware::bluetooth_audio::V2_0::CodecType;
+using vendor::qti::hardware::bluetooth_audio::V2_0::LdacChannelMode;
+using vendor::qti::hardware::bluetooth_audio::V2_0::LdacQualityIndex;
+using vendor::qti::hardware::bluetooth_audio::V2_0::SbcAllocMethod;
+using vendor::qti::hardware::bluetooth_audio::V2_0::SbcBlockLength;
+using vendor::qti::hardware::bluetooth_audio::V2_0::SbcChannelMode;
+using vendor::qti::hardware::bluetooth_audio::V2_0::SbcNumSubbands;
+using vendor::qti::hardware::bluetooth_audio::V2_0::AptxAdaptiveChannelMode;
+using vendor::qti::hardware::bluetooth_audio::V2_0::AptxMode;
+using ::bluetooth::audio::AudioConfiguration;
+using ::bluetooth::audio::BitsPerSample;
+using ::bluetooth::audio::BluetoothAudioCtrlAck;
+using ::bluetooth::audio::ChannelMode;
+using ::bluetooth::audio::CodecConfiguration;
+using ::bluetooth::audio::PcmParameters;
+using ::bluetooth::audio::SampleRate;
+using ::bluetooth::audio::SessionType;
+
+std::mutex internal_mutex_;
+BluetoothAudioCtrlAck a2dp_ack_to_bt_audio_ctrl_ack(tA2DP_CTRL_ACK ack);
+
+// Provide call-in APIs for the Bluetooth Audio HAL
+class A2dpTransport : public ::bluetooth::audio::IBluetoothTransportInstance {
+ public:
+  A2dpTransport(SessionType sessionType, AudioConfiguration audioConfig)
+      : IBluetoothTransportInstance(sessionType, std::move(audioConfig)),
+        a2dp_pending_cmd_(A2DP_CTRL_CMD_NONE),
+        remote_delay_report_(0),
+        total_bytes_read_(0),
+        data_position_({}){};
+
+  BluetoothAudioCtrlAck StartRequest() override {
+    // Check if a previous request is not finished
+    /*
+     * Don't send START request to stack while we are in a call.
+     * Some headsets such as "Sony MW600", don't allow AVDTP START
+     * while in a call, and respond with BAD_STATE.
+     */
+    tA2DP_CTRL_ACK status = A2DP_CTRL_ACK_FAILURE;
+    if(!IsActvie()) {
+      LOG(WARNING) << __func__ << ": Not active";
+      return a2dp_ack_to_bt_audio_ctrl_ack(status);
+    }
+    status = ProcessRequest(A2DP_CTRL_CMD_START);
+    return a2dp_ack_to_bt_audio_ctrl_ack(status);
+  }
+
+  BluetoothAudioCtrlAck SuspendRequest() override {
+    tA2DP_CTRL_ACK status = A2DP_CTRL_ACK_FAILURE;
+    if(!IsActvie()) {
+      LOG(WARNING) << __func__ << ": Not active";
+      return a2dp_ack_to_bt_audio_ctrl_ack(status);
+    }
+    status = ProcessRequest(A2DP_CTRL_CMD_SUSPEND);
+    return a2dp_ack_to_bt_audio_ctrl_ack(status);
+  }
+
+  void StopRequest() override {
+    if(!IsActvie()) {
+      LOG(WARNING) << __func__ << ": Not active";
+      return;
+    }
+    ProcessRequest(A2DP_CTRL_CMD_STOP);
+  }
+
+  bool GetPresentationPosition(uint64_t* remote_delay_report_ns,
+                               uint64_t* total_bytes_read,
+                               timespec* data_position) override {
+    if(!IsActvie()) {
+      LOG(WARNING) << __func__ << ": Not active";
+      return false;
+    }
+    *remote_delay_report_ns = remote_delay_report_ * 100000u;
+    *total_bytes_read = total_bytes_read_;
+    *data_position = data_position_;
+    VLOG(2) << __func__ << ": delay=" << remote_delay_report_
+            << "/10ms, data=" << total_bytes_read_
+            << " byte(s), timestamp=" << data_position_.tv_sec << "."
+            << data_position_.tv_nsec << "s";
+    return true;
+  }
+
+  void MetadataChanged(const source_metadata_t& source_metadata) override {
+    if(!IsActvie()) {
+      LOG(WARNING) << __func__ << ": Not active";
+      return;
+    }
+    auto track_count = source_metadata.track_count;
+    auto tracks = source_metadata.tracks;
+    VLOG(1) << __func__ << ": " << track_count << " track(s) received";
+    while (track_count) {
+      VLOG(2) << __func__ << ": usage=" << tracks->usage
+              << ", content_type=" << tracks->content_type
+              << ", gain=" << tracks->gain;
+      --track_count;
+      ++tracks;
+    }
+  }
+
+  tA2DP_CTRL_CMD GetPendingCmd() const { return a2dp_pending_cmd_; }
+
+  void ResetPendingCmd() {  a2dp_pending_cmd_ = A2DP_CTRL_CMD_NONE; }
+
+  void ResetPresentationPosition() override {
+    remote_delay_report_ = 0;
+    total_bytes_read_ = 0;
+    data_position_ = {};
+  }
+
+  void LogBytesRead(size_t bytes_read) override {
+    if (bytes_read != 0) {
+      total_bytes_read_ += bytes_read;
+      clock_gettime(CLOCK_MONOTONIC, &data_position_);
+    }
+  }
+
+  // delay reports from AVDTP is based on 1/10 ms (100us)
+  void SetRemoteDelay(uint16_t delay_report) {
+    remote_delay_report_ = delay_report;
+  }
+
+  void Init(SessionType sessionType, AudioConfiguration audioConfig) {
+    a2dp_pending_cmd_ = A2DP_CTRL_CMD_NONE;
+    remote_delay_report_ = 0;
+    total_bytes_read_ = 0;
+    data_position_ = {};
+    UpdateSessionType(sessionType);
+    UpdateAudioConfiguration(audioConfig);
+  }
+
+  void Cleanup() {
+    a2dp_pending_cmd_ = A2DP_CTRL_CMD_NONE;
+    remote_delay_report_ = 0;
+    total_bytes_read_ = 0;
+    data_position_ = {};
+    SessionType sessionType = SessionType::UNKNOWN;
+    UpdateSessionType(sessionType);
+  }
+
+ private:
+  tA2DP_CTRL_ACK ProcessRequest(tA2DP_CTRL_CMD cmd) {
+    a2dp_pending_cmd_ = cmd;
+    tA2DP_CTRL_ACK status = A2DP_CTRL_ACK_FAILURE;
+    switch (cmd) {
+      case A2DP_CTRL_CMD_START:
+      {
+        /*
+         * Don't send START request to stack while we are in a call.
+         * Some headsets such as "Sony MW600", don't allow AVDTP START
+         * while in a call, and respond with BAD_STATE.
+         */
+        bool reset_remote_start = false;
+        bool remote_start_flag = false;
+        int remote_start_idx = btif_max_av_clients;
+        int latest_playing_idx = btif_max_av_clients;
+        if (!bluetooth::headset::btif_hf_is_call_vr_idle()) {
+          status = A2DP_CTRL_ACK_INCALL_FAILURE;
+          break;
+        }
+        if (btif_ba_is_active())
+        {
+          ba_send_message(BTIF_BA_AUDIO_START_REQ_EVT, 0, NULL, false);
+          status = A2DP_CTRL_ACK_PENDING;
+          break;
+        }
+        remote_start_idx = btif_get_is_remote_started_idx();
+        latest_playing_idx = btif_av_get_latest_device_idx_to_start();
+        remote_start_flag = btif_av_is_remote_started_set(latest_playing_idx);
+        if (btif_a2dp_source_is_remote_start()) {
+          reset_remote_start = false;
+          APPL_TRACE_DEBUG("%s: remote started idx = %d latest playing = %d",
+             __func__, remote_start_idx, latest_playing_idx);
+#if (TWS_ENABLED == TRUE)
+          if (btif_av_current_device_is_tws() &&
+            btif_av_is_idx_tws_device(remote_start_idx)) {
+            APPL_TRACE_DEBUG("%s:Remote started by TWS+ device, force cancel",
+                       __func__);
+            reset_remote_start = true;
+          }
+          if (!reset_remote_start && (remote_start_idx < btif_max_av_clients) &&
+#else
+          if ((remote_start_idx < btif_max_av_clients) &&
+#endif
+            ((latest_playing_idx < btif_max_av_clients &&
+              latest_playing_idx != remote_start_idx) ||
+             btif_av_is_local_started_on_other_idx(remote_start_idx))) {
+            APPL_TRACE_WARNING("%s: Already playing on other index, \
+                    don't cancel remote start timer",__func__);
+            status = A2DP_CTRL_ACK_PENDING;
+          } else {
+            APPL_TRACE_WARNING("%s: remote a2dp started, cancel \
+                         remote start timer", __func__);
+            btif_a2dp_source_cancel_remote_start();
+            btif_dispatch_sm_event(
+                      BTIF_AV_RESET_REMOTE_STARTED_FLAG_UPDATE_AUDIO_STATE_EVT,
+                      &remote_start_idx, sizeof(remote_start_idx));
+            status = A2DP_CTRL_ACK_PENDING;
+          }
+        }
+
+        if (audio_start_awaited) {
+          if (reconfig_a2dp || (btif_av_is_under_handoff())) {
+            APPL_TRACE_DEBUG("Audio start awaited handle start under handoff");
+            audio_start_awaited = false;
+            btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
+            status = A2DP_CTRL_ACK_PENDING;
+            if (btif_av_get_peer_sep() == AVDT_TSEP_SRC)
+              status = A2DP_CTRL_ACK_SUCCESS;
+            break;
+          }
+        }
+
+        /* In dual a2dp mode check for stream started first*/
+        if (btif_av_stream_started_ready()) {
+          /*
+           * Already started, setup audio data channel listener and ACK
+           * back immediately.
+           */
+          APPL_TRACE_DEBUG("Av stream already started");
+          if (btif_a2dp_src_vsc.tx_start_initiated == TRUE) {
+            APPL_TRACE_DEBUG("VSC exchange alreday started on Handoff Start,wait");
+            status = A2DP_CTRL_ACK_PENDING;
+            break;
+          } else if (btif_a2dp_src_vsc.tx_started == FALSE) {
+            uint8_t hdl = 0;
+            APPL_TRACE_DEBUG("%s: latest playing idx = %d",__func__,
+                                latest_playing_idx);
+            if (latest_playing_idx > btif_max_av_clients ||
+                latest_playing_idx < 0) {
+                APPL_TRACE_ERROR("%s: Invalid index",__func__);
+                status = A2DP_CTRL_ACK_FAILURE;//Invalid status to stop start retry
+                break;
+            }
+            if (remote_start_flag) {
+              hdl = btif_av_get_av_hdl_from_idx(latest_playing_idx);
+              APPL_TRACE_DEBUG("Start VSC exchange on MM Start when state \
+                            is remote started on hdl = %d",hdl);
+              btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, (char *)&hdl, 1);
+              status = A2DP_CTRL_ACK_PENDING;
+            } else if (btif_av_is_state_opened(latest_playing_idx)) {
+              btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
+              if (btif_av_get_peer_sep() == AVDT_TSEP_SRC) {
+                status = A2DP_CTRL_ACK_SUCCESS;
+              } else {
+                /*Return pending and ack when start stream cfm received from remote*/
+                status = A2DP_CTRL_ACK_PENDING;
+              }
+            } else {
+              status = A2DP_CTRL_ACK_FAILURE;
+            }
+#if (TWS_ENABLED == TRUE)
+            if (btif_av_current_device_is_tws() &&
+              reset_remote_start &&
+              !btif_av_is_tws_device_playing(latest_playing_idx)) {
+              int pair_idx = btif_av_get_tws_pair_idx(latest_playing_idx);
+              if (pair_idx < btif_max_av_clients &&
+                  btif_av_is_state_opened(pair_idx)) {
+                APPL_TRACE_DEBUG("%s:Other TWS+ is not start at idx %d, \
+                sending start_req",__func__,pair_idx);
+                btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
+              }
+              status = A2DP_CTRL_ACK_PENDING;
+            }
+            break;
+          } else if (remote_start_idx < btif_max_av_clients &&
+            reset_remote_start && btif_av_current_device_is_tws()) {
+            uint8_t hdl = 0;
+            hdl = btif_av_get_av_hdl_from_idx(remote_start_idx);
+            APPL_TRACE_DEBUG("Start VSC exchange for remote started index of \
+                                        TWS+ device");
+            btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, (char *)&hdl, 1);
+            status = A2DP_CTRL_ACK_PENDING;
+#endif
+            break;
+          }
+          btif_av_reset_reconfig_flag();
+          status = A2DP_CTRL_ACK_SUCCESS;
+          break;
+        }
+        if (btif_av_stream_ready()) {
+          /*
+           * Post start event and wait for audio path to open.
+           * If we are the source, the ACK will be sent after the start
+           * procedure is completed, othewise send it now.
+           */
+          if (latest_playing_idx < btif_max_av_clients &&
+              btif_av_is_state_opened(latest_playing_idx)) {
+            btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
+            if (btif_av_get_peer_sep() == AVDT_TSEP_SRC) {
+              status = A2DP_CTRL_ACK_SUCCESS;
+              break;
+            }
+            /*Return pending and ack when start stream cfm received from remote*/
+            status = A2DP_CTRL_ACK_PENDING;
+            break;
+          }
+        }
+
+        APPL_TRACE_WARNING("%s: A2DP command %s while AV stream is not ready",
+                __func__, audio_a2dp_hw_dump_ctrl_event((tA2DP_CTRL_CMD)cmd));
+        return A2DP_CTRL_ACK_FAILURE;
+        break;
+      }
+
+      case A2DP_CTRL_CMD_STOP: {
+        if (btif_ba_is_active())
+        {
+          ba_send_message(BTIF_BA_AUDIO_STOP_REQ_EVT, 0, NULL, false);
+          status = A2DP_CTRL_ACK_PENDING;
+          break;
+        }
+
+        if ((!btif_av_is_split_a2dp_enabled() && btif_av_get_peer_sep()
+                                                == AVDT_TSEP_SNK &&
+            !btif_a2dp_source_is_streaming()) ||
+            (btif_av_is_split_a2dp_enabled() && btif_av_get_peer_sep()
+                                                == AVDT_TSEP_SNK &&
+            btif_a2dp_src_vsc.tx_started == FALSE)) {
+          /* We are already stopped, just ack back */
+          status = A2DP_CTRL_ACK_SUCCESS;
+          break;
+        }
+
+        btif_dispatch_sm_event(BTIF_AV_STOP_STREAM_REQ_EVT, NULL, 0);
+        status = A2DP_CTRL_ACK_SUCCESS;
+
+        break;
+      }
+      case A2DP_CTRL_CMD_SUSPEND: {
+        /* Local suspend */
+        if (btif_ba_is_active()) {
+          ba_send_message(BTIF_BA_AUDIO_PAUSE_REQ_EVT, 0, NULL, false);
+          status = A2DP_CTRL_ACK_PENDING;
+          break;
+        }
+        if (reconfig_a2dp ||
+               ((btif_a2dp_source_last_remote_start_index() ==
+               btif_av_get_latest_device_idx_to_start()) &&
+           (btif_av_is_remote_started_set(
+                    btif_a2dp_source_last_remote_start_index())))) {
+          LOG(WARNING) << __func__ << ": Suspend called due to reconfig";
+          status = A2DP_CTRL_ACK_SUCCESS;
+          break;
+        }
+        if (btif_av_stream_started_ready()) {
+          APPL_TRACE_DEBUG("Suspend stream request to Av");
+          btif_dispatch_sm_event(BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL, 0);
+          status = A2DP_CTRL_ACK_PENDING;
+          break;
+        }else if (btif_av_current_device_is_tws()) {
+          //Check if either of the index is streaming
+          for (int i = 0; i < btif_max_av_clients; i++) {
+            if (btif_av_is_tws_device_playing(i)) {
+              APPL_TRACE_DEBUG("Suspend TWS+ stream on index %d",i);
+              btif_dispatch_sm_event(BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL, 0);
+              status = A2DP_CTRL_ACK_PENDING;
+              break;
+            }
+          }
+          if (status == A2DP_CTRL_ACK_PENDING) {
+            btif_av_clear_remote_suspend_flag();
+            break;
+          }
+        }
+        /*pls check if we need to add a condition here */
+        /* If we are not in started state, just ack back ok and let
+         * audioflinger close the channel. This can happen if we are
+         * remotely suspended, clear REMOTE SUSPEND flag.
+         */
+        btif_av_clear_remote_suspend_flag();
+        status = A2DP_CTRL_ACK_SUCCESS;
+        break;
+      }
+      default:
+        APPL_TRACE_ERROR("UNSUPPORTED CMD (%d)", cmd);
+        status = A2DP_CTRL_ACK_FAILURE;
+        break;
+    }
+    return status;
+  }
+  tA2DP_CTRL_CMD a2dp_pending_cmd_;
+  uint16_t remote_delay_report_;
+  uint64_t total_bytes_read_;
+  timespec data_position_;
+
+};
+
+A2dpTransport* a2dp_sink = nullptr;
+
+// Common interface to call-out into Bluetooth Audio HAL
+bluetooth::audio::BluetoothAudioClientInterface* a2dp_hal_clientif = nullptr;
+auto session_type = SessionType::UNKNOWN;
+
+// Save the value if the remote reports its delay before a2dp_sink is
+// initialized
+uint16_t remote_delay = 0;
+
+bool btaudio_a2dp_supported = false;
+bool is_configured = false;
+
+BluetoothAudioCtrlAck a2dp_ack_to_bt_audio_ctrl_ack(tA2DP_CTRL_ACK ack) {
+  switch (ack) {
+    case A2DP_CTRL_ACK_SUCCESS:
+      return BluetoothAudioCtrlAck::SUCCESS_FINISHED;
+    case A2DP_CTRL_ACK_PENDING:
+      return BluetoothAudioCtrlAck::PENDING;
+    case A2DP_CTRL_ACK_INCALL_FAILURE:
+      return BluetoothAudioCtrlAck::FAILURE_BUSY;
+    case A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS:
+      return BluetoothAudioCtrlAck::FAILURE_DISCONNECTING;
+    case A2DP_CTRL_ACK_UNSUPPORTED: /* Offloading but resource failure */
+      return BluetoothAudioCtrlAck::FAILURE_UNSUPPORTED;
+    case A2DP_CTRL_ACK_FAILURE:
+      return BluetoothAudioCtrlAck::FAILURE;
+    default:
+      return BluetoothAudioCtrlAck::FAILURE;
+  }
+}
+
+SampleRate a2dp_codec_to_hal_sample_rate(
+    const btav_a2dp_codec_config_t& a2dp_codec_config) {
+  switch (a2dp_codec_config.sample_rate) {
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_44100:
+      return SampleRate::RATE_44100;
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_48000:
+      return SampleRate::RATE_48000;
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_88200:
+      return SampleRate::RATE_88200;
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_96000:
+      return SampleRate::RATE_96000;
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_176400:
+      return SampleRate::RATE_176400;
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_192000:
+      return SampleRate::RATE_192000;
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_16000:
+      return SampleRate::RATE_16000;
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_24000:
+      return SampleRate::RATE_24000;
+    default:
+      return SampleRate::RATE_UNKNOWN;
+  }
+}
+
+BitsPerSample a2dp_codec_to_hal_bits_per_sample(
+    const btav_a2dp_codec_config_t& a2dp_codec_config) {
+  switch (a2dp_codec_config.bits_per_sample) {
+    case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16:
+      return BitsPerSample::BITS_16;
+    case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24:
+      return BitsPerSample::BITS_24;
+    case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_32:
+      return BitsPerSample::BITS_32;
+    default:
+      return BitsPerSample::BITS_UNKNOWN;
+  }
+}
+
+ChannelMode a2dp_codec_to_hal_channel_mode(
+    const btav_a2dp_codec_config_t& a2dp_codec_config) {
+  switch (a2dp_codec_config.channel_mode) {
+    case BTAV_A2DP_CODEC_CHANNEL_MODE_MONO:
+      return ChannelMode::MONO;
+    case BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO:
+      return ChannelMode::STEREO;
+    default:
+      return ChannelMode::UNKNOWN;
+  }
+}
+
+bool a2dp_is_audio_codec_config_params_changed(
+                        CodecConfiguration* codec_config) {
+  A2dpCodecConfig* a2dp_codec_configs = bta_av_get_a2dp_current_codec();
+  uint8_t p_codec_info[AVDT_CODEC_SIZE];
+  bool changed = false;
+  if (codec_config == nullptr) return false;
+  if (a2dp_codec_configs == nullptr) {
+    LOG(WARNING) << __func__ << ": failure to get A2DP codec config";
+    return false;
+  }
+
+  btav_a2dp_codec_config_t current_codec = a2dp_codec_configs->getCodecConfig();
+  LOG(ERROR) << __func__
+             << ": current codec_type=" << current_codec.codec_type
+             << ": hidl codec type=" << ( uint32_t) codec_config->codecType;
+  tBT_A2DP_OFFLOAD a2dp_offload;
+  a2dp_codec_configs->getCodecSpecificConfig(&a2dp_offload);
+  memset(p_codec_info, 0, AVDT_CODEC_SIZE);
+  if (!a2dp_codec_configs->copyOutOtaCodecConfig(p_codec_info))
+  {
+    LOG(ERROR) << "No valid codec config";
+    return false;
+  }
+  switch (current_codec.codec_type) {
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_SBC:
+      [[fallthrough]];
+    case BTAV_A2DP_CODEC_INDEX_SINK_SBC: {
+      if(codec_config->codecType != CodecType::SBC) {
+        changed = true;
+        break;
+      }
+      auto sbc_config = codec_config->config.sbcConfig();
+      if(sbc_config.sampleRate !=
+          a2dp_codec_to_hal_sample_rate(current_codec)) {
+        changed = true;
+        break;
+      }
+      if(sbc_config.bitsPerSample !=
+          a2dp_codec_to_hal_bits_per_sample(current_codec)) {
+        changed = true;
+        break;
+      }
+      uint8_t channel_mode = a2dp_offload.codec_info[0] & A2DP_SBC_IE_CH_MD_MSK;
+      switch (channel_mode) {
+        case A2DP_SBC_IE_CH_MD_JOINT:
+          if(sbc_config.channelMode != SbcChannelMode::JOINT_STEREO) {
+            changed = true;
+          }
+          break;
+        case A2DP_SBC_IE_CH_MD_STEREO:
+          if(sbc_config.channelMode != SbcChannelMode::STEREO) {
+            changed = true;
+          }
+          break;
+        case A2DP_SBC_IE_CH_MD_DUAL:
+          if(sbc_config.channelMode != SbcChannelMode::DUAL) {
+            changed = true;
+          }
+          break;
+        case A2DP_SBC_IE_CH_MD_MONO:
+          if(sbc_config.channelMode != SbcChannelMode::MONO) {
+            changed = true;
+          }
+          break;
+        default:
+          LOG(ERROR) << __func__
+                     << ": Unknown SBC channel_mode=" << channel_mode;
+          break;
+      }
+      break;
+    }
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_AAC:
+      [[fallthrough]];
+    case BTAV_A2DP_CODEC_INDEX_SINK_AAC: {
+      if(codec_config->codecType != CodecType::AAC) {
+        changed = true;
+        break;
+      }
+      auto aac_config = codec_config->config.aacConfig();
+      if(aac_config.sampleRate != a2dp_codec_to_hal_sample_rate(current_codec)){
+        changed = true;
+        break;
+      }
+      if(aac_config.channelMode != a2dp_codec_to_hal_channel_mode
+                                    (current_codec)) {
+        changed = true;
+        break;
+      }
+      if(aac_config.bitsPerSample !=
+          a2dp_codec_to_hal_bits_per_sample(current_codec)) {
+        changed = true;
+        break;
+      }
+      break;
+    }
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX:
+      [[fallthrough]];
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD: {
+      if (current_codec.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_APTX) {
+        if(codec_config->codecType != CodecType::APTX) {
+          changed = true;
+          break;
+        }
+      } else {
+        if(codec_config->codecType != CodecType::APTX_HD) {
+          changed = true;
+          break;
+        }
+      }
+      auto aptx_config = codec_config->config.aptxConfig();
+      if(aptx_config.sampleRate !=
+             a2dp_codec_to_hal_sample_rate(current_codec)) {
+        changed = true;
+        break;
+      }
+      if(aptx_config.channelMode !=
+          a2dp_codec_to_hal_channel_mode(current_codec)) {
+        changed = true;
+        break;
+      }
+      if(aptx_config.bitsPerSample !=
+          a2dp_codec_to_hal_bits_per_sample(current_codec)) {
+        changed = true;
+        break;
+      }
+      break;
+    }
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE: {
+      tA2DP_APTX_ADAPTIVE_CIE adaptive_cie;
+      if(codec_config->codecType != CodecType::APTX_ADAPTIVE) {
+        changed = true;
+        break;
+      }
+      auto aptx_adaptive_config = codec_config->config.aptxAdaptiveConfig();
+      if(aptx_adaptive_config.sampleRate !=
+                a2dp_codec_to_hal_sample_rate(current_codec)) {
+        changed = true;
+        break;
+      }
+      if(aptx_adaptive_config.bitsPerSample !=
+          a2dp_codec_to_hal_bits_per_sample(current_codec)) {
+        changed = true;
+        break;
+      }
+      if(!A2DP_GetAptxAdaptiveCIE(p_codec_info, &adaptive_cie)) {
+        LOG(ERROR) << __func__ << ": Unable to get Aptx Adaptive CIE";
+        break;
+      }
+      if(aptx_adaptive_config.channelMode !=
+                               static_cast<AptxAdaptiveChannelMode>
+                                (adaptive_cie.channelMode)) {
+        changed = true;
+        break;
+      }
+      break;
+    }
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC: {
+      if(codec_config->codecType != CodecType::LDAC) {
+        changed = true;
+        break;
+      }
+      auto ldac_config = codec_config->config.ldacConfig();
+      if(ldac_config.sampleRate !=
+           a2dp_codec_to_hal_sample_rate(current_codec)) {
+        changed = true;
+        break;
+      }
+
+      if(ldac_config.bitsPerSample !=
+          a2dp_codec_to_hal_bits_per_sample(current_codec)) {
+        changed = true;
+        break;
+      }
+      switch (a2dp_offload.codec_info[7]) {
+        case A2DP_LDAC_CHANNEL_MODE_STEREO:
+          if(ldac_config.channelMode != LdacChannelMode::STEREO) {
+            changed = true;
+          }
+          break;
+        case A2DP_LDAC_CHANNEL_MODE_DUAL:
+          if(ldac_config.channelMode != LdacChannelMode::DUAL) {
+            changed = true;
+          }
+          break;
+        case A2DP_LDAC_CHANNEL_MODE_MONO:
+          if(ldac_config.channelMode != LdacChannelMode::MONO) {
+            changed = true;
+          }
+          break;
+        default:
+          LOG(ERROR) << __func__ << ": Unknown LDAC channel_mode="
+                     << a2dp_offload.codec_info[7];
+          break;
+      }
+      break;
+    }
+#if (TWS_ENABLED == TRUE)
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_TWS: {
+      SampleRate sampleRate;
+      ChannelMode channelMode;
+      uint8_t syncMode;
+      if(codec_config->codecType != CodecType::APTX_TWS) {
+        changed = true;
+        break;
+      }
+      auto aptx_tws_config = codec_config->config.aptxTwsConfig();
+      if(aptx_tws_config.sampleRate !=
+               a2dp_codec_to_hal_sample_rate(current_codec)) {
+        changed = true;
+        break;
+      }
+      if(aptx_tws_config.channelMode !=
+                a2dp_codec_to_hal_channel_mode(current_codec)) {
+        changed = true;
+        break;
+      }
+      break;
+    }
+    case BTAV_VENDOR_A2DP_CODEC_INDEX_MAX:
+      [[fallthrough]];
+#else
+    case BTAV_A2DP_CODEC_INDEX_MAX:
+      [[fallthrough]];
+#endif
+    default:
+      LOG(ERROR) << __func__
+                 << ": Unknown codec_type=" << current_codec.codec_type;
+      break;
+  }
+  return changed;
+}
+
+bool a2dp_get_selected_hal_codec_config(CodecConfiguration* codec_config) {
+  A2dpCodecConfig* a2dp_codec_configs = bta_av_get_a2dp_current_codec();
+  uint8_t p_codec_info[AVDT_CODEC_SIZE];
+  uint8_t codec_type;
+  uint32_t bitrate = 0;
+  tA2DP_ENCODER_INIT_PEER_PARAMS peer_param;
+  if (codec_config == nullptr) return false;
+  if (a2dp_codec_configs == nullptr) {
+    LOG(WARNING) << __func__ << ": failure to get A2DP codec config";
+    return false;
+  }
+  btav_a2dp_codec_config_t current_codec = a2dp_codec_configs->getCodecConfig();
+  tBT_A2DP_OFFLOAD a2dp_offload;
+  a2dp_codec_configs->getCodecSpecificConfig(&a2dp_offload);
+  memset(p_codec_info, 0, AVDT_CODEC_SIZE);
+  if (!a2dp_codec_configs->copyOutOtaCodecConfig(p_codec_info))
+  {
+    LOG(ERROR) << "No valid codec config";
+    return false;
+  }
+
+  // fill the scrambling support flag
+  codec_config->isScramblingEnabled = btif_av_is_scrambling_enabled();
+
+  switch (current_codec.codec_type) {
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_SBC:
+      [[fallthrough]];
+    case BTAV_A2DP_CODEC_INDEX_SINK_SBC: {
+      codec_config->codecType = CodecType::SBC;
+      codec_config->config.sbcConfig({});
+      auto sbc_config = codec_config->config.sbcConfig();
+      sbc_config.sampleRate = a2dp_codec_to_hal_sample_rate(current_codec);
+      if (sbc_config.sampleRate == SampleRate::RATE_UNKNOWN) {
+        LOG(ERROR) << __func__
+                   << ": Unknown SBC sample_rate=" << current_codec.sample_rate;
+        return false;
+      }
+      uint8_t channel_mode = a2dp_offload.codec_info[0] & A2DP_SBC_IE_CH_MD_MSK;
+      switch (channel_mode) {
+        case A2DP_SBC_IE_CH_MD_JOINT:
+          sbc_config.channelMode = SbcChannelMode::JOINT_STEREO;
+          break;
+        case A2DP_SBC_IE_CH_MD_STEREO:
+          sbc_config.channelMode = SbcChannelMode::STEREO;
+          break;
+        case A2DP_SBC_IE_CH_MD_DUAL:
+          sbc_config.channelMode = SbcChannelMode::DUAL;
+          break;
+        case A2DP_SBC_IE_CH_MD_MONO:
+          sbc_config.channelMode = SbcChannelMode::MONO;
+          break;
+        default:
+          LOG(ERROR) << __func__
+                     << ": Unknown SBC channel_mode=" << channel_mode;
+          sbc_config.channelMode = SbcChannelMode::UNKNOWN;
+          return false;
+      }
+      uint8_t block_length =
+          a2dp_offload.codec_info[1] & A2DP_SBC_IE_BLOCKS_MSK;
+      switch (block_length) {
+        case A2DP_SBC_IE_BLOCKS_4:
+          sbc_config.blockLength = SbcBlockLength::BLOCKS_4;
+          break;
+        case A2DP_SBC_IE_BLOCKS_8:
+          sbc_config.blockLength = SbcBlockLength::BLOCKS_8;
+          break;
+        case A2DP_SBC_IE_BLOCKS_12:
+          sbc_config.blockLength = SbcBlockLength::BLOCKS_12;
+          break;
+        case A2DP_SBC_IE_BLOCKS_16:
+          sbc_config.blockLength = SbcBlockLength::BLOCKS_16;
+          break;
+        default:
+          LOG(ERROR) << __func__
+                     << ": Unknown SBC block_length=" << block_length;
+          return false;
+      }
+      uint8_t sub_bands = a2dp_offload.codec_info[1] & A2DP_SBC_IE_SUBBAND_MSK;
+      switch (sub_bands) {
+        case A2DP_SBC_IE_SUBBAND_4:
+          sbc_config.numSubbands = SbcNumSubbands::SUBBAND_4;
+          break;
+        case A2DP_SBC_IE_SUBBAND_8:
+          sbc_config.numSubbands = SbcNumSubbands::SUBBAND_8;
+          break;
+        default:
+          LOG(ERROR) << __func__ << ": Unknown SBC Subbands=" << sub_bands;
+          return false;
+      }
+      uint8_t alloc_method =
+          a2dp_offload.codec_info[1] & A2DP_SBC_IE_ALLOC_MD_MSK;
+      switch (alloc_method) {
+        case A2DP_SBC_IE_ALLOC_MD_S:
+          sbc_config.allocMethod = SbcAllocMethod::ALLOC_MD_S;
+          break;
+        case A2DP_SBC_IE_ALLOC_MD_L:
+          sbc_config.allocMethod = SbcAllocMethod::ALLOC_MD_L;
+          break;
+        default:
+          LOG(ERROR) << __func__
+                     << ": Unknown SBC alloc_method=" << alloc_method;
+          return false;
+      }
+      sbc_config.minBitpool = a2dp_offload.codec_info[2];
+      sbc_config.maxBitpool = a2dp_offload.codec_info[3];
+      sbc_config.bitsPerSample =
+          a2dp_codec_to_hal_bits_per_sample(current_codec);
+      if (sbc_config.bitsPerSample == BitsPerSample::BITS_UNKNOWN) {
+        LOG(ERROR) << __func__ << ": Unknown SBC bits_per_sample="
+                   << current_codec.bits_per_sample;
+        return false;
+      }
+      codec_config->config.sbcConfig(sbc_config);
+      break;
+    }
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_AAC:
+      [[fallthrough]];
+    case BTAV_A2DP_CODEC_INDEX_SINK_AAC: {
+      codec_config->codecType = CodecType::AAC;
+      codec_config->config.aacConfig({});
+      auto aac_config = codec_config->config.aacConfig();
+      // TODO(cheneyni): add more supported types.
+      aac_config.objectType = AacObjectType::MPEG2_LC;
+      aac_config.sampleRate = a2dp_codec_to_hal_sample_rate(current_codec);
+      if (aac_config.sampleRate == SampleRate::RATE_UNKNOWN) {
+        LOG(ERROR) << __func__
+                   << ": Unknown AAC sample_rate=" << current_codec.sample_rate;
+        return false;
+      }
+      aac_config.channelMode = a2dp_codec_to_hal_channel_mode(current_codec);
+      if (aac_config.channelMode == ChannelMode::UNKNOWN) {
+        LOG(ERROR) << __func__ << ": Unknown AAC channel_mode="
+                   << current_codec.channel_mode;
+        return false;
+      }
+      // TODO(cheneyni): refine to support VBR.
+      aac_config.variableBitRateEnabled = AacVariableBitRate::DISABLED;
+      aac_config.bitsPerSample =
+          a2dp_codec_to_hal_bits_per_sample(current_codec);
+      if (aac_config.bitsPerSample == BitsPerSample::BITS_UNKNOWN) {
+        LOG(ERROR) << __func__ << ": Unknown AAC bits_per_sample="
+                   << current_codec.bits_per_sample;
+        return false;
+      }
+      codec_config->config.aacConfig(aac_config);
+      break;
+    }
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX:
+      [[fallthrough]];
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD: {
+      if (current_codec.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_APTX) {
+        codec_config->codecType = CodecType::APTX;
+      } else {
+        codec_config->codecType = CodecType::APTX_HD;
+      }
+      codec_config->config.aptxConfig({});
+      auto aptx_config = codec_config->config.aptxConfig();
+      aptx_config.sampleRate = a2dp_codec_to_hal_sample_rate(current_codec);
+      if (aptx_config.sampleRate == SampleRate::RATE_UNKNOWN) {
+        LOG(ERROR) << __func__ << ": Unknown aptX sample_rate="
+                   << current_codec.sample_rate;
+        return false;
+      }
+      aptx_config.channelMode = a2dp_codec_to_hal_channel_mode(current_codec);
+      if (aptx_config.channelMode == ChannelMode::UNKNOWN) {
+        LOG(ERROR) << __func__ << ": Unknown aptX channel_mode="
+                   << current_codec.channel_mode;
+        return false;
+      }
+      aptx_config.bitsPerSample =
+          a2dp_codec_to_hal_bits_per_sample(current_codec);
+      if (aptx_config.bitsPerSample == BitsPerSample::BITS_UNKNOWN) {
+        LOG(ERROR) << __func__ << ": Unknown aptX bits_per_sample="
+                   << current_codec.bits_per_sample;
+        return false;
+      }
+      codec_config->config.aptxConfig(aptx_config);
+      break;
+    }
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE: {
+      tA2DP_APTX_ADAPTIVE_CIE adaptive_cie;
+      codec_config->codecType = CodecType::APTX_ADAPTIVE;
+      codec_config->config.aptxAdaptiveConfig({});
+      auto aptx_adaptive_config = codec_config->config.aptxAdaptiveConfig();
+      aptx_adaptive_config.sampleRate = a2dp_codec_to_hal_sample_rate(current_codec);
+      if (aptx_adaptive_config.sampleRate == SampleRate::RATE_UNKNOWN) {
+        LOG(ERROR) << __func__ << ": Unknown LDAC sample_rate="
+                   << current_codec.sample_rate;
+        return false;
+      }
+      aptx_adaptive_config.bitsPerSample =
+          a2dp_codec_to_hal_bits_per_sample(current_codec);
+      if (aptx_adaptive_config.bitsPerSample == BitsPerSample::BITS_UNKNOWN) {
+        LOG(ERROR) << __func__ << ": Unknown aptX adaptive bits_per_sample="
+                   << current_codec.bits_per_sample;
+        return false;
+      }
+      if(!A2DP_GetAptxAdaptiveCIE(p_codec_info, &adaptive_cie)) {
+        LOG(ERROR) << __func__ << ": Unable to get Aptx Adaptive CIE";
+        return false;
+      }
+      aptx_adaptive_config.channelMode = static_cast<AptxAdaptiveChannelMode>
+                                        (adaptive_cie.channelMode);
+      if (aptx_adaptive_config.channelMode >=
+                 AptxAdaptiveChannelMode::UNKNOWN) {
+        LOG(ERROR) << __func__ << ": Unknown aptX adaptive channel_mode="
+                   << adaptive_cie.channelMode;
+        return false;
+      }
+      aptx_adaptive_config.aptxMode = static_cast<AptxMode>
+                            (btif_av_get_aptx_mode_info());
+      aptx_adaptive_config.sinkBuffering = { 20, 50, 20, 50, 20, 50 };
+      aptx_adaptive_config.ttp = { adaptive_cie.ttp_ll_0, adaptive_cie.ttp_ll_1,
+                                   adaptive_cie.ttp_hq_0, adaptive_cie.ttp_hq_1,
+                                   adaptive_cie.ttp_tws_0, adaptive_cie.ttp_tws_1
+                                 };
+      codec_config->config.aptxAdaptiveConfig(aptx_adaptive_config);
+      break;
+    }
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC: {
+      codec_config->codecType = CodecType::LDAC;
+      codec_config->config.ldacConfig({});
+      auto ldac_config = codec_config->config.ldacConfig();
+      ldac_config.sampleRate = a2dp_codec_to_hal_sample_rate(current_codec);
+      if (ldac_config.sampleRate == SampleRate::RATE_UNKNOWN) {
+        LOG(ERROR) << __func__ << ": Unknown LDAC sample_rate="
+                   << current_codec.sample_rate;
+        return false;
+      }
+      switch (a2dp_offload.codec_info[7]) {
+        case A2DP_LDAC_CHANNEL_MODE_STEREO:
+          ldac_config.channelMode = LdacChannelMode::STEREO;
+          break;
+        case A2DP_LDAC_CHANNEL_MODE_DUAL:
+          ldac_config.channelMode = LdacChannelMode::DUAL;
+          break;
+        case A2DP_LDAC_CHANNEL_MODE_MONO:
+          ldac_config.channelMode = LdacChannelMode::MONO;
+          break;
+        default:
+          LOG(ERROR) << __func__ << ": Unknown LDAC channel_mode="
+                     << a2dp_offload.codec_info[7];
+          ldac_config.channelMode = LdacChannelMode::UNKNOWN;
+          return false;
+      }
+      switch (a2dp_offload.codec_info[6]) {
+        case A2DP_LDAC_QUALITY_HIGH:
+          ldac_config.qualityIndex = LdacQualityIndex::QUALITY_HIGH;
+          break;
+        case A2DP_LDAC_QUALITY_MID:
+          ldac_config.qualityIndex = LdacQualityIndex::QUALITY_MID;
+          break;
+        case A2DP_LDAC_QUALITY_LOW:
+          ldac_config.qualityIndex = LdacQualityIndex::QUALITY_LOW;
+          break;
+        case A2DP_LDAC_QUALITY_ABR_OFFLOAD:
+          ldac_config.qualityIndex = LdacQualityIndex::QUALITY_ABR;
+          break;
+        default:
+          LOG(ERROR) << __func__ << ": Unknown LDAC QualityIndex="
+                     << a2dp_offload.codec_info[6];
+          return false;
+      }
+      ldac_config.bitsPerSample =
+          a2dp_codec_to_hal_bits_per_sample(current_codec);
+      if (ldac_config.bitsPerSample == BitsPerSample::BITS_UNKNOWN) {
+        LOG(ERROR) << __func__ << ": Unknown LDAC bits_per_sample="
+                   << current_codec.bits_per_sample;
+        return false;
+      }
+      codec_config->config.ldacConfig(ldac_config);
+      break;
+    }
+#if (TWS_ENABLED == TRUE)
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_TWS: {
+      SampleRate sampleRate;
+      ChannelMode channelMode;
+      uint8_t syncMode;
+      codec_config->codecType = CodecType::APTX_TWS;
+      codec_config->config.aptxTwsConfig({});
+      auto aptx_tws_config = codec_config->config.aptxTwsConfig();
+      aptx_tws_config.sampleRate = a2dp_codec_to_hal_sample_rate(current_codec);
+      if (aptx_tws_config.sampleRate == SampleRate::RATE_UNKNOWN) {
+        LOG(ERROR) << __func__ << ": Unknown aptX tws sample_rate="
+                   << current_codec.sample_rate;
+        return false;
+      }
+      aptx_tws_config.channelMode = a2dp_codec_to_hal_channel_mode(current_codec);
+      if (aptx_tws_config.channelMode == ChannelMode::UNKNOWN) {
+        LOG(ERROR) << __func__ << ": Unknown aptX tws channel_mode="
+                   << current_codec.channel_mode;
+        return false;
+      }
+      aptx_tws_config.syncMode = 0x02;
+      codec_config->config.aptxTwsConfig(aptx_tws_config);
+      break;
+    }
+    case BTAV_VENDOR_A2DP_CODEC_INDEX_MAX:
+      [[fallthrough]];
+#else
+    case BTAV_A2DP_CODEC_INDEX_MAX:
+      [[fallthrough]];
+#endif
+    default:
+      LOG(ERROR) << __func__
+                 << ": Unknown codec_type=" << current_codec.codec_type;
+      codec_config->codecType = CodecType::UNKNOWN;
+      codec_config->config = {};
+      return false;
+  }
+  bta_av_co_get_peer_params(&peer_param);
+  codec_type = A2DP_GetCodecType((const uint8_t*)p_codec_info);
+  LOG(INFO) << __func__ << ": codec_type" << codec_type;
+  // Obtain the MTU
+  codec_config->peerMtu = peer_param.peer_mtu - A2DP_HEADER_SIZE;
+  if (A2DP_MEDIA_CT_SBC == codec_type) {
+    bitrate = A2DP_GetOffloadBitrateSbc(a2dp_codec_configs, peer_param.is_peer_edr);
+    LOG(INFO) << __func__ << "SBC bitrate" << bitrate;
+    codec_config->encodedAudioBitrate = bitrate * 1000;
+  }
+  else if (A2DP_MEDIA_CT_NON_A2DP == codec_type) {
+    int samplerate = A2DP_GetTrackSampleRate(p_codec_info);
+    if ((A2DP_VendorCodecGetVendorId(p_codec_info)) == A2DP_LDAC_VENDOR_ID) {
+      codec_config->encodedAudioBitrate = A2DP_GetTrackBitRate(p_codec_info);
+      LOG(INFO) << __func__ << "LDAC bitrate" << codec_config->encodedAudioBitrate;
+    } else {
+      /* BR = (Sampl_Rate * PCM_DEPTH * CHNL)/Compression_Ratio */
+      int bits_per_sample = 16; // TODO
+      codec_config->encodedAudioBitrate = (samplerate * bits_per_sample * 2)/4;
+      LOG(INFO) << __func__ << "Aptx bitrate" << codec_config->encodedAudioBitrate;
+    }
+  }
+  else if (A2DP_MEDIA_CT_AAC == codec_type) {
+    bool is_AAC_frame_ctrl_stack_enable = false;
+    char AAC_frame_ctrl_stack_val[PROPERTY_VALUE_MAX] = {'\0'};
+    osi_property_get("persist.vendor.btstack.aac_frm_ctl.enabled", AAC_frame_ctrl_stack_val,
+                                                       "false");
+    if (!strcmp(AAC_frame_ctrl_stack_val, "true"))
+      is_AAC_frame_ctrl_stack_enable = true;
+    LOG(INFO) << __func__ << "Stack AAC frame control enabled"
+                          << is_AAC_frame_ctrl_stack_enable;
+    if (is_AAC_frame_ctrl_stack_enable) {
+      int sample_rate = A2DP_GetTrackSampleRate(p_codec_info);
+      LOG(INFO) << __func__ << "sample_rate " << sample_rate;
+      LOG(INFO) << __func__ << " peer_mtu " << peer_param.peer_mtu;
+      codec_config->encodedAudioBitrate = (peer_param.peer_mtu - AAC_LATM_HEADER)
+                                          * (8 * sample_rate / AAC_SAMPLE_SIZE);
+    } else {
+      tA2DP_AAC_CIE aac_cie;
+      if(!A2DP_GetAacCIE(p_codec_info, &aac_cie)) {
+        LOG(ERROR) << __func__ << ": Unable to get AAC CIE";
+        return false;
+      }
+      codec_config->encodedAudioBitrate = aac_cie.bitRate;
+    }
+  }
+  LOG(INFO) << __func__ << ": CodecConfiguration=" << toString(*codec_config);
+  return true;
+}
+
+bool a2dp_get_selected_hal_pcm_config(PcmParameters* pcm_config) {
+  if (pcm_config == nullptr) return false;
+  A2dpCodecConfig* a2dp_codec_configs = bta_av_get_a2dp_current_codec();
+  if (a2dp_codec_configs == nullptr) {
+    LOG(WARNING) << __func__ << ": failure to get A2DP codec config";
+    *pcm_config = ::bluetooth::audio::BluetoothAudioClientInterface::
+        kInvalidPcmConfiguration;
+    return false;
+  }
+
+  btav_a2dp_codec_config_t current_codec = a2dp_codec_configs->getCodecConfig();
+  pcm_config->sampleRate = a2dp_codec_to_hal_sample_rate(current_codec);
+  pcm_config->bitsPerSample = a2dp_codec_to_hal_bits_per_sample(current_codec);
+  pcm_config->channelMode = a2dp_codec_to_hal_channel_mode(current_codec);
+  return (pcm_config->sampleRate != SampleRate::RATE_UNKNOWN &&
+          pcm_config->bitsPerSample != BitsPerSample::BITS_UNKNOWN &&
+          pcm_config->channelMode != ChannelMode::UNKNOWN);
+}
+
+bool a2dp_is_audio_pcm_config_params_changed(PcmParameters* pcm_config) {
+  if (pcm_config == nullptr) return false;
+  A2dpCodecConfig* a2dp_codec_configs = bta_av_get_a2dp_current_codec();
+  if (a2dp_codec_configs == nullptr) {
+    LOG(WARNING) << __func__ << ": failure to get A2DP codec config";
+    *pcm_config = ::bluetooth::audio::BluetoothAudioClientInterface::
+        kInvalidPcmConfiguration;
+    return false;
+  }
+
+  btav_a2dp_codec_config_t current_codec = a2dp_codec_configs->getCodecConfig();
+  if((pcm_config->sampleRate != a2dp_codec_to_hal_sample_rate(current_codec)) ||
+     (pcm_config->bitsPerSample !=
+          a2dp_codec_to_hal_bits_per_sample(current_codec)) ||
+     (pcm_config->channelMode !=
+          a2dp_codec_to_hal_channel_mode(current_codec))) {
+    return true;
+  }
+  return false;
+}
+}  // namespace
+
+namespace bluetooth {
+namespace audio {
+namespace a2dp {
+
+// Checking if new bluetooth_audio is supported
+bool is_hal_2_0_supported() {
+  if (!is_configured) {
+    btaudio_a2dp_supported =
+      property_get_bool(BLUETOOTH_AUDIO_PROP_ENABLED, false);
+    is_configured = true;
+  }
+  return btaudio_a2dp_supported;
+}
+
+// Checking if new bluetooth_audio is enabled
+bool is_hal_2_0_enabled() { return (a2dp_sink && a2dp_sink->IsActvie()); }
+
+// Initialize BluetoothAudio HAL: openProvider
+bool init( thread_t* message_loop) {
+  LOG(WARNING) << __func__;
+  std::unique_lock<std::mutex> guard(internal_mutex_);
+  if (!is_hal_2_0_supported()) {
+    LOG(ERROR) << __func__ << ": BluetoothAudio HAL is not supported";
+    return false;
+  }
+
+  AudioConfiguration audio_config{};
+  if (btif_av_is_split_a2dp_enabled()) {
+    CodecConfiguration codec_config{};
+    if (!a2dp_get_selected_hal_codec_config(&codec_config)) {
+      LOG(ERROR) << __func__ << ": Failed to get CodecConfiguration";
+      return false;
+    }
+    audio_config.codecConfig(codec_config);
+    session_type = SessionType::A2DP_HARDWARE_OFFLOAD_DATAPATH;
+  } else {
+    PcmParameters pcm_config{};
+    if (!a2dp_get_selected_hal_pcm_config(&pcm_config)) {
+      LOG(ERROR) << __func__ << ": Failed to get PcmConfiguration";
+      return false;
+    }
+    audio_config.pcmConfig(pcm_config);
+    session_type = SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH;
+  }
+  if(a2dp_sink == nullptr) {
+    a2dp_sink = new A2dpTransport(session_type, audio_config);
+  } else {
+    a2dp_sink->Init(session_type, audio_config);
+  }
+  if(a2dp_hal_clientif == nullptr) {
+    a2dp_hal_clientif = new bluetooth::audio::BluetoothAudioClientInterface(
+      a2dp_sink, message_loop, &internal_mutex_);
+  }
+
+  if (remote_delay != 0) {
+    LOG(INFO) << __func__ << ": restore DELAY "
+              << static_cast<float>(remote_delay / 10.0) << " ms";
+    a2dp_sink->SetRemoteDelay(remote_delay);
+    remote_delay = 0;
+  }
+  return true;
+}
+
+// Clean up BluetoothAudio HAL
+void cleanup() {
+  std::unique_lock<std::mutex> guard(internal_mutex_);
+  if (!is_hal_2_0_enabled()) return;
+  tA2DP_CTRL_CMD pending_cmd = A2DP_CTRL_CMD_NONE;
+  pending_cmd = a2dp_sink->GetPendingCmd();
+  if (pending_cmd == A2DP_CTRL_CMD_START) {
+    LOG(INFO) << __func__ << ":honoring pending A2DP_CTRL_CMD_START";
+    a2dp_hal_clientif->StreamStarted(a2dp_ack_to_bt_audio_ctrl_ack
+                    (A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS));
+  } else if ((pending_cmd == A2DP_CTRL_CMD_SUSPEND)
+      || (pending_cmd == A2DP_CTRL_CMD_STOP)) {
+    LOG(INFO) << __func__ << ":honoring pending A2DP_CTRL_CMD_SUSPEND/STOP";
+    a2dp_hal_clientif->StreamSuspended(a2dp_ack_to_bt_audio_ctrl_ack
+                    (A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS));
+  }
+  a2dp_sink->Cleanup();
+  a2dp_hal_clientif->EndSession();
+  session_type = SessionType::UNKNOWN;
+  remote_delay = 0;
+}
+
+// check for audio feeding params are same for newly set up codec vs
+// what was already set up on hidl side
+bool is_restart_session_needed() {
+  std::unique_lock<std::mutex> guard(internal_mutex_);
+  if (!is_hal_2_0_enabled()) {
+    LOG(ERROR) << __func__ << ": BluetoothAudio HAL is not enabled";
+    return false;
+  }
+  AudioConfiguration audio_config = a2dp_sink->GetAudioConfiguration();
+  if (btif_av_is_split_a2dp_enabled()) {
+    return a2dp_is_audio_codec_config_params_changed(
+                     &audio_config.codecConfig());
+  } else {
+    return a2dp_is_audio_pcm_config_params_changed(
+                     &audio_config.pcmConfig());
+  }
+  return false;
+}
+
+// Set up the codec into BluetoothAudio HAL
+bool setup_codec() {
+  std::unique_lock<std::mutex> guard(internal_mutex_);
+  if (!is_hal_2_0_enabled()) {
+    LOG(ERROR) << __func__ << ": BluetoothAudio HAL is not enabled";
+    return false;
+  }
+  AudioConfiguration audio_config{};
+  if (session_type == SessionType::A2DP_HARDWARE_OFFLOAD_DATAPATH) {
+    CodecConfiguration codec_config{};
+    if (!a2dp_get_selected_hal_codec_config(&codec_config)) {
+      LOG(ERROR) << __func__ << ": Failed to get CodecConfiguration";
+      return false;
+    }
+    audio_config.codecConfig(codec_config);
+  } else if (session_type == SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH) {
+    PcmParameters pcm_config{};
+    if (!a2dp_get_selected_hal_pcm_config(&pcm_config)) {
+      LOG(ERROR) << __func__ << ": Failed to get PcmConfiguration";
+      return false;
+    }
+    audio_config.pcmConfig(pcm_config);
+  }
+  return a2dp_hal_clientif->UpdateAudioConfig(audio_config);
+}
+
+void start_session() {
+  std::unique_lock<std::mutex> guard(internal_mutex_);
+  if (!is_hal_2_0_enabled()) {
+    LOG(ERROR) << __func__ << ": BluetoothAudio HAL is not enabled";
+    return;
+  }
+  LOG(ERROR) << __func__;
+  a2dp_hal_clientif->StartSession();
+}
+
+void end_session() {
+  std::unique_lock<std::mutex> guard(internal_mutex_);
+  if (!is_hal_2_0_enabled()) {
+    LOG(ERROR) << __func__ << ": BluetoothAudio HAL is not enabled";
+    return;
+  }
+  LOG(ERROR) << __func__;
+  a2dp_hal_clientif->EndSession();
+}
+
+tA2DP_CTRL_CMD get_pending_command() {
+  std::unique_lock<std::mutex> guard(internal_mutex_);
+  tA2DP_CTRL_CMD pending_cmd = A2DP_CTRL_CMD_NONE;
+  if (!is_hal_2_0_enabled()) {
+    LOG(ERROR) << __func__ << ": BluetoothAudio HAL is not enabled";
+  } else {
+    pending_cmd = a2dp_sink->GetPendingCmd();
+  }
+  return pending_cmd;
+}
+
+void reset_pending_command() {
+  std::unique_lock<std::mutex> guard(internal_mutex_);
+  if (!is_hal_2_0_enabled()) {
+    LOG(ERROR) << __func__ << ": BluetoothAudio HAL is not enabled";
+    return;
+  }
+  a2dp_sink->ResetPendingCmd();
+}
+
+void ack_stream_started(const tA2DP_CTRL_ACK& ack) {
+  std::unique_lock<std::mutex> guard(internal_mutex_);
+  if (!is_hal_2_0_enabled()) {
+    LOG(ERROR) << __func__ << ": BluetoothAudio HAL is not enabled";
+    return;
+  }
+  auto ctrl_ack = a2dp_ack_to_bt_audio_ctrl_ack(ack);
+  LOG(INFO) << __func__ << ": result=" << ctrl_ack;
+  auto pending_cmd = a2dp_sink->GetPendingCmd();
+  if (pending_cmd == A2DP_CTRL_CMD_START) {
+    a2dp_hal_clientif->StreamStarted(ctrl_ack);
+  } else {
+    LOG(WARNING) << __func__ << ": pending=" << pending_cmd
+                 << " ignore result=" << ctrl_ack;
+    return;
+  }
+  if (ctrl_ack != bluetooth::audio::BluetoothAudioCtrlAck::PENDING) {
+    a2dp_sink->ResetPendingCmd();
+  }
+}
+
+void ack_stream_suspended(const tA2DP_CTRL_ACK& ack) {
+  std::unique_lock<std::mutex> guard(internal_mutex_);
+  if (!is_hal_2_0_enabled()) {
+    LOG(ERROR) << __func__ << ": BluetoothAudio HAL is not enabled";
+    return;
+  }
+  auto ctrl_ack = a2dp_ack_to_bt_audio_ctrl_ack(ack);
+  LOG(INFO) << __func__ << ": result=" << ctrl_ack;
+  auto pending_cmd = a2dp_sink->GetPendingCmd();
+  if (pending_cmd == A2DP_CTRL_CMD_SUSPEND) {
+    a2dp_hal_clientif->StreamSuspended(ctrl_ack);
+  } else if (pending_cmd == A2DP_CTRL_CMD_STOP) {
+    LOG(INFO) << __func__ << ": A2DP_CTRL_CMD_STOP result=" << ctrl_ack;
+  } else {
+    LOG(WARNING) << __func__ << ": pending=" << pending_cmd
+                 << " ignore result=" << ctrl_ack;
+    return;
+  }
+  if (ctrl_ack != bluetooth::audio::BluetoothAudioCtrlAck::PENDING) {
+    a2dp_sink->ResetPendingCmd();
+  }
+}
+
+// Read from the FMQ of BluetoothAudio HAL
+size_t read(uint8_t* p_buf, uint32_t len) {
+  std::unique_lock<std::mutex> guard(internal_mutex_);
+  if (!is_hal_2_0_enabled()) {
+    LOG(ERROR) << __func__ << ": BluetoothAudio HAL is not enabled";
+    return 0;
+  } else if (session_type != SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH) {
+    LOG(ERROR) << __func__ << ": session_type=" << toString(session_type)
+               << " is not A2DP_SOFTWARE_ENCODING_DATAPATH";
+    return 0;
+  }
+  return a2dp_hal_clientif->ReadAudioData(p_buf, len);
+}
+
+// Update A2DP delay report to BluetoothAudio HAL
+void set_remote_delay(uint16_t delay_report) {
+  std::unique_lock<std::mutex> guard(internal_mutex_);
+  if (!is_hal_2_0_enabled()) {
+    LOG(INFO) << __func__ << ":  not ready for DelayReport "
+              << static_cast<float>(delay_report / 10.0) << " ms";
+    remote_delay = delay_report;
+    return;
+  }
+  LOG(INFO) << __func__ << ": DELAY " << static_cast<float>(delay_report / 10.0)
+            << " ms";
+  a2dp_sink->SetRemoteDelay(delay_report);
+}
+
+}  // namespace a2dp
+}  // namespace audio
+}  // namespace bluetooth

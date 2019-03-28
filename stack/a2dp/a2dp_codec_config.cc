@@ -73,6 +73,7 @@
 #include "device/include/controller.h"
 #include "btif_av_co.h"
 #include "device/include/device_iot_config.h"
+#include "bta/av/bta_av_int.h"
 
 /* The Media Type offset within the codec info byte array */
 #define A2DP_MEDIA_TYPE_OFFSET 1
@@ -92,6 +93,13 @@ bool aptxhd_offload = false;
 bool aptx_adaptive_offload = false;
 bool ldac_offload = false;
 bool aptxtws_offload = false;
+bool sbc_sw = false;
+bool aac_sw = false;
+bool aptx_sw = false;
+bool aptxhd_sw = false;
+bool aptx_adaptive_sw = false;
+bool ldac_sw = false;
+bool aptxtws_sw = false;
 static void init_btav_a2dp_codec_config(
     btav_a2dp_codec_config_t* codec_config, btav_a2dp_codec_index_t codec_index,
     btav_a2dp_codec_priority_t codec_priority) {
@@ -201,6 +209,81 @@ A2dpCodecConfig* A2dpCodecConfig::createCodec(
   }
 
   return codec_config;
+}
+
+bool A2dpCodecConfig::getCodecSpecificConfig(tBT_A2DP_OFFLOAD* p_a2dp_offload) {
+  std::lock_guard<std::recursive_mutex> lock(codec_mutex_);
+
+  uint8_t codec_config[AVDT_CODEC_SIZE];
+  uint32_t vendor_id;
+  uint16_t codec_id;
+
+  memset(p_a2dp_offload->codec_info, 0, sizeof(p_a2dp_offload->codec_info));
+
+  if (!A2DP_IsSourceCodecValid(ota_codec_config_)) {
+    return false;
+  }
+
+  memcpy(codec_config, ota_codec_config_, sizeof(ota_codec_config_));
+  tA2DP_CODEC_TYPE codec_type = A2DP_GetCodecType(codec_config);
+  switch (codec_type) {
+    case A2DP_MEDIA_CT_SBC:
+      p_a2dp_offload->codec_info[0] =
+          codec_config[3];  // samplefreq | channelmode
+      p_a2dp_offload->codec_info[1] =
+          codec_config[4];  // blk_len | subbands | Alloc Method
+      p_a2dp_offload->codec_info[2] = codec_config[5];  // Min bit pool
+      p_a2dp_offload->codec_info[3] = codec_config[6];  // Max bit pool
+      break;
+    case A2DP_MEDIA_CT_AAC:
+      p_a2dp_offload->codec_info[0] = codec_config[3];  // object type
+      p_a2dp_offload->codec_info[1] = codec_config[6];  // VBR | BR
+      break;
+    case A2DP_MEDIA_CT_NON_A2DP:
+      vendor_id = A2DP_VendorCodecGetVendorId(codec_config);
+      codec_id = A2DP_VendorCodecGetCodecId(codec_config);
+      p_a2dp_offload->codec_info[0] = (vendor_id & 0x000000FF);
+      p_a2dp_offload->codec_info[1] = (vendor_id & 0x0000FF00) >> 8;
+      p_a2dp_offload->codec_info[2] = (vendor_id & 0x00FF0000) >> 16;
+      p_a2dp_offload->codec_info[3] = (vendor_id & 0xFF000000) >> 24;
+      p_a2dp_offload->codec_info[4] = (codec_id & 0x000000FF);
+      p_a2dp_offload->codec_info[5] = (codec_id & 0x0000FF00) >> 8;
+      if (vendor_id == A2DP_LDAC_VENDOR_ID && codec_id == A2DP_LDAC_CODEC_ID) {
+        if (codec_config_.codec_specific_1 == 0) {  // default is 0, ABR
+          p_a2dp_offload->codec_info[6] =
+              A2DP_LDAC_QUALITY_ABR_OFFLOAD;  // ABR in offload
+        } else {
+          switch (codec_config_.codec_specific_1 % 10) {
+            case 0:
+              p_a2dp_offload->codec_info[6] =
+                  A2DP_LDAC_QUALITY_HIGH;  // High bitrate
+              break;
+            case 1:
+              p_a2dp_offload->codec_info[6] =
+                  A2DP_LDAC_QUALITY_MID;  // Mid birate
+              break;
+            case 2:
+              p_a2dp_offload->codec_info[6] =
+                  A2DP_LDAC_QUALITY_LOW;  // Low birate
+              break;
+            case 3:
+              FALLTHROUGH_INTENDED; /* FALLTHROUGH */
+            default:
+              p_a2dp_offload->codec_info[6] =
+                  A2DP_LDAC_QUALITY_ABR_OFFLOAD;  // ABR in offload
+              break;
+          }
+        }
+        p_a2dp_offload->codec_info[7] =
+            codec_config[10];  // LDAC specific channel mode
+        LOG_VERBOSE(LOG_TAG, "%s: Ldac specific channelmode =%d", __func__,
+                    p_a2dp_offload->codec_info[7]);
+      }
+      break;
+    default:
+      break;
+  }
+  return true;
 }
 
 bool A2dpCodecConfig::isValid() const { return true; }
@@ -554,7 +637,7 @@ A2dpCodecs::~A2dpCodecs() {
   lock.unlock();
 }
 
-bool A2dpCodecs::init(bool isMulticastEnabled, bool isShoEnabled) {
+bool A2dpCodecs::init(bool isMulticastEnabled) {
   LOG_DEBUG(LOG_TAG, "%s", __func__);
   std::lock_guard<std::recursive_mutex> lock(codec_mutex_);
 #if (TWS_ENABLED == TRUE)
@@ -1497,25 +1580,158 @@ bool A2DP_InitCodecConfig(btav_a2dp_codec_index_t codec_index,
   return false;
 }
 
-void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap, bool scrambling_support, bool is44p1kFreq_support) {
+bool check_mm_supports_offload_codec (std::vector<btav_a2dp_codec_config_t>&
+        offload_enabled_codecs_config, btav_a2dp_codec_index_t codecIndex) {
+  return true; // TODO to be removed for Hybrid Audio
+  for (auto offload_codec_config: offload_enabled_codecs_config) {
+    if (codecIndex == offload_codec_config.codec_type)
+      return true;
+  }
+  return false;
+}
+
+bool A2DP_IsHAL2Supported () {
+  return property_get_bool("persist.bluetooth.bluetooth_audio_hal.enabled", false);
+}
+
+void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap,
+            bool scrambling_support, bool is44p1kFreq_support,
+      std::vector<btav_a2dp_codec_config_t>& offload_enabled_codecs_config) {
   //char value[PROPERTY_VALUE_MAX] = {'\0'};
   char *tok = NULL;
   char *tmp_token = NULL;
   uint8_t add_on_features_size = 0;
   bt_device_features_t * add_on_features_list = NULL;
+  bool hybrid_mode = false;
   LOG_INFO(LOG_TAG,"A2dp_SetOffloadStatus:status = %d",
                      offload_status);
   mA2dp_offload_status = offload_status;
   offload_capability = true;
   if (strcmp(offload_cap,"false") == 0) offload_capability = false;
 
-  if (mA2dp_offload_status) {
-    add_on_features_list = (bt_device_features_t *)
-        controller_get_interface()->get_add_on_features(&add_on_features_size);
-    if(add_on_features_size == 0) {
-      BTIF_TRACE_WARNING(
-          "BT controller doesn't have add on features");
+  add_on_features_list = (bt_device_features_t *)
+      controller_get_interface()->get_add_on_features(&add_on_features_size);
+  if(add_on_features_size == 0) {
+    BTIF_TRACE_WARNING(
+        "BT controller doesn't have add on features");
+  }
+
+  // TODO to remove mA2dp_offload_status & hybrid_mode check for Hybrid Audio
+  if (A2DP_IsHAL2Supported() && mA2dp_offload_status && hybrid_mode) {// 2.0 hybrid
+    offload_capability = offload_status;
+
+#if (TWS_ENABLED == TRUE)
+    for (int i = BTAV_A2DP_CODEC_INDEX_MIN; i < BTAV_VENDOR_A2DP_CODEC_INDEX_MAX; i++) {
+#else
+    for (int i = BTAV_A2DP_CODEC_INDEX_MIN; i < BTAV_A2DP_CODEC_INDEX_MAX; i++) {
+#endif
+      btav_a2dp_codec_index_t codec_index = static_cast<btav_a2dp_codec_index_t>(i);
+
+      //TODO to check for SOC capability
+      switch (codec_index) {
+        case BTAV_A2DP_CODEC_INDEX_SOURCE_SBC:
+          if(((add_on_features_size == 0) ||
+             HCI_SPLIT_A2DP_SOURCE_SBC_SUPPORTED(
+              add_on_features_list->as_array)) &&
+              check_mm_supports_offload_codec(offload_enabled_codecs_config,
+                            codec_index )) {
+            sbc_offload = true;
+            sbc_sw = false;
+          } else {
+            sbc_sw = true;
+            sbc_offload = false;
+          }
+          break;
+        case BTAV_A2DP_CODEC_INDEX_SOURCE_AAC:
+          if(((add_on_features_size == 0) ||
+              HCI_SPLIT_A2DP_SOURCE_AAC_SUPPORTED(
+              add_on_features_list->as_array)) &&
+              check_mm_supports_offload_codec (offload_enabled_codecs_config,
+                            codec_index )) {
+            aac_offload = true;
+            aac_sw = false;
+          } else {
+            aac_sw = true;
+            aac_offload = false;
+          }
+          break;
+        case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX:
+          if(((add_on_features_size == 0) ||
+          HCI_SPLIT_A2DP_SOURCE_APTX_SUPPORTED(
+              add_on_features_list->as_array)) &&
+              check_mm_supports_offload_codec (offload_enabled_codecs_config,
+                            codec_index )) {
+            aptx_offload = true;
+            aptx_sw = false;
+          } else {
+            aptx_sw = true;
+            aptx_offload = false;
+          }
+          break;
+        case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD:
+           if(((add_on_features_size == 0)
+               || HCI_SPLIT_A2DP_SOURCE_APTX_HD_SUPPORTED(
+              add_on_features_list->as_array)) &&
+              check_mm_supports_offload_codec (offload_enabled_codecs_config,
+                            codec_index )) {
+            aptxhd_offload = true;
+            aptxhd_sw = false;
+          } else { // TODO to check for SOC capability
+            aptxhd_sw = true;
+            aptxhd_offload = false;
+          }
+          break;
+        case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE:
+          if(((add_on_features_size == 0) ||
+          HCI_SPLIT_A2DP_SOURCE_APTX__ADAPTIVE_SUPPORTED(
+              add_on_features_list->as_array)) &&
+              check_mm_supports_offload_codec (offload_enabled_codecs_config,
+                            codec_index )) {
+            aptx_adaptive_offload = true;
+            aptx_adaptive_sw = false;
+          } else { // TODO to check for SOC capability
+            aptx_adaptive_sw = true;
+            aptx_adaptive_offload = false;
+          }
+          break;
+        case BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC:
+          if(((add_on_features_size == 0) ||
+          HCI_SPLIT_A2DP_SOURCE_LDAC_SUPPORTED(
+              add_on_features_list->as_array)) &&
+              check_mm_supports_offload_codec (offload_enabled_codecs_config,
+                            codec_index )) {
+            ldac_offload = true;
+            ldac_sw = false;
+          } else { // TODO to check for SOC capability
+            ldac_sw = true;
+            ldac_offload = false;
+          }
+          break;
+#if(TWS_ENABLED == TRUE)
+        case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_TWS:
+          if(((add_on_features_size == 0) ||
+          HCI_SPLIT_A2DP_SOURCE_APTX__TWS_PLUS_SUPPORTED(
+              add_on_features_list->as_array)) &&
+              check_mm_supports_offload_codec (offload_enabled_codecs_config,
+                            codec_index )) {
+            aptxtws_offload = true;
+            aptxtws_sw = false;
+          } else {
+            aptxtws_sw = true;
+            aptxtws_offload = false;
+          }
+          break;
+        case BTAV_VENDOR_A2DP_CODEC_INDEX_SOURCE_MAX:
+        case BTAV_VENDOR_A2DP_CODEC_INDEX_SINK_MAX:
+#else
+        case BTAV_A2DP_CODEC_INDEX_SOURCE_MAX:
+        case BTAV_A2DP_CODEC_INDEX_SINK_MAX:
+#endif
+        default:
+          break;
+      }
     }
+  } else if (mA2dp_offload_status) { // 1.0 HW
     tok = strtok_r((char*)offload_cap, "-", &tmp_token);
     while (tok != NULL)
     {
@@ -1555,6 +1771,12 @@ void A2DP_SetOffloadStatus(bool offload_status, char *offload_cap, bool scrambli
       }
       tok = strtok_r(NULL, "-", &tmp_token);
     };
+  } else { // 1.0 SW
+    sbc_sw = true;
+    aac_sw = true;
+    aptx_sw = true;
+    aptxhd_sw = true;
+    ldac_sw = true;
   }
   mA2dp_offload_scrambling_support = scrambling_support;
   mA2dp_offload_44p1kFreq_support = is44p1kFreq_support;
@@ -1570,6 +1792,48 @@ bool A2DP_IsScramblingSupported() {
 
 bool A2DP_Is44p1kFreqSupported() {
   return mA2dp_offload_44p1kFreq_support;
+}
+
+bool A2DP_IsCodecEnabled(btav_a2dp_codec_index_t codec_index) {
+  return  (A2DP_IsCodecEnabledInOffload(codec_index) ||
+           A2DP_IsCodecEnabledInSoftware(codec_index));
+}
+
+bool A2DP_IsCodecEnabledInSoftware(btav_a2dp_codec_index_t codec_index) {
+  bool codec_status = false;
+    switch (codec_index) {
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_SBC:
+      codec_status = sbc_sw;
+      break;
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_AAC:
+      codec_status = aac_sw;
+      break;
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX:
+      codec_status = aptx_sw;
+      break;
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD:
+      codec_status = aptxhd_sw;
+      break;
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE:
+      codec_status = aptx_adaptive_sw;
+      break;
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC:
+      codec_status = ldac_sw;
+      break;
+#if (TWS_ENABLED == TRUE)
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_TWS:
+      codec_status = aptxtws_sw;
+      break;
+    case BTAV_VENDOR_A2DP_CODEC_INDEX_SOURCE_MAX:
+    case BTAV_VENDOR_A2DP_CODEC_INDEX_SINK_MAX:
+#else
+    case BTAV_A2DP_CODEC_INDEX_SOURCE_MAX:
+    case BTAV_A2DP_CODEC_INDEX_SINK_MAX:
+#endif
+    default:
+      break;
+  }
+  return codec_status;
 }
 
 bool A2DP_IsCodecEnabledInOffload(btav_a2dp_codec_index_t codec_index) {
@@ -1609,18 +1873,6 @@ bool A2DP_IsCodecEnabledInOffload(btav_a2dp_codec_index_t codec_index) {
     default:
       break;
     }
-  } else {
-    if (codec_index != BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC &&
-#if (TWS_ENABLED == TRUE)
-      codec_index != BTAV_VENDOR_A2DP_CODEC_INDEX_SINK_MAX &&
-      codec_index != BTAV_VENDOR_A2DP_CODEC_INDEX_SOURCE_MAX
-#else
-      codec_index != BTAV_A2DP_CODEC_INDEX_SINK_MAX &&
-      codec_index != BTAV_A2DP_CODEC_INDEX_SOURCE_MAX
-#endif
-    )
-      LOG_INFO(LOG_TAG,"SplitA2dp enabled, but offload capability not set");
-      return true;
   }
   return codec_status;
 }

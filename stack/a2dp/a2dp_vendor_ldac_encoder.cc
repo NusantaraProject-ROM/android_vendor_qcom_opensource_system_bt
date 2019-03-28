@@ -344,7 +344,7 @@ static void a2dp_vendor_ldac_encoder_update(uint16_t peer_mtu,
                                             bool* p_restart_output,
                                             bool* p_config_updated) {
 
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC)) {
     LOG_INFO(LOG_TAG,"LDAC is running in offload mode");
     return;
   }
@@ -516,7 +516,7 @@ void a2dp_vendor_ldac_encoder_cleanup(void) {
 }
 
 void a2dp_vendor_ldac_feeding_reset(void) {
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC)) {
     LOG_INFO(LOG_TAG,"LDAC is running in offload mode");
     return;
   }
@@ -547,7 +547,7 @@ void a2dp_vendor_ldac_send_frames(uint64_t timestamp_us) {
   uint8_t nb_frame = 0;
   uint8_t nb_iterations = 0;
 
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC)) {
     LOG_INFO(LOG_TAG,"LDAC is running in offload mode");
     return;
   }
@@ -777,7 +777,7 @@ void A2dpCodecConfigLdac::debug_codec_dump(int fd) {
   tA2DP_LDAC_ENCODER_PARAMS* p_encoder_params =
       &a2dp_ldac_encoder_cb.ldac_encoder_params;
 
-  if (A2DP_GetOffloadStatus()) {
+  if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC)) {
       LOG_INFO(LOG_TAG,"LDAC is running in offload mode");
       return;
   }

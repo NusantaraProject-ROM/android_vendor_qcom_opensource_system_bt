@@ -33,6 +33,7 @@
 #include <algorithm>
 
 #include "audio_a2dp_hw/include/audio_a2dp_hw.h"
+//#include "audio_hal_interface/a2dp_encoding.h"
 #include "bt_common.h"
 #include "bta_av_ci.h"
 #include "btif_a2dp.h"
@@ -213,6 +214,8 @@ static void btm_read_automatic_flush_timeout_cb(void* data);
 static void btm_read_tx_power_cb(void* data);
 static void btif_a2dp_source_unblock_audio_start_timeout(void* context);
 static void btif_a2dp_source_remote_start_timeout(void* context);
+void btif_a2dp_update_sink_latency_change();
+
 static char a2dp_hal_imp[PROPERTY_VALUE_MAX] = "false";
 UNUSED_ATTR static const char* dump_media_event(uint16_t event) {
   switch (event) {
@@ -318,7 +321,9 @@ bool btif_a2dp_source_startup(void) {
 
 static void btif_a2dp_source_startup_delayed(UNUSED_ATTR void* context) {
   raise_priority_a2dp(TASK_HIGH_MEDIA);
-  btif_a2dp_control_init();
+  if (!btif_a2dp_source_is_hal_v2_supported()) {
+    btif_a2dp_control_init();
+  }
   btif_a2dp_source_state = BTIF_A2DP_SOURCE_STATE_RUNNING;
   APPL_TRACE_EVENT("%s: enc_update_in_progress = %d", __func__, enc_update_in_progress);
   enc_update_in_progress = FALSE;
@@ -364,7 +369,11 @@ void btif_a2dp_source_shutdown(void) {
 static void btif_a2dp_source_shutdown_delayed(UNUSED_ATTR void* context) {
   APPL_TRACE_DEBUG("%s", __func__);
   btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
-  btif_a2dp_control_cleanup();
+  if (btif_a2dp_source_is_hal_v2_enabled()){
+    //bluetooth::audio::a2dp::cleanup();
+  } else {
+    btif_a2dp_control_cleanup();
+  }
   fixed_queue_free(btif_a2dp_source_cb.tx_audio_queue, NULL);
   btif_a2dp_source_cb.tx_audio_queue = NULL;
 
@@ -392,7 +401,8 @@ bool btif_a2dp_source_is_remote_start(void) {
 }
 
 int btif_a2dp_source_last_remote_start_index() {
-    APPL_TRACE_DEBUG("%s:remote started set for device index %d", __func__, btif_a2dp_source_cb.last_remote_started_index);
+    APPL_TRACE_DEBUG("%s:remote started set for device index %d",
+        __func__, btif_a2dp_source_cb.last_remote_started_index);
     return btif_a2dp_source_cb.last_remote_started_index;
 }
 
@@ -401,7 +411,8 @@ void btif_a2dp_source_cancel_remote_start() {
     alarm_free(btif_a2dp_source_cb.remote_start_alarm);
     btif_a2dp_source_cb.remote_start_alarm = NULL;
     btif_av_clear_remote_start_timer(btif_a2dp_source_cb.last_remote_started_index);
-    APPL_TRACE_DEBUG("%s: cancel remote start on AV index %d", __func__, btif_a2dp_source_cb.last_remote_started_index);
+    APPL_TRACE_DEBUG("%s: cancel remote start on AV index %d",
+        __func__, btif_a2dp_source_cb.last_remote_started_index);
     btif_a2dp_source_cb.last_remote_started_index = -1;
     if(btif_a2dp_source_cb.last_started_index_pointer)
       osi_free(btif_a2dp_source_cb.last_started_index_pointer);
@@ -452,7 +463,8 @@ void btif_a2dp_source_on_remote_start(struct alarm_t *remote_start_alarm, int in
   btif_a2dp_source_cb.remote_start_alarm = remote_start_alarm;
   btif_a2dp_source_cb.last_remote_started_index = index;
   btif_a2dp_source_cb.last_started_index_pointer = arg;
-  APPL_TRACE_DEBUG("%s: Remote start timer started index %d arg %d", __func__, index, *arg);
+  APPL_TRACE_DEBUG("%s: Remote start timer started index %d arg %d",
+        __func__, index, *arg);
 }
 
 static void btif_media_unblock_audio_start_alarm_cb(UNUSED_ATTR void *context) {
@@ -607,6 +619,10 @@ bt_status_t btif_a2dp_source_setup_codec(tBTA_AV_HNDL hndl) {
     status = BT_STATUS_FAIL;
   }
 
+  if (btif_a2dp_source_is_hal_v2_supported()) {
+    APPL_TRACE_EVENT("%s ## setup_codec ##", __func__);
+    //bluetooth::audio::a2dp::setup_codec();
+  }
   mutex_global_unlock();
   return status;
 }
@@ -628,7 +644,12 @@ void btif_a2dp_source_start_audio_req(void) {
 
 void btif_a2dp_source_stop_audio_req(void) {
   BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
-  tA2DP_CTRL_CMD pending_cmd = btif_a2dp_get_pending_command();
+  tA2DP_CTRL_CMD pending_cmd = A2DP_CTRL_CMD_NONE;
+  if (btif_a2dp_source_is_hal_v2_enabled()) {
+    //pending_cmd = bluetooth::audio::a2dp::get_pending_command();
+  } else {
+    pending_cmd = btif_a2dp_control_get_pending_command();
+  }
 
   p_buf->event = BTIF_MEDIA_AUDIO_TX_STOP;
 
@@ -761,8 +782,7 @@ static void btif_a2dp_source_audio_feeding_update_event(BT_HDR* p_msg) {
 }
 
 void btif_a2dp_source_on_idle(void) {
-  if (btif_av_is_split_a2dp_enabled())
-    btif_media_send_reset_vendor_state();
+  btif_media_send_reset_vendor_state();
   if (btif_a2dp_source_state == BTIF_A2DP_SOURCE_STATE_OFF) return;
 
   /* Make sure media task is stopped */
@@ -771,7 +791,12 @@ void btif_a2dp_source_on_idle(void) {
 
 void btif_a2dp_source_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
   APPL_TRACE_EVENT("## ON A2DP SOURCE STOPPED ##");
-  tA2DP_CTRL_CMD pending_cmd = btif_a2dp_get_pending_command();
+  tA2DP_CTRL_CMD pending_cmd = A2DP_CTRL_CMD_NONE;
+  if (btif_a2dp_source_is_hal_v2_enabled()) {
+    //pending_cmd = bluetooth::audio::a2dp::get_pending_command();
+  } else {
+    pending_cmd = btif_a2dp_control_get_pending_command();
+  }
 
   if (btif_a2dp_source_state == BTIF_A2DP_SOURCE_STATE_OFF) return;
 
@@ -783,11 +808,19 @@ void btif_a2dp_source_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
         APPL_TRACE_WARNING("%s: A2DP stop request failed: status = %d",
                            __func__, p_av_suspend->status);
         if ((pending_cmd == A2DP_CTRL_CMD_STOP) ||
-            (pending_cmd == A2DP_CTRL_CMD_SUSPEND)) {
-          btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+                (pending_cmd == A2DP_CTRL_CMD_SUSPEND)) {
+          if (btif_a2dp_source_is_hal_v2_enabled()) {
+            //bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_FAILURE);
+          } else {
+            btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+          }
           if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
-              !strcmp(a2dp_hal_imp, "true")) {
-            btif_a2dp_pending_cmds_reset();
+                  !strcmp(a2dp_hal_imp, "true")) {
+            if (btif_a2dp_source_is_hal_v2_enabled()) {
+              //bluetooth::audio::a2dp::reset_pending_command();
+            } else {
+              btif_a2dp_pending_cmds_reset();
+            }
             int index = ((p_av_suspend->hndl) & BTA_AV_HNDL_MSK) - 1;
             RawAddress addr = btif_av_get_addr_by_index(index);
             if (!addr.IsEmpty()) {
@@ -814,7 +847,12 @@ void btif_a2dp_source_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
 
 void btif_a2dp_source_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
   APPL_TRACE_EVENT("## ON A2DP SOURCE SUSPENDED ##");
-  tA2DP_CTRL_CMD pending_cmd = btif_a2dp_get_pending_command();
+  tA2DP_CTRL_CMD pending_cmd = A2DP_CTRL_CMD_NONE;
+  if (btif_a2dp_source_is_hal_v2_enabled()) {
+    //pending_cmd = bluetooth::audio::a2dp::get_pending_command();
+  } else {
+    pending_cmd = btif_a2dp_control_get_pending_command();
+  }
 
   if (btif_a2dp_source_state == BTIF_A2DP_SOURCE_STATE_OFF) return;
 
@@ -825,11 +863,20 @@ void btif_a2dp_source_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
         APPL_TRACE_WARNING("%s: A2DP suspend request failed: status = %d",
                          __func__, p_av_suspend->status);
         if ((pending_cmd == A2DP_CTRL_CMD_STOP) ||
-            (pending_cmd == A2DP_CTRL_CMD_SUSPEND)) {
-          btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+                (pending_cmd == A2DP_CTRL_CMD_SUSPEND)) {
+          if (btif_a2dp_source_is_hal_v2_enabled()) {
+            //bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_FAILURE);
+          } else {
+            btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+          }
+
           if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
-              !strcmp(a2dp_hal_imp, "true")) {
-            btif_a2dp_pending_cmds_reset();
+                  !strcmp(a2dp_hal_imp, "true")) {
+            if (btif_a2dp_source_is_hal_v2_enabled()) {
+              //bluetooth::audio::a2dp::reset_pending_command();
+            } else {
+              btif_a2dp_pending_cmds_reset();
+            }
             int index = ((p_av_suspend->hndl) & BTA_AV_HNDL_MSK) - 1;
             RawAddress addr = btif_av_get_addr_by_index(index);
             if (!addr.IsEmpty()) {
@@ -895,17 +942,27 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
 
   uint8_t p_buf[AUDIO_STREAM_OUTPUT_BUFFER_SZ * 2];
   uint16_t event;
+  tA2DP_CTRL_CMD pending_cmd = A2DP_CTRL_CMD_NONE;
 
   // Keep track of audio data still left in the pipe
-  btif_a2dp_control_log_bytes_read(
-      UIPC_Read(UIPC_CH_ID_AV_AUDIO, &event, p_buf, sizeof(p_buf)));
+  if (btif_a2dp_source_is_hal_v2_enabled()) {
+    //btif_a2dp_control_log_bytes_read(
+       // bluetooth::audio::a2dp::read(p_buf, sizeof(p_buf)));
+  } else {
+    btif_a2dp_control_log_bytes_read(
+       UIPC_Read(UIPC_CH_ID_AV_AUDIO, &event, p_buf, sizeof(p_buf)));
+  }
+
 
   /* Stop the timer first */
   alarm_free(btif_a2dp_source_cb.media_alarm);
   btif_a2dp_source_cb.media_alarm = NULL;
 
-  UIPC_Close(UIPC_CH_ID_AV_AUDIO);
-
+  if (btif_a2dp_source_is_hal_v2_enabled()) {
+    //bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_SUCCESS);
+  } else {
+    UIPC_Close(UIPC_CH_ID_AV_AUDIO);
+  }
   /*
    * Try to send acknowldegment once the media stream is
    * stopped. This will make sure that the A2DP HAL layer is
@@ -918,14 +975,27 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
    * a block/wait. Due to this acknowledgement, the A2DP HAL is guranteed
    * to get the ACK for any pending command in such cases.
    */
-  tA2DP_CTRL_CMD pending_cmd = btif_a2dp_get_pending_command();
+  if (btif_a2dp_source_is_hal_v2_enabled()) {
+    //pending_cmd = bluetooth::audio::a2dp::get_pending_command();
+  } else {
+    pending_cmd = btif_a2dp_control_get_pending_command();
+  }
+
   if (send_ack && (pending_cmd == A2DP_CTRL_CMD_SUSPEND ||
           pending_cmd == A2DP_CTRL_CMD_STOP)) {
     APPL_TRACE_DEBUG("%s, Ack for pending Stop/Suspend", __func__);
-    btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+    if (btif_a2dp_source_is_hal_v2_enabled()) {
+      //bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_SUCCESS);
+    } else {
+      btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+    }
   } else if (pending_cmd == A2DP_CTRL_CMD_START) {
     BTIF_TRACE_ERROR("Ack Pending Start while Disconnect in Progress");
-    btif_a2dp_command_ack(A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS);
+    if (btif_a2dp_source_is_hal_v2_enabled()) {
+      //bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS);
+    } else {
+      btif_a2dp_command_ack(A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS);
+    }
   } else {
     BTIF_TRACE_ERROR("Invalid cmd pending for ack");
   }
@@ -970,8 +1040,12 @@ static void btif_a2dp_source_audio_handle_timer(UNUSED_ATTR void* context) {
 
 static uint32_t btif_a2dp_source_read_callback(uint8_t* p_buf, uint32_t len) {
   uint16_t event;
-  uint32_t bytes_read = UIPC_Read(UIPC_CH_ID_AV_AUDIO, &event, p_buf, len);
-
+  uint32_t bytes_read = 0;
+  if (btif_a2dp_source_is_hal_v2_enabled()) {
+    //bytes_read = bluetooth::audio::a2dp::read(p_buf, len);
+  } else {
+    bytes_read = UIPC_Read(UIPC_CH_ID_AV_AUDIO, &event, p_buf, len);
+  }
   if (bytes_read < len) {
     LOG_WARN(LOG_TAG, "%s: UNDERFLOW: ONLY READ %d BYTES OUT OF %d", __func__,
              bytes_read, len);
@@ -1082,7 +1156,9 @@ static void btif_a2dp_source_audio_tx_flush_event(UNUSED_ATTR BT_HDR* p_msg) {
       time_get_os_boottime_us();
   fixed_queue_flush(btif_a2dp_source_cb.tx_audio_queue, osi_free);
 
-  UIPC_Ioctl(UIPC_CH_ID_AV_AUDIO, UIPC_REQ_RX_FLUSH, NULL);
+  if (!btif_a2dp_source_is_hal_v2_enabled()) {
+    UIPC_Ioctl(UIPC_CH_ID_AV_AUDIO, UIPC_REQ_RX_FLUSH, NULL);
+  }
 }
 
 static bool btif_a2dp_source_audio_tx_flush_req(void) {
@@ -1459,4 +1535,100 @@ static void btm_read_tx_power_cb(void* data) {
 
   LOG_WARN(LOG_TAG, "%s device: %s, Tx Power: %d", __func__,
            result->rem_bda.ToString().c_str(), result->tx_power);
+}
+
+bool btif_a2dp_source_is_hal_v2_enabled(void) {
+    return false;
+   //return bluetooth::audio::a2dp::is_hal_2_0_enabled();
+}
+
+bool btif_a2dp_source_is_hal_v2_supported(void) {
+    return false;
+   //return bluetooth::audio::a2dp::is_hal_2_0_supported();
+}
+
+bool btif_a2dp_source_start_session(const RawAddress& peer_address) {
+  LOG_ERROR(LOG_TAG, "%s: peer_address=%s state=%d", __func__,
+            peer_address.ToString().c_str(), btif_a2dp_source_state);
+
+  tBTA_AV_HNDL hndl = btif_av_get_hndl_by_addr(peer_address);;
+
+  if (btif_a2dp_source_state != BTIF_A2DP_SOURCE_STATE_RUNNING) {
+    LOG_ERROR(LOG_TAG, "%s: A2DP Source media task is not running", __func__);
+    return false;
+  }
+
+  if (btif_a2dp_source_is_hal_v2_supported()) {
+    APPL_TRACE_EVENT("%s calling ## init ##", __func__);
+    //bluetooth::audio::a2dp::init(btif_a2dp_source_cb.worker_thread);
+  }
+
+  btif_a2dp_source_setup_codec(hndl);
+
+  if (btif_a2dp_source_is_hal_v2_enabled()) {
+    //bluetooth::audio::a2dp::start_session();
+  }
+  return true;
+}
+
+bool btif_a2dp_source_is_restart_session_needed() {
+  bool restart_session = false;
+  if (btif_a2dp_source_is_hal_v2_enabled()) {
+     //restart_session = bluetooth::audio::a2dp::is_restart_session_needed();
+  }
+  APPL_TRACE_EVENT("%s :: restart_session %d", __func__, restart_session);
+  return restart_session;
+}
+
+bool btif_a2dp_source_restart_session(const RawAddress& old_peer_address,
+                                      const RawAddress& new_peer_address) {
+  bool is_streaming = alarm_is_scheduled(btif_a2dp_source_cb.media_alarm);
+  LOG_ERROR(LOG_TAG,
+    "%s: old_peer_address=%s new_peer_address=%s is_streaming=%d "
+    "state=%d", __func__, old_peer_address.ToString().c_str(),
+    new_peer_address.ToString().c_str(), is_streaming, btif_a2dp_source_state);
+
+  CHECK(!new_peer_address.IsEmpty());
+
+  // Must stop first the audio streaming
+  if (is_streaming) {
+    btif_a2dp_source_stop_audio_req();
+  }
+
+  // If the old active peer was valid, end the old session.
+  // Otherwise, time to startup the A2DP Source processing.
+  if (!old_peer_address.IsEmpty()) {
+    btif_a2dp_source_end_session(old_peer_address);
+  }
+
+  // Start the session.
+  // If audio was streaming before, start audio streaming as well.
+  btif_a2dp_source_start_session(new_peer_address);
+  if (is_streaming) {
+    btif_a2dp_source_start_audio_req();
+  }
+  return true;
+}
+
+bool btif_a2dp_source_end_session(const RawAddress& peer_address) {
+  LOG_ERROR(LOG_TAG, "%s: peer_address=%s state=%d", __func__,
+        peer_address.ToString().c_str(), btif_a2dp_source_state);
+
+  if (!btif_av_is_split_a2dp_enabled()) {
+    BluetoothMetricsLogger::GetInstance()->LogBluetoothSessionEnd(
+        system_bt_osi::DISCONNECT_REASON_UNKNOWN, 0);
+  }
+
+  if (btif_a2dp_source_is_hal_v2_enabled()) {
+     //bluetooth::audio::a2dp::end_session();
+  }
+  return true;
+}
+
+void btif_a2dp_update_sink_latency_change() {
+  if (btif_a2dp_source_is_hal_v2_enabled()) {
+    // btaudio_a2dp_audio_send_sink_latency();
+  } else {
+    btif_a2dp_audio_send_sink_latency();
+  }
 }
