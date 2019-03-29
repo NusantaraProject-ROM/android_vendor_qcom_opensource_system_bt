@@ -1116,7 +1116,8 @@ bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, bool is_direct,
 bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, bool is_direct,
                   tBT_TRANSPORT transport, bool opportunistic,
                   uint8_t initiating_phys) {
-  LOG(INFO) << __func__ << " gatt_if=" << +gatt_if << ", address=" << bd_addr;
+  LOG(INFO) << __func__ << " gatt_if=" << +gatt_if << ", address=" << bd_addr
+    << " is_direct " << is_direct;
 
   /* Make sure app is registered */
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
