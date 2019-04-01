@@ -70,6 +70,8 @@
 #define BTSNOOP_MODE_DISABLED "disabled"
 #define BTSNOOP_MODE_FILTERED "filtered"
 #define BTSNOOP_MODE_FULL "full"
+#define BTSNOOP_MODE_SNOOPHEADERSFILTERED "snoopheadersfiltered"
+#define BTSNOOP_MODE_MEDIAPKTSFILTERED "mediapktsfiltered"
 
 #define BTSNOOP_PATH_PROPERTY "persist.bluetooth.btsnooppath"
 #define DEFAULT_BTSNOOP_PATH "/data/misc/bluetooth/logs/btsnoop_hci.log"
@@ -169,6 +171,7 @@ std::unordered_map<uint16_t, uint16_t> local_cid_to_acl;
 // checked for every packet.
 static bool is_btsnoop_enabled;
 static bool is_btsnoop_filtered;
+bool is_vndbtsnoop_enabled = false;
 
 // TODO(zachoverflow): merge btsnoop and btsnoop_net together
 void btsnoop_net_open();
@@ -216,18 +219,39 @@ static future_t* start_up() {
     delete_btsnoop_files(false);
   } else if (btsnoop_mode == BTSNOOP_MODE_FULL) {
     LOG(INFO) << __func__ << ": Snoop Logs fully enabled";
-    is_btsnoop_enabled = true;
+    is_btsnoop_enabled = false;
+    is_vndbtsnoop_enabled = true;
     is_btsnoop_filtered = false;
+    vendor_logging_level = HCI_SNOOP_LOG_FULL | DYNAMIC_LOGCAT_CAPTURE;
     delete_btsnoop_files(true);
+  } else if (btsnoop_mode == BTSNOOP_MODE_MEDIAPKTSFILTERED) {
+    LOG(INFO) << __func__ << ": media pkts Filtered VndSnoop Logs enabled";
+    is_vndbtsnoop_enabled = true;
+    is_btsnoop_enabled = false;
+    is_btsnoop_filtered = false;
+    vendor_logging_level = HCI_SNOOP_LOG_LITE | DYNAMIC_LOGCAT_CAPTURE;
+  } else if (btsnoop_mode == BTSNOOP_MODE_SNOOPHEADERSFILTERED) {
+    LOG(INFO) << __func__ << ": only headers filtered VndSnoop Logs enabled";
+    is_vndbtsnoop_enabled = true;
+    is_btsnoop_enabled = false;
+    is_btsnoop_filtered = false;
+    vendor_logging_level = HCI_SNOOP_ONLY_HEADER | DYNAMIC_LOGCAT_CAPTURE;
   } else {
     LOG(INFO) << __func__ << ": Snoop Logs disabled";
     is_btsnoop_enabled = false;
     is_btsnoop_filtered = false;
+    is_vndbtsnoop_enabled = false;
     delete_btsnoop_files(true);
     delete_btsnoop_files(false);
   }
 
-  if (is_btsnoop_enabled) {
+  if (is_vndbtsnoop_enabled) {
+    osi_property_set("persist.bluetooth.btsnoopenable", "true");
+  } else {
+    osi_property_set("persist.bluetooth.btsnoopenable", "");
+  }
+
+  if (is_btsnoop_enabled || is_vndbtsnoop_enabled) {
     open_next_snoop_file();
     packets_per_file = (//osi_property_get_int32(BTSNOOP_MAX_PACKETS_PROPERTY,
                                               DEFAULT_BTSNOOP_SIZE);
@@ -256,7 +280,7 @@ static future_t* shut_down(void) {
   if (logfile_fd != INVALID_FD) close(logfile_fd);
   logfile_fd = INVALID_FD;
 
-  STOP_SNOOP_LOGGING();
+  if(is_vndbtsnoop_enabled) STOP_SNOOP_LOGGING();
   if (is_btsnoop_enabled) btsnoop_net_close();
 
   return NULL;
@@ -307,7 +331,7 @@ static void whitelist_l2c_channel(uint16_t conn_handle, uint16_t local_cid,
                                   uint16_t remote_cid) {
   LOG(INFO) << __func__
             << ": Whitelisting l2cap channel. conn_handle=" << conn_handle
-            << " cid=" << loghex(local_cid) << ":" << loghex(remote_cid);
+            << " cid=" << local_cid << ":" << remote_cid;
   std::lock_guard lock(filter_list_mutex);
 
   // This will create the entry if there is no associated filter with the
@@ -317,8 +341,8 @@ static void whitelist_l2c_channel(uint16_t conn_handle, uint16_t local_cid,
 
 static void whitelist_rfc_dlci(uint16_t local_cid, uint8_t dlci) {
   LOG(INFO) << __func__
-            << ": Whitelisting rfcomm channel. L2CAP CID=" << loghex(local_cid)
-            << " DLCI=" << loghex(dlci);
+            << ": Whitelisting rfcomm channel. L2CAP CID=" << local_cid
+            << " DLCI=" << dlci;
   std::lock_guard lock(filter_list_mutex);
 
   tL2C_CCB* p_ccb = l2cu_find_ccb_by_cid(nullptr, local_cid);
@@ -329,8 +353,8 @@ static void add_rfc_l2c_channel(uint16_t conn_handle, uint16_t local_cid,
                                 uint16_t remote_cid) {
   LOG(INFO) << __func__
             << ": rfcomm data going over l2cap channel. conn_handle="
-            << conn_handle << " cid=" << loghex(local_cid) << ":"
-            << loghex(remote_cid);
+            << conn_handle << " cid=" << local_cid << ":"
+            << remote_cid;
   std::lock_guard lock(filter_list_mutex);
 
   filter_list[conn_handle].setRfcCid(local_cid, remote_cid);
