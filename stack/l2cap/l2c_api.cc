@@ -61,7 +61,8 @@ tL2C_AVDT_CHANNEL_INFO av_media_channels[MAX_ACTIVE_AVDT_CONN];
  *                  L2CA_ErtmConnectReq() and L2CA_Deregister()
  *
  ******************************************************************************/
-uint16_t L2CA_Register(uint16_t psm, tL2CAP_APPL_INFO* p_cb_info) {
+uint16_t L2CA_Register(uint16_t psm, tL2CAP_APPL_INFO* p_cb_info,
+                       bool enable_snoop) {
   tL2C_RCB* p_rcb;
   uint16_t vpsm = psm;
 
@@ -107,6 +108,7 @@ uint16_t L2CA_Register(uint16_t psm, tL2CAP_APPL_INFO* p_cb_info) {
     }
   }
 
+  p_rcb->log_packets = enable_snoop;
   p_rcb->api = *p_cb_info;
   p_rcb->real_psm = psm;
 
