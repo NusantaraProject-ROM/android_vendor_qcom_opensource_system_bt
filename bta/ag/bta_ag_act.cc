@@ -1074,6 +1074,8 @@ void bta_ag_handle_collision(tBTA_AG_SCB* p_scb,
   APPL_TRACE_IMP("%s: sending RFCOMM fail event to btif for dev %s",
                   __func__, p_scb->peer_addr.ToString().c_str())
   bta_ag_cback_open(p_scb, NULL, BTA_AG_FAIL_RFCOMM);
+  APPL_TRACE_DEBUG("%s: clear peer_addr so that instance can be reused", __func__);
+  p_scb->peer_addr = RawAddress::kEmpty;
 
   /* reopen registered servers */
   /* Collision may be detected before or after we close servers. */
