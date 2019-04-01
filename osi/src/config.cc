@@ -117,12 +117,14 @@ config_t* config_new_clone(const config_t* src) {
        node != list_end(src->sections); node = list_next(node)) {
     section_t* sec = static_cast<section_t*>(list_node(node));
 
-    for (const list_node_t* node_entry = list_begin(sec->entries);
-         node_entry != list_end(sec->entries);
-         node_entry = list_next(node_entry)) {
-      entry_t* entry = static_cast<entry_t*>(list_node(node_entry));
+    if (sec) {
+      for (const list_node_t* node_entry = list_begin(sec->entries);
+           node_entry != list_end(sec->entries);
+           node_entry = list_next(node_entry)) {
+        entry_t* entry = static_cast<entry_t*>(list_node(node_entry));
 
-      config_set_string(ret, sec->name, entry->key, entry->value);
+        config_set_string(ret, sec->name, entry->key, entry->value);
+      }
     }
   }
 
@@ -616,8 +618,8 @@ static section_t* section_find(const config_t* config, const char* section) {
   for (const list_node_t* node = list_begin(config->sections);
        node != list_end(config->sections); node = list_next(node)) {
     section_t* sec = static_cast<section_t*>(list_node(node));
-    if (!strcmp(sec->name, section)) return sec;
-  }
+    if (sec && !strcmp(sec->name, section)) return sec;
+}
 
   return NULL;
 }
