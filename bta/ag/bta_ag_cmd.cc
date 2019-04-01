@@ -633,6 +633,7 @@ void bta_ag_send_call_inds(tBTA_AG_SCB* p_scb, tBTA_AG_RES result) {
   /* set new call and callsetup values based on BTA_AgResult */
   size_t callsetup = bta_ag_indicator_by_result_code(result);
 
+  bool is_blacklisted = interop_match_addr(INTEROP_DISABLE_SNIFF_DURING_CALL, &p_scb->peer_addr);
   if (result == BTA_AG_END_CALL_RES) {
     call = BTA_AG_CALL_INACTIVE;
   } else if (result == BTA_AG_IN_CALL_CONN_RES ||
@@ -651,6 +652,19 @@ void bta_ag_send_call_inds(tBTA_AG_SCB* p_scb, tBTA_AG_RES result) {
     APPL_TRACE_IMP("%s: BTA_AG_OUT_CALL_CONN_RES, call %x, callsetup %x, call held %x, p_scb->callsetup_ind %x",
      __func__, call, callsetup, p_scb->callheld_ind, p_scb->callsetup_ind );
 
+  if (is_blacklisted) {
+    if (result == BTA_AG_IN_CALL_RES ||
+        result == BTA_AG_CALL_WAIT_RES ||
+        result == BTA_AG_OUT_CALL_ORIG_RES ||
+        result == BTA_AG_OUT_CALL_ALERT_RES ||
+        result == BTA_AG_OUT_CALL_CONN_RES ) {
+        APPL_TRACE_IMP("%s: exit sniff during call for the device: %s",
+                        __func__, p_scb->peer_addr.ToString().c_str());
+        bta_sys_busy(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
+        bta_sys_clear_policy(BTA_ID_AG, HCI_ENABLE_SNIFF_MODE, p_scb->peer_addr);
+     }
+  }
+
 /* if res value equal to BTA_AG_OUT_CALL_CONN_RES when held call is there, always send indicator.
     otherwise, send indicator function tracks if the values have actually changed*/
   if ( (result == BTA_AG_IN_CALL_CONN_RES || result == BTA_AG_OUT_CALL_CONN_RES) &&
@@ -663,6 +677,14 @@ void bta_ag_send_call_inds(tBTA_AG_SCB* p_scb, tBTA_AG_RES result) {
   else
     bta_ag_send_ind(p_scb, BTA_AG_IND_CALL, call, false);
   bta_ag_send_ind(p_scb, BTA_AG_IND_CALLSETUP, callsetup, false);
+
+  if (is_blacklisted) {
+    if (result == BTA_AG_END_CALL_RES || result == BTA_AG_CALL_CANCEL_RES) {
+       APPL_TRACE_IMP("%s: Enable sniff mode for device: %s",
+                       __func__, p_scb->peer_addr.ToString().c_str());
+       bta_sys_set_policy(BTA_ID_AG, HCI_ENABLE_SNIFF_MODE, p_scb->peer_addr);
+    }
+  }
 }
 
 /*******************************************************************************
