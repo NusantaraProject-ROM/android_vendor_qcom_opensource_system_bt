@@ -94,7 +94,7 @@ void bta_ag_process_at(tBTA_AG_AT_CB* p_cb, char* p_end) {
     /* start of argument is p + strlen matching command */
     p_arg = p_cb->p_cmd_buf + strlen(p_cb->p_at_tbl[idx].p_cmd);
     if (p_arg > p_end) {
-      (*p_cb->p_err_cback)(p_cb->p_user, false, NULL);
+      (*p_cb->p_err_cback)((tBTA_AG_SCB*)p_cb->p_user, false, NULL);
       android_errorWriteLog(0x534e4554, "112860487");
       return;
     }

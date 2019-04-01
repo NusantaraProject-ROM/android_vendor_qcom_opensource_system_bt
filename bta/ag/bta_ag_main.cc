@@ -508,14 +508,14 @@ void bta_ag_collision_cback(UNUSED_ATTR tBTA_SYS_CONN_STATUS status, uint8_t id,
     if (id == BTA_ID_SYS) /* ACL collision */
     {
       LOG(WARNING) << __func__ << " AG found collision (ACL) for handle "
-                   << unsigned(handle) << " device " << *peer_addr;
+                   << unsigned(handle) << " device " << peer_addr;
     } else if (id == BTA_ID_AG) /* RFCOMM collision */
     {
       LOG(WARNING) << __func__ << " AG found collision (RFCOMM) for handle "
-                   << unsigned(handle) << " device " << *peer_addr;
+                   << unsigned(handle) << " device " << peer_addr;
     } else {
       LOG(WARNING) << __func__ << " AG found collision (UNKNOWN) for handle "
-                   << unsigned(handle) << " device " << *peer_addr;
+                   << unsigned(handle) << " device " << peer_addr;
     }
     bta_ag_sm_execute(p_scb, BTA_AG_COLLISION_EVT, NULL);
   }
