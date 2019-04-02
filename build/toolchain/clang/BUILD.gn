@@ -99,6 +99,7 @@ toolchain("clang") {
     command = "$clangxx {{ldflags}} -o $outfile -Wl,--start-group @$rspfile {{solibs}} -Wl,--end-group {{libs}}"
     description = "LINK $outfile"
     rspfile_content = "{{inputs}}"
+    lib_dir_switch = "-L"
     outputs = [
       outfile,
     ]

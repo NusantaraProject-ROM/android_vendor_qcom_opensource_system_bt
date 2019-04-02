@@ -61,6 +61,7 @@ static_library("btif") {
     "src/btif_uid.cc",
     "src/btif_util.cc",
     "src/stack_manager.cc",
+    "src/btif_bqr.cc",
   ]
 
   # BTIF callouts
@@ -76,9 +77,12 @@ static_library("btif") {
   include_dirs = [
     "include",
     "//",
+    "co",
+    "//common",
     "//audio_a2dp_hw/include",
     "//bta/include",
     "//bta/sys",
+    "//bta/ag",
     "//btcore/include",
     "//device/include",
     "//embdrv/sbc/encoder/include",
@@ -92,9 +96,22 @@ static_library("btif") {
     "//udrv/include",
     "//utils/include",
     "//vnd/include",
+    "//internal_include",
+    "//stack/l2cap",
+    "//linux_include",
+    "//third_party/bluetooth_ext/vhal/include",
+    "//third_party/bluetooth_ext/vhal/include/hardware",
+    "//third_party/bluetooth_ext/system_bt_ext/btif/include",
+    "//third_party/bluetooth_ext/system_bt_ext/bta/include",
+    "//third_party/system/core/include",
+    "//third_party/bluetooth_ext/system_bt_ext",
+    "//third_party/libchrome/base",
   ]
 
   deps = [
-    "//third_party/libchrome:base"
+    "//third_party/libchrome:base",
+    "//third_party/bluetooth_ext/system_bt_ext:system_bt_ext_btif",
+    "//common:common",
+    "//osi:osi",
   ]
 }

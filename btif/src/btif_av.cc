@@ -82,8 +82,14 @@
 #include "btif_bat.h"
 #include "bta/av/bta_av_int.h"
 #include "device/include/device_iot_config.h"
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
 #include "audio_hal_interface/a2dp_encoding.h"
+#endif
 #include "controller.h"
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+#include "log/log.h"
+#include "service/a2dp_hal_sim/audio_a2dp_hal_stub.h"
+#endif
 
 extern bool isDevUiReq;
 bool isBitRateChange = false;

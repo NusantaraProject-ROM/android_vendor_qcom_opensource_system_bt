@@ -32,6 +32,7 @@
 
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 
 #include "buffer_allocator.h"
 #include "hci_internals.h"
@@ -42,6 +43,8 @@
 #include "osi/include/properties.h"
 
 using base::Thread;
+
+#define SOCKET_GET_IF "/tmp/if_get_hci_sock"
 
 #define BTPROTO_HCI 1
 #define HCI_CHANNEL_USER 1
@@ -101,8 +104,6 @@ extern void sco_data_received(BT_HDR* packet);
 static int bt_vendor_fd = -1;
 static int hci_interface;
 static int rfkill_en;
-static int wait_hcidev(void);
-static int rfkill(int block);
 
 int reader_thread_ctrl_fd = -1;
 Thread* reader_thread = NULL;
@@ -170,40 +171,38 @@ void monitor_socket(int ctrl_fd, int fd) {
 void hci_initialize() {
   LOG(INFO) << __func__;
 
-  char prop_value[PROPERTY_VALUE_MAX];
-  osi_property_get("bluetooth.interface", prop_value, "0");
+  int fdGetSock = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+  CHECK(fdGetSock >= 0) << "socket create error" << strerror(errno);
 
-  errno = 0;
-  if (memcmp(prop_value, "hci", 3))
-    hci_interface = strtol(prop_value, NULL, 10);
-  else
-    hci_interface = strtol(prop_value + 3, NULL, 10);
-  if (errno) hci_interface = 0;
+  struct sockaddr_un addr_get_sock;
+  memset(&addr_get_sock, 0, sizeof(struct sockaddr_un));
+  addr_get_sock.sun_family = AF_UNIX;
+  strncpy(addr_get_sock.sun_path, SOCKET_GET_IF, sizeof(addr_get_sock.sun_path) - 1);
 
-  LOG(INFO) << "Using interface hci" << +hci_interface;
-
-  osi_property_get("bluetooth.rfkill", prop_value, "1");
-
-  rfkill_en = atoi(prop_value);
-  if (rfkill_en) {
-    rfkill(0);
+  LOG(ERROR) << "Connect to socket: " << SOCKET_GET_IF;
+  if (connect(fdGetSock, (struct sockaddr*)&addr_get_sock, sizeof(addr_get_sock)) < 0) {
+    LOG(FATAL) << "socket bind error " << strerror(errno);
   }
 
-  int fd = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI);
+  char c_str_sock_name[255];
+  int len = read(fdGetSock, c_str_sock_name, 255);
+  std::string socket_name (c_str_sock_name, len);
+  LOG(ERROR) << __func__ << ": sock_name " << socket_name;
+  close(fdGetSock);
+
+  int fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
   CHECK(fd >= 0) << "socket create error" << strerror(errno);
 
   bt_vendor_fd = fd;
 
-  if (wait_hcidev()) {
-    LOG(FATAL) << "HCI interface hci" << +hci_interface << " not found";
-  }
+  struct sockaddr_un addr;
+  memset(&addr, 0, sizeof(struct sockaddr_un));
+  addr.sun_family = AF_UNIX;
+  strncpy(addr.sun_path, socket_name.c_str(), sizeof(addr.sun_path) - 1);
 
-  struct sockaddr_hci addr;
-  memset(&addr, 0, sizeof(addr));
-  addr.hci_family = AF_BLUETOOTH;
-  addr.hci_dev = hci_interface;
-  addr.hci_channel = HCI_CHANNEL_USER;
-  if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+  LOG(ERROR) << "Connect to socket: " << socket_name;
+
+  if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
     LOG(FATAL) << "socket bind error " << strerror(errno);
   }
 
@@ -242,7 +241,6 @@ void hci_close() {
     reader_thread = NULL;
   }
 
-  rfkill(1);
 }
 
 hci_transmit_status_t hci_transmit(BT_HDR* packet) {
@@ -287,6 +285,7 @@ hci_transmit_status_t hci_transmit(BT_HDR* packet) {
   return status;
 }
 
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
 static int wait_hcidev(void) {
   struct sockaddr_hci addr;
   struct pollfd fds[1];
@@ -401,6 +400,7 @@ static int rfkill(int block) {
   close(fd);
   return 0;
 }
+#endif
 
 int hci_open_firmware_log_file() { return INVALID_FD; }
 

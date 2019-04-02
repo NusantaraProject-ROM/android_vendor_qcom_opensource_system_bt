@@ -29,6 +29,10 @@
 #include "stack_config.h"
 #include "osi/include/properties.h"
 
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+#include "bt_prop.h"
+#endif
+
 /* Global BTM control block structure
 */
 tBTM_CB btm_cb;
