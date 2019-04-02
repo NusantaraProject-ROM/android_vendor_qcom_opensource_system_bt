@@ -31,7 +31,9 @@
 #define AV_REM_CTRL_FEATURES_CONFIG_KEY "AvrcpFeatures"
 #define PBAP_PCE_VERSION_CONFIG_KEY "PbapPceVersion"
 #define MAP_MCE_VERSION_CONFIG_KEY "MapMceVersion"
-
+#define PNP_VENDOR_ID_CONFIG_KEY "VendorID"
+#define PNP_PRODUCT_ID_CONFIG_KEY "ProductID"
+#define PNP_PRODUCT_VERSION_CONFIG_KEY "ProductVersion"
 
 static const char BTIF_CONFIG_MODULE[] = "btif_config_module";
 

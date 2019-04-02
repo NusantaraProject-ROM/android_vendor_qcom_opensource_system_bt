@@ -974,6 +974,12 @@ bt_status_t btif_storage_remove_bonded_device(
     ret &= btif_config_remove(bdstr, "PbapPceVersion");
   if (btif_config_exist(bdstr, "AvrcpFeatures"))
     ret &= btif_config_remove(bdstr, "AvrcpFeatures");
+  if (btif_config_exist(bdstr, "VendorID"))
+    ret &= btif_config_remove(bdstr, "VendorID");
+  if (btif_config_exist(bdstr, "ProductID"))
+    ret &= btif_config_remove(bdstr, "ProductID");
+  if (btif_config_exist(bdstr, "ProductVersion"))
+    ret &= btif_config_remove(bdstr, "ProductVersion");
   if (btif_config_exist(bdstr, MAP_MCE_VERSION_CONFIG_KEY))
     ret &= btif_config_remove(bdstr, MAP_MCE_VERSION_CONFIG_KEY);
   /* Retaining TwsPlusPeerAddr as this is needed even after unpair */
