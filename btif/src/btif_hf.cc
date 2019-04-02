@@ -650,17 +650,21 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       btif_hf_cb[idx].connected_bda = RawAddress::kAny;
       btif_hf_cb[idx].peer_feat = 0;
       clear_phone_state_multihf(idx);
-      //If the active device is disconnected, clear the active device
-      if (is_active_device(bd_addr)) {
-        bool is_twsp_dev = btif_is_tws_plus_device(&bd_addr);
-        /*Clear active device only if given tws+ is active*/
-        if (!is_twsp_dev || (is_twsp_dev && active_bda == bd_addr)) {
-            active_bda = RawAddress::kEmpty;
-            BTIF_TRACE_IMP("%s: Active device is disconnected, clear the active device %s",
-                __func__, active_bda.ToString().c_str());
-            BTA_AgSetActiveDevice(active_bda);
-        } else {
-            BTIF_TRACE_IMP("%s: non-active TWS+ device disconnected");
+      /* Not clear active device if HFP is conntected via another Rfcomm DLC connection
+         due to collision */
+      if (!((btif_max_hf_clients > 1) && (is_connected(&bd_addr)))) {
+        //If the active device is disconnected, clear the active device
+        if (is_active_device(bd_addr)) {
+          bool is_twsp_dev = btif_is_tws_plus_device(&bd_addr);
+          /*Clear active device only if given tws+ is active*/
+          if (!is_twsp_dev || (is_twsp_dev && active_bda == bd_addr)) {
+              active_bda = RawAddress::kEmpty;
+              BTIF_TRACE_IMP("%s: Active device is disconnected, clear the active device %s",
+                  __func__, active_bda.ToString().c_str());
+              BTA_AgSetActiveDevice(active_bda);
+          } else {
+              BTIF_TRACE_IMP("%s: non-active TWS+ device disconnected");
+          }
         }
       }
       /* If AG_OPEN was received but SLC was not setup in a specified time (10
