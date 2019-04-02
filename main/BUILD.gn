@@ -63,6 +63,9 @@ shared_library("bluetooth") {
     "//embdrv/sbc/decoder/include",
     "//utils/include",
     "//test/suite",
+    "//internal_include",
+    "//third_party/bluetooth_ext/vhal/include",
+    "//third_party/bluetooth_ext/system_bt_ext",
   ]
 
   deps = [
@@ -78,6 +81,7 @@ shared_library("bluetooth") {
     "//third_party/tinyxml2",
     "//udrv",
     "//utils",
+    "//third_party/bluetooth/libbt-logClient:libbt-logClient",
   ]
 
   cflags_c = [

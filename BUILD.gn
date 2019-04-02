@@ -24,18 +24,6 @@
 group("bluetooth") {
   deps = [
     "//main:bluetooth",
-    "//service:bluetoothtbd",
-  ]
-}
-
-group("bluetooth_tests") {
-  testonly = true
-
-  deps = [
-    "//test/suite:net_test_bluetooth",
-    "//btcore:net_test_btcore",
-    "//hci:net_test_hci",
-    "//osi:net_test_osi",
-    "//device:net_test_device",
+    "//service:offtarget_test",
   ]
 }

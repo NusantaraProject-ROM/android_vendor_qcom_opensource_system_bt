@@ -20,11 +20,19 @@
 
 #include "osi/include/properties.h"
 #include "hardware/vendor.h"
+#include "bt_target.h"
+
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+#include "bt_prop.h"
+#endif
 
 bt_property_callout_t* property_callouts = NULL;
 
 int osi_property_get(const char* key, char* value, const char* default_value) {
 #if defined(OS_GENERIC)
+  #if (OFF_TARGET_TEST_ENABLED == TRUE)
+    return property_get(key, value, default_value);
+  #else
   if(property_callouts)
     return property_callouts->bt_get_property(key, value, default_value);
 
@@ -38,6 +46,7 @@ int osi_property_get(const char* key, char* value, const char* default_value) {
   memcpy(value, default_value, len);
   value[len] = '\0';
   return len;
+  #endif
 #else
   return property_get(key, value, default_value);
 #endif  // defined(OS_GENERIC)
@@ -45,10 +54,14 @@ int osi_property_get(const char* key, char* value, const char* default_value) {
 
 int osi_property_set(const char* key, const char* value) {
 #if defined(OS_GENERIC)
-if(property_callouts)
-    return property_callouts->bt_set_property(key, value);
+  #if (OFF_TARGET_TEST_ENABLED == TRUE)
+    return property_set(key, value);
+  #else
+    if(property_callouts)
+      return property_callouts->bt_set_property(key, value);
 
-  return -1;
+    return -1;
+  #endif
 #else
   return property_set(key, value);
 #endif  // defined(OS_GENERIC)

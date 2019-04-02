@@ -35,41 +35,13 @@ static_library("hci") {
     "//bta/include",
     "//btcore/include",
     "//stack/include",
+    "//internal_include",
+    "//utils/include",
+    "//device/include",
   ]
 
   deps = [
     "//third_party/libchrome:base",
-  ]
-}
-
-executable("net_test_hci") {
-  testonly = true
-  sources = [
-    "//osi/test/AllocationTestHarness.cc",
-    "//osi/test/AlarmTestHarness.cc",
-    "test/packet_fragmenter_test.cc",
-  ]
-
-  include_dirs = [
-    "//",
-    "//include",
-    "//btcore/include",
-    "//hci/include",
-    "//osi/test",
-    "//stack/include",
-  ]
-
-  deps = [
-    "//hci",
-    "//osi",
-    "//btcore",
-    "//third_party/googletest:gtest_main",
-    "//third_party/libchrome:base",
-  ]
-
-  libs = [
-    "-lpthread",
-    "-lrt",
-    "-ldl",
+    "//third_party/bluetooth_ext/system_bt_ext:system_bt_ext_osi",
   ]
 }

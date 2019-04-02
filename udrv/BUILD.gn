@@ -26,5 +26,7 @@ source_set("udrv") {
     "//include",
     "//stack/include",
     "//utils/include",
+    "//internal_include",
+    "//third_party/libchrome",
   ]
 }

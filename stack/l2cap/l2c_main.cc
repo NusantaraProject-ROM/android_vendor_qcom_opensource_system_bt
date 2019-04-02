@@ -41,6 +41,9 @@
 #include "stack_config.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+#include "linux_include/log/log.h"
+#endif
 
 /******************************************************************************/
 /*            L O C A L    F U N C T I O N     P R O T O T Y P E S            */

@@ -13,6 +13,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 //
+#include "bt_target.h"
 
 #define LOG_TAG "hal_util"
 
@@ -29,16 +30,28 @@
 
 using base::StringPrintf;
 
-#define BLUETOOTH_LIBRARY_NAME "libbluetoothQti.so"
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
+  #define BLUETOOTH_LIBRARY_NAME "libbluetoothQti.so"
+#else
+  #define BLUETOOTH_LIBRARY_NAME "./libbluetooth.so"
+#endif //OFF_TARGET_TEST_ENABLED
 
 int hal_util_load_bt_library(const bt_interface_t** interface) {
   const char* sym = BLUETOOTH_INTERFACE_STRING;
   bt_interface_t* itf = nullptr;
 
   // Always try to load the default Bluetooth stack on GN builds.
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
   void* handle = dlopen(BLUETOOTH_LIBRARY_NAME, RTLD_NOW);
+#else
+  void* handle = dlopen(BLUETOOTH_LIBRARY_NAME, RTLD_LAZY);
+  LOG(INFO) << __func__ << " loading HAL path=" << BLUETOOTH_LIBRARY_NAME;
+#endif //OFF_TARGET_TEST_ENABLED
   if (!handle) {
     LOG(ERROR) << __func__ << ": failed to load bluetooth library";
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+    LOG(ERROR) << __func__ << "dlerror:"<<dlerror();
+#endif //OFF_TARGET_TEST_ENABLED
     goto error;
   }
 

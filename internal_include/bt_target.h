@@ -1487,4 +1487,14 @@ incoming connection
 
 #include "bt_trace.h"
 
+/******************************************************************************
+ *
+ * Off target test
+ *
+ *****************************************************************************/
+/* Enable off target test */
+#ifndef OFF_TARGET_TEST_ENABLED
+#define OFF_TARGET_TEST_ENABLED FALSE
+#endif
+
 #endif /* BT_TARGET_H */

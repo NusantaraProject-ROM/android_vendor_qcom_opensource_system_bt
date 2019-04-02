@@ -54,6 +54,10 @@
 
 using base::Location;
 
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+#define SIGKILL 9
+#endif
+
 extern void bte_main_disable(void);
 extern void btm_process_cancel_complete(uint8_t status, uint8_t mode);
 extern void btm_ble_test_command_complete(uint8_t* p);
