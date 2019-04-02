@@ -161,7 +161,7 @@ const tBTA_AG_AT_CMD bta_ag_hfp_cmd[] = {
     {"%QMQ", BTA_AG_TWSP_AT_QMQ_EVT, BTA_AG_AT_SET, BTA_AG_AT_INT, TWSPLUS_MIN_MIC_QUALITY, TWSPLUS_MAX_MIC_QUALITY},
     {"%QES", BTA_AG_TWSP_AT_QES_EVT, BTA_AG_AT_SET, BTA_AG_AT_INT, TWSPLUS_EB_STATE_UNKNOWN, TWSPLUS_EB_STATE_INEAR},
     {"%QER", BTA_AG_TWSP_AT_QER_EVT, BTA_AG_AT_SET, BTA_AG_AT_INT, TWSPLUS_EB_ROLE_LEFT, TWSPLUS_EB_ROLE_MONO},
-    {"%QBC", BTA_AG_TWSP_AT_QBC_EVT, BTA_AG_AT_SET, BTA_AG_AT_INT, TWSPLUS_MIN_BATTERY_CHARGE, TWSPLUS_MAX_BATTERY_CHARGE},
+    {"%QBC", BTA_AG_TWSP_AT_QBC_EVT, BTA_AG_AT_SET, BTA_AG_AT_STR, 0, 0},
     {"%QMD", BTA_AG_TWSP_AT_QMD_EVT, BTA_AG_AT_SET, BTA_AG_AT_INT, TWSPLUS_MIN_MICPATH_DELAY, TWSPLUS_MAX_MICPATH_DELAY/2-1},
     {"%QDSP", BTA_AG_TWSP_AT_QDSP_EVT, BTA_AG_AT_SET, BTA_AG_AT_INT, TWSPLUS_MIN_QDSP, TWSPLUS_MAX_QDSP},
 #endif
@@ -1498,7 +1498,7 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
     case BTA_AG_TWSP_AT_QDSP_EVT:
         if (is_twsp_device(p_scb->peer_addr)) {
            bta_ag_send_ok(p_scb);
-           twsp_handle_vs_at_events(p_scb, cmd, int_arg);
+           twsp_handle_vs_at_events(p_scb, cmd, &val, int_arg);
         } else {
            APPL_TRACE_DEBUG("Not supported for non-twsp devices");
            bta_ag_send_error(p_scb, BTA_AG_ERR_OP_NOT_SUPPORTED);

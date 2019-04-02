@@ -3,6 +3,7 @@
 btifCommonIncludes = [
     "vendor/qcom/opensource/commonsys/system/bt",
     "vendor/qcom/opensource/commonsys/system/bt/bta/include",
+    "vendor/qcom/opensource/commonsys/system/bt/bta/ag",
     "vendor/qcom/opensource/commonsys/system/bt/bta/sys",
     "vendor/qcom/opensource/commonsys/system/bt/bta/ag",
     "vendor/qcom/opensource/commonsys/system/bt/bta/dm",

@@ -85,6 +85,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #if (TWS_AG_ENABLED == TRUE)
 #include "btif_tws_plus.h"
 #include "btif_twsp_hf.h"
+#include "bta_ag_twsp.h"
 #endif
 #include "device/include/device_iot_config.h"
 
@@ -718,7 +719,7 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
     case BTA_AG_SWB_EVT:
       BTIF_TRACE_DEBUG("%s: AG final selected SWB codec is 0x%02x 0=Q0 4=Q1 6=Q3 7=Q4",
                        __func__, p_data->val.num);
-      btif_handle_vendor_hf_events(event, p_data->val.num, &btif_hf_cb[idx].connected_bda);
+      btif_handle_vendor_hf_events(event, p_data, &btif_hf_cb[idx].connected_bda);
       break;
 #endif
 
@@ -784,7 +785,7 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
     case BTA_AG_AT_QCS_EVT:
       BTIF_TRACE_DEBUG("%s: AG final selected SWB codec is 0x%02x 0=Q0 4=Q1 6=Q3 7=Q4",
                        __func__, p_data->val.num);
-      btif_handle_vendor_hf_events(event, p_data->val.num, &btif_hf_cb[idx].connected_bda);
+      btif_handle_vendor_hf_events(event, p_data, &btif_hf_cb[idx].connected_bda);
       break;
 #endif
 
@@ -801,6 +802,14 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
                 (int)p_data->val.num, &btif_hf_cb[idx].connected_bda);
       }
       break;
+    case BTA_AG_TWSP_BATTERY_UPDATE: {
+        BTIF_TRACE_DEBUG("%s: Twsp battery status update : %s",
+                                           __func__, p_data->val.str);
+        btif_handle_vendor_hf_events(event, p_data,
+                               &btif_hf_cb[idx].connected_bda);
+    }
+    break;
+
     default:
       BTIF_TRACE_WARNING("%s: Unhandled event: %d", __func__, event);
       break;
