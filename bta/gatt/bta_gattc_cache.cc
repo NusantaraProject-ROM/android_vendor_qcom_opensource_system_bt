@@ -71,7 +71,8 @@ static void bta_gattc_explore_srvc_finished(uint16_t conn_id,
 #define BTA_GATT_SDP_DB_SIZE 4096
 
 #define GATT_CACHE_PREFIX "/data/misc/bluetooth/gatt_cache_"
-#define GATT_CACHE_VERSION 2
+#define GATT_CACHE_VERSION 5
+
 static void bta_gattc_generate_cache_file_name(char* buffer, size_t buffer_len,
                                                const RawAddress& bda) {
   snprintf(buffer, buffer_len, "%s%02x%02x%02x%02x%02x%02x", GATT_CACHE_PREFIX,

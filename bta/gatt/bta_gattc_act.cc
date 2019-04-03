@@ -157,6 +157,16 @@ void bta_gattc_disable() {
   }
 }
 
+/** start an application interface */
+void bta_gattc_start_if(uint8_t client_if) {
+  if (!bta_gattc_cl_get_regcb(client_if)) {
+    LOG(ERROR) << "Unable to start app.: Unknown client_if=" << +client_if;
+    return;
+  }
+
+  GATT_StartIf(client_if);
+}
+
 /** Register a GATT client application with BTA */
 void bta_gattc_register(const Uuid& app_uuid, tBTA_GATTC_CBACK* p_cback,
                         BtaAppRegisterCallback cb) {
@@ -182,6 +192,10 @@ void bta_gattc_register(const Uuid& app_uuid, tBTA_GATTC_CBACK* p_cback,
 
         /* BTA use the same client interface as BTE GATT statck */
         client_if = bta_gattc_cb.cl_rcb[i].client_if;
+
+        do_in_bta_thread(FROM_HERE,
+                          base::Bind(&bta_gattc_start_if, client_if));
+
         status = GATT_SUCCESS;
         break;
       }
@@ -195,6 +209,7 @@ void bta_gattc_register(const Uuid& app_uuid, tBTA_GATTC_CBACK* p_cback,
 void bta_gattc_deregister(tBTA_GATTC_RCB* p_clreg) {
   if (!p_clreg) {
     LOG(ERROR) << __func__ << ": Deregister Failed unknown client cif";
+    bta_hh_cleanup_disable(BTA_HH_OK);
     return;
   }
 
@@ -1234,7 +1249,12 @@ void bta_gattc_process_indicate(uint16_t conn_id, tGATTC_OPTYPE op,
 
   notify.handle = handle;
 
-  //TODO removed fix of 7e7a166a. Please check it in review
+  /* Not a service change indication, check for an unallocated HID conn */
+  if (bta_hh_le_is_hh_gatt_if(gatt_if) && !p_clcb) {
+    APPL_TRACE_ERROR("%s, ignore HID ind/notificiation", __func__);
+    return;
+  }
+
   /* if service change indication/notification, don't forward to application */
   if (bta_gattc_process_srvc_chg_ind(conn_id, p_clrcb, p_srcb, p_clcb, &notify,
                                      &p_data->att_value))
