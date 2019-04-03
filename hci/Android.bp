@@ -40,6 +40,10 @@ cc_library_static {
         "vendor/qcom/opensource/commonsys-intf/bluetooth/include",
         "system/libhwbinder/include",
     ],
+
+    sanitize: {
+        never: true,
+    },
 }
 
 // HCI unit tests for target
