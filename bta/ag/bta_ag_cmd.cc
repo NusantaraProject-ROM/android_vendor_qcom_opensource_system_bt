@@ -910,6 +910,12 @@ static bool bta_ag_parse_biev_response(tBTA_AG_SCB* p_scb, tBTA_AG_VAL* val) {
   uint16_t rcv_ind_id = atoi(p_token);
 
   p_token = strtok(NULL, ",");
+  if (p_token == NULL) {
+     APPL_TRACE_DEBUG("%s received invalid string %s", __func__,
+                       val->str);
+     return false;
+  }
+
   uint16_t rcv_ind_val = atoi(p_token);
 
   APPL_TRACE_DEBUG("%s BIEV indicator id %d, value %d", __func__, rcv_ind_id,
