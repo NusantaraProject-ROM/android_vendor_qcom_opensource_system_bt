@@ -30,6 +30,10 @@ cc_library_static {
     srcs: [
         "src/audio_hearing_aid_hw_utils.cc",
     ],
+
+    sanitize: {
+        never: true,
+    },
 }
 
 // Audio A2DP library unit tests for target and host

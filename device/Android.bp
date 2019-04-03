@@ -32,6 +32,9 @@ cc_library_static {
     ],
 //endif
 //endif
+    sanitize: {
+        never: true,
+    },
 }
 
 // Bluetooth device unit tests for target

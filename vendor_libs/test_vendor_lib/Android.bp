@@ -51,7 +51,10 @@ cc_library_static {
     ],
     static_libs: [
         "libbluetooth-types",
-    ]
+    ],
+    sanitize: {
+        never: true,
+    },
 }
 
 // test-vendor unit tests for host

@@ -25,6 +25,9 @@ cc_library_static {
             cflags: ["-D_GNU_SOURCE"],
         },
     },
+    sanitize: {
+        never: true,
+    },
 }
 
 // Note: It's good to get the tests compiled both for the host and the target so
