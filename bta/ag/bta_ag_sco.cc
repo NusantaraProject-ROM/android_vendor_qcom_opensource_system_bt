@@ -73,6 +73,7 @@
 #include "device/include/interop.h"
 #if (TWS_AG_ENABLED == TRUE)
 #include "bta_ag_twsp.h"
+#include "bta_ag_twsp_dev.h"
 #endif
 
 #include <btcommon_interface_defs.h>
@@ -1334,7 +1335,8 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
              atleast try opening the secondary SCO */
           if (is_twsp_device(p_scb->peer_addr)&&!p_scb->rmt_sco_req) {
               tBTA_AG_SCB *other_scb = get_other_twsp_scb((p_scb->peer_addr));
-              if (other_scb && twsp_sco_active(other_scb) == false) {
+              if (other_scb && twsp_sco_active(other_scb) == false &&
+                    get_twsp_state(other_scb) == TWSPLUS_EB_STATE_INEAR) {
                  dispatch_event_twsp_peer_device(p_scb, BTA_AG_SCO_OPEN_E);
               }
           }
