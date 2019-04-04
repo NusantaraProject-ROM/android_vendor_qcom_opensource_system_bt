@@ -311,10 +311,12 @@ struct tBTA_AG_SCB {
   uint8_t roam_ind;         /* CIEV roam indicator value */
   uint8_t battchg_ind;      /* CIEV battery charge indicator value */
   uint8_t callheld_ind;     /* CIEV call held indicator value */
+  uint8_t no_of_xsco_trials; /* no of xSCO retrials when collision happened */
   uint32_t bia_masked_out;  /* indicators HF does not want us to send */
   alarm_t* collision_timer;
   alarm_t* ring_timer;
   alarm_t* codec_negotiation_timer;
+  alarm_t* xsco_conn_collision_timer; /* try xSCO again if failed due to collision */
   tBTA_AG_PEER_CODEC peer_codecs; /* codecs for eSCO supported by the peer */
   tBTA_AG_PEER_CODEC sco_codec;   /* codec to be used for eSCO connection */
   tBTA_AG_PEER_CODEC

@@ -678,8 +678,13 @@ void bta_ag_send_call_inds(tBTA_AG_SCB* p_scb, tBTA_AG_RES result) {
     bta_ag_send_ind(p_scb, BTA_AG_IND_CALL, call, false);
   bta_ag_send_ind(p_scb, BTA_AG_IND_CALLSETUP, callsetup, false);
 
-  if (is_blacklisted) {
-    if (result == BTA_AG_END_CALL_RES || result == BTA_AG_CALL_CANCEL_RES) {
+  if ((result == BTA_AG_END_CALL_RES || result == BTA_AG_CALL_CANCEL_RES) &&
+       p_scb) {
+    APPL_TRACE_IMP("%s: call/call setup ended, cancel xsco collision timer",
+                    __func__);
+    alarm_cancel(p_scb->xsco_conn_collision_timer);
+
+    if (is_blacklisted) {
        APPL_TRACE_IMP("%s: Enable sniff mode for device: %s",
                        __func__, p_scb->peer_addr.ToString().c_str());
        bta_sys_set_policy(BTA_ID_AG, HCI_ENABLE_SNIFF_MODE, p_scb->peer_addr);

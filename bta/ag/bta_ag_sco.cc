@@ -88,6 +88,10 @@ bool sco_init_rmt_xfer = false;
 #define BTA_AG_CODEC_NEGOTIATION_TIMEOUT_MS (5 * 1000) /* 5 seconds */
 #endif
 
+#ifndef BTA_AG_XSCO_COLLISION_TIMEOUT_MS
+#define BTA_AG_XSCO_COLLISION_TIMEOUT_MS (2 * 1000) /* 2 seconds */
+#endif
+
 const char* bta_ag_sco_evt_str(uint8_t event);
 const char* bta_ag_sco_state_str(uint8_t state);
 
@@ -166,6 +170,24 @@ static void bta_ag_sco_conn_cback(uint16_t sco_idx) {
 
 /*******************************************************************************
  *
+ * Function         bta_ag_xsco_collision_timer_cback
+ *
+ * Description      xSCO collision timer call back that gets called after
+ *                  collision timer expires and attempts for xSCO connection.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void bta_ag_xsco_collision_timer_cback(void* data) {
+  APPL_TRACE_DEBUG("%s", __func__);
+  tBTA_AG_SCB* p_scb = (tBTA_AG_SCB*)data;
+
+  bta_ag_sco_open(p_scb, NULL);
+  bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_OPENING_EVT);
+}
+
+/*******************************************************************************
+ *
  * Function         bta_ag_sco_disc_cback
  *
  * Description      BTM SCO disconnection callback.
@@ -177,14 +199,15 @@ static void bta_ag_sco_conn_cback(uint16_t sco_idx) {
 static void bta_ag_sco_disc_cback(uint16_t sco_idx) {
   uint16_t handle = 0;
   tBTA_AG_SCB* curr_scb;
+  uint8_t status = BTM_ReadScoDiscReason();
   bt_soc_type_t soc_type = controller_get_interface()->get_soc_type();
 
   APPL_TRACE_DEBUG("%s: soc_type: %d", __func__, soc_type);
 
   APPL_TRACE_IMP(
       "bta_ag_sco_disc_cback(): sco_idx: 0x%x  p_cur_scb: 0x%08x  sco.state: "
-      "%d",
-      sco_idx, bta_ag_cb.sco.p_curr_scb, bta_ag_cb.sco.state);
+      "%d, status %x",
+      sco_idx, bta_ag_cb.sco.p_curr_scb, bta_ag_cb.sco.state, status);
 
   APPL_TRACE_DEBUG(
       "bta_ag_sco_disc_cback(): scb[0] addr: 0x%08x  in_use: %u  sco_idx: 0x%x "
@@ -291,6 +314,18 @@ static void bta_ag_sco_disc_cback(uint16_t sco_idx) {
     p_buf->event = BTA_AG_SCO_CLOSE_EVT;
     p_buf->layer_specific = handle;
     bta_sys_sendmsg(p_buf);
+
+    if ( status == HCI_ERR_DIFF_TRANSACTION_COLLISION &&
+         bta_ag_cb.sco.p_curr_scb->no_of_xsco_trials == 0 ) {
+
+      APPL_TRACE_IMP("%s: xSCO disc status is %x, retry xSCO after %x secs",
+                     __func__, status, BTA_AG_XSCO_COLLISION_TIMEOUT_MS);
+      alarm_set_on_mloop(bta_ag_cb.sco.p_curr_scb->xsco_conn_collision_timer,
+                        BTA_AG_XSCO_COLLISION_TIMEOUT_MS,
+                        bta_ag_xsco_collision_timer_cback,
+                        bta_ag_cb.sco.p_curr_scb);
+      bta_ag_cb.sco.p_curr_scb->no_of_xsco_trials++;
+    }
   } else {
     /* no match found */
     APPL_TRACE_DEBUG("no scb for ag_sco_disc_cback");
@@ -683,6 +718,11 @@ static void bta_ag_create_pending_sco(tBTA_AG_SCB* p_scb, bool is_local) {
 
   APPL_TRACE_DEBUG("%s: soc_type: %d", __func__, soc_type);
 
+
+  /* If there is timer running for xSCO setup, cancel it */
+  if (p_scb) {
+    alarm_cancel(p_scb->xsco_conn_collision_timer);
+  }
 
 #if (TWS_AG_ENABLED == TRUE)
   if (is_twsp_device(p_scb->peer_addr)) {
@@ -2206,6 +2246,10 @@ void bta_ag_sco_conn_open(tBTA_AG_SCB* p_scb,
 
     /* call app callback */
     bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_OPEN_EVT);
+
+    /* reset collision trials and timer */
+    p_scb->no_of_xsco_trials = 0;
+    alarm_cancel(p_scb->xsco_conn_collision_timer);
 
     /* reset to mSBC T2 settings as the preferred */
     p_scb->codec_msbc_settings = BTA_AG_SCO_MSBC_SETTINGS_T2;

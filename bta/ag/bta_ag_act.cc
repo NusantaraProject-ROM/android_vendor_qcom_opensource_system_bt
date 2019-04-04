@@ -481,6 +481,7 @@ void bta_ag_rfc_close(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
   /* stop timers */
   alarm_cancel(p_scb->ring_timer);
   alarm_cancel(p_scb->codec_negotiation_timer);
+  alarm_cancel(p_scb->xsco_conn_collision_timer);
 
   close.hdr.handle = bta_ag_scb_to_idx(p_scb);
   close.hdr.app_id = p_scb->app_id;
