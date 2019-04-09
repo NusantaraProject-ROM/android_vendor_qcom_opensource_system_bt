@@ -707,11 +707,10 @@ bool a2dp_is_audio_codec_config_params_changed(
       }
       break;
     }
-#if (TWS_ENABLED == TRUE)
     case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_TWS: {
-      SampleRate sampleRate;
-      ChannelMode channelMode;
-      uint8_t syncMode;
+      //SampleRate sampleRate;
+      //ChannelMode channelMode;
+      //uint8_t syncMode;
       if(codec_config->codecType != CodecType::APTX_TWS) {
         changed = true;
         break;
@@ -729,12 +728,8 @@ bool a2dp_is_audio_codec_config_params_changed(
       }
       break;
     }
-    case BTAV_VENDOR_A2DP_CODEC_INDEX_MAX:
-      [[fallthrough]];
-#else
     case BTAV_A2DP_CODEC_INDEX_MAX:
       [[fallthrough]];
-#endif
     default:
       LOG(ERROR) << __func__
                  << ": Unknown codec_type=" << current_codec.codec_type;
@@ -1017,14 +1012,13 @@ bool a2dp_get_selected_hal_codec_config(CodecConfiguration* codec_config) {
       codec_config->config.ldacConfig = ldac_config;
       break;
     }
-#if (TWS_ENABLED == TRUE)
     case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_TWS: {
-      SampleRate sampleRate;
-      ChannelMode channelMode;
-      uint8_t syncMode;
+      //SampleRate sampleRate;
+      //ChannelMode channelMode;
+      //uint8_t syncMode;
       codec_config->codecType = CodecType::APTX_TWS;
       codec_config->config.aptxTwsConfig = {};
-      auto aptx_tws_config = codec_config->config.aptxTwsConfig();
+      auto aptx_tws_config = codec_config->config.aptxTwsConfig;
       aptx_tws_config.sampleRate = a2dp_codec_to_hal_sample_rate(current_codec);
       if (aptx_tws_config.sampleRate == SampleRate::RATE_UNKNOWN) {
         LOG(ERROR) << __func__ << ": Unknown aptX tws sample_rate="
@@ -1041,12 +1035,8 @@ bool a2dp_get_selected_hal_codec_config(CodecConfiguration* codec_config) {
       codec_config->config.aptxTwsConfig = aptx_tws_config;
       break;
     }
-    case BTAV_VENDOR_A2DP_CODEC_INDEX_MAX:
-      [[fallthrough]];
-#else
     case BTAV_A2DP_CODEC_INDEX_MAX:
       [[fallthrough]];
-#endif
     default:
       LOG(ERROR) << __func__
                  << ": Unknown codec_type=" << current_codec.codec_type;
