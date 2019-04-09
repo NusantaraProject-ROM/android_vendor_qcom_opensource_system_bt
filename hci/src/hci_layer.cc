@@ -53,7 +53,7 @@
 #define BT_HCI_TIMEOUT_TAG_NUM 1010000
 
 extern void hci_initialize();
-extern bool hci_transmit(BT_HDR* packet);
+extern hci_transmit_status_t hci_transmit(BT_HDR* packet);
 extern void hci_close();
 extern int hci_open_firmware_log_file();
 extern void hci_close_firmware_log_file(int fd);
@@ -460,7 +460,9 @@ static void transmit_fragment(BT_HDR* packet, bool send_transmit_finished) {
    * process the event and frees the packet*/
   uint16_t event = packet->event & MSG_EVT_MASK;
 
-  if(!hci_transmit(packet)) {
+  hci_transmit_status_t status = hci_transmit(packet);
+
+  if(status == HCI_TRANSMIT_DAEMON_DIED) {
     LOG_ERROR(LOG_TAG, "%s: unable to send packet to hci hal daemon ", __func__);
     usleep(100000);
     LOG_ERROR(LOG_TAG, "%s: Killing bluetooth process due to TX failed ", __func__);

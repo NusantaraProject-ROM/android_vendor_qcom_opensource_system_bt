@@ -32,6 +32,13 @@ static const char HCI_MODULE[] = "hci_module";
 
 ///// LEGACY DEFINITIONS /////
 
+typedef enum {
+   HCI_TRANSMIT_SUCCESS = 0,
+   HCI_TRANSMIT_DAEMON_CLOSED = 1,
+   HCI_TRANSMIT_DAEMON_DIED = 2,
+   HCI_TRANSMIT_INVALID_PKT = 3
+} hci_transmit_status_t;
+
 /* Message event mask across Host/Controller lib and stack */
 #define MSG_EVT_MASK 0xFF00     /* eq. BT_EVT_MASK */
 #define MSG_SUB_EVT_MASK 0x00FF /* eq. BT_SUB_EVT_MASK */
