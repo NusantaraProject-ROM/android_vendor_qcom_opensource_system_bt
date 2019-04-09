@@ -64,7 +64,6 @@
 #include "a2dp_vendor_aptx_adaptive.h"
 #include "a2dp_vendor_aptx_adaptive_constants.h"
 
-#include "bt_vendor_av.h"
 bool A2DP_IsVendorSourceCodecValid(const uint8_t* p_codec_info) {
   uint32_t vendor_id = A2DP_VendorCodecGetVendorId(p_codec_info);
   uint16_t codec_id = A2DP_VendorCodecGetCodecId(p_codec_info);
@@ -710,22 +709,14 @@ btav_a2dp_codec_index_t A2DP_VendorSourceCodecIndex(
 #endif
   // Add checks based on <vendor_id, codec_id>
 
-#if (TWS_ENABLED == TRUE)
-  return (btav_a2dp_codec_index_t)BTAV_VENDOR_A2DP_CODEC_INDEX_MAX;
-#else
   return BTAV_A2DP_CODEC_INDEX_MAX;
-#endif
 }
 
 const char* A2DP_VendorCodecIndexStr(btav_a2dp_codec_index_t codec_index) {
   // Add checks based on codec_index
   switch (codec_index) {
     case BTAV_A2DP_CODEC_INDEX_SOURCE_SBC:
-#if (TWS_ENABLED == TRUE)
-    case BTAV_VENDOR_A2DP_CODEC_INDEX_SINK_SBC:
-#else
     case BTAV_A2DP_CODEC_INDEX_SINK_SBC:
-#endif
     case BTAV_A2DP_CODEC_INDEX_SOURCE_AAC:
       break;  // These are not vendor-specific codecs
     case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX:
@@ -736,14 +727,10 @@ const char* A2DP_VendorCodecIndexStr(btav_a2dp_codec_index_t codec_index) {
       return A2DP_VendorCodecIndexStrAptxAdaptive();
     case BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC:
       return A2DP_VendorCodecIndexStrLdac();
-#if (TWS_ENABLED == TRUE)
     case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_TWS:
       return A2DP_VendorCodecIndexStrAptxTWS();
-    case BTAV_VENDOR_A2DP_CODEC_INDEX_MAX:
-#else
     // Add a switch statement for each vendor-specific codec
     case BTAV_A2DP_CODEC_INDEX_MAX:
-#endif
     default:
       break;
   }
@@ -756,11 +743,7 @@ bool A2DP_VendorInitCodecConfig(btav_a2dp_codec_index_t codec_index,
   // Add checks based on codec_index
   switch (codec_index) {
     case BTAV_A2DP_CODEC_INDEX_SOURCE_SBC:
-#if (TWS_ENABLED == TRUE)
-    case BTAV_VENDOR_A2DP_CODEC_INDEX_SINK_SBC:
-#else
     case BTAV_A2DP_CODEC_INDEX_SINK_SBC:
-#endif
     case BTAV_A2DP_CODEC_INDEX_SOURCE_AAC:
       break;  // These are not vendor-specific codecs
     case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX:
@@ -771,14 +754,10 @@ bool A2DP_VendorInitCodecConfig(btav_a2dp_codec_index_t codec_index,
       return A2DP_VendorInitCodecConfigAptxAdaptive(p_cfg);
     case BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC:
       return A2DP_VendorInitCodecConfigLdac(p_cfg);
-#if (TWS_ENABLED == TRUE)
     case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_TWS:
       return A2DP_VendorInitCodecConfigAptxTWS(p_cfg);
-    case BTAV_VENDOR_A2DP_CODEC_INDEX_MAX:
-#else
     // Add a switch statement for each vendor-specific codec
     case BTAV_A2DP_CODEC_INDEX_MAX:
-#endif
     default:
       break;
   }

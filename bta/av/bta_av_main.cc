@@ -596,13 +596,8 @@ static void bta_av_api_register(tBTA_AV_DATA* p_data) {
       cs.flush_to = L2CAP_DEFAULT_FLUSH_TO;
       btav_a2dp_codec_index_t codec_index_min =
           BTAV_A2DP_CODEC_INDEX_SOURCE_MIN;
-#if (TWS_ENABLED == TRUE)
-      btav_a2dp_codec_index_t codec_index_max =
-          (btav_a2dp_codec_index_t)BTAV_VENDOR_A2DP_CODEC_INDEX_SOURCE_MAX;
-#else
       btav_a2dp_codec_index_t codec_index_max =
           BTAV_A2DP_CODEC_INDEX_SOURCE_MAX;
-#endif
 
 #if (AVDT_REPORTING == TRUE)
       if (bta_av_cb.features & BTA_AV_FEAT_REPORT) {
@@ -619,30 +614,16 @@ static void bta_av_api_register(tBTA_AV_DATA* p_data) {
       if (profile_initialized == UUID_SERVCLASS_AUDIO_SOURCE) {
         cs.tsep = AVDT_TSEP_SRC;
         codec_index_min = BTAV_A2DP_CODEC_INDEX_SOURCE_MIN;
-#if (TWS_ENABLED == TRUE)
-        codec_index_max = (btav_a2dp_codec_index_t)
-                            BTAV_VENDOR_A2DP_CODEC_INDEX_SOURCE_MAX;
-#else
         codec_index_max = BTAV_A2DP_CODEC_INDEX_SOURCE_MAX;
-#endif
       } else if (profile_initialized == UUID_SERVCLASS_AUDIO_SINK) {
         cs.tsep = AVDT_TSEP_SNK;
         cs.p_sink_data_cback = bta_av_sink_data_cback;
-#if (TWS_ENABLED == TRUE)
-        codec_index_min = (btav_a2dp_codec_index_t)BTAV_VENDOR_A2DP_CODEC_INDEX_SINK_MIN;
-        codec_index_max = (btav_a2dp_codec_index_t)BTAV_VENDOR_A2DP_CODEC_INDEX_SINK_MAX;
-#else
         codec_index_min = BTAV_A2DP_CODEC_INDEX_SINK_MIN;
         codec_index_max = BTAV_A2DP_CODEC_INDEX_SINK_MAX;
-#endif
       }
 
       /* Initialize handles to zero */
-#if (TWS_ENABLED == TRUE)
-      for (int xx = 0; xx < BTAV_VENDOR_A2DP_CODEC_INDEX_MAX; xx++) {
-#else
       for (int xx = 0; xx < BTAV_A2DP_CODEC_INDEX_MAX; xx++) {
-#endif
         p_scb->seps[xx].av_handle = 0;
       }
 

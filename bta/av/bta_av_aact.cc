@@ -313,11 +313,7 @@ tAVDT_CTRL_CBACK* const bta_av_dt_cback[] = {bta_av_stream0_cback,
  * Returns          void
  **********************************************/
 static uint8_t bta_av_get_scb_handle(tBTA_AV_SCB* p_scb, uint8_t local_sep) {
-#if (TWS_ENABLED == TRUE)
-  for (int i = 0; i < BTAV_VENDOR_A2DP_CODEC_INDEX_MAX; i++) {
-#else
   for (int i = 0; i < BTAV_A2DP_CODEC_INDEX_MAX; i++) {
-#endif
     if ((p_scb->seps[i].tsep == local_sep) &&
         A2DP_CodecTypeEquals(p_scb->seps[i].codec_info,
                              p_scb->cfg.codec_info)) {
@@ -339,11 +335,7 @@ static uint8_t bta_av_get_scb_handle(tBTA_AV_SCB* p_scb, uint8_t local_sep) {
  **********************************************/
 static uint8_t bta_av_get_scb_sep_type(tBTA_AV_SCB* p_scb,
                                        uint8_t tavdt_handle) {
-#if (TWS_ENABLED == TRUE)
-  for (int i = 0; i < BTAV_VENDOR_A2DP_CODEC_INDEX_MAX; i++) {
-#else
   for (int i = 0; i < BTAV_A2DP_CODEC_INDEX_MAX; i++) {
-#endif
     if (p_scb->seps[i].av_handle == tavdt_handle) return (p_scb->seps[i].tsep);
   }
   APPL_TRACE_DEBUG("%s: handle %d not found", __func__, tavdt_handle)
@@ -918,11 +910,7 @@ static void bta_av_a2dp_sdp_cback2(bool found, tA2DP_Service* p_service, tBTA_AV
 static void bta_av_adjust_seps_idx(tBTA_AV_SCB* p_scb, uint8_t avdt_handle) {
   APPL_TRACE_DEBUG("%s: codec: %s and codec_index = %d", __func__,
           A2DP_CodecName(p_scb->cfg.codec_info), A2DP_SourceCodecIndex(p_scb->cfg.codec_info));
-#if (TWS_ENABLED == TRUE)
-  for (int i = 0; i < BTAV_VENDOR_A2DP_CODEC_INDEX_MAX; i++) {
-#else
   for (int i = 0; i < BTAV_A2DP_CODEC_INDEX_MAX; i++) {
-#endif
     APPL_TRACE_DEBUG("%s: av_handle: %d codec: %s", __func__,
                      p_scb->seps[i].av_handle,
                      A2DP_CodecName(p_scb->seps[i].codec_info));
@@ -1341,11 +1329,7 @@ void bta_av_cleanup(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
   p_scb->skip_sdp = false;
   if (p_scb->deregistring) {
     /* remove stream */
-#if (TWS_ENABLED == TRUE)
-  for (int i = 0; i < BTAV_VENDOR_A2DP_CODEC_INDEX_MAX; i++) {
-#else
   for (int i = 0; i < BTAV_A2DP_CODEC_INDEX_MAX; i++) {
-#endif
       if (p_scb->seps[i].av_handle) AVDT_RemoveStream(p_scb->seps[i].av_handle);
       p_scb->seps[i].av_handle = 0;
     }

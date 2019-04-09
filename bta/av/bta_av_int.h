@@ -65,7 +65,6 @@
 #include "osi/include/list.h"
 #include "stack/a2dp/a2dp_int.h"
 #include "stack/include/a2dp_api.h"
-#include "bt_vendor_av.h"
 /*****************************************************************************
  *  Constants
  ****************************************************************************/
@@ -579,11 +578,7 @@ struct tBTA_AV_SCB {
   const tBTA_AV_ACT* p_act_tbl; /* the action table for stream state machine */
   const tBTA_AV_CO_FUNCTS* p_cos; /* the associated callout functions */
   bool sdp_discovery_started; /* variable to determine whether SDP is started */
-#if (TWS_ENABLED == TRUE)
-  tBTA_AV_SEP seps[BTAV_VENDOR_A2DP_CODEC_INDEX_MAX];
-#else
   tBTA_AV_SEP seps[BTAV_A2DP_CODEC_INDEX_MAX];
-#endif
   tAVDT_CFG* p_cap;  /* buffer used for get capabilities */
   list_t* a2dp_list; /* used for audio channels only */
   tBTA_AV_Q_INFO q_info;

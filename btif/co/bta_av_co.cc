@@ -74,7 +74,6 @@
 #include "osi/include/properties.h"
 #include "device/include/interop.h"
 #include "device/include/controller.h"
-#include "bt_vendor_av.h"
 #include "btif/include/btif_storage.h"
 #include <hardware/bt_gatt.h>
 #include "btif/include/btif_a2dp_source.h"
@@ -114,16 +113,8 @@ typedef struct {
 typedef struct {
   RawAddress addr; /* address of audio/video peer */
   tBTA_AV_CO_SINK
-#if (TWS_ENABLED == TRUE)
-      sinks[BTAV_VENDOR_A2DP_CODEC_INDEX_MAX]; /* array of supported sinks */
-#else
       sinks[BTAV_A2DP_CODEC_INDEX_MAX]; /* array of supported sinks */
-#endif
-#if (TWS_ENABLED == TRUE)
-  tBTA_AV_CO_SINK srcs[BTAV_VENDOR_A2DP_CODEC_INDEX_MAX]; /* array of supported srcs */
-#else
   tBTA_AV_CO_SINK srcs[BTAV_A2DP_CODEC_INDEX_MAX]; /* array of supported srcs */
-#endif
   uint8_t num_sinks;     /* total number of sinks at peer */
   uint8_t num_srcs;      /* total number of srcs at peer */
   uint8_t num_seps;      /* total number of seids at peer */
@@ -1465,11 +1456,7 @@ bool bta_av_co_set_codec_user_config(
   }
 
   // Find the peer SEP codec to use
-#if (TWS_ENABLED == TRUE)
-  if (codec_user_config.codec_type < BTAV_VENDOR_A2DP_CODEC_INDEX_MAX) {
-#else
   if (codec_user_config.codec_type < BTAV_A2DP_CODEC_INDEX_MAX) {
-#endif
     for (size_t index = 0; index < p_peer->num_sup_sinks; index++) {
       btav_a2dp_codec_index_t peer_codec_index =
           A2DP_SourceCodecIndex(p_peer->sinks[index].codec_caps);
@@ -1596,11 +1583,7 @@ static bool bta_av_co_set_codec_ota_config(tBTA_AV_CO_PEER* p_peer,
   // Find the peer SEP codec to use
   btav_a2dp_codec_index_t ota_codec_index =
       A2DP_SourceCodecIndex(p_ota_codec_config);
-#if (TWS_ENABLED == TRUE)
-  if (ota_codec_index == BTAV_VENDOR_A2DP_CODEC_INDEX_MAX) {
-#else
   if (ota_codec_index == BTAV_A2DP_CODEC_INDEX_MAX) {
-#endif
     APPL_TRACE_WARNING("%s: invalid peer codec config", __func__);
     return false;
   }
