@@ -33,7 +33,7 @@
 #include <algorithm>
 
 #include "audio_a2dp_hw/include/audio_a2dp_hw.h"
-//#include "audio_hal_interface/a2dp_encoding.h"
+#include "audio_hal_interface/a2dp_encoding.h"
 #include "bt_common.h"
 #include "bta_av_ci.h"
 #include "btif_a2dp.h"
@@ -51,7 +51,7 @@
 #include "osi/include/time.h"
 #include "uipc.h"
 #include "btif_a2dp_audio_interface.h"
-
+#include "btif_bat.h"
 using system_bt_osi::BluetoothMetricsLogger;
 using system_bt_osi::A2dpSessionMetrics;
 
@@ -214,7 +214,7 @@ static void btm_read_automatic_flush_timeout_cb(void* data);
 static void btm_read_tx_power_cb(void* data);
 static void btif_a2dp_source_unblock_audio_start_timeout(void* context);
 static void btif_a2dp_source_remote_start_timeout(void* context);
-void btif_a2dp_update_sink_latency_change();
+extern void btif_av_set_offload_status(void);
 
 static char a2dp_hal_imp[PROPERTY_VALUE_MAX] = "false";
 UNUSED_ATTR static const char* dump_media_event(uint16_t event) {
@@ -370,7 +370,7 @@ static void btif_a2dp_source_shutdown_delayed(UNUSED_ATTR void* context) {
   APPL_TRACE_DEBUG("%s", __func__);
   btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
   if (btif_a2dp_source_is_hal_v2_enabled()){
-    //bluetooth::audio::a2dp::cleanup();
+    bluetooth::audio::a2dp::cleanup();
   } else {
     btif_a2dp_control_cleanup();
   }
@@ -621,7 +621,7 @@ bt_status_t btif_a2dp_source_setup_codec(tBTA_AV_HNDL hndl) {
 
   if (btif_a2dp_source_is_hal_v2_supported()) {
     APPL_TRACE_EVENT("%s ## setup_codec ##", __func__);
-    //bluetooth::audio::a2dp::setup_codec();
+    bluetooth::audio::a2dp::setup_codec();
   }
   mutex_global_unlock();
   return status;
@@ -646,7 +646,7 @@ void btif_a2dp_source_stop_audio_req(void) {
   BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
   tA2DP_CTRL_CMD pending_cmd = A2DP_CTRL_CMD_NONE;
   if (btif_a2dp_source_is_hal_v2_enabled()) {
-    //pending_cmd = bluetooth::audio::a2dp::get_pending_command();
+    pending_cmd = bluetooth::audio::a2dp::get_pending_command();
   } else {
     pending_cmd = btif_a2dp_control_get_pending_command();
   }
@@ -793,7 +793,7 @@ void btif_a2dp_source_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
   APPL_TRACE_EVENT("## ON A2DP SOURCE STOPPED ##");
   tA2DP_CTRL_CMD pending_cmd = A2DP_CTRL_CMD_NONE;
   if (btif_a2dp_source_is_hal_v2_enabled()) {
-    //pending_cmd = bluetooth::audio::a2dp::get_pending_command();
+    pending_cmd = bluetooth::audio::a2dp::get_pending_command();
   } else {
     pending_cmd = btif_a2dp_control_get_pending_command();
   }
@@ -810,14 +810,14 @@ void btif_a2dp_source_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
         if ((pending_cmd == A2DP_CTRL_CMD_STOP) ||
                 (pending_cmd == A2DP_CTRL_CMD_SUSPEND)) {
           if (btif_a2dp_source_is_hal_v2_enabled()) {
-            //bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_FAILURE);
+            bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_FAILURE);
           } else {
             btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
           }
           if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
                   !strcmp(a2dp_hal_imp, "true")) {
             if (btif_a2dp_source_is_hal_v2_enabled()) {
-              //bluetooth::audio::a2dp::reset_pending_command();
+              bluetooth::audio::a2dp::reset_pending_command();
             } else {
               btif_a2dp_pending_cmds_reset();
             }
@@ -839,8 +839,14 @@ void btif_a2dp_source_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
   btif_a2dp_source_cb.tx_flush = true;
 
   /* request to stop media task */
-  btif_a2dp_source_audio_tx_flush_req();
-  btif_a2dp_source_stop_audio_req();
+  if (!btif_a2dp_source_is_hal_v2_enabled() ||
+       (btif_a2dp_source_is_hal_v2_enabled() &&
+       bluetooth::audio::a2dp::get_session_type() ==
+       SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH)) {
+    btif_a2dp_source_audio_tx_flush_req();
+    BTIF_TRACE_DEBUG("%s: stop audio as it is SW session",__func__);
+    btif_a2dp_source_stop_audio_req();
+  }
 
   /* once stream is fully stopped we will ack back */
 }
@@ -849,7 +855,7 @@ void btif_a2dp_source_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
   APPL_TRACE_EVENT("## ON A2DP SOURCE SUSPENDED ##");
   tA2DP_CTRL_CMD pending_cmd = A2DP_CTRL_CMD_NONE;
   if (btif_a2dp_source_is_hal_v2_enabled()) {
-    //pending_cmd = bluetooth::audio::a2dp::get_pending_command();
+    pending_cmd = bluetooth::audio::a2dp::get_pending_command();
   } else {
     pending_cmd = btif_a2dp_control_get_pending_command();
   }
@@ -865,7 +871,7 @@ void btif_a2dp_source_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
         if ((pending_cmd == A2DP_CTRL_CMD_STOP) ||
                 (pending_cmd == A2DP_CTRL_CMD_SUSPEND)) {
           if (btif_a2dp_source_is_hal_v2_enabled()) {
-            //bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_FAILURE);
+            bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_FAILURE);
           } else {
             btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
           }
@@ -873,7 +879,7 @@ void btif_a2dp_source_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
           if (property_get("persist.vendor.bt.a2dp.hal.implementation", a2dp_hal_imp, "false") &&
                   !strcmp(a2dp_hal_imp, "true")) {
             if (btif_a2dp_source_is_hal_v2_enabled()) {
-              //bluetooth::audio::a2dp::reset_pending_command();
+              bluetooth::audio::a2dp::reset_pending_command();
             } else {
               btif_a2dp_pending_cmds_reset();
             }
@@ -896,7 +902,14 @@ void btif_a2dp_source_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
   btif_a2dp_source_cb.tx_flush = true;
 
   /* stop timer tick */
-  btif_a2dp_source_stop_audio_req();
+  /* request to stop media task */
+  if (!btif_a2dp_source_is_hal_v2_enabled() ||
+       (btif_a2dp_source_is_hal_v2_enabled() &&
+       bluetooth::audio::a2dp::get_session_type() ==
+       SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH)) {
+    BTIF_TRACE_DEBUG("%s: stop audio as it is SW session",__func__);
+    btif_a2dp_source_stop_audio_req();
+  }
 }
 
 /* when true media task discards any tx frames */
@@ -946,8 +959,8 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
 
   // Keep track of audio data still left in the pipe
   if (btif_a2dp_source_is_hal_v2_enabled()) {
-    //btif_a2dp_control_log_bytes_read(
-       // bluetooth::audio::a2dp::read(p_buf, sizeof(p_buf)));
+    btif_a2dp_control_log_bytes_read(
+        bluetooth::audio::a2dp::read(p_buf, sizeof(p_buf)));
   } else {
     btif_a2dp_control_log_bytes_read(
        UIPC_Read(UIPC_CH_ID_AV_AUDIO, &event, p_buf, sizeof(p_buf)));
@@ -958,9 +971,7 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
   alarm_free(btif_a2dp_source_cb.media_alarm);
   btif_a2dp_source_cb.media_alarm = NULL;
 
-  if (btif_a2dp_source_is_hal_v2_enabled()) {
-    //bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_SUCCESS);
-  } else {
+  if (!btif_a2dp_source_is_hal_v2_enabled()) {
     UIPC_Close(UIPC_CH_ID_AV_AUDIO);
   }
   /*
@@ -976,7 +987,7 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
    * to get the ACK for any pending command in such cases.
    */
   if (btif_a2dp_source_is_hal_v2_enabled()) {
-    //pending_cmd = bluetooth::audio::a2dp::get_pending_command();
+    pending_cmd = bluetooth::audio::a2dp::get_pending_command();
   } else {
     pending_cmd = btif_a2dp_control_get_pending_command();
   }
@@ -985,14 +996,14 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
           pending_cmd == A2DP_CTRL_CMD_STOP)) {
     APPL_TRACE_DEBUG("%s, Ack for pending Stop/Suspend", __func__);
     if (btif_a2dp_source_is_hal_v2_enabled()) {
-      //bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_SUCCESS);
+      bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_SUCCESS);
     } else {
       btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
     }
   } else if (pending_cmd == A2DP_CTRL_CMD_START) {
     BTIF_TRACE_ERROR("Ack Pending Start while Disconnect in Progress");
     if (btif_a2dp_source_is_hal_v2_enabled()) {
-      //bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS);
+      bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS);
     } else {
       btif_a2dp_command_ack(A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS);
     }
@@ -1042,7 +1053,7 @@ static uint32_t btif_a2dp_source_read_callback(uint8_t* p_buf, uint32_t len) {
   uint16_t event;
   uint32_t bytes_read = 0;
   if (btif_a2dp_source_is_hal_v2_enabled()) {
-    //bytes_read = bluetooth::audio::a2dp::read(p_buf, len);
+    bytes_read = bluetooth::audio::a2dp::read(p_buf, len);
   } else {
     bytes_read = UIPC_Read(UIPC_CH_ID_AV_AUDIO, &event, p_buf, len);
   }
@@ -1538,13 +1549,11 @@ static void btm_read_tx_power_cb(void* data) {
 }
 
 bool btif_a2dp_source_is_hal_v2_enabled(void) {
-    return false;
-   //return bluetooth::audio::a2dp::is_hal_2_0_enabled();
+   return bluetooth::audio::a2dp::is_hal_2_0_enabled();
 }
 
 bool btif_a2dp_source_is_hal_v2_supported(void) {
-    return false;
-   //return bluetooth::audio::a2dp::is_hal_2_0_supported();
+   return bluetooth::audio::a2dp::is_hal_2_0_supported();
 }
 
 bool btif_a2dp_source_start_session(const RawAddress& peer_address) {
@@ -1560,21 +1569,22 @@ bool btif_a2dp_source_start_session(const RawAddress& peer_address) {
 
   if (btif_a2dp_source_is_hal_v2_supported()) {
     APPL_TRACE_EVENT("%s calling ## init ##", __func__);
-    //bluetooth::audio::a2dp::init(btif_a2dp_source_cb.worker_thread);
+    bluetooth::audio::a2dp::init(btif_a2dp_source_cb.worker_thread);
   }
 
   btif_a2dp_source_setup_codec(hndl);
 
   if (btif_a2dp_source_is_hal_v2_enabled()) {
-    //bluetooth::audio::a2dp::start_session();
+    bluetooth::audio::a2dp::start_session();
   }
+  btif_a2dp_update_sink_latency_change();
   return true;
 }
 
 bool btif_a2dp_source_is_restart_session_needed() {
   bool restart_session = false;
   if (btif_a2dp_source_is_hal_v2_enabled()) {
-     //restart_session = bluetooth::audio::a2dp::is_restart_session_needed();
+     restart_session = bluetooth::audio::a2dp::is_restart_session_needed();
   }
   APPL_TRACE_EVENT("%s :: restart_session %d", __func__, restart_session);
   return restart_session;
@@ -1582,7 +1592,8 @@ bool btif_a2dp_source_is_restart_session_needed() {
 
 bool btif_a2dp_source_restart_session(const RawAddress& old_peer_address,
                                       const RawAddress& new_peer_address) {
-  bool is_streaming = alarm_is_scheduled(btif_a2dp_source_cb.media_alarm);
+  bool is_streaming = bluetooth::audio::a2dp::is_streaming();
+  SessionType session_type = bluetooth::audio::a2dp::get_session_type();
   LOG_ERROR(LOG_TAG,
     "%s: old_peer_address=%s new_peer_address=%s is_streaming=%d "
     "state=%d", __func__, old_peer_address.ToString().c_str(),
@@ -1591,7 +1602,10 @@ bool btif_a2dp_source_restart_session(const RawAddress& old_peer_address,
   CHECK(!new_peer_address.IsEmpty());
 
   // Must stop first the audio streaming
-  if (is_streaming) {
+
+  if (is_streaming &&
+      session_type == SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH) {
+    APPL_TRACE_EVENT("%s stop audio as old session is SW and streaming", __func__);
     btif_a2dp_source_stop_audio_req();
   }
 
@@ -1601,10 +1615,15 @@ bool btif_a2dp_source_restart_session(const RawAddress& old_peer_address,
     btif_a2dp_source_end_session(old_peer_address);
   }
 
+  btif_av_set_offload_status();
   // Start the session.
   // If audio was streaming before, start audio streaming as well.
   btif_a2dp_source_start_session(new_peer_address);
-  if (is_streaming) {
+  // fetch the new session type again
+  session_type = bluetooth::audio::a2dp::get_session_type();
+  if (is_streaming &&
+      session_type == SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH) {
+    APPL_TRACE_EVENT("%s start audio as new session is SW and streaming", __func__);
     btif_a2dp_source_start_audio_req();
   }
   return true;
@@ -1620,14 +1639,23 @@ bool btif_a2dp_source_end_session(const RawAddress& peer_address) {
   }
 
   if (btif_a2dp_source_is_hal_v2_enabled()) {
-     //bluetooth::audio::a2dp::end_session();
+    bluetooth::audio::a2dp::end_session();
   }
   return true;
 }
 
 void btif_a2dp_update_sink_latency_change() {
+  APPL_TRACE_EVENT("%s", __func__);
   if (btif_a2dp_source_is_hal_v2_enabled()) {
-    // btaudio_a2dp_audio_send_sink_latency();
+    uint16_t sink_latency;
+    int idx = btif_av_get_current_playing_dev_idx();
+    if (btif_ba_get_state() > BTIF_BA_STATE_IDLE_AUDIO_NS) { // IsBAEnabled
+      sink_latency = btif_get_ba_latency();
+    } else { // Split OR Non-Split A2DP OR Hearing AID
+      sink_latency = btif_av_get_audio_delay(idx);
+    }
+    APPL_TRACE_EVENT("%s latency/delay value %d", __func__, sink_latency);
+    bluetooth::audio::a2dp::set_remote_delay(sink_latency);
   } else {
     btif_a2dp_audio_send_sink_latency();
   }

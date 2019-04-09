@@ -43,6 +43,7 @@ using vendor::qti::hardware::bluetooth_audio::V2_0::SampleRate;
 using vendor::qti::hardware::bluetooth_audio::V2_0::SessionType;
 using vendor::qti::hardware::bluetooth_audio::V2_0::TimeSpec;
 using vendor::qti::hardware::bluetooth_audio::V2_0::IBluetoothAudioPort;
+using vendor::qti::hardware::bluetooth_audio::V2_0::SessionParams;
 using BluetoothAudioStatus =
     vendor::qti::hardware::bluetooth_audio::V2_0::Status;
 
@@ -110,8 +111,6 @@ class IBluetoothTransportInstance {
                                        uint64_t* total_bytes_readed,
                                        timespec* data_position) = 0;
 
-  virtual void MetadataChanged(const source_metadata_t& source_metadata) = 0;
-
   // Invoked when the transport is requested to reset presentation position
   virtual void ResetPresentationPosition() = 0;
 
@@ -151,6 +150,8 @@ class BluetoothAudioClientInterface {
   int StartSession();
 
   void StreamStarted(const BluetoothAudioCtrlAck& ack);
+
+  void updateSessionParams(const SessionParams& sessionParams);
 
   void StreamSuspended(const BluetoothAudioCtrlAck& ack);
 

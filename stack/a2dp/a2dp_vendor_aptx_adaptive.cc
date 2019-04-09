@@ -602,11 +602,13 @@ bool A2dpCodecConfigAptxAdaptive::init() {
   if (!isValid()) return false;
 
   if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)) {
-    LOG_ERROR(LOG_TAG, "%s: APTX-Adaptive enabled in HW mode", __func__);
+    LOG_DEBUG(LOG_TAG, "%s: APTX-Adaptive enabled in HW mode", __func__);
     return true;
   } else if(!A2DP_IsCodecEnabledInSoftware(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)){
-    LOG_ERROR(LOG_TAG, "%s: APTX-Adaptive disabled in both SW and HW mode", __func__);
+    LOG_DEBUG(LOG_TAG, "%s: APTX-Adaptive disabled in both SW and HW mode", __func__);
     return false;
+  } else {
+    LOG_DEBUG(LOG_TAG, "%s: APTX-Adaptive enabled in SW mode", __func__);
   }
 
   // Load the encoder

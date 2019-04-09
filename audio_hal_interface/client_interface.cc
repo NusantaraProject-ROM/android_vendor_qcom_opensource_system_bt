@@ -32,7 +32,7 @@ namespace audio {
 using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
-using ::android::hardware::audio::common::V5_0::SourceMetadata;
+//using ::android::hardware::audio::common::V5_0::SourceMetadata;
 using vendor::qti::hardware::bluetooth_audio::V2_0::IBluetoothAudioPort;
 using vendor::qti::hardware::bluetooth_audio::V2_0::
     IBluetoothAudioProvidersFactory;
@@ -70,7 +70,7 @@ class BluetoothAudioPortImpl : public IBluetoothAudioPort {
       : sink_(sink), clientif_(clientif) {};
 
   Return<void> startStream() {
-    std::unique_lock<std::mutex> guard(*clientif_->GetExternalMutex());
+    //std::unique_lock<std::mutex> guard(*clientif_->GetExternalMutex());
     android::sp<IBluetoothAudioProvider> provider =
                         clientif_->GetProvider();
     BluetoothAudioCtrlAck ack = sink_->StartRequest();
@@ -85,7 +85,7 @@ class BluetoothAudioPortImpl : public IBluetoothAudioPort {
   }
 
   Return<void> suspendStream() {
-    std::unique_lock<std::mutex> guard(*clientif_->GetExternalMutex());
+    //std::unique_lock<std::mutex> guard(*clientif_->GetExternalMutex());
     android::sp<IBluetoothAudioProvider> provider =
                     clientif_->GetProvider();
     BluetoothAudioCtrlAck ack = sink_->SuspendRequest();
@@ -100,7 +100,7 @@ class BluetoothAudioPortImpl : public IBluetoothAudioPort {
   }
 
   Return<void> stopStream() {
-    std::unique_lock<std::mutex> guard(*clientif_->GetExternalMutex());
+    //std::unique_lock<std::mutex> guard(*clientif_->GetExternalMutex());
     sink_->StopRequest();
     return Void();
   }
@@ -109,7 +109,7 @@ class BluetoothAudioPortImpl : public IBluetoothAudioPort {
     uint64_t remote_delay_report_ns;
     uint64_t total_bytes_read;
     timespec data_position;
-    std::unique_lock<std::mutex> guard(*clientif_->GetExternalMutex());
+    //std::unique_lock<std::mutex> guard(*clientif_->GetExternalMutex());
     bool retval = sink_->GetPresentationPosition(
         &remote_delay_report_ns, &total_bytes_read, &data_position);
 
@@ -129,27 +129,6 @@ class BluetoothAudioPortImpl : public IBluetoothAudioPort {
                      : BluetoothAudioStatus::FAILURE),
              remote_delay_report_ns, total_bytes_read,
              transmittedOctetsTimeStamp);
-    return Void();
-  }
-
-  Return<void> updateMetadata(const SourceMetadata& sourceMetadata) {
-    LOG(INFO) << __func__ << ": " << sourceMetadata.tracks.size()
-              << " track(s)";
-    std::unique_lock<std::mutex> guard(*clientif_->GetExternalMutex());
-    // refer to StreamOut.impl.h within Audio HAL (AUDIO_HAL_VERSION_5_0)
-    std::vector<playback_track_metadata> metadata_vec;
-    metadata_vec.reserve(sourceMetadata.tracks.size());
-    for (const auto& metadata : sourceMetadata.tracks) {
-      metadata_vec.push_back({
-          .usage = static_cast<audio_usage_t>(metadata.usage),
-          .content_type =
-              static_cast<audio_content_type_t>(metadata.contentType),
-          .gain = metadata.gain,
-      });
-    }
-    const source_metadata_t source_metadata = {
-        .track_count = metadata_vec.size(), .tracks = metadata_vec.data()};
-    sink_->MetadataChanged(source_metadata);
     return Void();
   }
 
@@ -290,22 +269,13 @@ void BluetoothAudioClientInterface::fetch_audio_provider() {
 
 bool BluetoothAudioClientInterface::UpdateAudioConfig(
     const AudioConfiguration& audio_config) {
-  bool is_software_session =
+  bool is_software_audio_config =
       (sink_->GetSessionType() ==
            SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH ||
        sink_->GetSessionType() ==
            SessionType::HEARING_AID_SOFTWARE_ENCODING_DATAPATH);
-  bool is_offload_session =
-      (sink_->GetSessionType() == SessionType::A2DP_HARDWARE_OFFLOAD_DATAPATH);
-  auto audio_config_discriminator = audio_config.getDiscriminator();
-  bool is_software_audio_config =
-      (is_software_session &&
-       audio_config_discriminator ==
-           AudioConfiguration::hidl_discriminator::pcmConfig);
   bool is_offload_audio_config =
-      (is_offload_session &&
-       audio_config_discriminator ==
-           AudioConfiguration::hidl_discriminator::codecConfig);
+      (sink_->GetSessionType() == SessionType::A2DP_HARDWARE_OFFLOAD_DATAPATH);
   if (!is_software_audio_config && !is_offload_audio_config) {
     return false;
   }
@@ -389,6 +359,18 @@ void BluetoothAudioClientInterface::StreamStarted(
   }
   BluetoothAudioStatus status = BluetoothAudioCtrlAckToHalStatus(ack);
   auto hidl_retval = provider_->streamStarted(status);
+  if (!hidl_retval.isOk()) {
+    LOG(FATAL) << __func__ << ": BluetoothAudioHal Failure";
+  }
+}
+
+void BluetoothAudioClientInterface::updateSessionParams(
+                 const SessionParams& sessionParams) {
+  if (provider_ == nullptr) {
+    LOG(ERROR) << __func__ << ": BluetoothAudioHal nullptr";
+    return;
+  }
+  auto hidl_retval = provider_->updateSessionParams(sessionParams);
   if (!hidl_retval.isOk()) {
     LOG(FATAL) << __func__ << ": BluetoothAudioHal Failure";
   }

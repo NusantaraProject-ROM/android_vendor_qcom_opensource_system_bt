@@ -14,13 +14,13 @@ cc_library_static {
         "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/btif/include"
     ],
     srcs: [
-        //"a2dp_encoding.cc",
-        //"client_interface.cc",
-        //"hearing_aid_software_encoding.cc",
+        "a2dp_encoding.cc",
+        "client_interface.cc",
+        "hearing_aid_software_encoding.cc",
     ],
     shared_libs: [
-        //"vendor.qti.hardware.bluetooth_audio@2.0",
-        //"libfmq",
+        "vendor.qti.hardware.bluetooth_audio@2.0",
+        "libfmq",
         "libhidlbase",
         "libhidltransport",
     ],

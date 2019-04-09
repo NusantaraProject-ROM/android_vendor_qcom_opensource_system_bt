@@ -1582,7 +1582,7 @@ bool A2DP_InitCodecConfig(btav_a2dp_codec_index_t codec_index,
 
 bool check_mm_supports_offload_codec (std::vector<btav_a2dp_codec_config_t>&
         offload_enabled_codecs_config, btav_a2dp_codec_index_t codecIndex) {
-  return true; // TODO to be removed for Hybrid Audio
+  return true; // TODO to remove when Hybrid Audio is enabled
   for (auto offload_codec_config: offload_enabled_codecs_config) {
     if (codecIndex == offload_codec_config.codec_type)
       return true;
@@ -1591,7 +1591,7 @@ bool check_mm_supports_offload_codec (std::vector<btav_a2dp_codec_config_t>&
 }
 
 bool A2DP_IsHAL2Supported () {
-  return property_get_bool("persist.bluetooth.bluetooth_audio_hal.enabled", false);
+  return property_get_bool("persist.bluetooth.bluetooth_audio_hal.enabled", true);
 }
 
 void A2DP_SetOffloadStatus(bool offload_status, const char *offload_cap,
@@ -1601,7 +1601,6 @@ void A2DP_SetOffloadStatus(bool offload_status, const char *offload_cap,
   char *tmp_token = NULL;
   uint8_t add_on_features_size = 0;
   bt_device_features_t * add_on_features_list = NULL;
-  bool hybrid_mode = false;
   LOG_INFO(LOG_TAG,"A2dp_SetOffloadStatus:status = %d",
                      offload_status);
   mA2dp_offload_status = offload_status;
@@ -1615,8 +1614,7 @@ void A2DP_SetOffloadStatus(bool offload_status, const char *offload_cap,
         "BT controller doesn't have add on features");
   }
 
-  // TODO to remove mA2dp_offload_status & hybrid_mode check for Hybrid Audio
-  if (A2DP_IsHAL2Supported() && mA2dp_offload_status && hybrid_mode) {// 2.0 hybrid
+  if (A2DP_IsHAL2Supported()) {// 2.0 hybrid
     offload_capability = offload_status;
 
 #if (TWS_ENABLED == TRUE)

@@ -198,4 +198,6 @@ void btif_a2dp_source_if_init(void);
 // This function should be called by the BTIF state machine to deinit the
 // split source interface.
 void btif_a2dp_source_if_deinit(void);
+// Function to update latency/delay value to Audio
+void btif_a2dp_update_sink_latency_change();
 #endif /* BTIF_A2DP_SOURCE_H */

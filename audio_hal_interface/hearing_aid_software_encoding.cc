@@ -104,23 +104,6 @@ class HearingAidTransport
     return true;
   }
 
-  void MetadataChanged(const source_metadata_t& source_metadata) override {
-    if(!IsActvie()) {
-      LOG(WARNING) << __func__ << ": Not active";
-      return;
-    }
-    auto track_count = source_metadata.track_count;
-    auto tracks = source_metadata.tracks;
-    LOG(INFO) << __func__ << ": " << track_count << " track(s) received";
-    while (track_count) {
-      VLOG(1) << __func__ << ": usage=" << tracks->usage
-              << ", content_type=" << tracks->content_type
-              << ", gain=" << tracks->gain;
-      --track_count;
-      ++tracks;
-    }
-  }
-
   void ResetPresentationPosition() override {
     total_bytes_read_ = 0;
     data_position_ = {};
@@ -180,7 +163,7 @@ namespace hearing_aid {
 bool is_hal_2_0_supported() {
   if (!is_configured) {
     btaudio_hearing_aid_supported =
-       property_get_bool(BLUETOOTH_AUDIO_PROP_ENABLED, false);
+       property_get_bool(BLUETOOTH_AUDIO_PROP_ENABLED, true);
     is_configured = true;
   }
   return btaudio_hearing_aid_supported;
@@ -226,7 +209,7 @@ void start_session() {
     LOG(ERROR) << __func__ << ": cannot get PCM config";
     return;
   }
-  audio_config.pcmConfig(pcm_config);
+  audio_config.pcmConfig = pcm_config;
   if (!hearing_aid_hal_client_if->UpdateAudioConfig(audio_config)) {
     LOG(ERROR) << __func__ << ": cannot update audio config to HAL";
     return;

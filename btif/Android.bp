@@ -101,7 +101,7 @@ cc_library_static {
         "libz",
         "libtinyxml2",
         "com.qualcomm.qti.bluetooth_audio@1.0",
-        //"vendor.qti.hardware.bluetooth_audio@2.0",
+        "vendor.qti.hardware.bluetooth_audio@2.0",
         "libhidlbase",
         "libhidltransport",
         "libhwbinder",
@@ -110,7 +110,7 @@ cc_library_static {
         "libcrypto",
     ],
     whole_static_libs: [
-        //"libbt-audio-hal-interface-qti",
+        "libbt-audio-hal-interface-qti",
         "libaudio-a2dp-hw-utils",
         "libbt-common-qti",
         //"libbtif_ext",

@@ -600,11 +600,13 @@ bool A2dpCodecConfigLdac::init() {
   if (!isValid()) return false;
 
   if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC)) {
-    LOG_ERROR(LOG_TAG, "%s: LDAC enabled in HW mode", __func__);
+    LOG_DEBUG(LOG_TAG, "%s: LDAC enabled in HW mode", __func__);
     return true;
   } else if(!A2DP_IsCodecEnabledInSoftware(BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC)){
-    LOG_ERROR(LOG_TAG, "%s: LDAC disabled in both SW and HW mode", __func__);
+    LOG_DEBUG(LOG_TAG, "%s: LDAC disabled in both SW and HW mode", __func__);
     return false;
+  } else {
+    LOG_DEBUG(LOG_TAG, "%s: LDAC enabled in SW mode", __func__);
   }
 
   // Load the encoder

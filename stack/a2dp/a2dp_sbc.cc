@@ -1097,11 +1097,13 @@ bool A2dpCodecConfigSbc::init() {
   if (!isValid()) return false;
 
   if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_SBC)) {
-    LOG_ERROR(LOG_TAG, "%s: SBC enabled in HW mode", __func__);
+    LOG_DEBUG(LOG_TAG, "%s: SBC enabled in HW mode", __func__);
     return true;
   } else if(!A2DP_IsCodecEnabledInSoftware(BTAV_A2DP_CODEC_INDEX_SOURCE_SBC)) {
-    LOG_ERROR(LOG_TAG, "%s: SBC disabled in both SW and HW mode", __func__);
+    LOG_DEBUG(LOG_TAG, "%s: SBC disabled in both SW and HW mode", __func__);
     return false;
+  } else {
+    LOG_DEBUG(LOG_TAG, "%s: SBC enabled in SW mode", __func__);
   }
 
   // Load the encoder

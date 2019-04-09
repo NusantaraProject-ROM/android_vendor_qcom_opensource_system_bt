@@ -17,8 +17,11 @@
 #pragma once
 
 #include "audio_a2dp_hw/include/audio_a2dp_hw.h"
+#include <vendor/qti/hardware/bluetooth_audio/2.0/types.h>
 #include "osi/include/thread.h"
 #include "bta_av_api.h"
+
+using vendor::qti::hardware::bluetooth_audio::V2_0::SessionType;
 
 namespace bluetooth {
 namespace audio {
@@ -53,6 +56,8 @@ size_t read(uint8_t* p_buf, uint32_t len);
 
 // Update A2DP delay report to BluetoothAudio HAL
 void set_remote_delay(uint16_t delay_report);
+bool is_streaming();
+SessionType get_session_type();
 
 }  // namespace a2dp
 }  // namespace audio
