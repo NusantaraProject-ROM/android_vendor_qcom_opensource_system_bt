@@ -1529,7 +1529,6 @@ bool A2DP_InitCodecConfig(btav_a2dp_codec_index_t codec_index,
 
 bool check_mm_supports_offload_codec (std::vector<btav_a2dp_codec_config_t>&
         offload_enabled_codecs_config, btav_a2dp_codec_index_t codecIndex) {
-  return true; // TODO to remove when Hybrid Audio is enabled
   for (auto offload_codec_config: offload_enabled_codecs_config) {
     if (codecIndex == offload_codec_config.codec_type)
       return true;

@@ -3734,8 +3734,8 @@ static bt_status_t init_src(
 static bt_status_t init_src(
     btav_source_callbacks_t* callbacks,
     int max_connected_audio_devices,
-    std::vector<btav_a2dp_codec_config_t> codec_priorities) {
-    //std::vector<btav_a2dp_codec_config_t> offload_enabled_codecs) {
+    std::vector<btav_a2dp_codec_config_t> codec_priorities,
+    std::vector<btav_a2dp_codec_config_t> offload_enabled_codecs) {
   int a2dp_multicast_state = 0;
   if(max_connected_audio_devices > BTIF_AV_NUM_CB) {
     BTIF_TRACE_ERROR("%s: App setting maximum allowable connections(%d) \
@@ -3751,7 +3751,6 @@ static bt_status_t init_src(
     btif_av_cb[i].aptx_mode = 0x1000;
     btif_av_cb[i].remote_start_alarm = NULL;
   }
-  std::vector<btav_a2dp_codec_config_t> offload_enabled_codecs;
   return init_src(callbacks, codec_priorities, offload_enabled_codecs,
                 max_connected_audio_devices, a2dp_multicast_state);
 }
