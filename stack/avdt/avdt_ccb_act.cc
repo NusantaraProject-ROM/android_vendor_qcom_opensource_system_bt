@@ -45,7 +45,7 @@
 #include "controller.h"
 #include <btcommon_interface_defs.h>
 #include "bta/include/bta_av_api.h"
-
+#include "btif/include/btif_config.h"
 
 int avdt_ccb_get_num_allocated_seps();
 /*******************************************************************************
@@ -192,6 +192,10 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   p_data->msg.discover_rsp.p_sep_info = sep_info;
   p_data->msg.discover_rsp.num_seps = 0;
   char remote_name[BTM_MAX_REM_BD_NAME_LEN] = "";
+  uint16_t vendor;
+  uint16_t product;
+  uint16_t version;
+  bool vndr_prdt_ver_present = false;
 
   AVDT_TRACE_WARNING("%s: total connections: %d, total codecs: %d",
       __func__, num_conn, num_codecs);
@@ -229,53 +233,18 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
       APPL_TRACE_DEBUG("codec name %s", A2DP_CodecName(p_scb->cs.cfg.codec_info));
       if ((soc_type == BT_SOC_TYPE_CHEROKEE || soc_type == BT_SOC_TYPE_HASTINGS)) {
         if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC) {
-          if (bta_av_co_audio_is_aac_wl_enabled(&p_ccb->peer_addr)) {
-            if (bta_av_co_audio_device_addr_check_is_enabled(&p_ccb->peer_addr)) {
-              if (btif_storage_get_stored_remote_name(p_ccb->peer_addr, remote_name) &&
-                  interop_match_addr(INTEROP_ENABLE_AAC_CODEC, &p_ccb->peer_addr) &&
-                  interop_match_name(INTEROP_ENABLE_AAC_CODEC, remote_name)) {
-                AVDT_TRACE_EVENT("%s: Remote device matched for AAC WL, Show AAC SEP\n", __func__);
-              } else {
-                AVDT_TRACE_EVENT("%s: RD not matched for Name and address based WL check, skip AAC advertise\n",
-                                     __func__);
-                continue;
-              }
-            } else {
-              if (btif_storage_get_stored_remote_name(p_ccb->peer_addr, remote_name) &&
-                  interop_match_name(INTEROP_ENABLE_AAC_CODEC, remote_name)) {
-                AVDT_TRACE_EVENT("%s: Remote device matched for AAC WL, Show AAC SEP\n", __func__);
-              } else {
-                 AVDT_TRACE_EVENT("%s: RD not matched for Name based WL check, skip AAC advertise\n",
-                                       __func__);
-                 continue;
-              }
-            }
-          } else {
-            if (bta_av_co_audio_device_addr_check_is_enabled(&p_ccb->peer_addr)) {
-              if (interop_match_addr_or_name(INTEROP_DISABLE_AAC_CODEC, &p_ccb->peer_addr)) {
-                AVDT_TRACE_EVENT("%s: device is blacklisted, skipping AAC advertise\n", __func__);
-                continue;
-              } else {
-                AVDT_TRACE_EVENT("%s: Remote device is not present in AAC BL, Show AAC SEP\n", __func__);
-              }
-            } else {
-              if (btif_storage_get_stored_remote_name(p_ccb->peer_addr, remote_name) &&
-                  interop_match_name(INTEROP_DISABLE_AAC_CODEC, remote_name)) {
-                AVDT_TRACE_EVENT("%s: device is blacklisted, skipping AAC advertise\n", __func__);
-                continue;
-              } else {
-                AVDT_TRACE_EVENT("%s: Remote device is not present in AAC BL, Show AAC SEP\n", __func__);
-              }
-            }
+          if (btif_config_get_uint16(p_ccb->peer_addr.ToString().c_str(), PNP_VENDOR_ID_CONFIG_KEY,
+              (uint16_t*)&vendor) && btif_config_get_uint16(p_ccb->peer_addr.ToString().c_str(),
+              PNP_PRODUCT_ID_CONFIG_KEY, (uint16_t*)&product) && btif_config_get_uint16(p_ccb->peer_addr.ToString().c_str(),
+              PNP_PRODUCT_VERSION_CONFIG_KEY, (uint16_t*)&version)) {
+            APPL_TRACE_DEBUG("%s: vendor: 0x%04x product: 0x%04x version: 0x%04x", __func__, vendor, product, version);
+            vndr_prdt_ver_present = true;
           }
-        }
-      } else {
-        APPL_TRACE_DEBUG("BT soc is %s\n", value);
-        if ((strcmp(codec_name,"aptX-HD") == 0) || (strcmp(codec_name,"LDAC") == 0)) {
-          APPL_TRACE_DEBUG("These codecs are not supported for this SOC type");
-          continue;
-        } else {
-          if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC) {
+          if (vndr_prdt_ver_present && interop_match_vendor_product_ids(INTEROP_ENABLE_AAC_CODEC, vendor, product) &&
+              interop_database_match_version(INTEROP_ENABLE_AAC_CODEC, version)) {
+            APPL_TRACE_DEBUG("%s: vendor, product, version id is present in conf file", __func__);
+            vndr_prdt_ver_present = false;
+          } else {
             if (bta_av_co_audio_is_aac_wl_enabled(&p_ccb->peer_addr)) {
               if (bta_av_co_audio_device_addr_check_is_enabled(&p_ccb->peer_addr)) {
                 if (btif_storage_get_stored_remote_name(p_ccb->peer_addr, remote_name) &&
@@ -312,6 +281,67 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
                   continue;
                 } else {
                   AVDT_TRACE_EVENT("%s: Remote device is not present in AAC BL, Show AAC SEP\n", __func__);
+                }
+              }
+            }
+          }
+        }
+      } else {
+        APPL_TRACE_DEBUG("BT soc is %s\n", value);
+        if ((strcmp(codec_name,"aptX-HD") == 0) || (strcmp(codec_name,"LDAC") == 0)) {
+          APPL_TRACE_DEBUG("These codecs are not supported for this SOC type");
+          continue;
+        } else {
+          if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC) {
+            if (btif_config_get_uint16(p_ccb->peer_addr.ToString().c_str(), PNP_VENDOR_ID_CONFIG_KEY,
+                (uint16_t*)&vendor) && btif_config_get_uint16(p_ccb->peer_addr.ToString().c_str(),
+                PNP_PRODUCT_ID_CONFIG_KEY, (uint16_t*)&product) && btif_config_get_uint16(p_ccb->peer_addr.ToString().c_str(),
+                PNP_PRODUCT_VERSION_CONFIG_KEY, (uint16_t*)&version))      {
+              APPL_TRACE_DEBUG("%s: vendor : 0x%04x +product : 0x%04x +version: 0x%04x", __func__, vendor, product, version);
+              vndr_prdt_ver_present = true;
+            }
+            if (vndr_prdt_ver_present && interop_database_match_version(INTEROP_ENABLE_AAC_CODEC, version) &&
+                interop_match_vendor_product_ids(INTEROP_ENABLE_AAC_CODEC, vendor, product)) {
+              APPL_TRACE_DEBUG("%s: vendor, product, version id is present in conf file %s", __func__);
+              vndr_prdt_ver_present = false;
+            } else {
+              if (bta_av_co_audio_is_aac_wl_enabled(&p_ccb->peer_addr)) {
+                if (bta_av_co_audio_device_addr_check_is_enabled(&p_ccb->peer_addr)) {
+                  if (btif_storage_get_stored_remote_name(p_ccb->peer_addr, remote_name) &&
+                      interop_match_addr(INTEROP_ENABLE_AAC_CODEC, &p_ccb->peer_addr) &&
+                      interop_match_name(INTEROP_ENABLE_AAC_CODEC, remote_name)) {
+                    AVDT_TRACE_EVENT("%s: Remote device matched for AAC WL, Show AAC SEP\n", __func__);
+                  } else {
+                    AVDT_TRACE_EVENT("%s: RD not matched for Name and address based WL check, skip AAC advertise\n",
+                                         __func__);
+                    continue;
+                  }
+                } else {
+                  if (btif_storage_get_stored_remote_name(p_ccb->peer_addr, remote_name) &&
+                      interop_match_name(INTEROP_ENABLE_AAC_CODEC, remote_name)) {
+                    AVDT_TRACE_EVENT("%s: Remote device matched for AAC WL, Show AAC SEP\n", __func__);
+                  } else {
+                    AVDT_TRACE_EVENT("%s: RD not matched for Name based WL check, skip AAC advertise\n",
+                                         __func__);
+                    continue;
+                  }
+                }
+              } else {
+                if (bta_av_co_audio_device_addr_check_is_enabled(&p_ccb->peer_addr)) {
+                  if (interop_match_addr_or_name(INTEROP_DISABLE_AAC_CODEC, &p_ccb->peer_addr)) {
+                    AVDT_TRACE_EVENT("%s: device is blacklisted, skipping AAC advertise\n", __func__);
+                    continue;
+                  } else {
+                    AVDT_TRACE_EVENT("%s: Remote device is not present in AAC BL, Show AAC SEP\n", __func__);
+                  }
+                } else {
+                  if (btif_storage_get_stored_remote_name(p_ccb->peer_addr, remote_name) &&
+                      interop_match_name(INTEROP_DISABLE_AAC_CODEC, remote_name)) {
+                    AVDT_TRACE_EVENT("%s: device is blacklisted, skipping AAC advertise\n", __func__);
+                    continue;
+                  } else {
+                    AVDT_TRACE_EVENT("%s: Remote device is not present in AAC BL, Show AAC SEP\n", __func__);
+                  }
                 }
               }
             }

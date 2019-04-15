@@ -266,6 +266,8 @@ void interop_database_add(const uint16_t feature, const RawAddress* addr,
 // Clear the dynamic portion of the interoperability workaround database.
 void interop_database_clear(void);
 
+//check if device version is matching with the interop database
+bool interop_database_match_version(const interop_feature_t feature, uint16_t version);
 // Check if a given |addr| matches a known interoperability workaround as identified
 // by the |interop_feature_t| enum. This API is used for simple address
 // based lookups where more information is not available. No look-ups or random
