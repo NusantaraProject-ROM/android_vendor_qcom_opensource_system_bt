@@ -38,10 +38,6 @@
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 #define A2DP_SBC_MAX_BITPOOL 53
-
-/* Max bitpool do not result in excess of the max bit rate */
-#define A2DP_SBC_SINK_MAX_BITPOOL 86
-
 /* data type for the SBC Codec Information Element */
 typedef struct {
   uint8_t samp_freq;    /* Sampling frequency */
