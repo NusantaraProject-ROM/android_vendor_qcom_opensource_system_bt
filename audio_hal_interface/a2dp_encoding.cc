@@ -511,6 +511,22 @@ ChannelMode a2dp_codec_to_hal_channel_mode(
   }
 }
 
+LdacQualityIndex a2dp_codec_to_hal_ldac_quality_index (
+    const btav_a2dp_codec_config_t& a2dp_codec_config) {
+  switch (a2dp_codec_config.codec_specific_1) {
+    case 1000:
+      return LdacQualityIndex::QUALITY_HIGH;
+    case 1001:
+      return LdacQualityIndex::QUALITY_MID;
+    case 1002:
+      return LdacQualityIndex::QUALITY_LOW;
+    case 1003:
+      return LdacQualityIndex::QUALITY_ABR;
+    default:
+      return LdacQualityIndex::QUALITY_ABR;
+  }
+}
+
 bool a2dp_is_audio_codec_config_params_changed(
                         CodecConfiguration* codec_config) {
   A2dpCodecConfig* a2dp_codec_configs = bta_av_get_a2dp_current_codec();
@@ -683,6 +699,20 @@ bool a2dp_is_audio_codec_config_params_changed(
           a2dp_codec_to_hal_bits_per_sample(current_codec)) {
         changed = true;
         break;
+      }
+      switch (a2dp_offload.codec_info[6]) {
+        case A2DP_LDAC_QUALITY_HIGH:
+        case A2DP_LDAC_QUALITY_MID:
+        case A2DP_LDAC_QUALITY_LOW:
+        case A2DP_LDAC_QUALITY_ABR_OFFLOAD:
+          if (ldac_config.qualityIndex != a2dp_codec_to_hal_ldac_quality_index(current_codec)) {
+            changed = true;
+          }
+          break;
+        default:
+          LOG(ERROR) << __func__ << ": Unknown LDAC quality index="
+                     << a2dp_offload.codec_info[6];
+          break;
       }
       switch (a2dp_offload.codec_info[7]) {
         case A2DP_LDAC_CHANNEL_MODE_STEREO:
