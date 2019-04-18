@@ -245,9 +245,9 @@ void hci_close() {
   rfkill(1);
 }
 
-bool hci_transmit(BT_HDR* packet) {
+hci_transmit_status_t hci_transmit(BT_HDR* packet) {
   uint8_t type;
-  bool status = true;
+  hci_transmit_status_t status = HCI_TRANSMIT_SUCCESS;
 
   CHECK(bt_vendor_fd != -1);
 
@@ -263,7 +263,7 @@ bool hci_transmit(BT_HDR* packet) {
       type = 3;
       break;
     default:
-      status = false;
+      status = HCI_TRANSMIT_INVALID_PKT;
       LOG(FATAL) << "Unknown packet type " << event;
       break;
   }
@@ -276,12 +276,12 @@ bool hci_transmit(BT_HDR* packet) {
   *(addr) = store;
 
   if (ret != packet->len + 1) {
-    status = false;
+    status = HCI_TRANSMIT_DAEMON_DIED;
     LOG(ERROR) << "Should have send whole packet";
   }
 
   if (ret == -1) { 
-    status = false;
+    status = HCI_TRANSMIT_DAEMON_DIED;
     LOG(FATAL) << strerror(errno);
   }
   return status;
