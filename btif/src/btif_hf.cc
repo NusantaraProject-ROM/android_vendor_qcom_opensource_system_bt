@@ -663,7 +663,7 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
                   __func__, active_bda.ToString().c_str());
               BTA_AgSetActiveDevice(active_bda);
           } else {
-              BTIF_TRACE_IMP("%s: non-active TWS+ device disconnected");
+              BTIF_TRACE_IMP("%s:non-active TWS+ device disconnected",__func__);
           }
         }
       }
