@@ -1282,7 +1282,7 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
       __func__, p_ccb->bl_update_len, p_ccb->cont_offset, p_ccb->list_len + p_ccb->bl_update_len);
 
   /* If anything left to send, continuation needed */
-  if ((p_ccb->cont_offset + p_ccb->bl_update_len) < p_ccb->list_len) {
+  if (p_ccb->cont_offset < (p_ccb->list_len + p_ccb->bl_update_len)) {
     is_cont = true;
     UINT8_TO_BE_STREAM(p_rsp, SDP_CONTINUATION_LEN);
     UINT16_TO_BE_STREAM(p_rsp, p_ccb->cont_offset);
