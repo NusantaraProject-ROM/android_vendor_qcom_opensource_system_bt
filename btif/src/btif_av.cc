@@ -2807,7 +2807,7 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
       return;
     case BTIF_AV_REMOTE_SUSPEND_STREAM_REQ_EVT:
       index = (int) *p_param;
-      if(index != INVALID_INDEX && index > btif_max_av_clients &&
+      if (index != INVALID_INDEX && index > btif_max_av_clients &&
         btif_av_cb[index].remote_started == false)
         index = btif_max_av_clients;
       if (index >= btif_max_av_clients) {
@@ -2826,12 +2826,15 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
       break;
     case BTIF_AV_RESET_REMOTE_STARTED_FLAG_UPDATE_AUDIO_STATE_EVT:
       index = (int) *p_param;
-      if (btif_av_cb[index].peer_sep == AVDT_TSEP_SNK)
-      {
-        BTIF_TRACE_IMP("%s: on remote start clean up update audio started state for index %d", __func__, index);
-        btif_report_audio_state(BTAV_AUDIO_STATE_STARTED, &(btif_av_cb[index].peer_bda));
+      if (index >= 0 && index < btif_max_av_clients) {
+        if (btif_av_cb[index].peer_sep == AVDT_TSEP_SNK)
+        {
+          BTIF_TRACE_IMP("%s: on remote start clean up update audio started state for index %d",
+                          __func__, index);
+          btif_report_audio_state(BTAV_AUDIO_STATE_STARTED, &(btif_av_cb[index].peer_bda));
+        }
+        btif_av_cb[index].is_device_playing = true;
       }
-      btif_av_cb[index].is_device_playing = true;
       FALLTHROUGH;
     case BTIF_AV_RESET_REMOTE_STARTED_FLAG_EVT:
       btif_av_reset_remote_started_flag();
