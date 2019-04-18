@@ -311,6 +311,14 @@ bool sdp_reset_avrcp_browsing_bit (tSDP_ATTRIBUTE attr, tSDP_ATTRIBUTE *p_attr,
                     ~AVRCP_MULTI_PLAYER_SUPPORT_BITMASK;
             return TRUE;
         }
+        if (version >= AVRC_REV_1_4 && browsing_supported)
+        {
+            SDP_TRACE_ERROR("Set Browse feature bitmask");
+            p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION] |= AVRCP_BROWSE_SUPPORT_BITMASK;
+            p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION] |=
+                    AVRCP_MULTI_PLAYER_SUPPORT_BITMASK;
+            return FALSE;
+        }
     }
     return FALSE;
 }
@@ -345,6 +353,14 @@ bool sdp_reset_avrcp_cover_art_bit (tSDP_ATTRIBUTE attr, tSDP_ATTRIBUTE *p_attr,
             p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION-1] &= ~AVRCP_CA_SUPPORT_BITMASK;
             SDP_TRACE_ERROR("Reset Cover Art feature bitmask, new -1, 0x%x", p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION-1]);
             return TRUE;
+        }
+        if (version == AVRC_REV_1_6 && cover_art_supported)
+        {
+            SDP_TRACE_ERROR("Set Cover Art feature bitmask +1, 0x%x", p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION+1]);
+            SDP_TRACE_ERROR("Set Cover Art feature bitmask -1, 0x%x", p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION-1]);
+            p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION-1] |= AVRCP_CA_SUPPORT_BITMASK;
+            SDP_TRACE_ERROR("Set Cover Art feature bitmask, new -1, 0x%x", p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION-1]);
+            return FALSE;
         }
     }
     return FALSE;
