@@ -1849,7 +1849,8 @@ bt_status_t HeadsetInterface::PhoneStateChange(
         }
         break;
       case BTHF_CALL_STATE_DIALING:
-        if (!(num_active + num_held) && is_active_device(*bd_addr))
+        if (!(num_active + num_held) && is_active_device(*bd_addr) &&
+            (btif_hf_cb[idx].audio_state != BTHF_AUDIO_STATE_CONNECTED))
         {
           ag_res.audio_handle = control_block.handle;
 
@@ -1866,10 +1867,11 @@ bt_status_t HeadsetInterface::PhoneStateChange(
         res = BTA_AG_OUT_CALL_ORIG_RES;
         break;
       case BTHF_CALL_STATE_ALERTING:
-        /* if we went from idle->alert, force SCO setup here. dialing usually
-         * triggers it */
+        /* if we went from idle->alert, force SCO setup here if SCO is not connected already.
+         * Dialing usually triggers it */
         if ((control_block.call_setup_state == BTHF_CALL_STATE_IDLE) &&
-            !(num_active + num_held) && is_active_device(*bd_addr)) {
+            !(num_active + num_held) && is_active_device(*bd_addr) &&
+            (btif_hf_cb[idx].audio_state != BTHF_AUDIO_STATE_CONNECTED)) {
           ag_res.audio_handle = control_block.handle;
 
           BTIF_TRACE_DEBUG("%s: Moving the audio_state to CONNECTING for device %s",
