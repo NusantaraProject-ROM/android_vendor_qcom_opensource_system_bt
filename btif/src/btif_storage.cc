@@ -1755,11 +1755,12 @@ void btif_storage_remove_hearing_aid(const RawAddress& address) {
   btif_config_save();
 }
 
-/** Remove the hearing aid device from white list */
-void btif_storage_remove_hearing_aid_white_list(const RawAddress& address) {
-  std::string addrstr = address.ToString();
-  const char* bdstr = addrstr.c_str();
-  btif_config_set_int(bdstr, HEARING_AID_IS_WHITE_LISTED, false);
+/** Set/Unset the hearing aid device HEARING_AID_IS_WHITE_LISTED flag. */
+void btif_storage_set_hearing_aid_white_list(const RawAddress& address,
+                                             bool add_to_whitelist) {
+  const char* bdstr = address.ToString().c_str();
+  btif_config_set_int(bdstr, HEARING_AID_IS_WHITE_LISTED, add_to_whitelist);
+  btif_config_save();
 }
 
 /** Get the hearing aid device properties. */
