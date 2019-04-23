@@ -44,6 +44,7 @@
 #include "btif/include/btif_storage.h"
 #include "controller.h"
 #include <btcommon_interface_defs.h>
+#include "bta/include/bta_av_api.h"
 
 
 int avdt_ccb_get_num_allocated_seps();
@@ -327,6 +328,7 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
     }
   }
   AVDT_TRACE_WARNING("%s: effective number of endpoints: %d", __func__, effective_num_seps);
+  bta_av_refresh_accept_signalling_timer(p_ccb->peer_addr);
   /* send response */
   avdt_ccb_event(p_ccb, AVDT_CCB_API_DISCOVER_RSP_EVT, p_data);
 }
@@ -368,11 +370,13 @@ void avdt_ccb_hdl_discover_rsp(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
 void avdt_ccb_hdl_getcap_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   tAVDT_SCB* p_scb;
 
+  AVDT_TRACE_DEBUG("%s: bd_add: %s", __func__, p_ccb->peer_addr.ToString().c_str());
   /* look up scb for seid sent to us */
   p_scb = avdt_scb_by_hdl(p_data->msg.single.seid);
 
   p_data->msg.svccap.p_cfg = &p_scb->cs.cfg;
 
+  bta_av_refresh_accept_signalling_timer(p_ccb->peer_addr);
   avdt_ccb_event(p_ccb, AVDT_CCB_API_GETCAP_RSP_EVT, p_data);
 }
 
