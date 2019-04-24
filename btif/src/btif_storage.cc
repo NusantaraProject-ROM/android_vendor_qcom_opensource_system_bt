@@ -1599,7 +1599,7 @@ void btif_storage_add_hearing_aid(const HearingDevice& dev_info) {
       FROM_HERE,
       Bind(
           [](const HearingDevice& dev_info) {
-            std::string bdstr = dev_info.address.ToString();
+            const char* bdstr = dev_info.address.ToString().c_str();
             VLOG(2) << "saving hearing aid device: " << bdstr;
             btif_config_set_int(bdstr, HEARING_AID_PSM, dev_info.psm);
             btif_config_set_int(bdstr, HEARING_AID_CAPABILITIES,
