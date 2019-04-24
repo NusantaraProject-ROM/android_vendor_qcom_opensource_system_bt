@@ -221,7 +221,7 @@ typedef uint8_t BLE_SIGNATURE[BTM_BLE_AUTH_SIGN_LEN]; /* Device address */
 #endif
 
 #ifndef BTM_BLE_SIMULTANEOUS_HOST
-#define BTM_BLE_SIMULTANEOUS_HOST 0x01
+#define BTM_BLE_SIMULTANEOUS_HOST 0x00
 #endif
 
 /* Appearance Values Reported with BTM_BLE_AD_TYPE_APPEARANCE */

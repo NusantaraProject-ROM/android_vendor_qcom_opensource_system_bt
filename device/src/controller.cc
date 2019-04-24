@@ -267,12 +267,8 @@ static future_t* start_up(void) {
   }
 
   if (HCI_LE_SPT_SUPPORTED(features_classic[0].as_array)) {
-    uint8_t simultaneous_le_host =
-        HCI_SIMUL_LE_BREDR_SUPPORTED(features_classic[0].as_array)
-            ? BTM_BLE_SIMULTANEOUS_HOST
-            : 0;
     response = AWAIT_COMMAND(packet_factory->make_ble_write_host_support(
-        BTM_BLE_HOST_SUPPORT, simultaneous_le_host));
+        BTM_BLE_HOST_SUPPORT, BTM_BLE_SIMULTANEOUS_HOST));
 
     packet_parser->parse_generic_command_complete(response);
 
