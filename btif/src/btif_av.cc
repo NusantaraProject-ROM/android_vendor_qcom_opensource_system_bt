@@ -93,7 +93,7 @@ static int reconfig_a2dp_param_val = 0;
 std::mutex session_wait_mutex_;
 std::condition_variable session_wait_cv;
 bool session_wait;
-
+RawAddress ba_addr({0xCE, 0xFA, 0xCE, 0xFA, 0xCE, 0xFA});
 
 /*****************************************************************************
  *  Constants & Macros
@@ -4751,29 +4751,38 @@ bool btif_av_is_connected(void) {
 
 bool isBATEnabled()
 {
-    LOG_INFO(LOG_TAG,"%s:",__func__);
+    bool ret = false;
     if (btif_ba_get_state() > BTIF_BA_STATE_IDLE_AUDIO_NS)
-        return true;
+        ret = true;
     else
-        return false;
+        ret = false;
+    LOG_INFO(LOG_TAG,"%s: %d",__func__, ret);
+    return ret;
 }
 
 void initialize_audio_hidl() {
-  BTIF_TRACE_DEBUG(" %s if_init = %d ",__func__, btif_a2dp_audio_if_init);
-  if (btif_a2dp_audio_if_init == false) {
-    if (btif_av_is_split_a2dp_enabled()) {
-      BTIF_TRACE_DEBUG("%s initializing ", __func__);
-      btif_a2dp_audio_if_init = true;
-      btif_a2dp_audio_interface_init();
+  if (!btif_a2dp_source_is_hal_v2_supported()) {
+    BTIF_TRACE_DEBUG(" %s if_init = %d ",__func__, btif_a2dp_audio_if_init);
+    if (btif_a2dp_audio_if_init == false) {
+      if (btif_av_is_split_a2dp_enabled()) {
+        BTIF_TRACE_DEBUG("%s initializing ", __func__);
+        btif_a2dp_audio_if_init = true;
+        btif_a2dp_audio_interface_init();
+      } else {
+        BTIF_TRACE_DEBUG("%s cannot initialize, split not enabled ",__func__);
+      }
     } else {
-      BTIF_TRACE_DEBUG("%s cannot initialize, split not enabled ",__func__);
+      BTIF_TRACE_DEBUG("%s already initialized ", __func__);
     }
   } else {
-    BTIF_TRACE_DEBUG("%s already initialized ", __func__);
+    int index = btif_av_get_latest_device_idx_to_start();
+    //if index < btif_max_av_clients, AV -> BA switch, else null -> BA switch
+    btif_a2dp_source_restart_session(btif_av_get_addr_by_index(index), ba_addr);
   }
 }
 
 void deinit_audio_hal() {
+  if (!btif_a2dp_source_is_hal_v2_supported()) {
     BTIF_TRACE_DEBUG(" %s if_init = %d ",__func__, btif_a2dp_audio_if_init);
     BTIF_TRACE_DEBUG(" %s split_enabled = %d av_connected = %d",__func__,
                     btif_av_is_split_a2dp_enabled(), btif_av_is_connected());
@@ -4786,6 +4795,16 @@ void deinit_audio_hal() {
       return;
     btif_a2dp_audio_if_init =  false;
     btif_a2dp_audio_interface_deinit();
+  } else {
+    int index = btif_av_get_latest_device_idx_to_start();
+    if(index < btif_max_av_clients) {
+      //restart session BA -> AV switch
+      btif_a2dp_source_restart_session(ba_addr, btif_av_get_addr_by_index(index));
+    } else {
+      //end session BA -> null
+      btif_a2dp_source_end_session(ba_addr);
+    }
+  }
 }
 
 /*******************************************************************************
@@ -5419,6 +5438,9 @@ bool btif_av_is_split_a2dp_enabled() {
   if (!btif_a2dp_source_is_hal_v2_supported()) {
     BTIF_TRACE_DEBUG("btif_av_is_split_a2dp_enabled: %d", bt_split_a2dp_enabled);
     return bt_split_a2dp_enabled;
+  } else if(isBATEnabled()) {
+    BTIF_TRACE_DEBUG("%s:  going for split as BA is active", __func__);
+    return true;
   } else {
     if (!bta_av_co_is_active_peer()) {
       BTIF_TRACE_ERROR("%s:  No active peer codec config found, "

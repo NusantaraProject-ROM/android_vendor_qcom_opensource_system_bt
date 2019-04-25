@@ -38,6 +38,7 @@
 #include "btif_a2dp_audio_interface.h"
 #include "btif_hf.h"
 #include "audio_hal_interface/a2dp_encoding.h"
+#include "btif_bat.h"
 
 #define BTIF_A2DP_START_BLOCK_SCO_CONNECTED 0x0D
 
@@ -272,6 +273,49 @@ void btif_a2dp_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
         }
       }
     }
+  }
+}
+
+tA2DP_CTRL_ACK ba_map_status_to_ack(uint8_t result) {
+  tA2DP_CTRL_ACK ack = A2DP_CTRL_ACK_FAILURE;
+  switch (result) {
+     case BA_CTRL_ACK_SUCCESS:
+       ack = A2DP_CTRL_ACK_SUCCESS;
+       break;
+     case BA_CTRL_ACK_FAILURE:
+       ack = A2DP_CTRL_ACK_FAILURE;
+       break;
+     default:
+       ack = A2DP_CTRL_ACK_FAILURE;
+       break;
+   }
+   return ack;
+}
+
+void btif_ba_audio_on_suspended(uint8_t result) {
+  APPL_TRACE_EVENT("%s result %d", __func__, result);
+  if (btif_a2dp_source_is_hal_v2_enabled()) {
+    bluetooth::audio::a2dp::ack_stream_suspended(ba_map_status_to_ack(result));
+  } else {
+    btif_a2dp_audio_on_suspended(result);
+  }
+}
+
+void btif_ba_audio_on_stopped(uint8_t result) {
+  APPL_TRACE_EVENT("%s result %d", __func__, result);
+  if (btif_a2dp_source_is_hal_v2_enabled()) {
+    bluetooth::audio::a2dp::ack_stream_suspended(ba_map_status_to_ack(result));
+  } else {
+    btif_a2dp_audio_on_stopped(result);
+  }
+}
+
+void btif_ba_audio_on_started(uint8_t result) {
+  APPL_TRACE_EVENT("%s result %d", __func__, result);
+  if (btif_a2dp_source_is_hal_v2_enabled()) {
+    bluetooth::audio::a2dp::ack_stream_started(ba_map_status_to_ack(result));
+  } else {
+    btif_a2dp_audio_on_started(result);
   }
 }
 
