@@ -1260,6 +1260,8 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
              p_sco->p_curr_scb->sco_idx = BTM_INVALID_SCO_INDEX;
              p_sco->p_curr_scb = NULL;
           }
+          APPL_TRACE_WARNING("%s: perform post sco close action to send indicator", __func__);
+          bta_ag_post_sco_close(p_scb, NULL);
           /* call app callback so that btif and app state
           /  go back to audio disconnected state */
           APPL_TRACE_WARNING("%s: SCO close during codec negotiation", __func__);
