@@ -1116,7 +1116,12 @@ void bta_gattc_process_api_refresh(const RawAddress& remote_bda) {
         }
       }
       if (found) {
-        bta_gattc_sm_execute(p_clcb, BTA_GATTC_INT_DISCOVER_EVT, NULL);
+          if (p_clcb->p_srcb->state == BTA_GATTC_SERV_IDLE)
+            bta_gattc_sm_execute(p_clcb, BTA_GATTC_INT_DISCOVER_EVT, NULL);
+          else
+            APPL_TRACE_DEBUG(
+            "%s: Discovery is in progress , ignore refresh.  state = %d",
+           __func__, p_clcb->p_srcb->state);
         return;
       }
     }
