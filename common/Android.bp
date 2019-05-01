@@ -1,6 +1,6 @@
 cc_library_static {
     name: "libbt-common-qti",
-    defaults: ["fluoride_defaults"],
+    defaults: ["fluoride_defaults_qti"],
     host_supported: true,
     include_dirs: ["vendor/qcom/opensource/commonsys/system/bt"],
     srcs: [
