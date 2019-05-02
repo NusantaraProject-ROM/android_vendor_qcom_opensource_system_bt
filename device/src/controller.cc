@@ -870,12 +870,12 @@ const controller_t* controller_get_test_interface(
 
 int load_bt_configstore_lib() {
   const char* sym = BT_CONFIG_STORE_INTERFACE_STRING;
-
+  const char* err = "error unknown";
   bt_configstore_lib_handle = dlopen("libbtconfigstore.so", RTLD_NOW);
   if (!bt_configstore_lib_handle) {
     const char* err_str = dlerror();
     LOG(ERROR) << __func__ << ": failed to load Bt Config store library, error="
-               << (err_str ? err_str : "error unknown");
+               << (err_str ? err_str : err);
     goto error;
   }
 

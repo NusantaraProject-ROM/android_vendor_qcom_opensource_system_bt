@@ -1005,7 +1005,7 @@ bool smp_calculate_link_key_from_long_term_key(tSMP_CB* p_cb) {
 
   link_key_type += BTM_LTK_DERIVED_LKEY_OFFSET;
 
-  Octet16 notif_link_key;
+  Octet16 notif_link_key = {0};
   std::reverse_copy(link_key.begin(), link_key.end(),
                     notif_link_key.begin());
   btm_sec_link_key_notification(bda_for_lk, notif_link_key, link_key_type);
