@@ -1607,18 +1607,6 @@ void bta_hh_le_srvc_search_cmpl(tBTA_GATTC_SEARCH_CMPL* p_data) {
         if (p_dev_cb->scan_refresh_char_handle && p_dev_cb->scan_int_char_handle)
            break;
       }
-    } else if (service.uuid == Uuid::From16Bit(UUID_SERVCLASS_GAP_SERVER)) {
-      // TODO(jpawlowski): this should be done by GAP profile, remove when GAP
-      // is fixed.
-      for (const gatt::Characteristic& charac : service.characteristics) {
-        if (charac.uuid == Uuid::From16Bit(GATT_UUID_GAP_PREF_CONN_PARAM)) {
-          /* read the char value */
-          BtaGattQueue::ReadCharacteristic(p_dev_cb->conn_id,
-                                           charac.value_handle,
-                                           read_pref_conn_params_cb, p_dev_cb);
-          break;
-        }
-      }
     }
   }
 
