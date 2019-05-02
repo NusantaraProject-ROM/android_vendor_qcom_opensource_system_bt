@@ -3879,6 +3879,18 @@ void btif_av_trigger_dual_handoff(bool handoff, int current_active_index, int pr
     BTIF_TRACE_ERROR("Handoff on invalid index");
     return;
   } else if ((previous_active_index != btif_max_av_clients) && (previous_active_index != INVALID_INDEX)){
+    if (btif_av_current_device_is_tws()) {
+      int tws_index;
+      tws_index = btif_av_get_tws_pair_idx(previous_active_index);
+      if (tws_index != btif_max_av_clients &&
+        btif_sm_get_state(btif_av_cb[previous_active_index].sm_handle) != BTIF_AV_STATE_STARTED) {
+        if (btif_sm_get_state(btif_av_cb[tws_index].sm_handle) == BTIF_AV_STATE_STARTED) {
+          BTIF_TRACE_DEBUG("%s:Chaning previous_active_index from %d to %d",__func__,
+                            previous_active_index, tws_index);
+          previous_active_index = tws_index;
+        }
+      }
+    }
     if(btif_sm_get_state(btif_av_cb[previous_active_index].sm_handle) == BTIF_AV_STATE_STARTED) {
       BTIF_TRACE_DEBUG("Initiate SUSPEND for this device on index = %d", previous_active_index);
       btif_av_cb[previous_active_index].dual_handoff = handoff; /*Initiate Handoff*/
