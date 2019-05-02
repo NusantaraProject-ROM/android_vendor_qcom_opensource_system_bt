@@ -44,6 +44,7 @@
 
 extern bool btif_a2dp_audio_if_init;
 extern tBTIF_A2DP_SOURCE_VSC btif_a2dp_src_vsc;
+extern tBTIF_A2DP_SOURCE_CB btif_a2dp_source_cb;
 extern void btif_av_reset_reconfig_flag();
 static char a2dp_hal_imp[PROPERTY_VALUE_MAX] = "false";
 
@@ -90,7 +91,7 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
             /* Start the media task to encode the audio */
              if(bluetooth::audio::a2dp::get_session_type() ==
                   SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH) {
-               APPL_TRACE_IMP("start audio as it is SW session");
+               APPL_TRACE_IMP("%s: start audio as it is SW session", __func__);
                btif_a2dp_source_start_audio_req();
              }
           }
@@ -233,6 +234,12 @@ void btif_a2dp_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
     else
         APPL_TRACE_EVENT("btif_a2dp_on_stopped, audio interface not up");
   }
+
+  if (btif_a2dp_source_is_hal_v2_supported() &&
+      (btif_a2dp_source_cb.tx_flush == true)) {
+    btif_a2dp_source_cb.tx_flush = false;
+    BTIF_TRACE_DEBUG("%s: clear tx_flush on ack of stop.",__func__);
+  }
 }
 
 void btif_a2dp_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
@@ -273,6 +280,12 @@ void btif_a2dp_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
         }
       }
     }
+  }
+
+  if (btif_a2dp_source_is_hal_v2_supported() &&
+      (btif_a2dp_source_cb.tx_flush == true)) {
+    btif_a2dp_source_cb.tx_flush = false;
+    BTIF_TRACE_DEBUG("%s: clear tx_flush on ack of suspend.",__func__);
   }
 }
 

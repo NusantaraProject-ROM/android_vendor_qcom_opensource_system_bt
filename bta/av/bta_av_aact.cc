@@ -2787,6 +2787,7 @@ void bta_av_data_path(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
   uint8_t m_pt = 0x60;
   tAVDT_DATA_OPT_MASK opt;
 
+  APPL_TRACE_DEBUG("%s: p_scb->cong: %d", __func__, p_scb->cong);
   if (p_scb->cong) return;
 
   // Always get the current number of bufs que'd up
@@ -2804,6 +2805,7 @@ void bta_av_data_path(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
     p_buf = (BT_HDR*)p_scb->p_cos->data(p_scb->cfg.codec_info, &timestamp);
 
     if (p_buf) {
+      APPL_TRACE_DEBUG("%s: p_buf is valid: %d", __func__);
       /* use the offset area for the time stamp */
       *(uint32_t*)(p_buf + 1) = timestamp;
 

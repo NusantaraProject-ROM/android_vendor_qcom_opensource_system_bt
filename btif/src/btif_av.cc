@@ -361,6 +361,7 @@ void btif_av_reset_codec_reconfig_flag(RawAddress address);
 void btif_av_reinit_audio_interface();
 bool btif_av_is_suspend_stop_pending_ack();
 static void allow_connection(int is_valid, RawAddress *bd_addr);
+bool btif_av_is_local_started_on_other_idx(int current_index);
 
 const char* dump_av_sm_state_name(btif_av_state_t state) {
   switch (state) {
@@ -1396,13 +1397,13 @@ static bool btif_av_state_closing_handler(btif_sm_event_t event, void* p_data, i
          */
         if (btif_av_is_connected_on_other_idx(index)) {
           if (btif_av_is_playing()) {
-              APPL_TRACE_DEBUG("Keep playing on other device");
+              APPL_TRACE_DEBUG("%s: Keep playing on other device", __func__);
           } else {
              if (btif_av_cb[index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING) {
-                 APPL_TRACE_DEBUG("Not playing on other device: Stop media task as local suspend pending");
+                 APPL_TRACE_DEBUG("%s: Not playing on other device: Stop media task as local suspend pending", __func__);
                  btif_a2dp_on_stopped(NULL);
              } else {
-                APPL_TRACE_DEBUG("Not playing on other device: Set Flush");
+                APPL_TRACE_DEBUG("%s: Not playing on other device: Set Flush", __func__);
                 btif_a2dp_source_set_tx_flush(true);
                 btif_a2dp_source_stop_audio_req();
              }
@@ -1412,6 +1413,7 @@ static bool btif_av_state_closing_handler(btif_sm_event_t event, void* p_data, i
            * Immediately stop transmission of frames
            * wait for audioflinger to stop a2dp
            */
+          APPL_TRACE_DEBUG("%s: setting tx_flush to true.", __func__);
           btif_a2dp_source_set_tx_flush(true);
         }
       }
@@ -1428,13 +1430,13 @@ static bool btif_av_state_closing_handler(btif_sm_event_t event, void* p_data, i
          * We will stop only when only single A2dp conn is present.*/
         if (btif_av_is_connected_on_other_idx(index)) {
           if (!btif_av_is_playing()) {
-            APPL_TRACE_WARNING("Suspend the AV Data channel");
+            APPL_TRACE_WARNING("%s: Suspend the AV Data channel", __func__);
             //Stop media task
             btif_a2dp_on_stopped(NULL);
           }
         } else {
           /* immediately flush any pending tx frames while suspend is pending */
-          APPL_TRACE_WARNING("Stop the AV Data channel");
+          APPL_TRACE_WARNING("%s: Stop the AV Data channel", __func__);
           btif_a2dp_source_set_tx_flush(true);
           btif_a2dp_on_stopped(NULL);
         }
@@ -1824,13 +1826,13 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
           /* fake handoff state to switch streaming to other codec device */
           btif_av_cb[index].dual_handoff = true;
         } else if (!btif_av_is_playing()) {
-          APPL_TRACE_WARNING("Suspend the AV Data channel");
+          APPL_TRACE_WARNING("%s: Suspend the AV Data channel", __func__);
           /* ensure tx frames are immediately suspended */
           btif_a2dp_source_set_tx_flush(true);
           btif_a2dp_source_stop_audio_req();
         }
       } else {
-        APPL_TRACE_WARNING("Stop the AV Data channel");
+        APPL_TRACE_WARNING("%s: Stop the AV Data channel", __func__);
 /* SPLITA2DP */
         if (btif_av_is_split_a2dp_enabled() &&
            !btif_a2dp_source_is_hal_v2_supported()) {
@@ -2187,14 +2189,14 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       {
           if (btif_av_is_connected_on_other_idx(index)) {
             if (!btif_av_is_playing_on_other_idx(index)) {
-              APPL_TRACE_WARNING("Suspend the AV Data channel");
+              APPL_TRACE_WARNING("%s: Suspend the AV Data channel", __func__);
               //Flush and close media channel
               btif_a2dp_source_set_tx_flush(true);
             } else
                 APPL_TRACE_WARNING("Not flushing as one link is already streaming");
           } else {
             /* immediately flush any pending tx frames while suspend is pending */
-            APPL_TRACE_WARNING("Stop the AV Data channel");
+            APPL_TRACE_WARNING("%s: Stop the AV Data channel", __func__);
             btif_a2dp_source_set_tx_flush(true);
           }
       }
@@ -2343,9 +2345,7 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       if ((p_av->suspend.status != BTA_AV_SUCCESS) ||
           hal_suspend_pending ||
           (!btif_av_is_playing_on_other_idx(index)) ||
-          (btif_av_is_playing_on_other_idx(index) &&
-          (btif_get_is_remote_started_idx() ==
-          (btif_max_av_clients - (index +1))))) {
+          (!btif_av_is_local_started_on_other_idx(index))) {
           BTIF_TRACE_DEBUG("Other device suspended/Remote started, ack the suspend");
           btif_a2dp_on_suspended(&p_av->suspend);
       } else if(btif_av_is_playing_on_other_idx(index)) {
@@ -2388,9 +2388,11 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
 
         btif_av_cb[index].flags &= ~BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING;
 
-        if (btif_av_cb[index].peer_sep == AVDT_TSEP_SNK)
+        if (btif_av_cb[index].peer_sep == AVDT_TSEP_SNK) {
+          BTIF_TRACE_DEBUG("%s: resetting tx_flush flag", __func__);
           // suspend failed, reset back tx flush state
           btif_a2dp_source_set_tx_flush(false);
+        }
         return false;
       }
       btif_av_cb[index].is_suspend_for_remote_start = false;

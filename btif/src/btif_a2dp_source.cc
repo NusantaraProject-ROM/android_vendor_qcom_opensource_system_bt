@@ -102,84 +102,7 @@ typedef struct {
   btav_a2dp_codec_config_t feeding_params;
 } tBTIF_A2DP_AUDIO_FEEDING_UPDATE;
 
-typedef struct {
-  // Counter for total updates
-  size_t total_updates;
-
-  // Last update timestamp (in us)
-  uint64_t last_update_us;
-
-  // Counter for overdue scheduling
-  size_t overdue_scheduling_count;
-
-  // Accumulated overdue scheduling deviations (in us)
-  uint64_t total_overdue_scheduling_delta_us;
-
-  // Max. overdue scheduling delta time (in us)
-  uint64_t max_overdue_scheduling_delta_us;
-
-  // Counter for premature scheduling
-  size_t premature_scheduling_count;
-
-  // Accumulated premature scheduling deviations (in us)
-  uint64_t total_premature_scheduling_delta_us;
-
-  // Max. premature scheduling delta time (in us)
-  uint64_t max_premature_scheduling_delta_us;
-
-  // Counter for exact scheduling
-  size_t exact_scheduling_count;
-
-  // Accumulated and counted scheduling time (in us)
-  uint64_t total_scheduling_time_us;
-} scheduling_stats_t;
-
-typedef struct {
-  uint64_t session_start_us;
-  uint64_t session_end_us;
-
-  scheduling_stats_t tx_queue_enqueue_stats;
-  scheduling_stats_t tx_queue_dequeue_stats;
-
-  size_t tx_queue_total_frames;
-  size_t tx_queue_max_frames_per_packet;
-
-  uint64_t tx_queue_total_queueing_time_us;
-  uint64_t tx_queue_max_queueing_time_us;
-
-  size_t tx_queue_total_readbuf_calls;
-  uint64_t tx_queue_last_readbuf_us;
-
-  size_t tx_queue_total_flushed_messages;
-  uint64_t tx_queue_last_flushed_us;
-
-  size_t tx_queue_total_dropped_messages;
-  size_t tx_queue_max_dropped_messages;
-  size_t tx_queue_dropouts;
-  uint64_t tx_queue_last_dropouts_us;
-
-  size_t media_read_total_underflow_bytes;
-  size_t media_read_total_underflow_count;
-  uint64_t media_read_last_underflow_us;
-} btif_media_stats_t;
-
-typedef struct {
-  thread_t* worker_thread;
-  fixed_queue_t* cmd_msg_queue;
-  fixed_queue_t* tx_audio_queue;
-  bool tx_flush; /* Discards any outgoing data when true */
-  alarm_t* unblock_audio_start_alarm;
-  alarm_t* media_alarm;
-  alarm_t *remote_start_alarm;
-  const tA2DP_ENCODER_INTERFACE* encoder_interface;
-  period_ms_t encoder_interval_ms; /* Local copy of the encoder interval */
-  btif_media_stats_t stats;
-  btif_media_stats_t accumulated_stats;
-  int last_remote_started_index;
-  int *last_started_index_pointer;
-} tBTIF_A2DP_SOURCE_CB;
-
-static tBTIF_A2DP_SOURCE_CB btif_a2dp_source_cb;
+tBTIF_A2DP_SOURCE_CB btif_a2dp_source_cb;
 tBTIF_A2DP_SOURCE_VSC btif_a2dp_src_vsc;
 
 static int btif_a2dp_source_state = BTIF_A2DP_SOURCE_STATE_OFF;
@@ -507,7 +430,7 @@ static void btif_a2dp_source_command_ready(fixed_queue_t* queue,
                                            UNUSED_ATTR void* context) {
   BT_HDR* p_msg = (BT_HDR*)fixed_queue_dequeue(queue);
 
-  LOG_VERBOSE(LOG_TAG, "%s: event %d %s", __func__, p_msg->event,
+  LOG_DEBUG(LOG_TAG, "%s: event: %d %s", __func__, p_msg->event,
               dump_media_event(p_msg->event));
 
   switch (p_msg->event) {
@@ -630,6 +553,7 @@ bt_status_t btif_a2dp_source_setup_codec(tBTA_AV_HNDL hndl) {
 void btif_a2dp_source_start_audio_req(void) {
   BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
 
+  BTIF_TRACE_DEBUG("%s:", __func__);
   p_buf->event = BTIF_MEDIA_AUDIO_TX_START;
   fixed_queue_enqueue(btif_a2dp_source_cb.cmd_msg_queue, p_buf);
   memset(&btif_a2dp_source_cb.stats, 0, sizeof(btif_media_stats_t));
@@ -835,8 +759,10 @@ void btif_a2dp_source_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
     }
   }
 
-  /* ensure tx frames are immediately suspended */
-  btif_a2dp_source_cb.tx_flush = true;
+  BTIF_TRACE_DEBUG("%s: tx_flush: %d",__func__, btif_a2dp_source_cb.tx_flush);
+  /* ensure tx frames are immediately flushed */
+  if (btif_a2dp_source_cb.tx_flush == false)
+    btif_a2dp_source_cb.tx_flush = true;
 
   /* request to stop media task */
   if (!btif_a2dp_source_is_hal_v2_enabled() ||
@@ -898,8 +824,10 @@ void btif_a2dp_source_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
 
   /* once stream is fully stopped we will ack back */
 
+  BTIF_TRACE_DEBUG("%s: tx_flush: %d",__func__, btif_a2dp_source_cb.tx_flush);
   /* ensure tx frames are immediately flushed */
-  btif_a2dp_source_cb.tx_flush = true;
+  if (btif_a2dp_source_cb.tx_flush == false)
+    btif_a2dp_source_cb.tx_flush = true;
 
   /* stop timer tick */
   /* request to stop media task */
@@ -1019,6 +947,7 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
 }
 
 static void btif_a2dp_source_alarm_cb(UNUSED_ATTR void* context) {
+  APPL_TRACE_DEBUG("%s:", __func__);
   thread_post(btif_a2dp_source_cb.worker_thread,
               btif_a2dp_source_audio_handle_timer, NULL);
 }
@@ -1075,6 +1004,8 @@ static bool btif_a2dp_source_enqueue_callback(BT_HDR* p_buf, size_t frames_n,
   uint64_t now_us = time_get_os_boottime_us();
   btif_a2dp_control_log_bytes_read(bytes_read);
 
+  APPL_TRACE_DEBUG("%s: tx_flush: %d", __func__, btif_a2dp_source_cb.tx_flush);
+
   /* Check if timer was stopped (media task stopped) */
   if (!alarm_is_scheduled(btif_a2dp_source_cb.media_alarm)) {
     osi_free(p_buf);
@@ -1083,7 +1014,7 @@ static bool btif_a2dp_source_enqueue_callback(BT_HDR* p_buf, size_t frames_n,
 
   /* Check if the transmission queue has been flushed */
   if (btif_a2dp_source_cb.tx_flush) {
-    LOG_VERBOSE(LOG_TAG, "%s: tx suspended, discarded frame", __func__);
+    LOG_DEBUG(LOG_TAG, "%s: tx suspended, discarded frame", __func__);
 
     btif_a2dp_source_cb.stats.tx_queue_total_flushed_messages +=
         fixed_queue_length(btif_a2dp_source_cb.tx_audio_queue);
@@ -1098,7 +1029,7 @@ static bool btif_a2dp_source_enqueue_callback(BT_HDR* p_buf, size_t frames_n,
   // TODO: Using frames_n here is probably wrong: should be "+ 1" instead.
   if (fixed_queue_length(btif_a2dp_source_cb.tx_audio_queue) + frames_n >
       MAX_OUTPUT_A2DP_FRAME_QUEUE_SZ) {
-    LOG_WARN(LOG_TAG, "%s: TX queue buffer size now=%u adding=%u max=%d",
+    LOG_DEBUG(LOG_TAG, "%s: TX queue buffer size now=%u adding=%u max=%d",
              __func__,
              (uint32_t)fixed_queue_length(btif_a2dp_source_cb.tx_audio_queue),
              (uint32_t)frames_n, MAX_OUTPUT_A2DP_FRAME_QUEUE_SZ);
@@ -1121,28 +1052,29 @@ static bool btif_a2dp_source_enqueue_callback(BT_HDR* p_buf, size_t frames_n,
     btif_av_get_peer_addr(&peer_bda);
     tBTM_STATUS status = BTM_ReadRSSI(peer_bda, btm_read_rssi_cb);
     if (status != BTM_CMD_STARTED) {
-      LOG_WARN(LOG_TAG, "%s: Cannot read RSSI: status %d", __func__, status);
+      LOG_DEBUG(LOG_TAG, "%s: Cannot read RSSI: status %d", __func__, status);
     }
     status = BTM_ReadFailedContactCounter(peer_bda,
                                           btm_read_failed_contact_counter_cb);
     if (status != BTM_CMD_STARTED) {
-      LOG_WARN(LOG_TAG, "%s: Cannot read Failed Contact Counter: status %d",
+      LOG_DEBUG(LOG_TAG, "%s: Cannot read Failed Contact Counter: status %d",
                __func__, status);
     }
     status = BTM_ReadAutomaticFlushTimeout(peer_bda,
                                            btm_read_automatic_flush_timeout_cb);
     if (status != BTM_CMD_STARTED) {
-      LOG_WARN(LOG_TAG, "%s: Cannot read Automatic Flush Timeout: status %d",
+      LOG_DEBUG(LOG_TAG, "%s: Cannot read Automatic Flush Timeout: status %d",
                __func__, status);
     }
     status =
         BTM_ReadTxPower(peer_bda, BT_TRANSPORT_BR_EDR, btm_read_tx_power_cb);
     if (status != BTM_CMD_STARTED) {
-      LOG_WARN(LOG_TAG, "%s: Cannot read Tx Power: status %d", __func__,
+      LOG_DEBUG(LOG_TAG, "%s: Cannot read Tx Power: status %d", __func__,
                status);
     }
   }
 
+  APPL_TRACE_DEBUG("%s: Update the statistics and enquue the packets.", __func__);
   /* Update the statistics */
   btif_a2dp_source_cb.stats.tx_queue_total_frames += frames_n;
   btif_a2dp_source_cb.stats.tx_queue_max_frames_per_packet = std::max(
@@ -1197,10 +1129,11 @@ BT_HDR* btif_a2dp_source_audio_readbuf(void) {
   uint64_t now_us = time_get_os_boottime_us();
   BT_HDR* p_buf =
       (BT_HDR*)fixed_queue_try_dequeue(btif_a2dp_source_cb.tx_audio_queue);
-
+  APPL_TRACE_DEBUG("%s:", __func__);
   btif_a2dp_source_cb.stats.tx_queue_total_readbuf_calls++;
   btif_a2dp_source_cb.stats.tx_queue_last_readbuf_us = now_us;
   if (p_buf != NULL) {
+    APPL_TRACE_DEBUG("%s: p_buf is not null, updating queue statistics.", __func__);
     // Update the statistics
     update_scheduling_stats(&btif_a2dp_source_cb.stats.tx_queue_dequeue_stats,
                             now_us,

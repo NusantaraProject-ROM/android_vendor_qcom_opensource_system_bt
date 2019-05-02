@@ -1420,6 +1420,18 @@ void end_session() {
   session_type = SessionType::UNKNOWN;
   is_session_started = false;
   remote_delay = 0;
+  tA2DP_CTRL_CMD pending_cmd = A2DP_CTRL_CMD_NONE;
+  pending_cmd = a2dp_sink->GetPendingCmd();
+  if (pending_cmd == A2DP_CTRL_CMD_START) {
+    LOG(INFO) << __func__ << ":honoring pending A2DP_CTRL_CMD_START";
+    a2dp_hal_clientif->StreamStarted(a2dp_ack_to_bt_audio_ctrl_ack
+                    (A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS));
+  } else if ((pending_cmd == A2DP_CTRL_CMD_SUSPEND)
+      || (pending_cmd == A2DP_CTRL_CMD_STOP)) {
+    LOG(INFO) << __func__ << ":honoring pending A2DP_CTRL_CMD_SUSPEND/STOP";
+    a2dp_hal_clientif->StreamSuspended(a2dp_ack_to_bt_audio_ctrl_ack
+                    (A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS));
+  }
 }
 
 tA2DP_CTRL_CMD get_pending_command() {

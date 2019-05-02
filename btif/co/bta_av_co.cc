@@ -875,7 +875,10 @@ void* bta_av_co_audio_src_data_path(const uint8_t* p_codec_info,
   APPL_TRACE_DEBUG("%s: codec: %s", __func__, A2DP_CodecName(p_codec_info));
 
   p_buf = btif_a2dp_source_audio_readbuf();
-  if (p_buf == NULL) return NULL;
+  if (p_buf == NULL) {
+    APPL_TRACE_DEBUG("%s: p_buf is null, return", __func__);
+    return NULL;
+  }
 
   /*
    * Retrieve the timestamp information from the media packet,
