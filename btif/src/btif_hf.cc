@@ -1904,8 +1904,7 @@ bt_status_t HeadsetInterface::PhoneStateChange(
         }
         break;
       case BTHF_CALL_STATE_DIALING:
-        if (!(num_active + num_held) && is_active_device(*bd_addr) &&
-            (btif_hf_cb[idx].audio_state != BTHF_AUDIO_STATE_CONNECTED))
+        if (!(num_active + num_held) && is_active_device(*bd_addr))
         {
           ag_res.audio_handle = control_block.handle;
 
