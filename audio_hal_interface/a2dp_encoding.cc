@@ -1342,6 +1342,10 @@ bool is_restart_session_needed() {
   } else if(!split_enabled && session_type ==
                  SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH) {
     A2dpCodecConfig* a2dp_codec_configs = bta_av_get_a2dp_current_codec();
+    if (a2dp_codec_configs == nullptr) {
+      LOG(WARNING) << __func__ << ": failure to get A2DP codec config";
+      return false;
+    }
     btav_a2dp_codec_config_t current_codec = a2dp_codec_configs->getCodecConfig();
     LOG(ERROR) << __func__ <<  sw_codec_type << " " <<  current_codec.codec_type;
     if(sw_codec_type != current_codec.codec_type) {
@@ -1378,6 +1382,10 @@ bool setup_codec() {
       return false;
     }
     A2dpCodecConfig* a2dp_codec_configs = bta_av_get_a2dp_current_codec();
+    if (a2dp_codec_configs == nullptr) {
+      LOG(WARNING) << __func__ << ": failure to get A2DP codec config";
+      return false;
+    }
     btav_a2dp_codec_config_t current_codec = a2dp_codec_configs->getCodecConfig();
     audio_config.pcmConfig = pcm_config;
     sw_codec_type = current_codec.codec_type;
