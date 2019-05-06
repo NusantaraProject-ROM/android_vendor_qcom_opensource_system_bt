@@ -201,6 +201,7 @@ extern int btif_max_av_clients;
 extern tBTA_AV_HNDL btif_av_get_reconfig_dev_hndl();
 extern void btif_av_reset_codec_reconfig_flag(RawAddress address);
 extern bool bt_split_a2dp_enabled;
+extern void btif_av_set_reconfig_flag(tBTA_AV_HNDL bta_handle);
 /*******************************************************************************
  **
  ** Function         bta_av_co_cp_get_flag
@@ -614,6 +615,7 @@ tA2DP_STATUS bta_av_co_audio_getconfig(tBTA_AV_HNDL hndl, uint8_t* p_codec_info,
 
     if (p_peer->reconfig_needed || p_peer->rcfg_pend_getcap) {
       APPL_TRACE_DEBUG("%s: call BTA_AvReconfig(x%x)", __func__, hndl);
+      btif_av_set_reconfig_flag(hndl);
       BTA_AvReconfig(hndl, true, p_sink->sep_info_idx, p_peer->codec_config,
                      *p_num_protect, bta_av_co_cp_scmst);
       p_peer->rcfg_done = true;
@@ -1707,6 +1709,7 @@ bool bta_av_co_set_codec_audio_config(
     } else {
       APPL_TRACE_DEBUG("%s: call BTA_AvReconfig(x%x)", __func__,
                        p_peer->handle);
+      btif_av_set_reconfig_flag(p_peer->handle);
       BTA_AvReconfig(p_peer->handle, true, p_sink->sep_info_idx,
                      p_peer->codec_config, num_protect, bta_av_co_cp_scmst);
       p_peer->rcfg_done = true;
