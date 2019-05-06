@@ -4061,6 +4061,13 @@ static bt_status_t set_active_device(const RawAddress& bd_addr) {
   BTIF_TRACE_EVENT("%s", __func__);
   CHECK_BTAV_INIT();
 
+  int active_index = btif_av_get_latest_device_idx_to_start();
+  if(active_index < btif_max_av_clients &&
+        (btif_av_cb[active_index].flags & BTIF_AV_FLAG_PENDING_START)) {
+    BTIF_TRACE_ERROR("%s: Pending Start Response on current device, Return Fail",__func__);
+    return BT_STATUS_NOT_READY;
+  }
+
   if (!bta_av_co_set_active_peer(bd_addr)) {
     BTIF_TRACE_WARNING("%s: unable to set active peer in BtaAvCo",__func__);
   }
