@@ -579,16 +579,21 @@ class HearingAidImpl : public HearingAid {
     const std::vector<gatt::Service>* services = BTA_GATTC_GetServices(conn_id);
 
     const gatt::Service* service = nullptr;
-    for (const gatt::Service& tmp : *services) {
-      if (tmp.uuid == Uuid::From16Bit(UUID_SERVCLASS_GATT_SERVER)) {
-        LOG(INFO) << "Found UUID_SERVCLASS_GATT_SERVER, handle="
-                  << loghex(tmp.handle);
-        const gatt::Service* service_changed_service = &tmp;
-        find_server_changed_ccc_handle(conn_id, service_changed_service);
-      } else if (tmp.uuid == HEARING_AID_UUID) {
-        LOG(INFO) << "Found Hearing Aid service, handle=" << loghex(tmp.handle);
-        service = &tmp;
+    if (services) {
+      for (const gatt::Service& tmp : *services) {
+        if (tmp.uuid == Uuid::From16Bit(UUID_SERVCLASS_GATT_SERVER)) {
+          LOG(INFO) << "Found UUID_SERVCLASS_GATT_SERVER, handle="
+                    << loghex(tmp.handle);
+          const gatt::Service* service_changed_service = &tmp;
+          find_server_changed_ccc_handle(conn_id, service_changed_service);
+        } else if (tmp.uuid == HEARING_AID_UUID) {
+          LOG(INFO) << "Found Hearing Aid service, handle=" << loghex(tmp.handle);
+          service = &tmp;
+        }
       }
+    } else {
+      LOG(ERROR) << "no services found for conn_id: " << conn_id;
+      return;
     }
 
     if (!service) {
@@ -1138,9 +1143,13 @@ class HearingAidImpl : public HearingAid {
       // TODO: instead of a magic number, we need to figure out the correct
       // buffer size
       encoded_data_left.resize(4000);
-      int encoded_size =
+      int encoded_size = 0;
+      if (chan_left.size() > 0) {
           g722_encode(encoder_state_left, encoded_data_left.data(),
                       (const int16_t*)chan_left.data(), chan_left.size());
+      } else {
+        LOG(ERROR) << "Error: No chan_left data to encode";
+      }
       encoded_data_left.resize(encoded_size);
 
       uint16_t cid = GAP_ConnGetL2CAPCid(left->gap_handle);
@@ -1162,9 +1171,13 @@ class HearingAidImpl : public HearingAid {
       // TODO: instead of a magic number, we need to figure out the correct
       // buffer size
       encoded_data_right.resize(4000);
-      int encoded_size =
+      int encoded_size = 0;
+      if (chan_right.size() > 0) {
           g722_encode(encoder_state_right, encoded_data_right.data(),
                       (const int16_t*)chan_right.data(), chan_right.size());
+      } else {
+        LOG(ERROR) << "Error: No chan_right data to encode";
+      }
       encoded_data_right.resize(encoded_size);
 
       uint16_t cid = GAP_ConnGetL2CAPCid(right->gap_handle);
