@@ -1601,6 +1601,11 @@ void bta_hh_le_srvc_search_cmpl(tBTA_GATTC_SEARCH_CMPL* p_data) {
             p_dev_cb->scps_notify = BTA_HH_LE_SCPS_NOTIFY_NONE;
 
         }
+        if (charac.uuid == Uuid::From16Bit(GATT_UUID_SCAN_INT_WINDOW)) {
+           p_dev_cb->scan_int_char_handle = charac.value_handle;
+        }
+        if (p_dev_cb->scan_refresh_char_handle && p_dev_cb->scan_int_char_handle)
+           break;
       }
     } else if (service.uuid == Uuid::From16Bit(UUID_SERVCLASS_GAP_SERVER)) {
       // TODO(jpawlowski): this should be done by GAP profile, remove when GAP
@@ -1613,8 +1618,6 @@ void bta_hh_le_srvc_search_cmpl(tBTA_GATTC_SEARCH_CMPL* p_data) {
                                            read_pref_conn_params_cb, p_dev_cb);
           break;
         }
-        if (p_dev_cb->scan_refresh_char_handle &&  p_dev_cb->scan_int_char_handle)
-           break;
       }
     }
   }
