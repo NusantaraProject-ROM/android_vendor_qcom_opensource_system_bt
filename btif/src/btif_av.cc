@@ -2821,7 +2821,7 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
       BTIF_TRACE_IMP("%s: Remote Started set @ index = %d", __func__, index);
       btif_av_clear_remote_start_timer(index);
 #ifdef BTA_AV_SPLIT_A2DP_ENABLED
-      if ((bt_split_a2dp_enabled) && (!btif_av_is_playing_on_other_idx(index))) {
+      if ((btif_av_is_split_a2dp_enabled()) && (!btif_av_is_playing_on_other_idx(index))) {
         BTIF_TRACE_IMP("%s: Other index is not playing", __func__);
         bta_av_vendor_offload_stop(NULL);
       }
@@ -3714,12 +3714,12 @@ static bt_status_t init_src(
         // already did btif_av_init()
         status = BT_STATUS_SUCCESS;
   else {
-    if (a2dp_multicast_state && !bt_split_a2dp_enabled)
+    if (a2dp_multicast_state && !btif_av_is_split_a2dp_enabled())
       is_multicast_supported = true;
       btif_max_av_clients = max_a2dp_connections;
     BTIF_TRACE_EVENT("%s() with max conn changed to = %d", __func__,
                                 btif_max_av_clients);
-    if (bt_split_a2dp_enabled) {
+    if (btif_av_is_split_a2dp_enabled()) {
       btif_a2dp_src_vsc.multi_vsc_support = false;
     }
 

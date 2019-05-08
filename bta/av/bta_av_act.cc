@@ -79,6 +79,7 @@
 #include "device/include/profile_config.h"
 #include "device/include/device_iot_config.h"
 #include "controller.h"
+#include "btif/include/btif_av.h"
 
 #if (BTA_AR_INCLUDED == TRUE)
 #include "bta_ar_api.h"
@@ -118,6 +119,7 @@ struct blacklist_entry
 
 std::vector<RawAddress> active_device_priority_list;
 extern fixed_queue_t* btu_bta_alarm_queue;
+extern bool btif_av_is_split_a2dp_enabled(void);
 static void bta_av_browsing_channel_open_retry(uint8_t handle);
 static void bta_av_accept_signalling_timer_cback(void* data);
 static void bta_av_browsing_channel_open_timer_cback(void* data);
@@ -1316,8 +1318,6 @@ void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started) {
   uint8_t* p_streams;
   bool no_streams = false;
   tBTA_AV_SCB* p_scbi;
-  bool bt_split_a2dp_enabled = controller_get_interface()->supports_spilt_a2dp();
-  BTIF_TRACE_DEBUG("split_a2dp_status = %d",bt_split_a2dp_enabled);
 
   started_msk = BTA_AV_HNDL_TO_MSK(p_scb->hdi);
   APPL_TRACE_DEBUG("bta_av_stream_chg started:%d started_msk:x%x chnl:x%x",
@@ -1329,7 +1329,7 @@ void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started) {
 
   if (started) {
     /* Let L2CAP know this channel is processed with high priority */
-    if (bt_split_a2dp_enabled == false) {
+    if (!btif_av_is_split_a2dp_enabled()) {
       L2CA_SetAclPriority(p_scb->peer_addr, L2CAP_PRIORITY_HIGH);
     }
     (*p_streams) |= started_msk;
@@ -1361,7 +1361,7 @@ void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started) {
                      bta_av_cb.video_streams);
     if (no_streams) {
       /* Let L2CAP know this channel is processed with low priority */
-      if (bt_split_a2dp_enabled == false)
+      if (!btif_av_is_split_a2dp_enabled())
         L2CA_SetAclPriority(p_scb->peer_addr, L2CAP_PRIORITY_NORMAL);
     }
   }
