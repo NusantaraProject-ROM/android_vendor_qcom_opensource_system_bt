@@ -4112,13 +4112,13 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
   //RawAddress *bda = &bda;
   //check if current device is TWS and then return failure with SHO support
 #if (TWS_ENABLED == TRUE)
-  int index = btif_av_idx_by_bdaddr(const_cast<RawAddress*>(&bd_addr));
-  if (index < btif_max_av_clients && btif_av_cb[index].tws_device) {
+  //int index = btif_av_idx_by_bdaddr(const_cast<RawAddress*>(&bd_addr));
+  /*if (index < btif_max_av_clients && btif_av_cb[index].tws_device) {
   //if (btif_av_is_tws_connected()) {
     BTIF_TRACE_DEBUG("%s:TWSP device connected, config change not allowed",__func__);
     return BT_STATUS_FAIL;
   //}
-  }
+  } */
 #endif
   btif_av_codec_config_req_t codec_req;
   isDevUiReq = false;

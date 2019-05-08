@@ -443,6 +443,21 @@ void BTA_AvUpdateEncoderMode(uint16_t enc_mode) {
   bta_sys_sendmsg(p_buf);
 }
 
+void BTA_AvUpdateAptxData(uint16_t data) {
+  tBTA_AV_APTX_DATA* p_buf =
+      (tBTA_AV_APTX_DATA*)osi_malloc(sizeof(tBTA_AV_APTX_DATA));
+  uint16_t BATTERY_INFO_MASK = 0X0F;
+  uint16_t ULL_MODE_MASK = 0x6000;
+  if(data & BATTERY_INFO_MASK) {
+    p_buf->type = 4;
+    p_buf->data = data;
+  } else if(data & ULL_MODE_MASK) {
+    p_buf->type = 3;
+    p_buf->data = 1;
+  }
+  p_buf->hdr.event = BTA_AV_UPDATE_APTX_DATA_EVT;
+  bta_sys_sendmsg(p_buf);
+}
 
 /*******************************************************************************
  *

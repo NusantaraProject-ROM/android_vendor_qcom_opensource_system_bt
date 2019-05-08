@@ -744,6 +744,20 @@ void BTA_AvUpdateEncoderMode(uint16_t enc_mode);
 
 /*******************************************************************************
  *
+ * Function          BTA_AvUpdateAptxData
+ *
+ * Description      Update extended Aptx Data to Soc via
+ *                          Vendor Specific Command.
+ *                          Sends Battery level, scan mode and
+ *                          ULL mode info to SoC
+ *
+ * Returns            void
+ *
+ ******************************************************************************/
+void BTA_AvUpdateAptxData(uint16_t data);
+
+
+/*******************************************************************************
  * Function         BTA_AvProtectReq
  *
  * Description      Send a content protection request.  This function can only
