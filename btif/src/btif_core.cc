@@ -537,7 +537,7 @@ void btif_disable_bluetooth_evt(void) {
 void btif_hci_close(void) {
   LOG_INFO(LOG_TAG, "%s entered", __func__);
 
-  bte_main_disable();
+  bte_main_hci_close();
 
   LOG_INFO(LOG_TAG, "%s finished", __func__);
 }

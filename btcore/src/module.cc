@@ -33,8 +33,10 @@
 typedef enum {
   MODULE_STATE_NONE = 0,
   MODULE_STATE_INITIALIZED = 1,
-  MODULE_STATE_STARTED = 2,
-  MODULE_STATE_STARTUP_ERROR = 3
+  MODULE_STATE_STARTING = 2,
+  MODULE_STATE_SHUTTINGDOWN = 3,
+  MODULE_STATE_STARTED = 4,
+  MODULE_STATE_STARTUP_ERROR = 5
 } module_state_t;
 
 static std::unordered_map<const module_t*, module_state_t> metadata;
@@ -83,6 +85,7 @@ bool module_start_up(const module_t* module) {
         module->init == NULL);
 
   LOG_INFO(LOG_TAG, "%s Starting module \"%s\"", __func__, module->name);
+  set_module_state(module, MODULE_STATE_STARTING);
   if (!call_lifecycle_function(module->start_up)) {
     LOG_ERROR(LOG_TAG, "%s Failed to start up module \"%s\"", __func__,
               module->name);
@@ -100,9 +103,12 @@ void module_shut_down(const module_t* module) {
   module_state_t state = get_module_state(module);
 
   // Only something to do if the module was actually started
-  if (state < MODULE_STATE_STARTED) return;
-
+  if (state < MODULE_STATE_STARTED) {
+    LOG_WARN(LOG_TAG, "%s  \"%s\" state %d ", __func__, module->name, state);
+    return;
+  }
   LOG_INFO(LOG_TAG, "%s Shutting down module \"%s\"", __func__, module->name);
+  set_module_state(module, MODULE_STATE_SHUTTINGDOWN);
   if (!call_lifecycle_function(module->shut_down)) {
     LOG_ERROR(LOG_TAG,
               "%s Failed to shutdown module \"%s\". Continuing anyway.",
