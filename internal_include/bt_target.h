@@ -428,7 +428,7 @@
 
 /* The number of SCO links. */
 #ifndef BTM_MAX_SCO_LINKS
-#define BTM_MAX_SCO_LINKS 3
+#define BTM_MAX_SCO_LINKS 6
 #endif
 
 /* The preferred type of SCO links (2-eSCO, 0-SCO). */
