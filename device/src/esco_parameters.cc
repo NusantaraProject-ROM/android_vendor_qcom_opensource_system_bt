@@ -19,6 +19,9 @@
 #include "base/logging.h"
 
 #include "device/include/esco_parameters.h"
+#if (SWB_ENABLED == TRUE)
+#include "bta/include/bta_ag_swb.h"
+#endif
 
 static const enh_esco_params_t default_esco_parameters[ESCO_NUM_CODECS] = {
     // CVSD
@@ -137,46 +140,16 @@ static const enh_esco_params_t default_esco_parameters[ESCO_NUM_CODECS] = {
      .packet_types =
          (ESCO_PKT_TYPES_MASK_EV3 | ESCO_PKT_TYPES_MASK_NO_3_EV3 |
           ESCO_PKT_TYPES_MASK_NO_2_EV5 | ESCO_PKT_TYPES_MASK_NO_3_EV5),
-     .retransmission_effort = ESCO_RETRANSMISSION_QUALITY},
-
-#if (SWB_ENABLED == TRUE)
-     // SWB Q0
-    {.transmit_bandwidth = TXRX_64KBITS_RATE,
-     .receive_bandwidth = TXRX_64KBITS_RATE,
-     .transmit_coding_format = {.coding_format = ESCO_CODING_FORMAT_VS,
-                                .company_id = 0x000A,
-                                .vendor_specific_codec_id = 0x0000},
-     .receive_coding_format = {.coding_format = ESCO_CODING_FORMAT_VS,
-                               .company_id = 0x000A,
-                               .vendor_specific_codec_id = 0x0000},
-     .transmit_codec_frame_size = 60,
-     .receive_codec_frame_size = 60,
-     .input_bandwidth = INPUT_OUTPUT_128K_RATE,
-     .output_bandwidth = INPUT_OUTPUT_128K_RATE,
-     .input_coding_format = {.coding_format = ESCO_CODING_FORMAT_LINEAR,
-                             .company_id = 0x0000,
-                             .vendor_specific_codec_id = 0x0000},
-     .output_coding_format = {.coding_format = ESCO_CODING_FORMAT_LINEAR,
-                              .company_id = 0x0000,
-                              .vendor_specific_codec_id = 0x0000},
-     .input_coded_data_size = 16,
-     .output_coded_data_size = 16,
-     .input_pcm_data_format = ESCO_PCM_DATA_FORMAT_2_COMP,
-     .output_pcm_data_format = ESCO_PCM_DATA_FORMAT_2_COMP,
-     .input_pcm_payload_msb_position = 0,
-     .output_pcm_payload_msb_position = 0,
-     .input_data_path = ESCO_DATA_PATH_PCM,
-     .output_data_path = ESCO_DATA_PATH_PCM,
-     .input_transport_unit_size = 0x00,
-     .output_transport_unit_size = 0x00,
-     .max_latency_ms = 14,
-     .packet_types = 0x0380,
      .retransmission_effort = ESCO_RETRANSMISSION_QUALITY}};
-#endif
 
 enh_esco_params_t esco_parameters_for_codec(esco_codec_t codec) {
   CHECK(codec >= 0) << "codec index " << (int)codec << "< 0";
   CHECK(codec < ESCO_NUM_CODECS) << "codec index " << (int)codec << " > "
                                  << ESCO_NUM_CODECS;
+#if (SWB_ENABLED == TRUE)
+  if (codec > LEGACY_CODECS)
+      return default_esco_swb_parameters[codec - LEGACY_CODECS - 1];
+  else
+#endif
   return default_esco_parameters[codec];
 }

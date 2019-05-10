@@ -8,6 +8,9 @@ cc_library_static {
     ],
     include_dirs: [
         "vendor/qcom/opensource/commonsys/system/bt",
+        "vendor/qcom/opensource/commonsys/system/bt/bta/ag",
+        "vendor/qcom/opensource/commonsys/system/bt/bta/sys",
+        "vendor/qcom/opensource/commonsys/system/bt/bta/include",
         "vendor/qcom/opensource/commonsys/system/bt/btcore/include",
         "vendor/qcom/opensource/commonsys/system/bt/hci/include",
         "vendor/qcom/opensource/commonsys/system/bt/internal_include",

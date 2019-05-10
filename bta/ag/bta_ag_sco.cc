@@ -76,6 +76,7 @@
 #include "bta_ag_twsp_dev.h"
 #endif
 #if (SWB_ENABLED == TRUE)
+#include <hardware/vendor_hf.h>
 #include "bta_ag_swb.h"
 #endif
 
@@ -940,19 +941,33 @@ void bta_ag_codec_negotiate(tBTA_AG_SCB* p_scb) {
   }
 #endif
 
-  if ((p_scb->codec_updated || p_scb->codec_fallback) &&
-      (p_scb->peer_features & BTA_AG_PEER_FEAT_CODEC)) {
+  if (((p_scb->codec_updated || p_scb->codec_fallback) &&
+      (p_scb->peer_features & BTA_AG_PEER_FEAT_CODEC))
+#if (SWB_ENABLED == TRUE)
+      || (get_swb_codec_status() || p_scb->is_swb_codec)
+#endif
+     ) {
     /* Change the power mode to Active until SCO open is completed. */
     bta_sys_busy(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
 
 
 #if (SWB_ENABLED == TRUE)
-    if (p_scb->is_swb_codec == true && p_scb->codec_updated) {
+    if (get_swb_codec_status() && (p_scb->peer_codecs & BTA_AG_SCO_SWB_SETTINGS_Q0_MASK)) {
+      if (p_scb->is_swb_codec == false) {
+        p_scb->sco_codec = BTA_AG_SCO_SWB_SETTINGS_Q0;
+        p_scb->is_swb_codec = true;
+      }
       /* Send +QCS to the peer */
       bta_ag_send_qcs(p_scb, NULL);
     } else
 #endif
     {
+#if (SWB_ENABLED == TRUE)
+      if (p_scb->is_swb_codec == true  && (p_scb->peer_codecs & BTA_AG_SCO_SWB_SETTINGS_Q0_MASK)) {
+        p_scb->sco_codec = BTM_SCO_CODEC_MSBC;
+        p_scb->is_swb_codec = false;
+      }
+#endif
       /* Send +BCS to the peer */
       bta_ag_send_bcs(p_scb, NULL);
     }
