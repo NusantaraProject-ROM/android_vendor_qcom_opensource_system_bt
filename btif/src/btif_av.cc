@@ -3010,6 +3010,9 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
     case BTIF_AV_SETUP_CODEC_REQ_EVT:
       index = btif_av_get_latest_device_idx_to_start();
       break;
+    case BTIF_AV_PROCESS_HIDL_REQ_EVT:
+      btif_a2dp_source_process_request((tA2DP_CTRL_CMD ) *p_param);
+      break;
   /* FALLTHROUGH */
   default:
     BTIF_TRACE_ERROR("Unhandled event = %d", event);

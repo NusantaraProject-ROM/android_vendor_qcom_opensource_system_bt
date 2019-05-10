@@ -276,4 +276,7 @@ void btif_a2dp_source_if_init(void);
 void btif_a2dp_source_if_deinit(void);
 // Function to update latency/delay value to Audio
 void btif_a2dp_update_sink_latency_change();
+
+// Function to process requests from HIDL requests
+void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd);
 #endif /* BTIF_A2DP_SOURCE_H */

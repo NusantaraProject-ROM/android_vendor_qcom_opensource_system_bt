@@ -58,6 +58,7 @@ size_t read(uint8_t* p_buf, uint32_t len);
 void set_remote_delay(uint16_t delay_report);
 bool is_streaming();
 SessionType get_session_type();
+void ack_signal_ready(tA2DP_CTRL_ACK ack);
 
 }  // namespace a2dp
 }  // namespace audio
