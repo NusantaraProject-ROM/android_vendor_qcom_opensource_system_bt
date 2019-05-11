@@ -221,7 +221,7 @@ void LogMsg(uint32_t trace_set_mask, const char* fmt_str, ...) {
   }
 }
 
-void vnd_LogMsg(uint32_t trace_set_mask, const char *fmt_str, ...) {
+__attribute__((no_sanitize("cfi"))) void vnd_LogMsg(uint32_t trace_set_mask, const char *fmt_str, ...) {
   int trace_layer = TRACE_GET_LAYER(trace_set_mask);
   const char *tag;
   if (trace_layer >= TRACE_LAYER_MAX_NUM)
