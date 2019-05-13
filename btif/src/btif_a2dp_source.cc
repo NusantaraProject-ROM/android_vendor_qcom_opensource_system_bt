@@ -1612,7 +1612,6 @@ void btif_a2dp_update_sink_latency_change() {
   }
 }
 
-
 void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
   tA2DP_CTRL_ACK status = A2DP_CTRL_ACK_FAILURE;
 
@@ -1875,3 +1874,8 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
       break;
   }
 }
+
+thread_t* get_worker_thread() {
+  return btif_a2dp_source_cb.worker_thread;
+}
+
