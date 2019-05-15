@@ -117,9 +117,7 @@ cc_library_static {
         //"libbtif_ext",
     ],
     cflags: ["-DBUILDCFG"],
-    sanitize: {
-        never: true,
-    },
+
 }
 
 // btif unit tests for target
