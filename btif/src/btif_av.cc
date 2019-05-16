@@ -2650,6 +2650,12 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
             btif_av_get_addr_by_index(previous_active_index))) {
             BTIF_TRACE_IMP("Device -> Null, btif_a2dp_source_end_session failed");
           }
+          if (btif_av_get_latest_stream_device_idx() == previous_active_index) {
+            BTIF_TRACE_IMP("Send suspend to previous active streaming device & stop media alarm");
+            btif_sm_dispatch(btif_av_cb[previous_active_index].sm_handle,
+                             BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL);
+            btif_a2dp_source_stop_audio_req();
+          }
         }
         break;
       }
