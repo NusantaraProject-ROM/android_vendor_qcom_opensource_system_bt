@@ -78,7 +78,7 @@
 #include <hardware/bt_gatt.h>
 #include "btif/include/btif_a2dp_source.h"
 #include "device/include/device_iot_config.h"
-
+#include "btif/include/btif_config.h"
 #define MAX_2MBPS_AVDTP_MTU 663
 extern const btgatt_interface_t* btif_gatt_get_interface();
 
@@ -1097,7 +1097,10 @@ static const tBTA_AV_CO_SINK* bta_av_co_find_peer_src_supports_codec(
 static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
   tBTA_AV_CO_SINK* p_sink = NULL;
   char remote_name[BTM_MAX_REM_BD_NAME_LEN] = "";
-
+  uint16_t vendor;
+  uint16_t product;
+  uint16_t version;
+  bool vndr_prdt_ver_present = false;
   // Update all selectable codecs.
   // This is needed to update the selectable parameters for each codec.
   // NOTE: The selectable codec info is used only for informational purpose.
@@ -1127,42 +1130,56 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
     }
 #endif
     if (!strcmp(iter->name().c_str(),"AAC")) {
-      if (bta_av_co_audio_is_aac_wl_enabled(&p_peer->addr)) {
-        if (bta_av_co_audio_device_addr_check_is_enabled(&p_peer->addr)) {
-          if (btif_storage_get_stored_remote_name(p_peer->addr, remote_name) &&
-              interop_match_addr(INTEROP_ENABLE_AAC_CODEC, &p_peer->addr) &&
-              interop_match_name(INTEROP_ENABLE_AAC_CODEC, remote_name)) {
-            APPL_TRACE_DEBUG("%s: AAC is supported for this WL remote device", __func__);
-            p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
-          } else {
-            APPL_TRACE_DEBUG("%s: RD is not present in name and address based check for AAC WL.",
-                               __func__);
-          }
-        } else {
-          if (btif_storage_get_stored_remote_name(p_peer->addr, remote_name) &&
-              interop_match_name(INTEROP_ENABLE_AAC_CODEC, remote_name)) {
-            APPL_TRACE_DEBUG("%s: AAC is supported for this WL remote device", __func__);
-            p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
-          } else {
-            APPL_TRACE_DEBUG("%s: RD is not present in name based check for AAC WL.",
-                              __func__);
-          }
-        }
+      if (btif_config_get_uint16(p_peer->addr.ToString().c_str(), PNP_VENDOR_ID_CONFIG_KEY,
+          (uint16_t*)&vendor) && btif_config_get_uint16(p_peer->addr.ToString().c_str(),
+          PNP_PRODUCT_ID_CONFIG_KEY, (uint16_t*)&product) && btif_config_get_uint16(p_peer->addr.ToString().c_str(),
+          PNP_PRODUCT_VERSION_CONFIG_KEY, (uint16_t*)&version)) {
+        APPL_TRACE_DEBUG("%s: vendor: 0x%04x product: 0x%04x version: 0x%04x", __func__, vendor, product, version);
+        vndr_prdt_ver_present = true;
+      }
+      if (vndr_prdt_ver_present && interop_database_match_version(INTEROP_ENABLE_AAC_CODEC, version) &&
+          interop_match_vendor_product_ids(INTEROP_ENABLE_AAC_CODEC, vendor, product)) {
+        APPL_TRACE_DEBUG("%s: vendor id, product id and version info matching with conf file", __func__);
+        p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
+        vndr_prdt_ver_present = false;
       } else {
-        if (bta_av_co_audio_device_addr_check_is_enabled(&p_peer->addr)) {
-          if (interop_match_addr_or_name(INTEROP_DISABLE_AAC_CODEC, &p_peer->addr)) {
-            APPL_TRACE_DEBUG("AAC is not supported for this BL remote device");
+        if (bta_av_co_audio_is_aac_wl_enabled(&p_peer->addr)) {
+          if (bta_av_co_audio_device_addr_check_is_enabled(&p_peer->addr)) {
+            if (btif_storage_get_stored_remote_name(p_peer->addr, remote_name) &&
+                interop_match_addr(INTEROP_ENABLE_AAC_CODEC, &p_peer->addr) &&
+                interop_match_name(INTEROP_ENABLE_AAC_CODEC, remote_name)) {
+              APPL_TRACE_DEBUG("%s: AAC is supported for this WL remote device", __func__);
+              p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
+            } else {
+              APPL_TRACE_DEBUG("%s: RD is not present in name and address based check for AAC WL.",
+                                 __func__);
+            }
           } else {
-            APPL_TRACE_DEBUG("%s: AAC is supported for this remote device", __func__);
-            p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
+            if (btif_storage_get_stored_remote_name(p_peer->addr, remote_name) &&
+                interop_match_name(INTEROP_ENABLE_AAC_CODEC, remote_name)) {
+              APPL_TRACE_DEBUG("%s: AAC is supported for this WL remote device", __func__);
+              p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
+            } else {
+              APPL_TRACE_DEBUG("%s: RD is not present in name based check for AAC WL.",
+                                __func__);
+            }
           }
         } else {
-          if (btif_storage_get_stored_remote_name(p_peer->addr, remote_name) &&
-              interop_match_name(INTEROP_DISABLE_AAC_CODEC, remote_name)) {
-            APPL_TRACE_DEBUG("AAC is not supported for this BL remote device");
+          if (bta_av_co_audio_device_addr_check_is_enabled(&p_peer->addr)) {
+            if (interop_match_addr_or_name(INTEROP_DISABLE_AAC_CODEC, &p_peer->addr)) {
+              APPL_TRACE_DEBUG("AAC is not supported for this BL remote device");
+            } else {
+              APPL_TRACE_DEBUG("%s: AAC is supported for this remote device", __func__);
+              p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
+            }
           } else {
-            APPL_TRACE_DEBUG("%s: AAC is supported for this remote device", __func__);
-            p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
+            if (btif_storage_get_stored_remote_name(p_peer->addr, remote_name) &&
+                interop_match_name(INTEROP_DISABLE_AAC_CODEC, remote_name)) {
+              APPL_TRACE_DEBUG("AAC is not supported for this BL remote device");
+            } else {
+              APPL_TRACE_DEBUG("%s: AAC is supported for this remote device", __func__);
+              p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
+            }
           }
         }
       }
