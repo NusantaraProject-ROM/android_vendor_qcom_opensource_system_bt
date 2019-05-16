@@ -709,6 +709,8 @@ bt_status_t btif_storage_get_adapter_property(bt_property_t* property) {
   } else if (property->type == BT_PROPERTY_ADAPTER_BONDED_DEVICES) {
     list_t *bonded_devices = list_new(osi_free);
     int len = 0;
+    int i = 0;
+    property->len = 0;
 
     btif_in_fetch_bonded_devices(&bonded_devices, 0);
 
@@ -719,9 +721,11 @@ bt_status_t btif_storage_get_adapter_property(bt_property_t* property) {
 
     if (list_length(bonded_devices)) {
       property->len = list_length(bonded_devices) * RawAddress::kLength;
+      RawAddress* devices_list = (RawAddress*)osi_malloc(property->len);
+      property->val = devices_list;
       for (list_node_t* node = list_begin(bonded_devices);
-            node != list_end(bonded_devices); node = list_next(node)) {
-        memcpy(&(property->val) + len, (RawAddress *)list_node(node), RawAddress::kLength);
+            node != list_end(bonded_devices); node = list_next(node), i++) {
+        memcpy(&devices_list[i], list_node(node), RawAddress::kLength);
         len = len + RawAddress::kLength;
       }
     }
