@@ -1198,6 +1198,19 @@ extern void BTA_DmSetWifiState(bool status);
 /*******************************************************************************
  *
  *
+ * Function         BTA_DmPowerBackOff
+ *
+ * Description      This function sets power backoff
+ *
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+extern void BTA_DmPowerBackOff(bool status);
+
+/*******************************************************************************
+ *
+ *
  * Function         BTA_DmBredrCleanup
  *
  * Description      This function do bredr cleanup

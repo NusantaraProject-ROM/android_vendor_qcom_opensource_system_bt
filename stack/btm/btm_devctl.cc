@@ -272,6 +272,33 @@ bool BTM_GetWifiState(void) {
 }
 
 /*******************************************************************************
+ *
+ * Function         BTM_SetPowerBackOffState
+ *
+ * Description      This function set PowerBackOff state.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void BTM_SetPowerBackOffState(bool status) {
+  btm_cb.is_power_backoff = status;
+  BTM_TRACE_WARNING ("btm_cb.is_power_backoff = %d ", btm_cb.is_power_backoff);
+}
+
+/*******************************************************************************
+ *
+ * Function         BTM_GetPowerBackOffState
+ *
+ * Description      This function returns PowerBackOffState status.
+ *
+ * Returns          PowerBackOffState status
+ *
+ ******************************************************************************/
+bool BTM_GetPowerBackOffState(void) {
+  return btm_cb.is_power_backoff;
+}
+
+/*******************************************************************************
 **
  * Function         btm_read_local_name_timeout
  *

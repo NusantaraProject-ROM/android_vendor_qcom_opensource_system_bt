@@ -117,6 +117,7 @@ static void bta_dm_bond_retrail_cback(void* data);
 static void bta_dm_rm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
                             uint8_t app_id, const RawAddress& peer_addr);
 static void bta_dm_adjust_roles(bool delay_role_switch);
+static void bta_dm_set_tech_based_max_power(bool status);
 static char* bta_dm_get_remname(void);
 static void bta_dm_bond_cancel_complete_cback(tBTM_STATUS result);
 
@@ -145,6 +146,12 @@ static void bta_dm_ctrl_features_rd_cmpl_cback(tBTM_STATUS result);
 #define BTA_DM_BLE_ADV_CHNL_MAP \
   (BTM_BLE_ADV_CHNL_37 | BTM_BLE_ADV_CHNL_38 | BTM_BLE_ADV_CHNL_39)
 #endif
+
+/* Bluetooth Technologies */
+#define HCI_VS_SET_MAX_RADIATED_POWER_SUB_OPCODE 0x0E
+#define BR_TECH_VALUE 0x00
+#define EDR_TECH_VALUE 0x01
+#define BLE_TECH_VALUE 0x02
 
 /* Disable timer interval (in milliseconds) */
 #ifndef BTA_DM_DISABLE_TIMER_MS
@@ -680,6 +687,35 @@ void bta_dm_set_wifi_state(tBTA_DM_MSG *p_data) {
   BTM_SetWifiState((bool)p_data->wifi_state.status);
   if (p_data->wifi_state.status == true)
     bta_dm_adjust_roles(FALSE);
+
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_dm_power_back_off
+ *
+ * Description      Sets/Resets back_off power
+ *
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+
+ void bta_dm_power_back_off(tBTA_DM_MSG *p_data) {
+
+  bt_soc_type_t soc_type = controller_get_interface()->get_soc_type();
+  if (soc_type < BT_SOC_TYPE_CHEROKEE) {
+    APPL_TRACE_WARNING("%s: power_back_off feature not supported", __func__);
+    return;
+  }
+
+  if (BTM_GetPowerBackOffState() == p_data->pwr_backoff_state.status)
+    return;
+
+  BTM_SetPowerBackOffState((bool)p_data->pwr_backoff_state.status);
+
+  bta_dm_set_tech_based_max_power(p_data->pwr_backoff_state.status);
+
 }
 
 /*******************************************************************************
@@ -3983,6 +4019,118 @@ static char* bta_dm_get_remname(void) {
   }
 
   return p_name;
+}
+/*******************************************************************************
+ *
+ * Function         bta_dm_link_power_cntrl_callback
+ *
+ * Description      Callback to notify link_power_cntrl cmd status
+ *
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void bta_dm_link_power_cntrl_callback(tBTM_VSC_CMPL *param)
+ {
+   uint8_t status = 0xFF;
+   uint8_t* p;
+
+   /* Check status of command complete event */
+   CHECK(param->opcode == HCI_VS_LINK_POWER_CTRL_REQ_OPCODE);
+   CHECK(param->param_len > 0);
+
+   p = param->p_param_buf;
+   STREAM_TO_UINT8(status, p);
+   if (status != HCI_SUCCESS) {
+     BTM_TRACE_DEBUG("%s: Status = 0x%02x (0 is success)",__func__, status);
+     return;
+   }
+
+   APPL_TRACE_DEBUG("%s: param->opcode=%x subopcode=%x status=%x",
+                      __func__, param->opcode, param->p_param_buf[1],
+                      param->p_param_buf[0]);
+ }
+
+/*******************************************************************************
+ *
+ * Function         bta_dm_set_tech_based_max_power
+ *
+ * Description      limit the maximum output power for particular technology
+ *
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void bta_dm_set_tech_based_max_power(bool status) {
+  uint8_t* param = NULL ;
+  uint8_t HCI_VS_LINK_POWER_CTRL_PARAM_SIZE = 2;
+
+  if (status == true) {
+    static max_pow_feature_t tech_based_max_power;
+    uint8_t tech_count = 0, size = 2, i = 2;
+
+    APPL_TRACE_DEBUG("%s",__func__);
+    param = (uint8_t*)calloc(size, sizeof(uint8_t));
+    param[0] = HCI_VS_SET_MAX_RADIATED_POWER_SUB_OPCODE;
+    param[1] = tech_count;
+    int tech_name;
+    for (tech_name = BR_MAX_POW_SUPPORT;tech_name <= BLE_MAX_POW_SUPPORT;tech_name++) {
+      tech_based_max_power = max_radiated_power_fetch(MAX_POW_ID, (profile_info_t)tech_name);
+    }
+
+    if (tech_based_max_power.BR_max_pow_feature == true) {
+      param = (uint8_t*)realloc(param, size + 2);
+      tech_count ++;
+      HCI_VS_LINK_POWER_CTRL_PARAM_SIZE += 2;
+      param[1] = tech_count;
+      param[i++] = BR_TECH_VALUE;
+      param[i++] = tech_based_max_power.BR_max_pow_support;
+
+      APPL_TRACE_DEBUG("%s BR_max_power fetch from conf file: 0X%x",
+            __func__, tech_based_max_power.BR_max_pow_support);
+    }
+
+    if (tech_based_max_power.EDR_max_pow_feature == true) {
+      param = (uint8_t*)realloc(param, size + 2);
+      tech_count ++;
+      HCI_VS_LINK_POWER_CTRL_PARAM_SIZE += 2;
+      param[1] = tech_count;
+      param[i++] = EDR_TECH_VALUE;
+      param[i++] = tech_based_max_power.EDR_max_pow_support;
+
+      APPL_TRACE_DEBUG("%s EDR_max_power fetch from conf file: 0X%x",
+            __func__, tech_based_max_power.EDR_max_pow_support);
+    }
+
+    if (tech_based_max_power.BLE_max_pow_feature == true) {
+      param = (uint8_t*)realloc(param, size + 2);
+      tech_count ++;
+      HCI_VS_LINK_POWER_CTRL_PARAM_SIZE += 2;
+      param[1] = tech_count;
+      param[i++] = BLE_TECH_VALUE;
+      param[i++] = tech_based_max_power.BLE_max_pow_support;
+
+      APPL_TRACE_DEBUG("%s BLE_max_power fetch from conf file: 0X%x",
+            __func__, tech_based_max_power.BLE_max_pow_support);
+    }
+
+  } else {
+    HCI_VS_LINK_POWER_CTRL_PARAM_SIZE = 8;
+    param = (uint8_t*)calloc(8, sizeof(uint8_t));
+
+    param[0] = HCI_VS_SET_MAX_RADIATED_POWER_SUB_OPCODE;
+    param[1] = 0x03;
+    param[2] = BR_TECH_VALUE;
+    param[3] = 0xFF;
+    param[4] = EDR_TECH_VALUE;
+    param[5] = 0xFF;
+    param[6] = BLE_TECH_VALUE;
+    param[7] = 0xFF;
+  }
+
+    BTM_VendorSpecificCommand(HCI_VS_LINK_POWER_CTRL_REQ_OPCODE,
+                                 HCI_VS_LINK_POWER_CTRL_PARAM_SIZE, param,
+                                 bta_dm_link_power_cntrl_callback);
 }
 
 /*******************************************************************************

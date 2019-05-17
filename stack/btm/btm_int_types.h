@@ -885,6 +885,7 @@ typedef struct {
   bool is_paging;         /* true, if paging is in progess */
   bool is_inquiry;        /* true, if inquiry is in progess */
   bool is_wifi_connected; /* true, if wifi connected */
+  bool is_power_backoff;  /* true, if power_backoff is set */
   fixed_queue_t* page_queue;
   bool paging;
   bool discing;
