@@ -1105,6 +1105,8 @@ void avdt_scb_hdl_write_req(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
   uint8_t* p;
   uint32_t ssrc;
   bool add_rtp_header = !(p_data->apiwrite.opt & AVDT_DATA_OPT_NO_RTP);
+  AVDT_TRACE_DEBUG("%s: add_rtp_header: %d, num_protect: %d",
+                        __func__, add_rtp_header, p_scb->curr_cfg.num_protect);
 
   /* free packet we're holding, if any; to be replaced with new */
   if (p_scb->p_pkt != NULL) {
