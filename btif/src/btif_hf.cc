@@ -1371,19 +1371,8 @@ bt_status_t HeadsetInterface::VolumeControl(bthf_volume_type_t type, int volume,
         btif_hf_cb[idx].handle,
         (type == BTHF_VOLUME_TYPE_SPK) ? BTA_AG_SPK_RES : BTA_AG_MIC_RES,
         &ag_res);
-#if (TWS_AG_ENABLED == TRUE)
-    if (btif_is_tws_plus_device(bd_addr) && type == BTHF_VOLUME_TYPE_SPK) {
-        int other_idx = btif_hf_get_other_connected_twsp_index(idx);
-        if (other_idx != btif_max_hf_clients) {
-            BTA_AgResult(
-                btif_hf_cb[other_idx].handle,
-                BTA_AG_SPK_RES, &ag_res);
-        }
-    }
-#endif
     return BT_STATUS_SUCCESS;
   }
-
   return BT_STATUS_FAIL;
 }
 
