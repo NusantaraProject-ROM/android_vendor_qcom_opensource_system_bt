@@ -33,6 +33,7 @@
 
 extern bool audio_start_awaited;
 extern void btif_av_reset_reconfig_flag();
+extern bool btif_av_current_device_is_tws();
 
 #define AAC_SAMPLE_SIZE  1024
 #define AAC_LATM_HEADER  12
