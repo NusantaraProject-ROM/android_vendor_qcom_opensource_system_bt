@@ -1399,7 +1399,7 @@ bool bta_av_co_set_codec_user_config(
     if (codec_user_config.codec_specific_4 > 0 ) {
       //ENCODER_BTSCAN_AND_BATTERY_LEVEL_MASK is ORing of
       //Battery level indication(0x0000-0x000F) and BTcontrol(0x8000)
-      const uint16_t ENCODER_MODE_MASK = 0x7000;
+      const uint16_t ENCODER_MODE_MASK = 0x3000;
       uint16_t encoder_mode = codec_user_config.codec_specific_4 & ENCODER_MODE_MASK;
       if (encoder_mode > 0) {
         APPL_TRACE_DEBUG("%s: Updating Encoder Mode to: %x", __func__, encoder_mode);
