@@ -1558,9 +1558,11 @@ bool btif_a2dp_source_restart_session(const RawAddress& old_peer_address,
     btif_a2dp_source_stop_audio_req();
   }
 
-  // If the old active peer was valid, end the old session.
+  // If the old active peer was valid or if session is not
+  // unknown, end the old session.
   // Otherwise, time to startup the A2DP Source processing.
-  if (!old_peer_address.IsEmpty()) {
+  if (!old_peer_address.IsEmpty() ||
+    session_type != SessionType::UNKNOWN) {
     btif_a2dp_source_end_session(old_peer_address);
   }
 

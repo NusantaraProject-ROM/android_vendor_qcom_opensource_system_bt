@@ -292,12 +292,10 @@ int BluetoothAudioClientInterface::StartSession() {
     session_started_ = false;
     return -EINVAL;
   }
-  //TODO to enable it again
-  /*if (session_started_) {
+  if (session_started_) {
     LOG(ERROR) << __func__ << ": session started already";
     return -EBUSY;
-  }*/
-
+  }
   if(!stack_if_) {
     stack_if_ = new BluetoothAudioPortImpl(sink_, this);
   }
