@@ -415,6 +415,14 @@ static tBTM_STATUS btm_send_connect_request(uint16_t acl_handle,
         BTM_TRACE_DEBUG("%s: SCO Conn: pkt_types after removing SCO (0x%04x)",
                         __func__, temp_packet_types);
 
+        /* BT 5.1 Errata 6835, part of HFP 1.7.2. Try xSCO with MSBC T2 or
+        ** CVSD S4/S3/S2 by excluding EV3 packets support while sending xSCO
+        ** setup request if both sides support secure connections.
+        */
+        temp_packet_types &= ~(ESCO_PKT_TYPES_MASK_EV3);
+        BTM_TRACE_DEBUG("%s: SCO Conn: pkt_types after removing EV3 (0x%04x)",
+                        __func__, temp_packet_types);
+
         /* Return error if no packet types left */
         if (temp_packet_types == 0) {
           LOG(ERROR) << __func__
