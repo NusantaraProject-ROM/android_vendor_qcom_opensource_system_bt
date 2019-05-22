@@ -189,9 +189,6 @@ cc_library_static {
         "libldacBT_enc",
         "libldacBT_abr",
     ],
-    sanitize: {
-        never: true,
-    },
 }
 
 // Bluetooth stack unit tests for target

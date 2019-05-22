@@ -103,7 +103,4 @@ cc_library_shared {
     cflags: [
         "-DBUILDCFG",
     ],
-    sanitize: {
-         never: true,
-     },
 }
