@@ -833,11 +833,13 @@ static void bta_ag_create_pending_sco(tBTA_AG_SCB* p_scb, bool is_local) {
       /* Initiating the connection, set the current sco handle */
 #if (TWS_AG_ENABLED == TRUE)
       if (is_twsp_device(p_scb->peer_addr)) {
-          if (p_scb == bta_ag_cb.twsp_sec_sco.p_curr_scb)
+          if (p_scb == bta_ag_cb.sec_sm_scb)
               bta_ag_cb.twsp_sec_sco.cur_idx = p_scb->sco_idx;
-          else {
-              APPL_TRACE_DEBUG("%s: updating cur_idx of sco to : %d", __func__,  p_scb->sco_idx);
+          else if (p_scb == bta_ag_cb.main_sm_scb){
+              APPL_TRACE_DEBUG("%s: updating cur_idx of sco to: %d", __func__,  p_scb->sco_idx);
               bta_ag_cb.sco.cur_idx = p_scb->sco_idx;
+          } else {
+              APPL_TRACE_ERROR("%s: Invalid p_scb: %d", __func__, p_scb);
           }
       } else {
 #endif
