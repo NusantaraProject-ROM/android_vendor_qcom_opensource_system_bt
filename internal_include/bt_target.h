@@ -1408,7 +1408,7 @@ incoming connection
 #endif
 
 #ifndef SWB_ENABLED
-#define SWB_ENABLED FALSE
+#define SWB_ENABLED TRUE
 #endif
 /******************************************************************************
  *
