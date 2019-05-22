@@ -212,6 +212,7 @@ void bte_load_did_conf(const char* p_path);
 void bte_main_boot_entry(void);
 void bte_main_enable(void);
 void bte_main_disable(void);
+void bte_main_hci_close(void);
 void bte_main_cleanup(void);
 void bte_main_postload_cfg(void);
 
