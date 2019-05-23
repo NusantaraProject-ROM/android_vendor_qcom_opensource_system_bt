@@ -150,13 +150,13 @@ static inline int create_server_socket(const char* name) {
                                    ) < 0) {
     ret = (errno == EADDRINUSE ? -EADDRINUSE : -1);
     BTIF_TRACE_EVENT("socket failed to create (%s)", strerror(errno));
-    close(s);
+    OSI_NO_INTR(close(s));
     return ret;
   }
 
   if (listen(s, 5) < 0) {
     BTIF_TRACE_EVENT("listen failed", strerror(errno));
-    close(s);
+    OSI_NO_INTR(close(s));
     return -1;
   }
 
@@ -247,8 +247,8 @@ void uipc_main_cleanup(void) {
 
   BTIF_TRACE_EVENT("uipc_main_cleanup");
 
-  close(uipc_main.signal_fds[0]);
-  close(uipc_main.signal_fds[1]);
+  OSI_NO_INTR(close(uipc_main.signal_fds[0]));
+  OSI_NO_INTR(close(uipc_main.signal_fds[1]));
 
   /* close any open channels */
   for (i = 0; i < UIPC_CH_NUM; i++) uipc_close_ch_locked(i);
@@ -280,7 +280,7 @@ static int uipc_check_fd_locked(tUIPC_CH_ID ch_id) {
     // Close the previous connection
     if (uipc_main.ch[ch_id].fd != UIPC_DISCONNECTED) {
       BTIF_TRACE_EVENT("CLOSE CONNECTION (FD %d)", uipc_main.ch[ch_id].fd);
-      close(uipc_main.ch[ch_id].fd);
+      OSI_NO_INTR(close(uipc_main.ch[ch_id].fd));
       FD_CLR(uipc_main.ch[ch_id].fd, &uipc_main.active_set);
       uipc_main.ch[ch_id].fd = UIPC_DISCONNECTED;
     }
@@ -437,7 +437,7 @@ static int uipc_close_ch_locked(tUIPC_CH_ID ch_id) {
 
   if (uipc_main.ch[ch_id].srvfd != UIPC_DISCONNECTED) {
     BTIF_TRACE_EVENT("CLOSE SERVER (FD %d)", uipc_main.ch[ch_id].srvfd);
-    close(uipc_main.ch[ch_id].srvfd);
+    OSI_NO_INTR(close(uipc_main.ch[ch_id].srvfd));
     FD_CLR(uipc_main.ch[ch_id].srvfd, &uipc_main.active_set);
     uipc_main.ch[ch_id].srvfd = UIPC_DISCONNECTED;
     wakeup = 1;
@@ -445,7 +445,7 @@ static int uipc_close_ch_locked(tUIPC_CH_ID ch_id) {
 
   if (uipc_main.ch[ch_id].fd != UIPC_DISCONNECTED) {
     BTIF_TRACE_EVENT("CLOSE CONNECTION (FD %d)", uipc_main.ch[ch_id].fd);
-    close(uipc_main.ch[ch_id].fd);
+    OSI_NO_INTR(close(uipc_main.ch[ch_id].fd));
     FD_CLR(uipc_main.ch[ch_id].fd, &uipc_main.active_set);
     uipc_main.ch[ch_id].fd = UIPC_DISCONNECTED;
     wakeup = 1;

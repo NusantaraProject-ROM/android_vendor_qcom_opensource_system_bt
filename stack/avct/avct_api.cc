@@ -114,6 +114,8 @@ void AVCT_Register(uint16_t mtu, UNUSED_ATTR uint16_t mtu_br,
 void AVCT_Deregister(void) {
   AVCT_TRACE_API("AVCT_Deregister");
 
+  /* deregister Browsing PSM with L2CAP */
+  L2CA_Deregister(AVCT_BR_PSM);
   /* deregister PSM with L2CAP */
   L2CA_Deregister(AVCT_PSM);
 }
