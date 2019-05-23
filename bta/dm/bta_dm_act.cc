@@ -1781,6 +1781,30 @@ static void bta_dm_store_profiles_version() {
 
 /*******************************************************************************
  *
+ * Function         bta_dm_store_di_info
+ *
+ * Description      Store DI info to config file
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void bta_dm_store_di_info(tSDP_DISC_REC* sdp_rec, uint16_t vendor_id,
+                            uint16_t product_id, uint16_t version) {
+
+   APPL_TRACE_DEBUG("vendor_id = 0x%2x product_id = 0x%2x version = 0x%2x",
+                    vendor_id, product_id, version);
+
+   btif_config_set_uint16(sdp_rec->remote_bd_addr.ToString().c_str(),
+              PNP_VENDOR_ID_CONFIG_KEY, vendor_id);
+   btif_config_set_uint16(sdp_rec->remote_bd_addr.ToString().c_str(),
+              PNP_PRODUCT_ID_CONFIG_KEY, product_id);
+   btif_config_set_uint16(sdp_rec->remote_bd_addr.ToString().c_str(),
+              PNP_PRODUCT_VERSION_CONFIG_KEY, version);
+   btif_config_save();
+}
+
+/*******************************************************************************
+ *
  * Function         bta_dm_sdp_result
  *
  * Description      Process the discovery result from sdp
@@ -1794,6 +1818,7 @@ void bta_dm_sdp_result(tBTA_DM_MSG* p_data) {
   bool scn_found = false;
   uint16_t service = 0xFFFF;
   tSDP_PROTOCOL_ELEM pe;
+  tSDP_DI_GET_RECORD di_rec;
 
   Uuid* p_uuid = bta_dm_search_cb.p_srvc_uuid;
   tBTA_DM_SEARCH result;
@@ -1820,7 +1845,16 @@ void bta_dm_sdp_result(tBTA_DM_MSG* p_data) {
             bta_service_id_to_uuid_lkup_tbl[bta_dm_search_cb.service_index - 1];
         p_sdp_rec =
             SDP_FindServiceInDb(bta_dm_search_cb.p_sdp_db, service, p_sdp_rec);
-
+        if (service == UUID_SERVCLASS_PNP_INFORMATION) {
+          APPL_TRACE_DEBUG(" Store DI info to conf file " );
+          if (SDP_GetNumDiRecords(bta_dm_search_cb.p_sdp_db) != 0) {
+            /* always update information with primary DI record */
+            if (SDP_GetDiRecord(1, &di_rec, bta_dm_search_cb.p_sdp_db) == SDP_SUCCESS) {
+               bta_dm_store_di_info(p_sdp_rec, di_rec.rec.vendor, di_rec.rec.product,
+                                  di_rec.rec.version);
+            }
+          }
+        }
       }
 
       /* finished with BR/EDR services, now we check the result for GATT based

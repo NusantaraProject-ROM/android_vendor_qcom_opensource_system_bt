@@ -118,6 +118,9 @@ cc_library_static {
     whole_static_libs: [
         "libaudio-hearing-aid-hw-utils_qti",
     ],
+    sanitize: {
+        never: true,
+    },
 }
 
 // bta unit tests for target

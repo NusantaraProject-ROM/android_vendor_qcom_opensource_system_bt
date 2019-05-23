@@ -33,9 +33,19 @@ typedef enum {
   ESCO_CODEC_CVSD = 0,
   ESCO_CODEC_MSBC_T1,
   ESCO_CODEC_MSBC_T2,
+#if (SWB_ENABLED == TRUE)
+  ESCO_CODEC_SWB_Q0,
+  ESCO_CODEC_SWB_Q1,
+  ESCO_CODEC_SWB_Q2,
+  ESCO_CODEC_SWB_Q3,
+#endif
 } esco_codec_t;
 
+#if (SWB_ENABLED == TRUE)
+#define ESCO_NUM_CODECS 7
+#else
 #define ESCO_NUM_CODECS 3
+#endif
 
 // Coding Formats (BT 4.1 or later Assigned numbers)
 #define ESCO_CODING_FORMAT_ULAW ((uint8_t)0x00)     /* u-Law log    */

@@ -3758,9 +3758,10 @@ void btif_debug_bond_event_dump(int fd) {
     char temptime[20] = {0};
     struct tm* tstamp = localtime(&event->timestamp.tv_sec);
     if (tstamp) {
-      strftime(temptime, sizeof(temptime), "%H:%M:%S", tstamp);
-      snprintf(eventtime, sizeof(eventtime), "%s.%03ld", temptime,
-              event->timestamp.tv_nsec / 1000000);
+      if (strftime(temptime, sizeof(temptime), "%H:%M:%S", tstamp)) {
+        snprintf(eventtime, sizeof(eventtime), "%s.%03ld", temptime,
+                event->timestamp.tv_nsec / 1000000);
+      }
     }
 
     const char* func_name;

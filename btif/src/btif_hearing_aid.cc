@@ -98,6 +98,10 @@ class HearingAidInterfaceImpl
         FROM_HERE, Bind(&btif_storage_remove_hearing_aid_white_list, address));
   }
 
+  void AddToWhiteList(const RawAddress& address) override {
+    DVLOG(2) << __func__ << " address: " << address;
+  }
+
   void SetVolume(int8_t volume) override {
     DVLOG(2) << __func__ << " volume: " << +volume;
     do_in_bta_thread(FROM_HERE, Bind(&HearingAid::SetVolume,

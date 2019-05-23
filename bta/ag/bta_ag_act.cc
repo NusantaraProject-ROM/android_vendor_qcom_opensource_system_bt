@@ -75,6 +75,9 @@
 #include "bta_ag_twsp.h"
 #endif
 #include "device/include/device_iot_config.h"
+#if (SWB_ENABLED == TRUE)
+#include "bta_ag_swb.h"
+#endif
 
 /*****************************************************************************
  *  Constants
@@ -431,6 +434,9 @@ void bta_ag_rfc_fail(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
   p_scb->peer_features = 0;
   p_scb->peer_codecs = BTA_AG_CODEC_CVSD;
   p_scb->sco_codec = BTA_AG_CODEC_CVSD;
+#if (SWB_ENABLED == TRUE)
+  p_scb->is_swb_codec = false;
+#endif
   p_scb->role = 0;
   p_scb->svc_conn = false;
   p_scb->hsp_version = HSP_VERSION_1_2;
@@ -469,6 +475,10 @@ void bta_ag_rfc_close(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
   p_scb->codec_updated = false;
   p_scb->codec_fallback = false;
   p_scb->codec_msbc_settings = BTA_AG_SCO_MSBC_SETTINGS_T2;
+#if (SWB_ENABLED == TRUE)
+  p_scb->codec_swb_settings = BTA_AG_SCO_SWB_SETTINGS_Q0;
+  p_scb->is_swb_codec = false;
+#endif
   p_scb->role = 0;
   p_scb->post_sco = BTA_AG_POST_SCO_NONE;
   p_scb->svc_conn = false;
@@ -1038,12 +1048,19 @@ void bta_ag_setcodec(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
 
   /* Check if the requested codec type is valid */
   if ((codec_type != BTA_AG_CODEC_NONE) && (codec_type != BTA_AG_CODEC_CVSD) &&
-      (codec_type != BTA_AG_CODEC_MSBC)) {
+      (codec_type != BTA_AG_CODEC_MSBC)
+#if (SWB_ENABLED == TRUE)
+      && (codec_type != BTA_AG_SCO_SWB_SETTINGS_Q0)
+#endif
+    ) {
     val.num = codec_type;
     val.hdr.status = BTA_AG_FAIL_RESOURCES;
     APPL_TRACE_ERROR("bta_ag_setcodec error: unsupported codec type %d",
                      codec_type);
     (*bta_ag_cb.p_cback)(BTA_AG_WBS_EVT, (tBTA_AG*)&val);
+#if (SWB_ENABLED == TRUE)
+    (*bta_ag_cb.p_cback)(BTA_AG_SWB_EVT, (tBTA_AG*)&val);
+#endif
     return;
   }
 
@@ -1060,8 +1077,15 @@ void bta_ag_setcodec(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
     APPL_TRACE_ERROR("bta_ag_setcodec error: unsupported codec type %d",
                      codec_type);
   }
-
-  (*bta_ag_cb.p_cback)(BTA_AG_WBS_EVT, (tBTA_AG*)&val);
+#if (SWB_ENABLED == TRUE)
+  if (codec_type == BTA_AG_SCO_SWB_SETTINGS_Q0)
+  {
+    (*bta_ag_cb.p_cback)(BTA_AG_SWB_EVT, (tBTA_AG*)&val);
+  } else
+#endif
+  {
+    (*bta_ag_cb.p_cback)(BTA_AG_WBS_EVT, (tBTA_AG*)&val);
+  }
 }
 
 void bta_ag_handle_collision(tBTA_AG_SCB* p_scb,

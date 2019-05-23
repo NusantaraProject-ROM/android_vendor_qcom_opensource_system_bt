@@ -43,8 +43,9 @@ static char* format_ts(const uint64_t ts, char* buffer, int len) {
 
   char tempbuff[20] = {0};
   if (ptm) {
-    strftime(tempbuff, sizeof(tempbuff), "%m-%d %H:%M:%S", ptm);
-    snprintf(buffer, len, "%s.%03u", tempbuff, (uint16_t)(ms % 1000));
+    if (strftime(tempbuff, sizeof(tempbuff), "%m-%d %H:%M:%S", ptm)) {
+      snprintf(buffer, len, "%s.%03u", tempbuff, (uint16_t)(ms % 1000));
+    }
   }
 
   return buffer;

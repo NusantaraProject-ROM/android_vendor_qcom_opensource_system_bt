@@ -734,6 +734,12 @@ void bta_gattc_disc_cmpl(tBTA_GATTC_CLCB* p_clcb,
      */
     if (p_q_cmd != p_clcb->p_q_cmd) osi_free_and_reset((void**)&p_q_cmd);
   }
+
+  if (p_clcb->p_rcb->p_cback) {
+    tBTA_GATTC bta_gattc;
+    bta_gattc.remote_bda = p_clcb->p_srcb->server_bda;
+    (*p_clcb->p_rcb->p_cback)(BTA_GATTC_SRVC_DISC_DONE_EVT, &bta_gattc);
+  }
 }
 
 /** Read an attribute */
@@ -1110,7 +1116,12 @@ void bta_gattc_process_api_refresh(const RawAddress& remote_bda) {
         }
       }
       if (found) {
-        bta_gattc_sm_execute(p_clcb, BTA_GATTC_INT_DISCOVER_EVT, NULL);
+          if (p_clcb->p_srcb->state == BTA_GATTC_SERV_IDLE)
+            bta_gattc_sm_execute(p_clcb, BTA_GATTC_INT_DISCOVER_EVT, NULL);
+          else
+            APPL_TRACE_DEBUG(
+            "%s: Discovery is in progress , ignore refresh.  state = %d",
+           __func__, p_clcb->p_srcb->state);
         return;
       }
     }

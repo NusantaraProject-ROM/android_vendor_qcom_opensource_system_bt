@@ -30,4 +30,7 @@ cc_library_static {
     cflags: [
         "-DBUILDCFG",
     ],
+    sanitize: {
+        never: true,
+    },
 }

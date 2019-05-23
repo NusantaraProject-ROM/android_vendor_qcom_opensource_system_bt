@@ -4,6 +4,7 @@ btifCommonIncludes = [
     "vendor/qcom/opensource/commonsys/system/bt",
     "vendor/qcom/opensource/commonsys/system/bt/bta/include",
     "vendor/qcom/opensource/commonsys/system/bt/bta/sys",
+    "vendor/qcom/opensource/commonsys/system/bt/bta/ag",
     "vendor/qcom/opensource/commonsys/system/bt/bta/dm",
     "vendor/qcom/opensource/commonsys/system/bt/btcore/include",
     "vendor/qcom/opensource/commonsys/system/bt/device/include",
@@ -23,7 +24,7 @@ btifCommonIncludes = [
     "vendor/qcom/opensource/commonsys/system/bt/utils/include",
     "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/btif/include",
     "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext",
-
+    "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/bta/include",
     "vendor/qcom/opensource/commonsys/bluetooth/hal/include",
     "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include",
     "vendor/qcom/opensource/commonsys-intf/bluetooth/include",
@@ -116,7 +117,9 @@ cc_library_static {
         //"libbtif_ext",
     ],
     cflags: ["-DBUILDCFG"],
-
+    sanitize: {
+        never: true,
+    },
 }
 
 // btif unit tests for target

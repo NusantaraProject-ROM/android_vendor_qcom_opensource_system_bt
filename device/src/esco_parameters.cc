@@ -19,6 +19,9 @@
 #include "base/logging.h"
 
 #include "device/include/esco_parameters.h"
+#if (SWB_ENABLED == TRUE)
+#include "bta/include/bta_ag_swb.h"
+#endif
 
 static const enh_esco_params_t default_esco_parameters[ESCO_NUM_CODECS] = {
     // CVSD
@@ -143,5 +146,10 @@ enh_esco_params_t esco_parameters_for_codec(esco_codec_t codec) {
   CHECK(codec >= 0) << "codec index " << (int)codec << "< 0";
   CHECK(codec < ESCO_NUM_CODECS) << "codec index " << (int)codec << " > "
                                  << ESCO_NUM_CODECS;
+#if (SWB_ENABLED == TRUE)
+  if (codec > LEGACY_CODECS)
+      return default_esco_swb_parameters[codec - LEGACY_CODECS - 1];
+  else
+#endif
   return default_esco_parameters[codec];
 }

@@ -519,6 +519,9 @@ void bta_gatts_close(UNUSED_ATTR tBTA_GATTS_CB* p_cb, tBTA_GATTS_DATA* p_msg) {
 
       tBTA_GATTS bta_gatts;
       bta_gatts.status = status;
+      bta_gatts.conn.conn_id = p_msg->hdr.layer_specific;
+      bta_gatts.conn.server_if = gatt_if;
+      bta_gatts.conn.remote_bda = remote_bda;
       (*p_rcb->p_cback)(BTA_GATTS_CLOSE_EVT, &bta_gatts);
     }
   } else {

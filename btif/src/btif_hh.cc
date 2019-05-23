@@ -564,6 +564,7 @@ bt_status_t btif_hh_virtual_unplug(const RawAddress* bd_addr) {
   } else if ((p_dev != NULL) &&
              (p_dev->dev_status == BTHH_CONN_STATE_CONNECTED)) {
     BTIF_TRACE_ERROR("%s: Virtual unplug not suported, disconnecting device");
+    p_dev->local_vup = true;
     BTA_HhClose(p_dev->dev_handle);
     return BT_STATUS_SUCCESS;
   } else {

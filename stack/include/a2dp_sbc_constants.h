@@ -62,6 +62,8 @@
 #define A2DP_SBC_IE_MIN_BITPOOL 2
 #define A2DP_SBC_IE_MAX_BITPOOL 250
 
+/* Max bitpool do not result in excess of the max bit rate */
+#define A2DP_SBC_SINK_MAX_BITPOOL 86
 #define A2DP_SBC_IE_MIN_BITPOOL_OFFSET 5
 #define A2DP_SBC_IE_MAX_BITPOOL_OFFSET 6
 

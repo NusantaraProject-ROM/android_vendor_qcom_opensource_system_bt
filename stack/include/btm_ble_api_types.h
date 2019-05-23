@@ -211,13 +211,6 @@ typedef uint8_t tBTM_BLE_SFP;
 #define BTM_BLE_CONN_INT_MIN_HEARINGAID 0x0010
 #endif
 
-#define BTM_BLE_DIR_CONN_FALLBACK_UNDIR 1
-#define BTM_BLE_DIR_CONN_FALLBACK_NO_ADV 2
-
-#ifndef BTM_BLE_DIR_CONN_FALLBACK
-#define BTM_BLE_DIR_CONN_FALLBACK BTM_BLE_DIR_CONN_FALLBACK_UNDIR
-#endif
-
 #define BTM_CMAC_TLEN_SIZE 8 /* 64 bits */
 #define BTM_BLE_AUTH_SIGN_LEN \
   12 /* BLE data signature length 8 Bytes + 4 bytes counter*/
@@ -423,9 +416,10 @@ typedef struct {
 #define BTM_BLE_PF_LOCAL_NAME 4
 #define BTM_BLE_PF_MANU_DATA 5
 #define BTM_BLE_PF_SRVC_DATA_PATTERN 6
+#define BTM_BLE_PF_TDS_DATA 7
 /* when passed in payload filter type all, only clear action is applicable */
-#define BTM_BLE_PF_TYPE_ALL 7
-#define BTM_BLE_PF_TYPE_MAX 8
+#define BTM_BLE_PF_TYPE_ALL 8
+#define BTM_BLE_PF_TYPE_MAX 9
 
 /* max number of filter spot for different filter type */
 #ifndef BTM_BLE_MAX_UUID_FILTER
@@ -504,7 +498,8 @@ typedef struct {
 #define BTM_BLE_META_PF_LOCAL_NAME 0x05
 #define BTM_BLE_META_PF_MANU_DATA 0x06
 #define BTM_BLE_META_PF_SRVC_DATA 0x07
-#define BTM_BLE_META_PF_ALL 0x08
+#define BTM_BLE_META_PF_TDS_DATA 0x08
+#define BTM_BLE_META_PF_ALL 0x09
 
 typedef uint8_t BTM_BLE_ADV_STATE;
 typedef uint8_t BTM_BLE_ADV_INFO_PRESENT;

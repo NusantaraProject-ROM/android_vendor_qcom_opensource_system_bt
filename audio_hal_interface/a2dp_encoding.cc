@@ -511,6 +511,68 @@ ChannelMode a2dp_codec_to_hal_channel_mode(
   }
 }
 
+LdacQualityIndex a2dp_codec_to_hal_ldac_quality_index (
+    const btav_a2dp_codec_config_t& a2dp_codec_config) {
+  switch (a2dp_codec_config.codec_specific_1) {
+    case 1000:
+      return LdacQualityIndex::QUALITY_HIGH;
+    case 1001:
+      return LdacQualityIndex::QUALITY_MID;
+    case 1002:
+      return LdacQualityIndex::QUALITY_LOW;
+    case 1003:
+      return LdacQualityIndex::QUALITY_ABR;
+    default:
+      return LdacQualityIndex::QUALITY_ABR;
+  }
+}
+
+uint16_t ba_codec_to_hal_frame_size(uint8_t frame_size) {
+  uint16_t ba_hal_frame_size = 512;
+  switch(frame_size)
+  {
+    case A2D_CELT_FRAME_SIZE_64:
+        ba_hal_frame_size = 64;
+        break;
+    case A2D_CELT_FRAME_SIZE_128:
+        ba_hal_frame_size = 128;
+        break;
+    case A2D_CELT_FRAME_SIZE_256:
+        ba_hal_frame_size = 256;
+        break;
+    case A2D_CELT_FRAME_SIZE_512:
+        ba_hal_frame_size = 512;
+        break;
+    default:
+        ALOGE("CELT: unknown frame size");
+  }
+  return ba_hal_frame_size;
+}
+
+ChannelMode ba_codec_to_hal_channel_mode(uint8_t channel_mode) {
+  switch (channel_mode) {
+    case A2D_CELT_CH_MONO:
+      return ChannelMode::MONO;
+    case A2D_CELT_CH_STEREO:
+      return ChannelMode::STEREO;
+    default:
+      return ChannelMode::UNKNOWN;
+  }
+}
+
+SampleRate ba_codec_to_hal_sample_rate(uint8_t sample_rate) {
+  switch (sample_rate) {
+    case A2D_CELT_SAMP_FREQ_44:
+      return SampleRate::RATE_44100;
+    case A2D_CELT_SAMP_FREQ_48:
+      return SampleRate::RATE_48000;
+    case A2D_CELT_SAMP_FREQ_32:
+      return SampleRate::RATE_32000;
+    default:
+      return SampleRate::RATE_UNKNOWN;
+  }
+}
+
 bool a2dp_is_audio_codec_config_params_changed(
                         CodecConfiguration* codec_config) {
   A2dpCodecConfig* a2dp_codec_configs = bta_av_get_a2dp_current_codec();
@@ -684,6 +746,20 @@ bool a2dp_is_audio_codec_config_params_changed(
         changed = true;
         break;
       }
+      switch (a2dp_offload.codec_info[6]) {
+        case A2DP_LDAC_QUALITY_HIGH:
+        case A2DP_LDAC_QUALITY_MID:
+        case A2DP_LDAC_QUALITY_LOW:
+        case A2DP_LDAC_QUALITY_ABR_OFFLOAD:
+          if (ldac_config.qualityIndex != a2dp_codec_to_hal_ldac_quality_index(current_codec)) {
+            changed = true;
+          }
+          break;
+        default:
+          LOG(ERROR) << __func__ << ": Unknown LDAC quality index="
+                     << a2dp_offload.codec_info[6];
+          break;
+      }
       switch (a2dp_offload.codec_info[7]) {
         case A2DP_LDAC_CHANNEL_MODE_STEREO:
           if(ldac_config.channelMode != LdacChannelMode::STEREO) {
@@ -745,6 +821,37 @@ bool a2dp_get_selected_hal_codec_config(CodecConfiguration* codec_config) {
   uint32_t bitrate = 0;
   tA2DP_ENCODER_INIT_PEER_PARAMS peer_param;
   if (codec_config == nullptr) return false;
+
+  if (btif_ba_is_active())
+  {
+    codec_config->codecType = CodecType::BA_CELT;
+    codec_config->config.baCeltConfig = {};
+    auto ba_celt_config = codec_config->config.baCeltConfig;
+
+    ba_celt_config.sampleRate = ba_codec_to_hal_sample_rate(btif_ba_get_sample_rate());
+    if (ba_celt_config.sampleRate == SampleRate::RATE_UNKNOWN) {
+      LOG(ERROR) << __func__
+        << ": Unknown CELT sample_rate=" << btif_ba_get_sample_rate();
+      return false;
+    }
+    ba_celt_config.channelMode = ba_codec_to_hal_channel_mode(btif_ba_get_channel_mode());
+    if (ba_celt_config.channelMode == ChannelMode::UNKNOWN) {
+      LOG(ERROR) << __func__ << ": Unknown CELT channel_mode="
+        << btif_ba_get_channel_mode();
+      return false;
+    }
+    ba_celt_config.frameSize = ba_codec_to_hal_frame_size(btif_ba_get_frame_size());
+    ba_celt_config.complexity = btif_ba_get_complexity();
+    ba_celt_config.predictionMode = btif_ba_get_prediction_mode();
+    ba_celt_config.vbrFlag = btif_ba_get_vbr_flag();
+    codec_config->encodedAudioBitrate = btif_ba_get_bitrate();
+    codec_config->config.baCeltConfig = ba_celt_config;
+    // fill the scrambling support flag
+    codec_config->isScramblingEnabled = btif_av_is_scrambling_enabled();
+    LOG(INFO) << __func__ << ": Celt codec, CodecConfiguration=" << toString(*codec_config);
+    return true;
+  }
+
   if (a2dp_codec_configs == nullptr) {
     LOG(WARNING) << __func__ << ": failure to get A2DP codec config";
     return false;
@@ -1013,9 +1120,6 @@ bool a2dp_get_selected_hal_codec_config(CodecConfiguration* codec_config) {
       break;
     }
     case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_TWS: {
-      //SampleRate sampleRate;
-      //ChannelMode channelMode;
-      //uint8_t syncMode;
       codec_config->codecType = CodecType::APTX_TWS;
       codec_config->config.aptxTwsConfig = {};
       auto aptx_tws_config = codec_config->config.aptxTwsConfig;
@@ -1238,6 +1342,10 @@ bool is_restart_session_needed() {
   } else if(!split_enabled && session_type ==
                  SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH) {
     A2dpCodecConfig* a2dp_codec_configs = bta_av_get_a2dp_current_codec();
+    if (a2dp_codec_configs == nullptr) {
+      LOG(WARNING) << __func__ << ": failure to get A2DP codec config";
+      return false;
+    }
     btav_a2dp_codec_config_t current_codec = a2dp_codec_configs->getCodecConfig();
     LOG(ERROR) << __func__ <<  sw_codec_type << " " <<  current_codec.codec_type;
     if(sw_codec_type != current_codec.codec_type) {
@@ -1274,6 +1382,10 @@ bool setup_codec() {
       return false;
     }
     A2dpCodecConfig* a2dp_codec_configs = bta_av_get_a2dp_current_codec();
+    if (a2dp_codec_configs == nullptr) {
+      LOG(WARNING) << __func__ << ": failure to get A2DP codec config";
+      return false;
+    }
     btav_a2dp_codec_config_t current_codec = a2dp_codec_configs->getCodecConfig();
     audio_config.pcmConfig = pcm_config;
     sw_codec_type = current_codec.codec_type;
@@ -1300,11 +1412,14 @@ void end_session() {
     return;
   }
   LOG(ERROR) << __func__;
+  a2dp_sink->Cleanup();
+  audio_start_awaited = false;
   is_playing = false;
   a2dp_hal_clientif->EndSession();
   sw_codec_type = BTAV_A2DP_CODEC_INDEX_SOURCE_MIN;
   session_type = SessionType::UNKNOWN;
   is_session_started = false;
+  remote_delay = 0;
 }
 
 tA2DP_CTRL_CMD get_pending_command() {

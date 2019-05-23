@@ -574,8 +574,11 @@ static tBTM_STATUS btm_pm_snd_md_req(uint8_t pm_id, int link_ind,
   if (p_cb->state == mode) {
     /* already in the resulting mode */
     if ((mode == BTM_PM_MD_ACTIVE) ||
-        ((md_res.max >= p_cb->interval) && (md_res.min <= p_cb->interval)))
+        ((md_res.max >= p_cb->interval) && (md_res.min <= p_cb->interval))) {
+      BTM_TRACE_DEBUG("btm_pm_snd_md_req p_cb->chg_ind:%d, mode: %d", p_cb->chg_ind, mode);
+      p_cb->chg_ind = chg_ind;
       return BTM_CMD_STORED;
+    }
     /* Otherwise, needs to wake, then sleep */
     chg_ind = true;
   }

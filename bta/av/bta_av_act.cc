@@ -79,6 +79,7 @@
 #include "device/include/profile_config.h"
 #include "device/include/device_iot_config.h"
 #include "controller.h"
+#include "btif/include/btif_av.h"
 
 #if (BTA_AR_INCLUDED == TRUE)
 #include "bta_ar_api.h"
@@ -118,6 +119,7 @@ struct blacklist_entry
 
 std::vector<RawAddress> active_device_priority_list;
 extern fixed_queue_t* btu_bta_alarm_queue;
+extern bool btif_av_is_split_a2dp_enabled(void);
 static void bta_av_browsing_channel_open_retry(uint8_t handle);
 static void bta_av_accept_signalling_timer_cback(void* data);
 static void bta_av_browsing_channel_open_timer_cback(void* data);
@@ -1316,8 +1318,6 @@ void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started) {
   uint8_t* p_streams;
   bool no_streams = false;
   tBTA_AV_SCB* p_scbi;
-  bool bt_split_a2dp_enabled = controller_get_interface()->supports_spilt_a2dp();
-  BTIF_TRACE_DEBUG("split_a2dp_status = %d",bt_split_a2dp_enabled);
 
   started_msk = BTA_AV_HNDL_TO_MSK(p_scb->hdi);
   APPL_TRACE_DEBUG("bta_av_stream_chg started:%d started_msk:x%x chnl:x%x",
@@ -1329,7 +1329,7 @@ void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started) {
 
   if (started) {
     /* Let L2CAP know this channel is processed with high priority */
-    if (bt_split_a2dp_enabled == false) {
+    if (!btif_av_is_split_a2dp_enabled()) {
       L2CA_SetAclPriority(p_scb->peer_addr, L2CAP_PRIORITY_HIGH);
     }
     (*p_streams) |= started_msk;
@@ -1361,7 +1361,7 @@ void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started) {
                      bta_av_cb.video_streams);
     if (no_streams) {
       /* Let L2CAP know this channel is processed with low priority */
-      if (bt_split_a2dp_enabled == false)
+      if (!btif_av_is_split_a2dp_enabled())
         L2CA_SetAclPriority(p_scb->peer_addr, L2CAP_PRIORITY_NORMAL);
     }
   }
@@ -2773,4 +2773,31 @@ void bta_av_dereg_comp(tBTA_AV_DATA* p_data) {
 static void bta_av_browsing_channel_open_retry(uint8_t handle) {
   APPL_TRACE_IMP("%s Retry Browse connection", __func__);
   AVRC_OpenBrowse(handle, AVCT_INT);
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_av_refresh_accept_signalling_timer
+ *
+ * Description      Refresh accept_signalling_timer
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void bta_av_refresh_accept_signalling_timer(const RawAddress &remote_bdaddr) {
+  tBTA_AV_SCB* p_scb = NULL;
+  p_scb = bta_av_addr_to_scb(remote_bdaddr);
+  if (p_scb == NULL) {
+    APPL_TRACE_IMP("%s: p_scb is null, return", __func__);
+    return;
+  }
+  APPL_TRACE_IMP("%s: add: %s hdi = %d", __func__,
+                           remote_bdaddr.ToString().c_str(), p_scb->hdi);
+  if (alarm_is_scheduled(bta_av_cb.accept_signalling_timer[p_scb->hdi])) {
+    APPL_TRACE_IMP("%s:accept_signalling_timer is scheduled on p_scb->hdi: %d"
+                     " cancel it, and restart", __func__, p_scb->hdi);
+    alarm_set_on_mloop(bta_av_cb.accept_signalling_timer[p_scb->hdi],
+              bta_sink_time_out(), bta_av_accept_signalling_timer_cback,
+              UINT_TO_PTR(p_scb->hdi));
+  }
 }

@@ -73,6 +73,11 @@
 #include "device/include/interop.h"
 #if (TWS_AG_ENABLED == TRUE)
 #include "bta_ag_twsp.h"
+#include "bta_ag_twsp_dev.h"
+#endif
+#if (SWB_ENABLED == TRUE)
+#include <hardware/vendor_hf.h>
+#include "bta_ag_swb.h"
 #endif
 
 #include <btcommon_interface_defs.h>
@@ -263,7 +268,11 @@ static void bta_ag_sco_disc_cback(uint16_t sco_idx) {
     if (is_twsp_device(curr_scb->peer_addr) != true) {
 #endif
     if (bta_ag_cb.sco.p_curr_scb != NULL &&
-           bta_ag_cb.sco.p_curr_scb->inuse_codec == BTA_AG_CODEC_MSBC) {
+           (bta_ag_cb.sco.p_curr_scb->inuse_codec == BTA_AG_CODEC_MSBC
+#if (SWB_ENABLED == TRUE)
+        || bta_ag_cb.sco.p_curr_scb->inuse_codec == BTA_AG_SCO_SWB_SETTINGS_Q0
+#endif
+       )) {
       /* Bypass vendor specific and voice settings if enhanced eSCO supported */
 
     if (!(controller_get_interface()
@@ -606,12 +615,21 @@ void bta_ag_create_sco(tBTA_AG_SCB* p_scb, bool is_orig) {
   if ((p_scb->sco_codec == BTA_AG_CODEC_MSBC) && !p_scb->codec_fallback)
     esco_codec = BTA_AG_CODEC_MSBC;
 
+#if (SWB_ENABLED == TRUE)
+  if ((p_scb->sco_codec == BTA_AG_SCO_SWB_SETTINGS_Q0) && !p_scb->codec_fallback)
+    esco_codec = BTA_AG_SCO_SWB_SETTINGS_Q0;
+#endif
+
   if (p_scb->codec_fallback) {
     p_scb->codec_fallback = false;
     /* Force AG to send +BCS for the next audio connection. */
     p_scb->codec_updated = true;
     /* Reset mSBC settings to T2 for the next audio connection */
     p_scb->codec_msbc_settings = BTA_AG_SCO_MSBC_SETTINGS_T2;
+#if (SWB_ENABLED == TRUE)
+    /* Reset SWB settings to Q3 for the next audio connection */
+    p_scb->codec_swb_settings = BTA_AG_SCO_SWB_SETTINGS_Q0;
+#endif
   }
 
   esco_codec_t codec_index = ESCO_CODEC_CVSD;
@@ -625,6 +643,19 @@ void bta_ag_create_sco(tBTA_AG_SCB* p_scb, bool is_orig) {
     }
   }
 
+#if (SWB_ENABLED == TRUE)
+  if (p_scb->is_swb_codec == true && !p_scb->codec_updated) {
+    if (p_scb->codec_swb_settings == BTA_AG_SCO_SWB_SETTINGS_Q3) {
+      codec_index = ESCO_CODEC_SWB_Q3;
+    } else if (p_scb->codec_swb_settings == BTA_AG_SCO_SWB_SETTINGS_Q2) {
+      codec_index = ESCO_CODEC_SWB_Q2;
+    } else if (p_scb->codec_swb_settings == BTA_AG_SCO_SWB_SETTINGS_Q1) {
+      codec_index = ESCO_CODEC_SWB_Q1;
+    } else if (p_scb->codec_swb_settings == BTA_AG_SCO_SWB_SETTINGS_Q0) {
+      codec_index = ESCO_CODEC_SWB_Q0;
+    }
+  }
+#endif
   /* Initialize eSCO parameters */
   enh_esco_params_t params = esco_parameters_for_codec(codec_index);
   /* For CVSD */
@@ -749,6 +780,19 @@ static void bta_ag_create_pending_sco(tBTA_AG_SCB* p_scb, bool is_local) {
 
   /* Local device requested SCO connection to peer */
   if (is_local) {
+#if (SWB_ENABLED == TRUE)
+    if (p_scb->is_swb_codec == true && !p_scb->codec_updated) {
+      if (p_scb->codec_swb_settings == BTA_AG_SCO_SWB_SETTINGS_Q3) {
+        params = esco_parameters_for_codec(ESCO_CODEC_SWB_Q3);
+      } else if (p_scb->codec_swb_settings == BTA_AG_SCO_SWB_SETTINGS_Q2) {
+        params = esco_parameters_for_codec(ESCO_CODEC_SWB_Q2);
+      } else if (p_scb->codec_swb_settings == BTA_AG_SCO_SWB_SETTINGS_Q1) {
+        params = esco_parameters_for_codec(ESCO_CODEC_SWB_Q1);
+      } else if (p_scb->codec_swb_settings == BTA_AG_SCO_SWB_SETTINGS_Q0) {
+        params = esco_parameters_for_codec(ESCO_CODEC_SWB_Q0);
+      }
+    }
+#endif
     if (esco_codec == BTA_AG_CODEC_MSBC) {
       if (p_scb->codec_msbc_settings == BTA_AG_SCO_MSBC_SETTINGS_T2) {
         params = esco_parameters_for_codec(ESCO_CODEC_MSBC_T2);
@@ -844,9 +888,17 @@ static void bta_ag_codec_negotiation_timer_cback(void* data) {
     if (is_blacklisted == false) {
       APPL_TRACE_IMP("%s: blacklisting device %s for codec negotiation",
                     __func__, p_scb->peer_addr.ToString().c_str());
-
-      interop_database_add(INTEROP_DISABLE_CODEC_NEGOTIATION,
+#if (SWB_ENABLED == TRUE)
+      if (p_scb->is_swb_codec == false) {
+#endif
+        interop_database_add(INTEROP_DISABLE_CODEC_NEGOTIATION,
                          &p_scb->peer_addr, 3);
+#if (SWB_ENABLED == TRUE)
+      } else {
+        APPL_TRACE_IMP("%s: Ignore blacklisting SWB device  %s for codec negotiation",
+                      __func__, p_scb->peer_addr.ToString().c_str());
+      }
+#endif
     } else {
        APPL_TRACE_IMP("%s: dev %s is already blacklisted for codec negotiation",
                      __func__, p_scb->peer_addr.ToString().c_str());
@@ -889,13 +941,36 @@ void bta_ag_codec_negotiate(tBTA_AG_SCB* p_scb) {
   }
 #endif
 
-  if ((p_scb->codec_updated || p_scb->codec_fallback) &&
-      (p_scb->peer_features & BTA_AG_PEER_FEAT_CODEC)) {
+  if (((p_scb->codec_updated || p_scb->codec_fallback) &&
+      (p_scb->peer_features & BTA_AG_PEER_FEAT_CODEC))
+#if (SWB_ENABLED == TRUE)
+      || (get_swb_codec_status() || p_scb->is_swb_codec)
+#endif
+     ) {
     /* Change the power mode to Active until SCO open is completed. */
     bta_sys_busy(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
 
-    /* Send +BCS to the peer */
-    bta_ag_send_bcs(p_scb, NULL);
+
+#if (SWB_ENABLED == TRUE)
+    if (get_swb_codec_status() && (p_scb->peer_codecs & BTA_AG_SCO_SWB_SETTINGS_Q0_MASK)) {
+      if (p_scb->is_swb_codec == false) {
+        p_scb->sco_codec = BTA_AG_SCO_SWB_SETTINGS_Q0;
+        p_scb->is_swb_codec = true;
+      }
+      /* Send +QCS to the peer */
+      bta_ag_send_qcs(p_scb, NULL);
+    } else
+#endif
+    {
+#if (SWB_ENABLED == TRUE)
+      if (p_scb->is_swb_codec == true  && (p_scb->peer_codecs & BTA_AG_SCO_SWB_SETTINGS_Q0_MASK)) {
+        p_scb->sco_codec = BTM_SCO_CODEC_MSBC;
+        p_scb->is_swb_codec = false;
+      }
+#endif
+      /* Send +BCS to the peer */
+      bta_ag_send_bcs(p_scb, NULL);
+    }
 
     /* Start timer to handle timeout */
     alarm_set_on_mloop(p_scb->codec_negotiation_timer,
@@ -1334,7 +1409,8 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
              atleast try opening the secondary SCO */
           if (is_twsp_device(p_scb->peer_addr)&&!p_scb->rmt_sco_req) {
               tBTA_AG_SCB *other_scb = get_other_twsp_scb((p_scb->peer_addr));
-              if (other_scb && twsp_sco_active(other_scb) == false) {
+              if (other_scb && twsp_sco_active(other_scb) == false &&
+                    get_twsp_state(other_scb) == TWSPLUS_EB_STATE_INEAR) {
                  dispatch_event_twsp_peer_device(p_scb, BTA_AG_SCO_OPEN_E);
               }
           }
@@ -2253,6 +2329,11 @@ void bta_ag_sco_conn_open(tBTA_AG_SCB* p_scb,
 
     /* reset to mSBC T2 settings as the preferred */
     p_scb->codec_msbc_settings = BTA_AG_SCO_MSBC_SETTINGS_T2;
+
+#if (SWB_ENABLED == TRUE)
+    /* reset to SWB Q0 settings as the preferred */
+    p_scb->codec_swb_settings = BTA_AG_SCO_SWB_SETTINGS_Q0;
+#endif
  }
 
 /*******************************************************************************
@@ -2302,7 +2383,11 @@ void bta_ag_sco_conn_close(tBTA_AG_SCB* p_scb,
        if (p_scb->svc_conn &&
            (p_scb->codec_fallback ||
            (p_scb->sco_codec == BTM_SCO_CODEC_MSBC &&
-            p_scb->codec_msbc_settings == BTA_AG_SCO_MSBC_SETTINGS_T1))) {
+            p_scb->codec_msbc_settings == BTA_AG_SCO_MSBC_SETTINGS_T1)
+#if (SWB_ENABLED == TRUE)
+            || (p_scb->codec_fallback && p_scb->sco_codec == BTA_AG_SCO_SWB_SETTINGS_Q0)
+#endif
+        )) {
               bta_ag_sco_event(p_scb, BTA_AG_SCO_REOPEN_E);
        } else {
            bta_ag_sco_event(p_scb, BTA_AG_SCO_CONN_CLOSE_E);
@@ -2324,6 +2409,9 @@ void bta_ag_sco_conn_close(tBTA_AG_SCB* p_scb,
      /* call app callback */
      bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
      p_scb->codec_msbc_settings = BTA_AG_SCO_MSBC_SETTINGS_T2;
+#if (SWB_ENABLED == TRUE)
+     p_scb->codec_swb_settings = BTA_AG_SCO_SWB_SETTINGS_Q0;
+#endif
 }
 
 /*******************************************************************************

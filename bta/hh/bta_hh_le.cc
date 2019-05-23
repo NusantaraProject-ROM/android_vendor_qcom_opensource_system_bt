@@ -698,7 +698,13 @@ static void write_rpt_ctl_cfg_cb(uint16_t conn_id, tGATT_STATUS status,
       BTA_GATTC_GetOwningCharacteristic(conn_id, handle);
   uint16_t char_uuid = characteristic->uuid.As16Bit();
 
-  srvc_inst_id = BTA_GATTC_GetOwningService(conn_id, handle)->handle;
+  const gatt::Service* service = BTA_GATTC_GetOwningService(conn_id, handle);
+  if (!service) {
+    APPL_TRACE_ERROR("%s: service not found for handle: %d, conn_id: %d, status: %d",
+        __func__, handle, conn_id, status);
+    return;
+  }
+  srvc_inst_id = service->handle;
   hid_inst_id = srvc_inst_id;
   switch (char_uuid) {
     case GATT_UUID_BATTERY_LEVEL: /* battery level clt cfg registered */
@@ -1352,8 +1358,22 @@ static void read_report_ref_desc_cb(uint16_t conn_id, tGATT_STATUS status,
 
   const gatt::Characteristic* characteristic =
       BTA_GATTC_GetOwningCharacteristic(conn_id, handle);
+
+  if (!characteristic) {
+    APPL_TRACE_ERROR("%s: error: characteristic not found for handle: %d"
+        ", conn_id: %d, status: %d", __func__, handle, conn_id, status);
+    return;
+  }
+
   const gatt::Service* service =
       BTA_GATTC_GetOwningService(conn_id, characteristic->value_handle);
+
+  if (!service) {
+    APPL_TRACE_ERROR("%s: error: service not found for char handle: %d"
+        ", conn_id: %d, status: %d", __func__, characteristic->value_handle,
+        conn_id, status);
+    return;
+  }
 
   tBTA_HH_LE_RPT* p_rpt;
   p_rpt = bta_hh_le_find_report_entry(p_dev_cb, service->handle,
@@ -1581,19 +1601,10 @@ void bta_hh_le_srvc_search_cmpl(tBTA_GATTC_SEARCH_CMPL* p_data) {
             p_dev_cb->scps_notify = BTA_HH_LE_SCPS_NOTIFY_NONE;
 
         }
-      }
-    } else if (service.uuid == Uuid::From16Bit(UUID_SERVCLASS_GAP_SERVER)) {
-      // TODO(jpawlowski): this should be done by GAP profile, remove when GAP
-      // is fixed.
-      for (const gatt::Characteristic& charac : service.characteristics) {
-        if (charac.uuid == Uuid::From16Bit(GATT_UUID_GAP_PREF_CONN_PARAM)) {
-          /* read the char value */
-          BtaGattQueue::ReadCharacteristic(p_dev_cb->conn_id,
-                                           charac.value_handle,
-                                           read_pref_conn_params_cb, p_dev_cb);
-          break;
+        if (charac.uuid == Uuid::From16Bit(GATT_UUID_SCAN_INT_WINDOW)) {
+           p_dev_cb->scan_int_char_handle = charac.value_handle;
         }
-        if (p_dev_cb->scan_refresh_char_handle &&  p_dev_cb->scan_int_char_handle)
+        if (p_dev_cb->scan_refresh_char_handle && p_dev_cb->scan_int_char_handle)
            break;
       }
     }
@@ -1811,7 +1822,7 @@ static void read_report_cb(uint16_t conn_id, tGATT_STATUS status,
 
   /* GET_REPORT */
   BT_HDR* p_buf = NULL;
-  tBTA_HH_LE_RPT* p_rpt;
+  tBTA_HH_LE_RPT* p_rpt = NULL;
   tBTA_HH_HSDATA hs_data;
   uint8_t* pp;
 
@@ -1823,8 +1834,13 @@ static void read_report_cb(uint16_t conn_id, tGATT_STATUS status,
     const gatt::Service* p_svc =
         BTA_GATTC_GetOwningService(conn_id, p_char->value_handle);
 
-    p_rpt = bta_hh_le_find_report_entry(p_dev_cb, p_svc->handle, char_uuid,
-                                        p_char->value_handle);
+    if (p_svc) {
+      p_rpt = bta_hh_le_find_report_entry(p_dev_cb, p_svc->handle, char_uuid,
+                                          p_char->value_handle);
+    } else {
+      APPL_TRACE_ERROR("%s: error: service not found for handle: %d, conn_id: %d"
+          ", status: %d", __func__, p_char->value_handle, conn_id, status);
+    }
 
     if (p_rpt != NULL && len) {
       p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR) + len + 1);

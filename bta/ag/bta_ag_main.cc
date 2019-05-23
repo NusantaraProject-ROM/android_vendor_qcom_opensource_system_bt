@@ -268,6 +268,11 @@ static tBTA_AG_SCB* bta_ag_scb_alloc(void) {
           alarm_new("bta_ag.scb_xsco_conn_collision_timer");
       /* set eSCO mSBC setting to T2 as the preferred */
       p_scb->codec_msbc_settings = BTA_AG_SCO_MSBC_SETTINGS_T2;
+#if (SWB_ENABLED == TRUE)
+      /* set eSCO SWB setting to Q0 as the preferred */
+      p_scb->codec_swb_settings = BTA_AG_SCO_SWB_SETTINGS_Q0;
+      p_scb->is_swb_codec = false;
+#endif
       APPL_TRACE_DEBUG("bta_ag_scb_alloc %d", bta_ag_scb_to_idx(p_scb));
       break;
     }

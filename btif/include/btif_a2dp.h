@@ -51,6 +51,15 @@ void btif_a2dp_on_stopped(tBTA_AV_SUSPEND* p_av_suspend);
 // |tBTA_AV_SUSPEND|.
 void btif_a2dp_on_suspended(tBTA_AV_SUSPEND* p_av_suspend);
 
+// BA suspended ack
+void btif_ba_audio_on_suspended(uint8_t result);
+
+// BA stopped ack
+void btif_ba_audio_on_stopped(uint8_t result);
+
+// BA started ack
+void btif_ba_audio_on_started(uint8_t result);
+
 // Process 'offload start' request from the BTIF state machine to start
 // offloading of the A2DP streaming.
 // |status| is the processing status of the request prior to this call.

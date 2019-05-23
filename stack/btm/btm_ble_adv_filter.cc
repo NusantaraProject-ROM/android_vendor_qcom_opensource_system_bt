@@ -113,6 +113,9 @@ uint8_t btm_ble_condtype_to_ocf(uint8_t cond_type) {
     case BTM_BLE_PF_SRVC_DATA_PATTERN:
       ocf = BTM_BLE_META_PF_SRVC_DATA;
       break;
+    case BTM_BLE_PF_TDS_DATA:
+      ocf = BTM_BLE_META_PF_TDS_DATA;
+      break;
     case BTM_BLE_PF_TYPE_ALL:
       ocf = BTM_BLE_META_PF_ALL;
       break;
@@ -156,6 +159,9 @@ uint8_t btm_ble_ocf_to_condtype(uint8_t ocf) {
       break;
     case BTM_BLE_META_PF_SRVC_DATA:
       cond_type = BTM_BLE_PF_SRVC_DATA_PATTERN;
+      break;
+    case BTM_BLE_META_PF_TDS_DATA:
+      cond_type = BTM_BLE_PF_TDS_DATA;
       break;
     case BTM_BLE_META_PF_ALL:
       cond_type = BTM_BLE_PF_TYPE_ALL;
@@ -448,7 +454,7 @@ uint8_t btm_ble_cs_update_pf_counter(tBTM_BLE_SCAN_COND_OP action,
   /* for these three types of filter, always generic */
   if (BTM_BLE_PF_ADDR_FILTER == cond_type ||
       BTM_BLE_PF_MANU_DATA == cond_type || BTM_BLE_PF_LOCAL_NAME == cond_type ||
-      BTM_BLE_PF_SRVC_DATA_PATTERN == cond_type)
+      BTM_BLE_PF_SRVC_DATA_PATTERN == cond_type || BTM_BLE_PF_TDS_DATA == cond_type)
     p_bd_addr = NULL;
 
   if ((p_addr_filter = btm_ble_find_addr_filter_counter(p_bd_addr)) == NULL &&
@@ -596,6 +602,49 @@ void BTM_LE_PF_uuid_filter(tBTM_BLE_SCAN_COND_OP action,
   memset(&btm_ble_adv_filt_cb.cur_filter_target, 0, sizeof(tBLE_BD_ADDR));
 }
 
+/**
+ * This function updates(add,delete or clear) the adv transport discovery
+ * data filtering condition.
+ */
+void BTM_LE_PF_tds_data(tBTM_BLE_SCAN_COND_OP action,
+                        tBTM_BLE_PF_FILT_INDEX filt_index, uint8_t org_id,
+                        uint8_t tds_flags, uint8_t tds_flags_mask,
+                        std::vector<uint8_t> wifi_nan_hash,
+                        tBTM_BLE_PF_CFG_CBACK cb) {
+  uint8_t len = BTM_BLE_ADV_FILT_META_HDR_LENGTH;
+  uint8_t len_max = len + BTM_BLE_PF_STR_LEN_MAX;
+
+  uint8_t param[len_max];
+  memset(param, 0, len_max);
+
+  BTM_TRACE_ERROR("%s:", __func__);
+  uint8_t* p = param;
+  UINT8_TO_STREAM(p, BTM_BLE_META_PF_TDS_DATA);
+  UINT8_TO_STREAM(p, action);
+  UINT8_TO_STREAM(p, filt_index);
+
+  if (action != BTM_BLE_SCAN_COND_CLEAR) {
+    uint8_t size = std::min(wifi_nan_hash.size(), (size_t)(BTM_BLE_PF_STR_LEN_MAX - 3));
+    UINT8_TO_STREAM(p, org_id);
+    UINT8_TO_STREAM(p, tds_flags);
+    UINT8_TO_STREAM(p, tds_flags_mask);
+    if ((size > 0) && (wifi_nan_hash.size() > 0)) {
+      REVERSE_ARRAY_TO_STREAM(p, wifi_nan_hash.data(), size);
+      len += size + 3;
+    }
+    else {
+      len += 3;
+    }
+    BTM_TRACE_DEBUG("TDS data command length: %d", len);
+  }
+
+  btu_hcif_send_cmd_with_cb(
+      FROM_HERE, HCI_BLE_ADV_FILTER_OCF, param, len,
+      base::Bind(&btm_flt_update_cb, BTM_BLE_META_PF_TDS_DATA, cb));
+
+  memset(&btm_ble_adv_filt_cb.cur_filter_target, 0, sizeof(tBLE_BD_ADDR));
+}
+
 void BTM_LE_PF_set(tBTM_BLE_PF_FILT_INDEX filt_index,
                    std::vector<ApcfCommand> commands,
                    tBTM_BLE_PF_CFG_CBACK cb) {
@@ -662,6 +711,12 @@ void BTM_LE_PF_set(tBTM_BLE_PF_FILT_INDEX filt_index,
         break;
       }
 
+      case BTM_BLE_PF_TDS_DATA: {
+        BTM_LE_PF_tds_data(action, filt_index, cmd.org_id, cmd.tds_flags,
+                           cmd.tds_flags_mask, cmd.data, base::DoNothing());
+        break;
+      }
+
       default:
         LOG(ERROR) << __func__ << ": Unknown filter type: " << +cmd.type;
         break;
@@ -706,6 +761,10 @@ void BTM_LE_PF_clear(tBTM_BLE_PF_FILT_INDEX filt_index,
     /* clear service data filter */
     BTM_LE_PF_srvc_data_pattern(BTM_BLE_SCAN_COND_CLEAR, filt_index, {}, {},
                                 fDoNothing);
+
+    /* clear transport discovery data filter */
+    BTM_LE_PF_tds_data(BTM_BLE_SCAN_COND_CLEAR, filt_index, 0, 0, 0, {},
+                       base::DoNothing());
   }
 
   uint8_t len = BTM_BLE_ADV_FILT_META_HDR_LENGTH + BTM_BLE_PF_FEAT_SEL_LEN;

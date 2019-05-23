@@ -68,6 +68,10 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <log/log.h>
 
 #include "bta/include/bta_ag_api.h"
+#if (SWB_ENABLED == TRUE)
+#include "bta_ag_swb.h"
+#include <hardware/vendor_hf.h>
+#endif
 #include "bta/include/utl.h"
 #include "bta_ag_api.h"
 #include "btif_common.h"
@@ -646,17 +650,21 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       btif_hf_cb[idx].connected_bda = RawAddress::kAny;
       btif_hf_cb[idx].peer_feat = 0;
       clear_phone_state_multihf(idx);
-      //If the active device is disconnected, clear the active device
-      if (is_active_device(bd_addr)) {
-        bool is_twsp_dev = btif_is_tws_plus_device(&bd_addr);
-        /*Clear active device only if given tws+ is active*/
-        if (!is_twsp_dev || (is_twsp_dev && active_bda == bd_addr)) {
-            active_bda = RawAddress::kEmpty;
-            BTIF_TRACE_IMP("%s: Active device is disconnected, clear the active device %s",
-                __func__, active_bda.ToString().c_str());
-            BTA_AgSetActiveDevice(active_bda);
-        } else {
-            BTIF_TRACE_IMP("%s: non-active TWS+ device disconnected");
+      /* Not clear active device if HFP is conntected via another Rfcomm DLC connection
+         due to collision */
+      if (!((btif_max_hf_clients > 1) && (is_connected(&bd_addr)))) {
+        //If the active device is disconnected, clear the active device
+        if (is_active_device(bd_addr)) {
+          bool is_twsp_dev = btif_is_tws_plus_device(&bd_addr);
+          /*Clear active device only if given tws+ is active*/
+          if (!is_twsp_dev || (is_twsp_dev && active_bda == bd_addr)) {
+              active_bda = RawAddress::kEmpty;
+              BTIF_TRACE_IMP("%s: Active device is disconnected, clear the active device %s",
+                  __func__, active_bda.ToString().c_str());
+              BTA_AgSetActiveDevice(active_bda);
+          } else {
+              BTIF_TRACE_IMP("%s:non-active TWS+ device disconnected",__func__);
+          }
         }
       }
       /* If AG_OPEN was received but SLC was not setup in a specified time (10
@@ -804,6 +812,14 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       }
       break;
 
+#if SWB_ENABLED
+    case BTA_AG_SWB_EVT:
+      BTIF_TRACE_DEBUG("%s: AG final selected SWB codec is 0x%02x 0=Q0 4=Q1 6=Q3 7=Q4",
+                       __func__, p_data->val.num);
+      btif_handle_vendor_hf_events(event, p_data->val.num, &btif_hf_cb[idx].connected_bda);
+      break;
+#endif
+
     /* Java needs to send OK/ERROR for these commands */
     case BTA_AG_AT_CHLD_EVT:
       HAL_HF_CBACK(bt_hf_callbacks, AtChldCallback,
@@ -861,6 +877,14 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
               (p_data->val.num == BTA_AG_CODEC_CVSD) ? BTHF_WBS_NO : BTHF_WBS_YES,
               &btif_hf_cb[idx].connected_bda);
       break;
+
+#if (SWB_ENABLED == TRUE)
+    case BTA_AG_AT_QCS_EVT:
+      BTIF_TRACE_DEBUG("%s: AG final selected SWB codec is 0x%02x 0=Q0 4=Q1 6=Q3 7=Q4",
+                       __func__, p_data->val.num);
+      btif_handle_vendor_hf_events(event, p_data->val.num, &btif_hf_cb[idx].connected_bda);
+      break;
+#endif
 
     case BTA_AG_AT_BIND_EVT:
       if (p_data->val.hdr.status == BTA_AG_SUCCESS) {
@@ -988,10 +1012,8 @@ class HeadsetInterface : Interface {
                            RawAddress* bd_addr) override;
   bt_status_t PhoneStateChange(int num_active, int num_held,
                                bthf_call_state_t call_setup_state,
-                               const char* number,
-                               bthf_call_addrtype_t type,
-                               const char* name,
-                               RawAddress* bd_addr) override;
+                               const char* number, bthf_call_addrtype_t type,
+                               const char* name, RawAddress* bd_addr) override;
 
   void Cleanup() override;
   bt_status_t SetScoAllowed(bool value) override;
@@ -1830,22 +1852,55 @@ bt_status_t HeadsetInterface::PhoneStateChange(
           }
         }
         if (number) {
-          int xx = 0;
-          if ((type == BTHF_CALL_ADDRTYPE_INTERNATIONAL) && (*number != '+'))
-            xx = snprintf(ag_res.str, sizeof(ag_res.str), "\"+%s\"", number);
-          else
-            xx = snprintf(ag_res.str, sizeof(ag_res.str), "\"%s\"", number);
-          ag_res.num = type;
-          // 5 = [,][3_digit_type][null_terminator]
-          if (xx > static_cast<int>(sizeof(ag_res.str) - 5)) {
-            android_errorWriteLog(0x534e4554, "79431031");
-            xx = sizeof(ag_res.str) - 5;
-            // Null terminating the string
-            memset(&ag_res.str[xx], 0, 5);
+          std::ostringstream call_number_stream;
+          if ((type == BTHF_CALL_ADDRTYPE_INTERNATIONAL) && (*number != '+')) {
+            call_number_stream << "\"+";
+          } else {
+            call_number_stream << "\"";
           }
 
-          if (res == BTA_AG_CALL_WAIT_RES)
-            snprintf(&ag_res.str[xx], sizeof(ag_res.str) - xx, ",%d", type);
+          std::string name_str;
+          if (name) {
+            name_str.append(name);
+          }
+          std::string number_str(number);
+          // 13 = ["][+]["][,][3_digit_type][,,,]["]["][null_terminator]
+          int overflow_size =
+              13 + static_cast<int>(number_str.length() + name_str.length()) -
+              static_cast<int>(sizeof(ag_res.str));
+          if (overflow_size > 0) {
+            android_errorWriteLog(0x534e4554, "79431031");
+            int extra_overflow_size =
+                overflow_size - static_cast<int>(name_str.length());
+            if (extra_overflow_size > 0) {
+              number_str.resize(number_str.length() - extra_overflow_size);
+              name_str.clear();
+            } else {
+              name_str.resize(name_str.length() - overflow_size);
+            }
+          }
+          call_number_stream << number_str << "\"";
+
+          // Store caller id string and append type info.
+          // Make sure type info is valid, otherwise add 129 as default type
+          ag_res.num = static_cast<uint16_t>(type);
+          if ((ag_res.num < BTA_AG_CLIP_TYPE_MIN) ||
+              (ag_res.num > BTA_AG_CLIP_TYPE_MAX)) {
+            if (ag_res.num != BTA_AG_CLIP_TYPE_VOIP) {
+              ag_res.num = BTA_AG_CLIP_TYPE_DEFAULT;
+            }
+          }
+
+          if (res == BTA_AG_CALL_WAIT_RES || name_str.empty()) {
+            call_number_stream << "," << std::to_string(ag_res.num);
+          } else {
+            call_number_stream << "," << std::to_string(ag_res.num) << ",,,\""
+                               << name_str << "\"";
+          }
+          snprintf(ag_res.str, sizeof(ag_res.str), "%s",
+                   call_number_stream.str().c_str());
+          BTIF_TRACE_EVENT("%s: The CLIP response is number: %s, name: %s, ag_res.str: %s",
+                            __func__ , number, name, ag_res.str);
         }
         break;
       case BTHF_CALL_STATE_DIALING:
@@ -1866,10 +1921,11 @@ bt_status_t HeadsetInterface::PhoneStateChange(
         res = BTA_AG_OUT_CALL_ORIG_RES;
         break;
       case BTHF_CALL_STATE_ALERTING:
-        /* if we went from idle->alert, force SCO setup here. dialing usually
-         * triggers it */
+        /* if we went from idle->alert, force SCO setup here if SCO is not connected already.
+         * Dialing usually triggers it */
         if ((control_block.call_setup_state == BTHF_CALL_STATE_IDLE) &&
-            !(num_active + num_held) && is_active_device(*bd_addr)) {
+            !(num_active + num_held) && is_active_device(*bd_addr) &&
+            (btif_hf_cb[idx].audio_state != BTHF_AUDIO_STATE_CONNECTED)) {
           ag_res.audio_handle = control_block.handle;
 
           BTIF_TRACE_DEBUG("%s: Moving the audio_state to CONNECTING for device %s",

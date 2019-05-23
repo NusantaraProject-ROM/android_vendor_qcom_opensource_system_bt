@@ -428,7 +428,7 @@
 
 /* The number of SCO links. */
 #ifndef BTM_MAX_SCO_LINKS
-#define BTM_MAX_SCO_LINKS 3
+#define BTM_MAX_SCO_LINKS 6
 #endif
 
 /* The preferred type of SCO links (2-eSCO, 0-SCO). */
@@ -908,7 +908,7 @@
 
 /* The maximum number of simultaneous client and server connections. */
 #ifndef SDP_MAX_CONNECTIONS
-#define SDP_MAX_CONNECTIONS 4
+#define SDP_MAX_CONNECTIONS 10
 #endif
 
 /* The MTU size for the L2CAP configuration. */
@@ -1407,6 +1407,9 @@ incoming connection
 #define TWS_AG_ENABLED TRUE
 #endif
 
+#ifndef SWB_ENABLED
+#define SWB_ENABLED FALSE
+#endif
 /******************************************************************************
  *
  * AVRCP
