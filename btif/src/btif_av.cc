@@ -3896,12 +3896,6 @@ void btif_av_trigger_dual_handoff(bool handoff, int current_active_index, int pr
 
   /*clear remote suspend flag unconditionally, which was set when one remote does suspend*/
   btif_av_clear_remote_suspend_flag();
-  if ((current_active_index != btif_max_av_clients) && (current_active_index != INVALID_INDEX)
-     && btif_av_cb[current_active_index].remote_started) {
-    if(current_active_index == btif_a2dp_source_last_remote_start_index())
-      btif_a2dp_source_cancel_remote_start();
-    btif_av_cb[current_active_index].remote_started = false;
-  }
 
   if (current_active_index == btif_max_av_clients) {
     BTIF_TRACE_ERROR("Handoff on invalid index");
