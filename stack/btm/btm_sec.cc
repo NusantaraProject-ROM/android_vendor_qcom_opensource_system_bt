@@ -3220,7 +3220,7 @@ void btm_sec_rmt_name_request_complete(const RawAddress* p_bd_addr,
         BTM_TRACE_ERROR("%s: failed to start remote name request", __func__);
         if (btm_cb.api.p_auth_complete_callback) {
           (*btm_cb.api.p_auth_complete_callback)(
-              p_dev_rec->bd_addr, p_dev_rec->dev_class, p_dev_rec->sec_bd_name,
+              btm_cb.pairing_bda, 0, p_bd_name,
               HCI_ERR_MEMORY_FULL);
         }
       };
