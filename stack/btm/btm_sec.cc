@@ -4286,8 +4286,13 @@ void btm_sec_encrypt_change(uint16_t handle, uint8_t status,
     }
   }
 
+  if ((status == HCI_SUCCESS) && (p_dev_rec->sec_state == BTM_SEC_STATE_IDLE) &&
+      (alarm_is_scheduled(btm_cb.sec_collision_timer)) &&
+      (btm_cb.p_collided_dev_rec == p_dev_rec))  {
+      BTM_TRACE_DEBUG("incoming encryption succeded, cancel collision timer");
+      alarm_cancel(btm_cb.sec_collision_timer);
   /* If this encryption was started by peer do not need to do anything */
-  if (p_dev_rec->sec_state != BTM_SEC_STATE_ENCRYPTING) {
+  } else if (p_dev_rec->sec_state != BTM_SEC_STATE_ENCRYPTING) {
     if (BTM_SEC_STATE_DELAY_FOR_ENC == p_dev_rec->sec_state) {
       p_dev_rec->sec_state = BTM_SEC_STATE_IDLE;
       BTM_TRACE_DEBUG("%s: clearing callback. p_dev_rec=%p, p_callback=%p",
