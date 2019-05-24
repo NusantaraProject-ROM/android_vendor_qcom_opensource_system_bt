@@ -53,7 +53,8 @@ enum class BluetoothAudioCtrlAck : uint8_t {
   FAILURE_UNSUPPORTED,
   FAILURE_BUSY,
   FAILURE_DISCONNECTING,
-  FAILURE
+  FAILURE,
+  FAILURE_LONG_WAIT
 };
 
 std::ostream& operator<<(std::ostream& os, const BluetoothAudioCtrlAck& ack);
@@ -71,6 +72,8 @@ inline BluetoothAudioStatus BluetoothAudioCtrlAckToHalStatus(
       return BluetoothAudioStatus::CALL_IN_PROGRESS;
     case BluetoothAudioCtrlAck::FAILURE_DISCONNECTING:
       return BluetoothAudioStatus::FAILURE;
+    case BluetoothAudioCtrlAck::FAILURE_LONG_WAIT:
+      return BluetoothAudioStatus::LW_ERROR;
     default:
       return BluetoothAudioStatus::FAILURE;
   }

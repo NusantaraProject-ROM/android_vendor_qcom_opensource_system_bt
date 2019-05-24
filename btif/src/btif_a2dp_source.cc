@@ -897,8 +897,6 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
       alarm_is_scheduled(btif_a2dp_source_cb.media_alarm) ? "" : "not ",
       btif_a2dp_source_is_streaming() ? "true" : "false");
 
-  const bool send_ack = btif_a2dp_source_is_streaming()| btif_a2dp_source_is_remote_start();
-
   uint8_t p_buf[AUDIO_STREAM_OUTPUT_BUFFER_SZ * 2];
   uint16_t event;
   tA2DP_CTRL_CMD pending_cmd = A2DP_CTRL_CMD_NONE;
@@ -938,8 +936,8 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
     pending_cmd = btif_a2dp_control_get_pending_command();
   }
 
-  if (send_ack && (pending_cmd == A2DP_CTRL_CMD_SUSPEND ||
-          pending_cmd == A2DP_CTRL_CMD_STOP)) {
+  if (pending_cmd == A2DP_CTRL_CMD_SUSPEND ||
+          pending_cmd == A2DP_CTRL_CMD_STOP) {
     APPL_TRACE_DEBUG("%s, Ack for pending Stop/Suspend", __func__);
     if (btif_a2dp_source_is_hal_v2_enabled()) {
       bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_SUCCESS);
@@ -1706,11 +1704,17 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
               break;
           }
           if (remote_start_flag) {
-            hdl = btif_av_get_av_hdl_from_idx(latest_playing_idx);
-            APPL_TRACE_DEBUG("Start VSC exchange on MM Start when state \
-                          is remote started on hdl = %d",hdl);
-            btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, (char *)&hdl, 1);
-            status = A2DP_CTRL_ACK_PENDING;
+            if (btif_av_is_split_a2dp_enabled()) {
+              hdl = btif_av_get_av_hdl_from_idx(latest_playing_idx);
+              APPL_TRACE_DEBUG("Start VSC exchange on MM Start when state \
+                            is remote started on hdl = %d",hdl);
+              btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, (char *)&hdl, 1);
+              status = A2DP_CTRL_ACK_PENDING;
+            } else {
+              APPL_TRACE_DEBUG("Av stream already remote started in NS mode");
+              status = A2DP_CTRL_ACK_SUCCESS;
+              break;
+            }
           } else if (btif_av_is_state_opened(latest_playing_idx)) {
             btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
             if (btif_av_get_peer_sep() == AVDT_TSEP_SRC) {
