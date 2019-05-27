@@ -22,6 +22,7 @@
 #include "bta_av_api.h"
 
 using vendor::qti::hardware::bluetooth_audio::V2_0::SessionType;
+using vendor::qti::hardware::bluetooth_audio::V2_0::SessionParamType;
 
 namespace bluetooth {
 namespace audio {
@@ -59,6 +60,7 @@ void set_remote_delay(uint16_t delay_report);
 bool is_streaming();
 SessionType get_session_type();
 void ack_signal_ready(tA2DP_CTRL_ACK ack);
+void update_session_params(SessionParamType param_type);
 
 }  // namespace a2dp
 }  // namespace audio

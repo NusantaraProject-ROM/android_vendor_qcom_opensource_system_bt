@@ -34,6 +34,7 @@
 extern bool audio_start_awaited;
 extern void btif_av_reset_reconfig_flag();
 extern bool btif_av_current_device_is_tws();
+extern void btif_a2dp_source_encoder_init(void);
 
 #define AAC_SAMPLE_SIZE  1024
 #define AAC_LATM_HEADER  12
@@ -200,6 +201,7 @@ A2dpTransport* a2dp_sink = nullptr;
 bluetooth::audio::BluetoothAudioClientInterface* a2dp_hal_clientif = nullptr;
 auto session_type = SessionType::UNKNOWN;
 btav_a2dp_codec_index_t sw_codec_type = BTAV_A2DP_CODEC_INDEX_SOURCE_MIN;
+uint16_t session_peer_mtu = 0;
 
 // Save the value if the remote reports its delay before a2dp_sink is
 // initialized
@@ -1146,10 +1148,38 @@ bool is_restart_session_needed() {
   }
 }
 
+void update_session_params(SessionParamType param_type) {
+  std::unique_lock<std::mutex> guard(internal_mutex_);
+  if (!is_hal_2_0_enabled() || !is_session_started) {
+    LOG(ERROR) << __func__ << ": BluetoothAudio HAL is not enabled/started";
+    return;
+  }
+  AudioConfiguration audio_config = a2dp_sink->GetAudioConfiguration();
+  CodecConfiguration *codec_config = &audio_config.codecConfig;
+  if(SessionParamType::MTU == param_type) {
+    tA2DP_ENCODER_INIT_PEER_PARAMS peer_param;
+    bta_av_co_get_peer_params(&peer_param);
+    if(session_peer_mtu != peer_param.peer_mtu) {
+      LOG(INFO) << __func__ << ": updating peer mtu";
+      if(session_type == SessionType::A2DP_HARDWARE_OFFLOAD_DATAPATH) {
+        codec_config->peerMtu =  peer_param.peer_mtu -
+                                             A2DP_HEADER_SIZE;
+        a2dp_hal_clientif->UpdateAudioConfig(audio_config);
+        SessionParams session_params{};
+        session_params.paramType = SessionParamType::MTU;
+        session_params.param.mtu = codec_config->peerMtu;
+        a2dp_hal_clientif->updateSessionParams(session_params);
+      } else if(session_type == SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH) {
+        btif_a2dp_source_encoder_init();
+      }
+    }
+  }
+}
 
 // Set up the codec into BluetoothAudio HAL
 bool setup_codec() {
   std::unique_lock<std::mutex> guard(internal_mutex_);
+  tA2DP_ENCODER_INIT_PEER_PARAMS peer_param;
   if (!is_hal_2_0_enabled()) {
     LOG(ERROR) << __func__ << ": BluetoothAudio HAL is not enabled";
     return false;
@@ -1177,6 +1207,9 @@ bool setup_codec() {
     audio_config.pcmConfig = pcm_config;
     sw_codec_type = current_codec.codec_type;
   }
+  //store the MTU as well
+  bta_av_co_get_peer_params(&peer_param);
+  session_peer_mtu = peer_param.peer_mtu;
   return a2dp_hal_clientif->UpdateAudioConfig(audio_config);
 }
 
@@ -1205,6 +1238,7 @@ void end_session() {
   is_playing = false;
   a2dp_hal_clientif->EndSession();
   sw_codec_type = BTAV_A2DP_CODEC_INDEX_SOURCE_MIN;
+  session_peer_mtu = 0;
   session_type = SessionType::UNKNOWN;
   is_session_started = false;
   remote_delay = 0;

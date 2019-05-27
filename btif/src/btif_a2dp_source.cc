@@ -121,7 +121,7 @@ static void btif_a2dp_source_audio_tx_flush_event(BT_HDR* p_msg);
 static void btif_a2dp_source_encoder_init_event(BT_HDR* p_msg);
 static void btif_a2dp_source_encoder_user_config_update_event(BT_HDR* p_msg);
 static void btif_a2dp_source_audio_feeding_update_event(BT_HDR* p_msg);
-static void btif_a2dp_source_encoder_init(void);
+void btif_a2dp_source_encoder_init(void);
 static void btif_a2dp_source_encoder_init_req(
     tBTIF_A2DP_SOURCE_ENCODER_INIT* p_msg);
 static bool btif_a2dp_source_audio_tx_flush_req(void);
@@ -618,7 +618,7 @@ void btif_a2dp_source_stop_audio_req(void) {
                                     &btif_a2dp_source_cb.accumulated_stats);
 }
 
-static void btif_a2dp_source_encoder_init(void) {
+void btif_a2dp_source_encoder_init(void) {
   tBTIF_A2DP_SOURCE_ENCODER_INIT msg;
 
   // Check to make sure the platform has 8 bits/byte since

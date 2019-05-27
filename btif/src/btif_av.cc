@@ -1884,6 +1884,7 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
         btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
       }
       btif_av_cb[index].reconfig_pending = false;
+      bluetooth::audio::a2dp::update_session_params(SessionParamType::MTU);
     } break;
 
     case BTIF_AV_CONNECT_REQ_EVT: {
