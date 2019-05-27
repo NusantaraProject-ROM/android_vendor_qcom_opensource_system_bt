@@ -550,5 +550,7 @@ int btif_get_max_allowable_sink_connections();
 tBTA_AV_HNDL btif_av_get_hndl_by_addr(RawAddress peer_address);
 
 void btif_av_signal_session_ready();
-
+void btif_av_set_suspend_rsp_track_timer(int index);
+void btif_av_set_suspend_rsp_track_timer_tout(void* data);
+void btif_av_clear_suspend_rsp_track_timer(int index);
 #endif /* BTIF_AV_H */
