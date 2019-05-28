@@ -224,6 +224,8 @@ BluetoothAudioCtrlAck a2dp_ack_to_bt_audio_ctrl_ack(tA2DP_CTRL_ACK ack) {
       return BluetoothAudioCtrlAck::FAILURE_UNSUPPORTED;
     case A2DP_CTRL_ACK_FAILURE:
       return BluetoothAudioCtrlAck::FAILURE;
+    case A2DP_CTRL_ACK_LONG_WAIT_ERR:
+      return BluetoothAudioCtrlAck::FAILURE_LONG_WAIT;
     default:
       return BluetoothAudioCtrlAck::FAILURE;
   }

@@ -172,14 +172,14 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
     } else {
       if (btif_av_is_split_a2dp_enabled()) {
         if (btif_a2dp_source_is_hal_v2_enabled()) {
-          bluetooth::audio::a2dp::ack_stream_started(A2DP_CTRL_ACK_FAILURE);
+          bluetooth::audio::a2dp::ack_stream_started(A2DP_CTRL_ACK_LONG_WAIT_ERR);
         } else {
           btif_a2dp_audio_on_started(A2DP_CTRL_ACK_FAILURE);
         }
       } else {
         if (pending_cmd == A2DP_CTRL_CMD_START) {
           if (btif_a2dp_source_is_hal_v2_enabled()) {
-            bluetooth::audio::a2dp::ack_stream_started(A2DP_CTRL_ACK_FAILURE);
+            bluetooth::audio::a2dp::ack_stream_started(A2DP_CTRL_ACK_LONG_WAIT_ERR);
           } else {
             btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
           }
