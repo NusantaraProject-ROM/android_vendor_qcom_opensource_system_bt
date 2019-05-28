@@ -929,6 +929,7 @@ bool A2dpCodecs::getCodecConfigAndCapabilities(
   std::lock_guard<std::recursive_mutex> lock(codec_mutex_);
 
   if (current_codec_config_ != nullptr) {
+    LOG_DEBUG(LOG_TAG, "%s: current_codec_config_ not null, getCodecConfig()", __func__);
     *p_codec_config = current_codec_config_->getCodecConfig();
   } else {
     btav_a2dp_codec_config_t codec_config;

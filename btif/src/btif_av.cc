@@ -1084,6 +1084,7 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
 static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
                                           int index) {
   RawAddress* bt_addr = nullptr;
+  A2dpCodecs* a2dp_codecs = nullptr;
   BTIF_TRACE_IMP("%s event:%s flags %x on index %x", __func__,
                    dump_av_sm_event_name((btif_av_sm_event_t)event),
                    btif_av_cb[index].flags, index);
@@ -1092,9 +1093,12 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
     case BTIF_SM_ENTER_EVT:
       //When uncheck media audio from settings UI and try to connect from remote,
       //a2dp would fail. Then check the media audio from UI, then due to peer codec info
-      //null, so it will not go for A2dp connection. So reinit peer codecs unconditionally.
-      BTIF_TRACE_DEBUG("%s: initialize peer codecs, unconditionally.", __func__);
-      bta_av_co_peer_init(btif_av_cb[index].codec_priorities, index);
+      //null, so it will not go for A2dp connection. So reinit peer codecs if null.
+      a2dp_codecs = bta_av_get_peer_a2dp_codecs(btif_av_cb[index].peer_bda);
+      if (a2dp_codecs == nullptr) {
+        BTIF_TRACE_DEBUG("%s: initialize peer codecs for index %d ", __func__, index);
+        bta_av_co_peer_init(btif_av_cb[index].codec_priorities, index);
+      }
       /* inform the application that we are entering connecting state */
       if (bt_av_sink_callbacks != NULL)
         HAL_CBACK(bt_av_sink_callbacks, connection_state_cb,
