@@ -946,7 +946,8 @@ void bta_ag_codec_negotiate(tBTA_AG_SCB* p_scb) {
   if (((p_scb->codec_updated || p_scb->codec_fallback) &&
       (p_scb->peer_features & BTA_AG_PEER_FEAT_CODEC))
 #if (SWB_ENABLED == TRUE)
-      || (get_swb_codec_status() || p_scb->is_swb_codec)
+      || ((get_swb_codec_status() || p_scb->is_swb_codec)
+      && (p_scb->peer_codecs & BTA_AG_SCO_SWB_SETTINGS_Q0_MASK))
 #endif
      ) {
     /* Change the power mode to Active until SCO open is completed. */
