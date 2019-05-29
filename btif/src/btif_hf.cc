@@ -719,8 +719,12 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       }
 #endif
       btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_DISCONNECTED;
-      HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_DISCONNECTED,
+
+      // Ignore SCO disconnection event if SLC is already disconnected
+      if (btif_hf_cb[idx].state == BTHF_CONNECTION_STATE_SLC_CONNECTED) {
+        HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_DISCONNECTED,
                 &btif_hf_cb[idx].connected_bda);
+      }
       break;
 
     /* BTA auto-responds, silently discard */
