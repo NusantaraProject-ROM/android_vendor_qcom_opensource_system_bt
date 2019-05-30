@@ -26,7 +26,7 @@ namespace bqr {
 // Bluetooth Quality Report (BQR)
 //
 // It is a feature to start the mechanism in the Bluetooth controller to report
-// Bluetooth Quality event to the host and there are four options could be
+// Bluetooth Quality event to the host and there are five options could be
 // enabled:
 //   [Quality Monitoring Mode]
 //     The controller shall periodically send Bluetooth Quality Report sub-event
@@ -44,6 +44,13 @@ namespace bqr {
 //   [(e)SCO Voice Choppy]
 //     When the controller detects the factors which will cause voice choppy,
 //     the controller shall report (e)SCO Voice Choppy event to the host.
+//
+//   [Connect Fail]
+//     When the controller fails to create connection with remote side,
+//     and remote responds for at least one time, the controller shall report
+//     connection fail event to the host. However, if remote doesn't respond
+//     at all(most likely remote is powered off or out of range), controller
+//     will not report this event.
 
 // Bit masks for the selected quality event reporting.
 static constexpr uint32_t kQualityEventMaskAllOff = 0;
@@ -51,9 +58,11 @@ static constexpr uint32_t kQualityEventMaskMonitorMode = 0x00000001;
 static constexpr uint32_t kQualityEventMaskApproachLsto = 0x00000002;
 static constexpr uint32_t kQualityEventMaskA2dpAudioChoppy = 0x00000004;
 static constexpr uint32_t kQualityEventMaskScoVoiceChoppy = 0x00000008;
+static constexpr uint32_t kQualityEventMaskConnectFail = 0x80000000;
 static constexpr uint32_t kQualityEventMaskAll =
     kQualityEventMaskMonitorMode | kQualityEventMaskApproachLsto |
-    kQualityEventMaskA2dpAudioChoppy | kQualityEventMaskScoVoiceChoppy;
+    kQualityEventMaskA2dpAudioChoppy | kQualityEventMaskScoVoiceChoppy |
+    kQualityEventMaskConnectFail;
 // Define the minimum time interval (in ms) of quality event reporting for the
 // selected quality event(s). Controller Firmware should not report the next
 // event within the defined time interval.
@@ -74,6 +83,14 @@ static constexpr const char* kpPropertyEventMask =
 static constexpr const char* kpPropertyMinReportIntervalMs =
     "persist.bluetooth.bqr.min_interval_ms";
 
+// The Property of BQR a2dp choppy report and sco choppy report thresholds.
+// A2dp choppy will be reported only when a2dp choppy times is >= a2dp_choppy_threshold.
+// The default value in firmware side is 1.
+// It is same for sco choppy.
+// value format is a2dp_choppy_threshold,sco_choppy_threshold
+static constexpr const char* kpPropertyChoppyThreshold =
+    "persist.bluetooth.bqr.choppy_threshold";
+
 // Action definition
 //
 // Action to Add, Delete or Clear the reporting of quality event(s).
@@ -90,7 +107,9 @@ enum BqrQualityReportId : uint8_t {
   QUALITY_REPORT_ID_MONITOR_MODE = 0x01,
   QUALITY_REPORT_ID_APPROACH_LSTO = 0x02,
   QUALITY_REPORT_ID_A2DP_AUDIO_CHOPPY = 0x03,
-  QUALITY_REPORT_ID_SCO_VOICE_CHOPPY = 0x04
+  QUALITY_REPORT_ID_SCO_VOICE_CHOPPY = 0x04,
+  //Vendor Specific Report IDs from 0x20
+  QUALITY_REPORT_ID_CONNECT_FAIL = 0x20,
 };
 
 // Packet Type definition

@@ -14,11 +14,16 @@
  * limitations under the License.
  */
 
+#include <stdio.h>
 #include "btif_bqr.h"
 #include "btif_dm.h"
 #include "osi/include/leaky_bonded_queue.h"
 #include "osi/include/properties.h"
 #include "stack/btm/btm_int.h"
+#include "raw_address.h"
+
+void btif_vendor_bqr_delivery_event(const RawAddress* bd_addr, const uint8_t* bqr_raw_data,
+    uint32_t bqr_raw_data_len);
 
 namespace bluetooth {
 namespace bqr {
@@ -96,6 +101,8 @@ std::string QualityReportIdToString(uint8_t quality_report_id) {
       return "A2DP Choppy";
     case QUALITY_REPORT_ID_SCO_VOICE_CHOPPY:
       return "SCO Choppy ";
+    case QUALITY_REPORT_ID_CONNECT_FAIL:
+      return "CONNECT_FAIL ";
     default:
       return "Invalid    ";
   }
@@ -172,7 +179,51 @@ void AddBqrEventToQueue(uint8_t length, uint8_t* p_stream) {
   }
 
   LOG(WARNING) << *p_bqr_event;
+
+  if (length >= kBqrParamTotalLen + BD_ADDR_LEN) {
+    RawAddress bd_addr;
+    uint8_t* p_addr = p_stream + kBqrParamTotalLen;
+    STREAM_TO_BDADDR(bd_addr, p_addr);
+    btif_vendor_bqr_delivery_event(&bd_addr, p_stream, length);
+  } else {
+    LOG(WARNING) << __func__ << ": BQR event doesn't contain remote address";
+  }
+
   kpBqrEventQueue->Enqueue(p_bqr_event.release());
+}
+
+void ConfigBqrA2dpScoThreshold() {
+  uint8_t param[20] = {0};
+  uint8_t sub_opcode = 0x16;
+  uint8_t *p_param = param;
+  uint16_t a2dp_choppy_threshold = 0;
+  uint16_t sco_choppy_threshold = 0;
+
+  char bqr_prop_threshold[PROPERTY_VALUE_MAX] = {0};
+  osi_property_get(kpPropertyChoppyThreshold, bqr_prop_threshold, "");
+
+  sscanf(bqr_prop_threshold, "%hu,%hu", &a2dp_choppy_threshold, &sco_choppy_threshold);
+
+  LOG(WARNING) << __func__<< ": a2dp_choppy_threshold: " << a2dp_choppy_threshold
+               << ", sco_choppy_threshold: " << sco_choppy_threshold;
+
+  UINT8_TO_STREAM(p_param, sub_opcode);
+
+  // A2dp glitch ID
+  UINT8_TO_STREAM(p_param, QUALITY_REPORT_ID_A2DP_AUDIO_CHOPPY);
+  // A2dp glitch config data length
+  UINT8_TO_STREAM(p_param, 2);
+  // A2dp glitch threshold
+  UINT16_TO_STREAM(p_param, a2dp_choppy_threshold == 0 ? 1 : a2dp_choppy_threshold);
+
+  // Sco glitch ID
+  UINT8_TO_STREAM(p_param, QUALITY_REPORT_ID_SCO_VOICE_CHOPPY);
+  // Sco glitch config data length
+  UINT8_TO_STREAM(p_param, 2);
+  // Sco glitch threshold
+  UINT16_TO_STREAM(p_param, sco_choppy_threshold == 0 ? 1 : sco_choppy_threshold);
+
+  BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE, p_param - param, param, NULL);
 }
 
 void ConfigureBqrCmpl(uint32_t current_evt_mask) {
@@ -184,6 +235,10 @@ void ConfigureBqrCmpl(uint32_t current_evt_mask) {
   if (btm_status != BTM_SUCCESS) {
     LOG(ERROR) << __func__ << ": Fail to (un)register VSE of BQR sub event."
                << " status: " << btm_status;
+  }
+
+  if (current_evt_mask > kQualityEventMaskAllOff) {
+    ConfigBqrA2dpScoThreshold();
   }
 }
 
