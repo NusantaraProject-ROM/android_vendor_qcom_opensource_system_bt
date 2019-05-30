@@ -2090,12 +2090,25 @@ void bta_ag_sco_open(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
 #if (TWS_AG_ENABLED == TRUE)
   if (is_twsp_device(p_scb->peer_addr)) {
       if (bta_ag_cb.main_sm_scb != p_scb
-        && (bta_ag_cb.sco.state == BTA_AG_SCO_OPEN_ST
-             || p_scb == bta_ag_cb.sec_sm_scb)) {
-        //If primary SCO is already up and current req is TWS peer address
-        //trigger secondary SCO open
-        bta_ag_twsp_sco_event(p_scb, BTA_AG_SCO_OPEN_E);
-        return;
+        && p_scb == bta_ag_cb.sec_sm_scb) {
+            if (bta_ag_cb.sco.state != BTA_AG_SCO_LISTEN_ST &&
+                bta_ag_cb.sco.state != BTA_AG_SCO_SHUTDOWN_ST &&
+                bta_ag_cb.sco.state != BTA_AG_SCO_OPEN_ST) {
+                APPL_TRACE_DEBUG("%s: primary sco SM is not in stable state",
+                                                                 __func__);
+                APPL_TRACE_DEBUG("%s: Ignore SCO request on secondary SM",
+                                                                 __func__);
+                //This should be part of QueryPhoneState where device on sec sco
+                //SM queries phonestate when legacy device on primary SCO SM
+                //in process of closing or in any other intermediate state
+                bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
+            } else {
+                //If primary SCO is in stable state and current req is TWS
+                //peer address trigger secondary SCO open
+                //Stable states: OPEN, LISTEN, SHUTDOWN
+                bta_ag_twsp_sco_event(p_scb, BTA_AG_SCO_OPEN_E);
+            }
+            return;
       }
       else {
           if (bta_ag_cb.sco.p_curr_scb != NULL &&
