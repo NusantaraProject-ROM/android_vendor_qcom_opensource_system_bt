@@ -1376,6 +1376,7 @@ uint8_t btif_a2dp_audio_snd_ctrl_cmd(uint8_t cmd)
 
       int remote_start_idx = btif_get_is_remote_started_idx();
       int latest_playing_idx = btif_av_get_latest_device_idx_to_start();
+      bool remote_start_flag = btif_av_is_remote_started_set(latest_playing_idx);
       if (btif_a2dp_source_is_remote_start()) {
         APPL_TRACE_DEBUG("%s: remote started idx = %d, latest playing  idx = %d",__func__,
                          remote_start_idx, latest_playing_idx);
@@ -1417,14 +1418,12 @@ uint8_t btif_a2dp_audio_snd_ctrl_cmd(uint8_t cmd)
           break;
         } else if (btif_a2dp_src_vsc.tx_started == FALSE) {
           uint8_t hdl = 0;
-          bool remote_start_flag = false;
           APPL_TRACE_DEBUG("%s: remote started idx = %d",__func__, latest_playing_idx);
           if (latest_playing_idx > btif_max_av_clients || latest_playing_idx < 0) {
             APPL_TRACE_ERROR("%s: Invalid index",__func__);
             status = -1;//Invalid status to stop start retry
             break;
           }
-          remote_start_flag = btif_av_is_remote_started_set(latest_playing_idx);
           if(remote_start_flag) {
             hdl = btif_av_get_av_hdl_from_idx(latest_playing_idx);
             APPL_TRACE_DEBUG("%s: hdl = %d, enc_update_in_progress = %d",__func__, hdl,
