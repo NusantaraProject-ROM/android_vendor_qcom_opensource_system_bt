@@ -1995,6 +1995,28 @@ extern bool BTM_GetWifiState(void);
 
 /*******************************************************************************
  *
+ * Function         BTM_SetPowerBackOffState
+ *
+ * Description      This function sets PowerBackOff state.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+extern void BTM_SetPowerBackOffState(bool status);
+
+/*******************************************************************************
+ *
+ * Function         BTM_GetPowerBackOffState
+ *
+ * Description      This function gets PowerBackOff state.
+ *
+ * Returns          PowerBackOff status
+ *
+ ******************************************************************************/
+extern bool BTM_GetPowerBackOffState(void);
+
+/*******************************************************************************
+ *
  * Function         BTM_AddEirService
  *
  * Description      This function is called to add a service in the bit map UUID
