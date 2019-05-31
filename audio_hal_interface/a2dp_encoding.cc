@@ -66,7 +66,6 @@ using ::bluetooth::audio::SampleRate;
 using ::bluetooth::audio::SessionType;
 
 std::mutex internal_mutex_;
-std::mutex ack_wait_mutex_;
 std::condition_variable ack_wait_cv;
 tA2DP_CTRL_ACK ack_status;
 BluetoothAudioCtrlAck a2dp_ack_to_bt_audio_ctrl_ack(tA2DP_CTRL_ACK ack);
@@ -132,9 +131,16 @@ class A2dpTransport : public ::bluetooth::audio::IBluetoothTransportInstance {
     return true;
   }
 
+  void UpdatePendingCmd(tA2DP_CTRL_CMD cmd) {
+    a2dp_pending_cmd_ = cmd;
+  }
+
   tA2DP_CTRL_CMD GetPendingCmd() const { return a2dp_pending_cmd_; }
 
-  void ResetPendingCmd() {  a2dp_pending_cmd_ = A2DP_CTRL_CMD_NONE; }
+  void ResetPendingCmd() {
+    LOG(WARNING) << "ResetPendingCmd  " << a2dp_pending_cmd_;
+    a2dp_pending_cmd_ = A2DP_CTRL_CMD_NONE;
+ }
 
   void ResetPresentationPosition() override {
     remote_delay_report_ = 0;
@@ -174,18 +180,9 @@ class A2dpTransport : public ::bluetooth::audio::IBluetoothTransportInstance {
 
  private:
   tA2DP_CTRL_ACK ProcessRequest(tA2DP_CTRL_CMD cmd) {
-    a2dp_pending_cmd_ = cmd;
-    std::unique_lock<std::mutex> guard(ack_wait_mutex_);
-    ack_status = A2DP_CTRL_ACK_UNKNOWN;
+    ack_status = A2DP_CTRL_ACK_PENDING;
     btif_dispatch_sm_event(BTIF_AV_PROCESS_HIDL_REQ_EVT, (char*)&cmd,
                            sizeof(cmd));
-    BTIF_TRACE_EVENT("%s: wating for HIDL ack signal",__func__);
-    ack_wait_cv.wait_for(guard, std::chrono::milliseconds(50),
-                      []{return (ack_status != A2DP_CTRL_ACK_UNKNOWN);});
-    BTIF_TRACE_EVENT("%s: done with HIDL ack signal",__func__);
-    if(ack_status == A2DP_CTRL_ACK_UNKNOWN) {
-      ack_status = A2DP_CTRL_ACK_FAILURE;
-    }
     return ack_status;
   }
   tA2DP_CTRL_CMD a2dp_pending_cmd_;
@@ -1218,8 +1215,11 @@ void start_session() {
   if (!is_hal_2_0_enabled()) {
     LOG(ERROR) << __func__ << ": BluetoothAudio HAL is not enabled";
     return;
+  } else if(is_session_started) {
+    LOG(ERROR) << __func__ << ": BluetoothAudio HAL session is already started";
+    return;
   }
-  LOG(ERROR) << __func__;
+  LOG(WARNING) << __func__;
   is_playing = false;
   a2dp_hal_clientif->StartSession();
   is_session_started = true;
@@ -1230,8 +1230,11 @@ void end_session() {
   if (!is_hal_2_0_enabled()) {
     LOG(ERROR) << __func__ << ": BluetoothAudio HAL is not enabled";
     return;
+  } else if(!is_session_started) {
+    LOG(ERROR) << __func__ << ": BluetoothAudio HAL session is not started";
+    return;
   }
-  LOG(ERROR) << __func__;
+  LOG(WARNING) << __func__;
   a2dp_sink->Cleanup();
   audio_start_awaited = false;
   btif_av_reset_reconfig_flag();
@@ -1273,6 +1276,15 @@ void reset_pending_command() {
     return;
   }
   a2dp_sink->ResetPendingCmd();
+}
+
+void update_pending_command(tA2DP_CTRL_CMD cmd) {
+  std::unique_lock<std::mutex> guard(internal_mutex_);
+  if (!is_hal_2_0_enabled()) {
+    LOG(ERROR) << __func__ << ": BluetoothAudio HAL is not enabled";
+    return;
+  }
+  a2dp_sink->UpdatePendingCmd(cmd);
 }
 
 void ack_stream_started(const tA2DP_CTRL_ACK& ack) {
@@ -1378,12 +1390,6 @@ SessionType get_session_type() {
     return SessionType::UNKNOWN;
   }
   return session_type;
-}
-
-void ack_signal_ready(tA2DP_CTRL_ACK ack) {
-  std::unique_lock<std::mutex> guard(ack_wait_mutex_);
-  ack_status = ack;
-  ack_wait_cv.notify_all();
 }
 
 }  // namespace a2dp

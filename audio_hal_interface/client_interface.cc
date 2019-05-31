@@ -72,11 +72,10 @@ class BluetoothAudioPortImpl : public IBluetoothAudioPort {
       : sink_(sink), clientif_(clientif) {};
 
   Return<void> startStream() {
-    //std::unique_lock<std::mutex> guard(*clientif_->GetExternalMutex());
     android::sp<IBluetoothAudioProvider> provider =
                         clientif_->GetProvider();
     BluetoothAudioCtrlAck ack = sink_->StartRequest();
-    if (provider) {
+    if (provider && ack != BluetoothAudioCtrlAck::PENDING) {
       auto hidl_retval =
           provider->streamStarted(BluetoothAudioCtrlAckToHalStatus(ack));
       if (!hidl_retval.isOk()) {
@@ -87,11 +86,10 @@ class BluetoothAudioPortImpl : public IBluetoothAudioPort {
   }
 
   Return<void> suspendStream() {
-    //std::unique_lock<std::mutex> guard(*clientif_->GetExternalMutex());
     android::sp<IBluetoothAudioProvider> provider =
                     clientif_->GetProvider();
     BluetoothAudioCtrlAck ack = sink_->SuspendRequest();
-    if (provider) {
+    if (provider && ack != BluetoothAudioCtrlAck::PENDING) {
       auto hidl_retval =
           provider->streamSuspended(BluetoothAudioCtrlAckToHalStatus(ack));
       if (!hidl_retval.isOk()) {
@@ -102,7 +100,6 @@ class BluetoothAudioPortImpl : public IBluetoothAudioPort {
   }
 
   Return<void> stopStream() {
-    //std::unique_lock<std::mutex> guard(*clientif_->GetExternalMutex());
     sink_->StopRequest();
     return Void();
   }
@@ -353,9 +350,6 @@ void BluetoothAudioClientInterface::StreamStarted(
   if (provider_ == nullptr) {
     LOG(ERROR) << __func__ << ": BluetoothAudioHal nullptr";
     return;
-  } else if (ack == BluetoothAudioCtrlAck::PENDING) {
-    LOG(INFO) << __func__ << ": " << ack << " ignored";
-    return;
   }
   BluetoothAudioStatus status = BluetoothAudioCtrlAckToHalStatus(ack);
   auto hidl_retval = provider_->streamStarted(status);
@@ -380,9 +374,6 @@ void BluetoothAudioClientInterface::StreamSuspended(
     const BluetoothAudioCtrlAck& ack) {
   if (provider_ == nullptr) {
     LOG(ERROR) << __func__ << ": BluetoothAudioHal nullptr";
-    return;
-  } else if (ack == BluetoothAudioCtrlAck::PENDING) {
-    LOG(INFO) << __func__ << ": " << ack << " ignored";
     return;
   }
   BluetoothAudioStatus status = BluetoothAudioCtrlAckToHalStatus(ack);
