@@ -451,9 +451,12 @@ void BTA_AvUpdateAptxData(uint16_t data) {
   if(data & BATTERY_INFO_MASK) {
     p_buf->type = 4;
     p_buf->data = data;
-  } else if(data & ULL_MODE_MASK) {
+  } else if((data & ULL_MODE_MASK) == ULL_MODE_MASK) {
     p_buf->type = 3;
     p_buf->data = 1;
+  } else {
+    p_buf->type = 3;
+    p_buf->data = 0;
   }
   p_buf->hdr.event = BTA_AV_UPDATE_APTX_DATA_EVT;
   bta_sys_sendmsg(p_buf);
