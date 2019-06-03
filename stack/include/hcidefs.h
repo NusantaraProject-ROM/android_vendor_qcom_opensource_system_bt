@@ -434,6 +434,9 @@
 /* subcode for VOIP Network Wifi */
 #define HCI_VSC_SUBCODE_VOIP_NETWORK_WIFI               0x01
 
+/* Bluetooth Quality Report OCF */
+#define HCI_CONTROLLER_BQR_OPCODE_OCF (0x015E | HCI_GRP_VENDOR_SPECIFIC)
+
 /* subcode for multi adv feature */
 #define BTM_BLE_MULTI_ADV_SET_PARAM 0x01
 #define BTM_BLE_MULTI_ADV_WRITE_ADV_DATA 0x02
@@ -461,6 +464,9 @@
 
 /* debug info sub event */
 #define HCI_VSE_SUBCODE_DEBUG_INFO_SUB_EVT 0x57
+
+/* Bluetooth Quality Report sub event */
+#define HCI_VSE_SUBCODE_BQR_SUB_EVT 0x58
 
 /* LE supported states definition */
 #define HCI_LE_ADV_STATE 0x00000001
