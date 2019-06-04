@@ -289,7 +289,7 @@ extern void btif_a2dp_update_sink_latency_change();
 extern bt_status_t send_av_passthrough_cmd(RawAddress* bd_addr, uint8_t key_code,
                                         uint8_t key_state);
 static int other_device_media_packet_count = 0;
-
+void btif_av_set_reconfig_flag(tBTA_AV_HNDL bta_handle);
 bool isBATEnabled();
 
 #if (TWS_ENABLED == TRUE)
@@ -1877,8 +1877,12 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
       if ((btif_av_cb[index].flags & BTIF_AV_FLAG_PENDING_START) &&
           (p_av->reconfig.status == BTA_AV_SUCCESS)) {
         APPL_TRACE_WARNING("reconfig done BTA_AVstart()");
-        BTA_AvStart(btif_av_cb[index].bta_handle);
-        ba_send_message(BTIF_BA_BT_A2DP_STARTING_EVT, 0, NULL, true);
+        if (btif_a2dp_source_is_restart_session_needed()) {
+          btif_report_source_codec_state(p_data, &btif_av_cb[index].peer_bda);
+        } else {
+          BTA_AvStart(btif_av_cb[index].bta_handle);
+          ba_send_message(BTIF_BA_BT_A2DP_STARTING_EVT, 0, NULL, true);
+        }
       } else if (btif_av_cb[index].flags & BTIF_AV_FLAG_PENDING_START) {
         btif_av_cb[index].flags &= ~BTIF_AV_FLAG_PENDING_START;
         btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
@@ -4109,9 +4113,9 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
   BTIF_TRACE_EVENT("%s", __func__);
   CHECK_BTAV_INIT();
   //RawAddress *bda = &bda;
-  //check if current device is TWS and then return failure with SHO support
+  int index = btif_av_idx_by_bdaddr(const_cast<RawAddress*>(&bd_addr));
 #if (TWS_ENABLED == TRUE)
-  //int index = btif_av_idx_by_bdaddr(const_cast<RawAddress*>(&bd_addr));
+  //check if current device is TWS and then return failure with SHO support
   /*if (index < btif_max_av_clients && btif_av_cb[index].tws_device) {
   //if (btif_av_is_tws_connected()) {
     BTIF_TRACE_DEBUG("%s:TWSP device connected, config change not allowed",__func__);
@@ -4133,6 +4137,10 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
         cp.codec_specific_2, cp.codec_specific_3, cp.codec_specific_4);
 
     A2dpCodecConfig* current_codec = bta_av_get_a2dp_current_codec();
+    if (index < btif_max_av_clients && btif_av_cb[index].reconfig_pending) {
+      BTIF_TRACE_ERROR("%s:Reconfig Pending, dishonor codec switch",__func__);
+      return BT_STATUS_FAIL;
+    }
     if (current_codec != nullptr) {
       btav_a2dp_codec_config_t codec_config;
       codec_config = current_codec->getCodecConfig();
@@ -6038,5 +6046,17 @@ void btif_av_set_offload_status() {
   }
   reconfig_a2dp = FALSE;
   btif_media_send_reset_vendor_state();
+}
+
+void btif_av_set_reconfig_flag(tBTA_AV_HNDL bta_handle) {
+  for (int i = 0; i < btif_max_av_clients; i++) {
+    if (btif_av_cb[i].bta_handle == bta_handle &&
+      (btif_sm_get_state(btif_av_cb[i].sm_handle) == BTIF_AV_STATE_STARTED) &&
+      !btif_av_cb[i].remote_started) {
+      BTIF_TRACE_IMP("%s:Setting reconfig index for index %d",__func__, i);
+      btif_av_cb[i].reconfig_pending = true;
+      btif_av_cb[i].flags |= BTIF_AV_FLAG_PENDING_START;
+    }
+  }
 }
 
