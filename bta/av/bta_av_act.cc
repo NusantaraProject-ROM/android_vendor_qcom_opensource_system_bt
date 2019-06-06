@@ -2486,9 +2486,9 @@ void bta_av_rc_closed(tBTA_AV_DATA* p_data) {
       rc_close.rc_handle = i;
       p_rcb->status &= ~BTA_AV_RC_CONN_MASK;
       p_rcb->peer_features = 0;
-      if(p_rcb->browse_open)
+      if(p_rcb->browse_open && (p_rcb->peer_features & BTA_AV_FEAT_BROWSE))
         browse_support = true;
-      APPL_TRACE_DEBUG("       shdl:%d, lidx:%d", p_rcb->shdl, p_rcb->lidx);
+      APPL_TRACE_DEBUG("shdl:%d, lidx:%d", p_rcb->shdl, p_rcb->lidx);
       if (p_rcb->shdl) {
         if ((p_rcb->shdl - 1) < BTA_AV_NUM_STRS) {
           p_scb = bta_av_cb.p_scb[p_rcb->shdl - 1];
