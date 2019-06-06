@@ -40,7 +40,7 @@
  *  Constants and data types
  ****************************************************************************/
 enum {
-  BTA_GATTC_API_OPEN_EVT = BTA_SYS_EVT_START(BTA_ID_GATTC),
+  BTA_GATTC_API_OPEN_EVT = BTA_SYS_EVT_START(BTA_ID_GATTC), // 0x1F00
   BTA_GATTC_INT_OPEN_FAIL_EVT,
   BTA_GATTC_API_CANCEL_OPEN_EVT,
   BTA_GATTC_INT_CANCEL_OPEN_OK_EVT,

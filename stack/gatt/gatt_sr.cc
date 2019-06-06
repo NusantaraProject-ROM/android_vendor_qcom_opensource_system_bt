@@ -872,6 +872,8 @@ void gatts_process_write_req(tGATT_TCB& tcb, tGATT_SRV_LIST_ELEM& el,
   uint8_t sec_flag, key_size, *p = p_data;
   uint16_t conn_id;
 
+  VLOG(1) << __func__ << " handle: " << +handle << ", len: " << +len;
+
   memset(&sr_data, 0, sizeof(tGATTS_DATA));
 
   switch (op_code) {
@@ -955,6 +957,8 @@ static void gatts_process_read_req(tGATT_TCB& tcb, tGATT_SRV_LIST_ELEM& el,
                                    uint16_t len, uint8_t* p_data) {
   size_t buf_len = sizeof(BT_HDR) + tcb.payload_size + L2CAP_MIN_OFFSET;
   uint16_t offset = 0;
+
+  VLOG(1) << __func__ << " handle: " << +handle << ", len: " << +len;
 
   if (op_code == GATT_REQ_READ_BLOB && len < sizeof(uint16_t)) {
     /* Error: packet length is too short */
@@ -1183,7 +1187,10 @@ void gatts_process_value_conf(tGATT_TCB& tcb, uint8_t op_code) {
 void gatt_server_handle_client_req(tGATT_TCB& tcb, uint8_t op_code,
                                    uint16_t len, uint8_t* p_data) {
   /* there is pending command, discard this one */
-  if (!gatt_sr_cmd_empty(tcb) && op_code != GATT_HANDLE_VALUE_CONF) return;
+  if (!gatt_sr_cmd_empty(tcb) && op_code != GATT_HANDLE_VALUE_CONF) {
+    LOG(ERROR) << __func__ << "Server Command Queue is not empty. Discard this cmd.";
+    return;
+  }
 
   /* the size of the message may not be bigger than the local max PDU size*/
   /* The message has to be smaller than the agreed MTU, len does not include op

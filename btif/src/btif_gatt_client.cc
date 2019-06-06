@@ -138,7 +138,7 @@ void btif_gattc_upstreams_evt(uint16_t event, char* p_param) {
     }
 
     case BTA_GATTC_OPEN_EVT: {
-      DVLOG(1) << "BTA_GATTC_OPEN_EVT " << p_data->open.remote_bda;
+      VLOG(1) << "BTA_GATTC_OPEN_EVT " << p_data->open.remote_bda;
       HAL_CBACK(bt_gatt_callbacks, client->open_cb, p_data->open.conn_id,
                 p_data->open.status, p_data->open.client_if,
                 p_data->open.remote_bda);

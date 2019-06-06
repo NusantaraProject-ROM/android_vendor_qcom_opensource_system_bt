@@ -44,6 +44,7 @@ tBTA_GATTS_CB bta_gatts_cb;
  ******************************************************************************/
 bool bta_gatts_hdl_event(BT_HDR* p_msg) {
   tBTA_GATTS_CB* p_cb = &bta_gatts_cb;
+  VLOG(1) << __func__ << ": event = " << +p_msg->event;
 
   switch (p_msg->event) {
     case BTA_GATTS_API_DISABLE_EVT:

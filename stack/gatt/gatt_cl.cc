@@ -1084,6 +1084,9 @@ void gatt_client_handle_server_rsp(tGATT_TCB& tcb, uint8_t op_code,
   alarm_cancel(p_clcb->gatt_rsp_timer_ent);
   p_clcb->retry_count = 0;
 
+  VLOG(1) << __func__ << " op_code: " << +op_code << ", len = " << +len
+                      << "rsp_code: " << +rsp_code;
+
   /* the size of the message may not be bigger than the local max PDU size*/
   /* The message has to be smaller than the agreed MTU, len does not count
    * op_code */
