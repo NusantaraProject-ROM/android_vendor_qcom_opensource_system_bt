@@ -49,6 +49,7 @@ void end_session();
 tA2DP_CTRL_CMD get_pending_command();
 bool is_restart_session_needed();
 void reset_pending_command();
+void update_pending_command(tA2DP_CTRL_CMD cmd);
 void ack_stream_started(const tA2DP_CTRL_ACK& status);
 void ack_stream_suspended(const tA2DP_CTRL_ACK& status);
 
@@ -59,7 +60,6 @@ size_t read(uint8_t* p_buf, uint32_t len);
 void set_remote_delay(uint16_t delay_report);
 bool is_streaming();
 SessionType get_session_type();
-void ack_signal_ready(tA2DP_CTRL_ACK ack);
 void update_session_params(SessionParamType param_type);
 
 }  // namespace a2dp

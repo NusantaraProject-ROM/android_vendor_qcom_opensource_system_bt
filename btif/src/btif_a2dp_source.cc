@@ -1615,6 +1615,10 @@ void btif_a2dp_update_sink_latency_change() {
 
 void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
   tA2DP_CTRL_ACK status = A2DP_CTRL_ACK_FAILURE;
+
+  // update the pending command
+  bluetooth::audio::a2dp::update_pending_command(cmd);
+
   switch (cmd) {
     case A2DP_CTRL_CMD_START:
     {
@@ -1758,8 +1762,8 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
         status = A2DP_CTRL_ACK_SUCCESS;
         break;
       }
-       //btif_av_reset_reconfig_flag();
-       if (btif_av_stream_ready()) {
+
+      if (btif_av_stream_ready()) {
         /*
          * Post start event and wait for audio path to open.
          * If we are the source, the ACK will be sent after the start
@@ -1805,7 +1809,6 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
 
       btif_dispatch_sm_event(BTIF_AV_STOP_STREAM_REQ_EVT, NULL, 0);
       status = A2DP_CTRL_ACK_SUCCESS;
-
       break;
     }
     case A2DP_CTRL_CMD_SUSPEND: {
@@ -1860,5 +1863,15 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
   }
 
   // send the response now based on status
-  bluetooth::audio::a2dp::ack_signal_ready(status);
+  switch (cmd) {
+    case A2DP_CTRL_CMD_START:
+      bluetooth::audio::a2dp::ack_stream_started(status);
+      break;
+    case A2DP_CTRL_CMD_SUSPEND:
+    case A2DP_CTRL_CMD_STOP:
+      bluetooth::audio::a2dp::ack_stream_suspended(status);
+      break;
+    default:
+      break;
+  }
 }
