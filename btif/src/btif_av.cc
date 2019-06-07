@@ -2129,7 +2129,9 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       break;
 
     case BTIF_AV_SOURCE_CONFIG_REQ_EVT:
-      btif_av_cb[index].reconfig_pending = true;
+      if(codec_cfg_change) {
+        btif_av_cb[index].reconfig_pending = true;
+      }
       btif_av_flow_spec_cmd(index, reconfig_a2dp_param_val);
       if ((btif_av_cb[index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING) && codec_cfg_change) {
         btif_av_cache_src_codec_config(BTIF_AV_SOURCE_CONFIG_REQ_EVT, p_data, index);
