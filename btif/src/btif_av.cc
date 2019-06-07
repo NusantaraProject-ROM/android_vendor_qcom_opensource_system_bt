@@ -4654,11 +4654,6 @@ bt_status_t btif_av_execute_service(bool b_enable) {
     }
     BTA_AvUpdateMaxAVClient(btif_max_av_clients);
   } else {
-    if (btif_av_is_playing()) {
-        BTIF_TRACE_DEBUG("Reset codec before BT ShutsDown");
-        RawAddress dummy_bda = {{0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
-        btif_report_source_codec_state(NULL, &dummy_bda);
-    }
     /* Also shut down the AV state machine */
     for (i = 0; i < btif_max_av_clients; i++ ) {
       if (btif_av_cb[i].sm_handle != NULL) {
