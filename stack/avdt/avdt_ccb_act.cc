@@ -192,9 +192,9 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   p_data->msg.discover_rsp.p_sep_info = sep_info;
   p_data->msg.discover_rsp.num_seps = 0;
   char remote_name[BTM_MAX_REM_BD_NAME_LEN] = "";
-  uint16_t vendor;
-  uint16_t product;
-  uint16_t version;
+  uint16_t vendor = 0;
+  uint16_t product = 0;
+  uint16_t version = 0;
   bool vndr_prdt_ver_present = false;
 
   AVDT_TRACE_WARNING("%s: total connections: %d, total codecs: %d",
