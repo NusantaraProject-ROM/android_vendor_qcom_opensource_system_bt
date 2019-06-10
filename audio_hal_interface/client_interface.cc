@@ -163,6 +163,11 @@ class BluetoothAudioDeathRecipient
     }
   }
 
+  void updateDeathHandlerThread(thread_t* message_loop) {
+    LOG(WARNING) << __func__ << ": Updated DeathHandler Thread";
+    message_loop_ = message_loop;
+  }
+
  private:
   BluetoothAudioClientInterface* bluetooth_audio_clientif_;
   thread_t* message_loop_;
@@ -368,6 +373,11 @@ void BluetoothAudioClientInterface::updateSessionParams(
   if (!hidl_retval.isOk()) {
     LOG(ERROR) << __func__ << ": BluetoothAudioHal Failure";
   }
+}
+
+void BluetoothAudioClientInterface::UpdateDeathHandlerThread(
+                                  thread_t* message_loop) {
+  death_recipient_->updateDeathHandlerThread(message_loop);
 }
 
 void BluetoothAudioClientInterface::StreamSuspended(

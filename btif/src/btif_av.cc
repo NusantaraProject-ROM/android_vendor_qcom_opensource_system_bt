@@ -643,7 +643,7 @@ static void btif_report_source_codec_state(UNUSED_ATTR void* p_data,
 
   if (btif_a2dp_source_is_hal_v2_supported()) {
     //check for codec update for active device
-    if(btif_av_cb[index].current_playing == TRUE) {
+    if(index < btif_max_av_clients && btif_av_cb[index].current_playing == TRUE) {
       if(btif_a2dp_source_is_restart_session_needed()) {
         RawAddress bt_addr = btif_av_cb[index].peer_bda;
         btif_a2dp_source_restart_session(bt_addr, bt_addr);
