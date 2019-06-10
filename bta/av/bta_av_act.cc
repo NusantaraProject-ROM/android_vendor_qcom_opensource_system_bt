@@ -2521,6 +2521,11 @@ void bta_av_rc_closed(tBTA_AV_DATA* p_data) {
         p_lcb->lidx = 0;
       }
       p_rcb->lidx = 0;
+      if (p_cb->disc && ((p_cb->disc & (~BTA_AV_CHNL_MSK)) == p_rcb->handle)) {
+        APPL_TRACE_WARNING("%s: clear RC discovery in avrcp close disc: x%x",
+                   __func__, p_cb->disc );
+        p_cb->disc = 0;
+      }
 
       if ((p_rcb->status & BTA_AV_RC_ROLE_MASK) == BTA_AV_RC_ROLE_INT) {
         /* AVCT CCB is deallocated */
