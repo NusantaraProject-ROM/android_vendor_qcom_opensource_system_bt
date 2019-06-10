@@ -693,21 +693,25 @@ void bta_gattc_disc_cmpl(tBTA_GATTC_CLCB* p_clcb,
   VLOG(1) << __func__ << ": conn_id=" << loghex(p_clcb->bta_conn_id);
 
   if (p_clcb->transport == BTA_TRANSPORT_LE) {
-    if (!interop_match_addr_or_name(INTEROP_DISABLE_LE_CONN_UPDATES, &p_clcb->p_srcb->server_bda)) {
+    if (p_clcb->p_srcb &&
+      (!interop_match_addr_or_name(INTEROP_DISABLE_LE_CONN_UPDATES,
+          &p_clcb->p_srcb->server_bda))) {
       L2CA_EnableUpdateBleConnParams(p_clcb->p_srcb->server_bda, true);
     }
   }
-  p_clcb->p_srcb->state = BTA_GATTC_SERV_IDLE;
+
+  if (p_clcb->p_srcb) {
+    p_clcb->p_srcb->state = BTA_GATTC_SERV_IDLE;
+  }
   p_clcb->disc_active = false;
 
   if (p_clcb->status != GATT_SUCCESS) {
     /* clean up cache */
     if (p_clcb->p_srcb) {
       p_clcb->p_srcb->gatt_database.Clear();
+      /* used to reset cache in application */
+      bta_gattc_cache_reset(p_clcb->p_srcb->server_bda);
     }
-
-    /* used to reset cache in application */
-    bta_gattc_cache_reset(p_clcb->p_srcb->server_bda);
   }
 
   if (p_clcb->p_srcb) {
@@ -723,8 +727,9 @@ void bta_gattc_disc_cmpl(tBTA_GATTC_CLCB* p_clcb,
   else if (p_q_cmd != NULL) {
     p_clcb->p_q_cmd = NULL;
     /* execute pending operation of link block still present */
-    if (l2cu_find_lcb_by_bd_addr(p_clcb->p_srcb->server_bda,
-                                 p_clcb->transport)) {
+    if (p_clcb->p_srcb &&
+        l2cu_find_lcb_by_bd_addr(p_clcb->p_srcb->server_bda,
+          p_clcb->transport)) {
       bta_gattc_sm_execute(p_clcb, p_q_cmd->hdr.event, p_q_cmd);
     }
     /* if the command executed requeued the cmd, we don't
@@ -734,7 +739,7 @@ void bta_gattc_disc_cmpl(tBTA_GATTC_CLCB* p_clcb,
     if (p_q_cmd != p_clcb->p_q_cmd) osi_free_and_reset((void**)&p_q_cmd);
   }
 
-  if (p_clcb->p_rcb->p_cback) {
+  if (p_clcb->p_rcb->p_cback && p_clcb->p_srcb) {
     tBTA_GATTC bta_gattc;
     bta_gattc.remote_bda = p_clcb->p_srcb->server_bda;
     (*p_clcb->p_rcb->p_cback)(BTA_GATTC_SRVC_DISC_DONE_EVT, &bta_gattc);
