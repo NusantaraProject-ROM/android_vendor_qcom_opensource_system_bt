@@ -1102,9 +1102,9 @@ static const tBTA_AV_CO_SINK* bta_av_co_find_peer_src_supports_codec(
 static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
   tBTA_AV_CO_SINK* p_sink = NULL;
   char remote_name[BTM_MAX_REM_BD_NAME_LEN] = "";
-  uint16_t vendor;
-  uint16_t product;
-  uint16_t version;
+  uint16_t vendor = 0;
+  uint16_t product = 0;
+  uint16_t version = 0;
   bool vndr_prdt_ver_present = false;
   // Update all selectable codecs.
   // This is needed to update the selectable parameters for each codec.
