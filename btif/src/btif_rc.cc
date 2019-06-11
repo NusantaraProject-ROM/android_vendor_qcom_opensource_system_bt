@@ -118,7 +118,8 @@
 #define IDX_GET_TOTAL_NUM_OF_ITEMS_RSP 14
 #define IDX_SEARCH_RSP 15
 #define IDX_ADD_TO_NOW_PLAYING_RSP 16
-#define BTRC_FEAT_AVRC_UI_UPDATE 0x08
+
+#define BTRC_FEAT_AVRC_UI_UPDATE 0x10
 
 /* Update MAX value whenever IDX will be changed */
 #define MAX_CMD_QUEUE_LEN 17
@@ -714,8 +715,12 @@ void handle_rc_features(btif_rc_device_cb_t* p_dev) {
     rc_features = (btrc_remote_features_t)(rc_features | BTRC_FEAT_METADATA);
   }
 
+  if (p_dev->rc_features & BTA_AV_FEAT_CA) {
+    rc_features = (btrc_remote_features_t)(rc_features | BTRC_FEAT_COVER_ART);
+  }
+
   if (p_dev->rc_features & BTA_AV_FEAT_AVRC_UI_UPDATE) {
-      rc_features = (btrc_remote_features_t)(rc_features | BTRC_FEAT_AVRC_UI_UPDATE);
+    rc_features = (btrc_remote_features_t)(rc_features | BTRC_FEAT_AVRC_UI_UPDATE);
   }
 
   BTIF_TRACE_DEBUG("%s: rc_features: 0x%x", __func__, rc_features);
