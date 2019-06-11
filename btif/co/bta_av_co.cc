@@ -1565,6 +1565,7 @@ bool bta_av_co_set_codec_user_config(
       p_peer->acp = false;
       isDevUiReq = false;
     }
+    btif_av_set_reconfig_flag(hndl);
     APPL_TRACE_DEBUG("%s: call BTA_AvReconfig(x%x)", __func__, p_peer->handle);
     BTA_AvReconfig(p_peer->handle, true, p_sink->sep_info_idx,
                    p_peer->codec_config, num_protect, bta_av_co_cp_scmst);
@@ -1723,9 +1724,9 @@ bool bta_av_co_set_codec_audio_config(
       APPL_TRACE_WARNING("%s: not all peer's capabilities have been retrieved",
                          __func__);
     } else {
+      btif_av_set_reconfig_flag(p_peer->handle);
       APPL_TRACE_DEBUG("%s: call BTA_AvReconfig(x%x)", __func__,
                        p_peer->handle);
-      btif_av_set_reconfig_flag(p_peer->handle);
       BTA_AvReconfig(p_peer->handle, true, p_sink->sep_info_idx,
                      p_peer->codec_config, num_protect, bta_av_co_cp_scmst);
       p_peer->rcfg_done = true;

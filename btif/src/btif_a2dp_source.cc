@@ -157,7 +157,7 @@ extern bool btif_av_current_device_is_tws();
 extern bool btif_av_is_tws_device_playing(int index);
 extern bool btif_av_is_idx_tws_device(int index);
 extern int btif_av_get_tws_pair_idx(int index);
-
+extern void btif_av_clear_pending_start_flag();
 static char a2dp_hal_imp[PROPERTY_VALUE_MAX] = "false";
 UNUSED_ATTR static const char* dump_media_event(uint16_t event) {
   switch (event) {
@@ -1880,6 +1880,8 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
           break;
         }
       }
+      /*Need to check if start is triggered and it is not in started state*/
+      btif_av_clear_pending_start_flag();
       /*pls check if we need to add a condition here */
       /* If we are not in started state, just ack back ok and let
        * audioflinger close the channel. This can happen if we are

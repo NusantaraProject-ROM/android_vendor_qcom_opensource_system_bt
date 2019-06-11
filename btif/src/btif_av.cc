@@ -294,6 +294,7 @@ extern bt_status_t send_av_passthrough_cmd(RawAddress* bd_addr, uint8_t key_code
                                         uint8_t key_state);
 static int other_device_media_packet_count = 0;
 void btif_av_set_reconfig_flag(tBTA_AV_HNDL bta_handle);
+void btif_av_clear_pending_start_flag();
 bool isBATEnabled();
 
 #if (TWS_ENABLED == TRUE)
@@ -651,6 +652,10 @@ static void btif_report_source_codec_state(UNUSED_ATTR void* p_data,
       if(btif_a2dp_source_is_restart_session_needed()) {
         RawAddress bt_addr = btif_av_cb[index].peer_bda;
         btif_a2dp_source_restart_session(bt_addr, bt_addr);
+        if (btif_av_cb[index].reconfig_pending) {
+          BTIF_TRACE_DEBUG("%s:Set reconfig_a2dp true",__func__);
+          reconfig_a2dp = true;
+        }
       }
       btif_av_signal_session_ready();
     }
@@ -1596,8 +1601,17 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
   switch (event) {
     case BTIF_SM_ENTER_EVT: {
       btif_av_cb[index].flags &= ~BTIF_AV_FLAG_PENDING_STOP;
-      btif_av_cb[index].flags &= ~BTIF_AV_FLAG_PENDING_START;
-
+      if (btif_av_cb[index].reconfig_pending &&
+        (btif_av_cb[index].flags &= BTIF_AV_FLAG_PENDING_START) != 0 &&
+        !reconfig_a2dp) {
+        // if codec switch did not happen and reconfig is called when the index
+        // was in streaming state, keep pending start to trigger play after reset
+        // if reconfig_a2dp is set, audio hal will suspend and start, no need to
+        // retain pending start flag
+        APPL_TRACE_IMP("%s: Pending start set for reconfig, do not reset",__func__);
+      } else {
+        btif_av_cb[index].flags &= ~BTIF_AV_FLAG_PENDING_START;
+      }
       if (btif_av_cb[index].reconfig_event) {
         btif_av_process_cached_src_codec_config(index);
       }
@@ -6215,3 +6229,12 @@ void btif_av_clear_suspend_rsp_track_timer(int index) {
    }
  }
 
+void btif_av_clear_pending_start_flag() {
+  int i = btif_av_get_current_playing_dev_idx();
+  BTIF_TRACE_DEBUG("%s: current playing idx: %d",__func__,i);
+  if (i == btif_max_av_clients) return;
+  if (btif_av_cb[i].reconfig_pending &&
+    (btif_av_cb[i].flags &= BTIF_AV_FLAG_PENDING_START) != 0) {
+    BTIF_TRACE_DEBUG("%s:clear pending start",__func__);
+  }
+}
