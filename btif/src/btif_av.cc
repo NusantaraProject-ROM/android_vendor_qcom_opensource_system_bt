@@ -2479,6 +2479,14 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       } else {
         btif_report_audio_state(BTAV_AUDIO_STATE_STOPPED, &(btif_av_cb[index].peer_bda));
       }
+      if (btif_av_cb[index].remote_started) {
+        if (btif_a2dp_source_is_remote_start()) {
+          BTIF_TRACE_DEBUG("%s:cancel remote start timer",__func__);
+          if(btif_a2dp_source_last_remote_start_index() == index)
+            btif_a2dp_source_cancel_remote_start();
+        }
+        btif_av_cb[index].remote_started = false;
+      }
       btif_av_cb[index].is_suspend_for_remote_start = FALSE;
       // if stop was successful, change state to open
       if (p_av->suspend.status == BTA_AV_SUCCESS)
