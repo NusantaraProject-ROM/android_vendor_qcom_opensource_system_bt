@@ -1703,7 +1703,7 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
           uint8_t hdl = 0;
           APPL_TRACE_DEBUG("%s: latest playing idx = %d",__func__,
                               latest_playing_idx);
-          if (latest_playing_idx > btif_max_av_clients ||
+          if (latest_playing_idx >= btif_max_av_clients ||
               latest_playing_idx < 0) {
               APPL_TRACE_ERROR("%s: Invalid index",__func__);
               status = A2DP_CTRL_ACK_FAILURE;//Invalid status to stop start retry

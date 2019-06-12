@@ -5798,7 +5798,10 @@ bool btif_av_is_tws_enable_monocfg() {
 /*SPLITA2DP*/
 
 bool btif_av_is_state_opened(int i) {
-  return (btif_sm_get_state(btif_av_cb[i].sm_handle) == BTIF_AV_STATE_OPENED);
+  if (i >= 0 && i < btif_max_av_clients)
+    return (btif_sm_get_state(btif_av_cb[i].sm_handle) == BTIF_AV_STATE_OPENED);
+  else
+    return false;
 }
 
 void btif_av_set_audio_delay(uint16_t delay, tBTA_AV_HNDL hndl) {
