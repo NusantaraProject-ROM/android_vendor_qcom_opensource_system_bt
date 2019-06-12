@@ -1475,7 +1475,7 @@ bool bta_av_co_set_codec_user_config(
       //Battery level indication(0x0000-0x000F) and BTcontrol(0x8000)
       const uint16_t ENCODER_MODE_MASK = 0x3000;
       uint16_t encoder_mode = codec_user_config.codec_specific_4 & ENCODER_MODE_MASK;
-      if (encoder_mode > 0) {
+      if (encoder_mode == APTX_HQ || encoder_mode == APTX_LL) {
         APPL_TRACE_DEBUG("%s: Updating Encoder Mode to: %x", __func__, encoder_mode);
         BTA_AvUpdateEncoderMode(encoder_mode);
       }
@@ -1484,16 +1484,16 @@ bool bta_av_co_set_codec_user_config(
         BTA_AvUpdateAptxData(codec_user_config.codec_specific_4);
       }
 
-      const uint16_t BT_SCAN_CONTROL_MASK = 0xB000;
-      const uint16_t BLE_SCAN_ON = 0x9000; //ORing of HQ(0x1000) and BTcontrol(0x8000)
-      const uint16_t BLE_SCAN_OFF = 0xA000;//ORing of LL(0x2000) and BTcontrol(0x8000)
-      uint16_t blescanonoroff = codec_user_config.codec_specific_4 & BT_SCAN_CONTROL_MASK;
-      if (blescanonoroff == BLE_SCAN_OFF) {
-        APPL_TRACE_DEBUG("%s: Disabling BLE Scanning", __func__);
-        btif_gatt_get_interface()->scanner->Scan(false);
-      } else if (blescanonoroff == BLE_SCAN_ON) {
-        APPL_TRACE_DEBUG("%s: Enabling BLE Scanning", __func__);
-        //btif_gatt_get_interface()->scanner->Scan(true);
+      bool ble_scan_off = ((codec_user_config.codec_specific_4 & APTX_SCAN_CONTROL_MASK) == APTX_SCAN_CONTROL_MASK);
+      if(!ble_scan_off)
+        return success;
+
+      switch(codec_user_config.codec_specific_4 & APTX_MODE_MASK) {
+        case APTX_ULL:
+        case APTX_LL:
+          APPL_TRACE_DEBUG("%s: Disabling BLE Scanning", __func__);
+          btif_gatt_get_interface()->scanner->Scan(false);
+          break;
       }
       return success;
     }
