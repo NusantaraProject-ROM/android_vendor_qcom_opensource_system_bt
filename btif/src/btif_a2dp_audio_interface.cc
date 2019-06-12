@@ -1229,6 +1229,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
 
         codec_type = A2DP_GetCodecType((const uint8_t*)p_codec_info);
         LOG_INFO(LOG_TAG,"codec_type = %x",codec_type);
+        peer_param.peer_mtu = peer_param.peer_mtu - A2DP_HEADER_SIZE;
         if (A2DP_MEDIA_CT_SBC == codec_type)
         {
           bitrate = A2DP_GetOffloadBitrateSbc(CodecConfig, peer_param.is_peer_edr);
@@ -1266,10 +1267,8 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
             bitrate = 0;//Bitrate is present in codec info
           }
         }
+
         bits_per_sample = CodecConfig->getAudioBitsPerSample();
-
-        peer_param.peer_mtu = peer_param.peer_mtu - A2DP_HEADER_SIZE;
-
         LOG_INFO(LOG_TAG,"bitrate = %d, bits_per_sample = %d, peer_param.peer_mtu = %d",
                           bitrate, bits_per_sample, peer_param.peer_mtu);
         codec_info[0] = 0; //playing device handle
