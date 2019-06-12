@@ -158,6 +158,8 @@ class BluetoothAudioClientInterface {
 
   void StreamSuspended(const BluetoothAudioCtrlAck& ack);
 
+  void UpdateDeathHandlerThread(thread_t* message_loop);
+
   int EndSession();
 
   // Read data from audio  HAL through fmq

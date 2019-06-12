@@ -193,6 +193,7 @@ class A2dpTransport : public ::bluetooth::audio::IBluetoothTransportInstance {
 };
 
 A2dpTransport* a2dp_sink = nullptr;
+thread_t* death_handler_thread = nullptr;
 
 // Common interface to call-out into Bluetooth Audio HAL
 bluetooth::audio::BluetoothAudioClientInterface* a2dp_hal_clientif = nullptr;
@@ -1078,6 +1079,12 @@ bool init( thread_t* message_loop) {
   if(a2dp_hal_clientif == nullptr) {
     a2dp_hal_clientif = new bluetooth::audio::BluetoothAudioClientInterface(
       a2dp_sink, message_loop, &internal_mutex_);
+    death_handler_thread = message_loop;
+  } else if(death_handler_thread != message_loop) {
+    death_handler_thread = message_loop;
+    //update the client interface as well
+    LOG(WARNING) << __func__ << ": updating death handler thread";
+    a2dp_hal_clientif->UpdateDeathHandlerThread(death_handler_thread);
   }
 
   if (remote_delay != 0) {
@@ -1107,6 +1114,7 @@ void cleanup() {
   a2dp_sink->Cleanup();
   a2dp_hal_clientif->EndSession();
   session_type = SessionType::UNKNOWN;
+  death_handler_thread = nullptr;
   remote_delay = 0;
 }
 
@@ -1244,6 +1252,7 @@ void end_session() {
   session_peer_mtu = 0;
   session_type = SessionType::UNKNOWN;
   is_session_started = false;
+  death_handler_thread = nullptr;
   remote_delay = 0;
   tA2DP_CTRL_CMD pending_cmd = A2DP_CTRL_CMD_NONE;
   pending_cmd = a2dp_sink->GetPendingCmd();
