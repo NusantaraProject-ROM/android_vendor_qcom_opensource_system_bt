@@ -1612,22 +1612,14 @@ static bool btif_av_state_closing_handler(btif_sm_event_t event, void* p_data, i
       btif_report_connection_state_to_ba(BTAV_CONNECTION_STATE_DISCONNECTED);
       break;
 
-    /* Handle the RC_CLOSE event for the cleanup */
-    case BTA_AV_RC_CLOSE_EVT:
-      btif_rc_handler(event, (tBTA_AV*)p_data);
-      break;
-
-    /* Handle the RC_BROWSE_CLOSE event for tetsing*/
-    case BTA_AV_RC_BROWSE_CLOSE_EVT:
-      btif_rc_handler(event, (tBTA_AV*)p_data);
-      break;
-
     case BTIF_AV_OFFLOAD_START_REQ_EVT:
       BTIF_TRACE_ERROR(
           "%s: BTIF_AV_OFFLOAD_START_REQ_EVT: Stream not Started Closing",
           __func__);
       btif_a2dp_on_offload_started(BTA_AV_FAIL);
       break;
+
+    CHECK_RC_EVENT(event, (tBTA_AV*)p_data);
 
     default:
       BTIF_TRACE_WARNING("%s: unhandled event=%s", __func__,
