@@ -68,26 +68,24 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_src_caps = {
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_STEREO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_MONO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_PLUS),
-    A2DP_APTX_ADAPTIVE_TTP_LL_0,
-    A2DP_APTX_ADAPTIVE_TTP_LL_1,
-    A2DP_APTX_ADAPTIVE_TTP_HQ_0,
-    A2DP_APTX_ADAPTIVE_TTP_HQ_1,
-    //A2DP_APTX_ADAPTIVE_TTP_TWS_0,
-    //A2DP_APTX_ADAPTIVE_TTP_TWS_1,
-    A2DP_APTX_ADAPTIVE_RESERVED_13THBYTE,
-    A2DP_APTX_ADAPTIVE_RESERVED_14THBYTE,
-    A2DP_APTX_ADAPTIVE_RESERVED_15THBYTE,
-    A2DP_APTX_ADAPTIVE_CAP_EXT_VER_NUM,
-    A2DP_APTX_ADAPTIVE_SUPPORTED_FEATURES,
-    A2DP_APTX_ADAPTIVE_FIRST_SETUP_PREF,
-    A2DP_APTX_ADAPTIVE_SECOND_SETUP_PREF,
-    A2DP_APTX_ADAPTIVE_THIRD_SETUP_PREF,
-    A2DP_APTX_ADAPTIVE_FOURTH_SETUP_PREF,
-    A2DP_APTX_ADAPTIVE_EOC0,
-    A2DP_APTX_ADAPTIVE_EOC1,
+    { A2DP_APTX_ADAPTIVE_TTP_LL_0,
+      A2DP_APTX_ADAPTIVE_TTP_LL_1,
+      A2DP_APTX_ADAPTIVE_TTP_HQ_0,
+      A2DP_APTX_ADAPTIVE_TTP_HQ_1,
+      A2DP_APTX_ADAPTIVE_TTP_TWS_0,
+      A2DP_APTX_ADAPTIVE_TTP_TWS_1,
+      A2DP_APTX_ADAPTIVE_RESERVED_15THBYTE,
+      A2DP_APTX_ADAPTIVE_CAP_EXT_VER_NUM,
+      A2DP_APTX_ADAPTIVE_SUPPORTED_FEATURES,
+      A2DP_APTX_ADAPTIVE_FIRST_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_SECOND_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_THIRD_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_FOURTH_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_EOC0,
+      A2DP_APTX_ADAPTIVE_EOC1},
 
-   BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24, /* bits_per_sample */
-   {0}
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24, /* bits_per_sample */
+    {0}
 };
 
 /* Default aptX-adaptive codec configuration */
@@ -100,23 +98,21 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_offload_caps = {
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_STEREO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_MONO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_PLUS),      /* channelMode */
-    A2DP_APTX_ADAPTIVE_TTP_LL_0,
-    A2DP_APTX_ADAPTIVE_TTP_LL_1,
-    A2DP_APTX_ADAPTIVE_TTP_HQ_0,
-    A2DP_APTX_ADAPTIVE_TTP_HQ_1,
-    //A2DP_APTX_ADAPTIVE_TTP_TWS_0,
-    //A2DP_APTX_ADAPTIVE_TTP_TWS_1,
-    A2DP_APTX_ADAPTIVE_RESERVED_13THBYTE,
-    A2DP_APTX_ADAPTIVE_RESERVED_14THBYTE,
-    A2DP_APTX_ADAPTIVE_RESERVED_15THBYTE,
-    A2DP_APTX_ADAPTIVE_CAP_EXT_VER_NUM,
-    A2DP_APTX_ADAPTIVE_SUPPORTED_FEATURES,
-    A2DP_APTX_ADAPTIVE_FIRST_SETUP_PREF,
-    A2DP_APTX_ADAPTIVE_SECOND_SETUP_PREF,
-    A2DP_APTX_ADAPTIVE_THIRD_SETUP_PREF,
-    A2DP_APTX_ADAPTIVE_FOURTH_SETUP_PREF,
-    A2DP_APTX_ADAPTIVE_EOC0,
-    A2DP_APTX_ADAPTIVE_EOC1,
+    { A2DP_APTX_ADAPTIVE_TTP_LL_0,
+      A2DP_APTX_ADAPTIVE_TTP_LL_1,
+      A2DP_APTX_ADAPTIVE_TTP_HQ_0,
+      A2DP_APTX_ADAPTIVE_TTP_HQ_1,
+      A2DP_APTX_ADAPTIVE_TTP_TWS_0,
+      A2DP_APTX_ADAPTIVE_TTP_TWS_1,
+      A2DP_APTX_ADAPTIVE_RESERVED_15THBYTE,
+      A2DP_APTX_ADAPTIVE_CAP_EXT_VER_NUM,
+      A2DP_APTX_ADAPTIVE_SUPPORTED_FEATURES,
+      A2DP_APTX_ADAPTIVE_FIRST_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_SECOND_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_THIRD_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_FOURTH_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_EOC0,
+      A2DP_APTX_ADAPTIVE_EOC1},
 
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24, /* bits_per_sample */
     {0}
@@ -129,23 +125,21 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_src_config = {
     A2DP_APTX_ADAPTIVE_SAMPLERATE_48000,   /* sampleRate */
     A2DP_APTX_ADAPTIVE_SOURCE_TYPE_2,
     A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO | A2DP_APTX_ADAPTIVE_CHANNELS_TWS_PLUS,      /* channelMode */
-    A2DP_APTX_ADAPTIVE_TTP_LL_0,
-    A2DP_APTX_ADAPTIVE_TTP_LL_1,
-    A2DP_APTX_ADAPTIVE_TTP_HQ_0,
-    A2DP_APTX_ADAPTIVE_TTP_HQ_1,
-    //A2DP_APTX_ADAPTIVE_TTP_TWS_0,
-    //A2DP_APTX_ADAPTIVE_TTP_TWS_1,
-    A2DP_APTX_ADAPTIVE_RESERVED_13THBYTE,
-    A2DP_APTX_ADAPTIVE_RESERVED_14THBYTE,
-    A2DP_APTX_ADAPTIVE_RESERVED_15THBYTE,
-    A2DP_APTX_ADAPTIVE_CAP_EXT_VER_NUM,
-    A2DP_APTX_ADAPTIVE_SUPPORTED_FEATURES,
-    A2DP_APTX_ADAPTIVE_FIRST_SETUP_PREF,
-    A2DP_APTX_ADAPTIVE_SECOND_SETUP_PREF,
-    A2DP_APTX_ADAPTIVE_THIRD_SETUP_PREF,
-    A2DP_APTX_ADAPTIVE_FOURTH_SETUP_PREF,
-    A2DP_APTX_ADAPTIVE_EOC0,
-    A2DP_APTX_ADAPTIVE_EOC1,
+    { A2DP_APTX_ADAPTIVE_TTP_LL_0,
+      A2DP_APTX_ADAPTIVE_TTP_LL_1,
+      A2DP_APTX_ADAPTIVE_TTP_HQ_0,
+      A2DP_APTX_ADAPTIVE_TTP_HQ_1,
+      A2DP_APTX_ADAPTIVE_TTP_TWS_0,
+      A2DP_APTX_ADAPTIVE_TTP_TWS_1,
+      A2DP_APTX_ADAPTIVE_RESERVED_15THBYTE,
+      A2DP_APTX_ADAPTIVE_CAP_EXT_VER_NUM,
+      A2DP_APTX_ADAPTIVE_SUPPORTED_FEATURES,
+      A2DP_APTX_ADAPTIVE_FIRST_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_SECOND_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_THIRD_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_FOURTH_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_EOC0,
+      A2DP_APTX_ADAPTIVE_EOC1},
 
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24, /* bits_per_sample */
     {0}
@@ -161,23 +155,21 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_offload_config =
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_STEREO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_MONO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_PLUS),      /* channelMode */
-    A2DP_APTX_ADAPTIVE_TTP_LL_0,
-    A2DP_APTX_ADAPTIVE_TTP_LL_1,
-    A2DP_APTX_ADAPTIVE_TTP_HQ_0,
-    A2DP_APTX_ADAPTIVE_TTP_HQ_1,
-    //A2DP_APTX_ADAPTIVE_TTP_TWS_0,
-    //A2DP_APTX_ADAPTIVE_TTP_TWS_1,
-    A2DP_APTX_ADAPTIVE_RESERVED_13THBYTE,
-    A2DP_APTX_ADAPTIVE_RESERVED_14THBYTE,
-    A2DP_APTX_ADAPTIVE_RESERVED_15THBYTE,
-    A2DP_APTX_ADAPTIVE_CAP_EXT_VER_NUM,
-    A2DP_APTX_ADAPTIVE_SUPPORTED_FEATURES,
-    A2DP_APTX_ADAPTIVE_FIRST_SETUP_PREF,
-    A2DP_APTX_ADAPTIVE_SECOND_SETUP_PREF,
-    A2DP_APTX_ADAPTIVE_THIRD_SETUP_PREF,
-    A2DP_APTX_ADAPTIVE_FOURTH_SETUP_PREF,
-    A2DP_APTX_ADAPTIVE_EOC0,
-    A2DP_APTX_ADAPTIVE_EOC1,
+    { A2DP_APTX_ADAPTIVE_TTP_LL_0,
+      A2DP_APTX_ADAPTIVE_TTP_LL_1,
+      A2DP_APTX_ADAPTIVE_TTP_HQ_0,
+      A2DP_APTX_ADAPTIVE_TTP_HQ_1,
+      A2DP_APTX_ADAPTIVE_TTP_TWS_0,
+      A2DP_APTX_ADAPTIVE_TTP_TWS_1,
+      A2DP_APTX_ADAPTIVE_RESERVED_15THBYTE,
+      A2DP_APTX_ADAPTIVE_CAP_EXT_VER_NUM,
+      A2DP_APTX_ADAPTIVE_SUPPORTED_FEATURES,
+      A2DP_APTX_ADAPTIVE_FIRST_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_SECOND_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_THIRD_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_FOURTH_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_EOC0,
+      A2DP_APTX_ADAPTIVE_EOC1},
 
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24, /* bits_per_sample */
     {0}
@@ -222,32 +214,11 @@ static tA2DP_STATUS A2DP_BuildInfoAptxAdaptive(uint8_t media_type,
   *p_result++ = (uint8_t)((p_ie->codecId & 0xFF00) >> 8);
   *p_result++ = p_ie->sampleRate | p_ie->sourceType;
   *p_result++ = p_ie->channelMode;
-  *p_result++ = p_ie->ttp_ll_0;
-  *p_result++ = p_ie->ttp_ll_1;
-  *p_result++ = p_ie->ttp_hq_0;
-  *p_result++ = p_ie->ttp_hq_1;
-  //*p_result++ = p_ie->ttp_tws_0;
-  //*p_result++ = p_ie->ttp_tws_1;
-  *p_result++ = p_ie->reserved_13thbyte;
-  *p_result++ = p_ie->reserved_14thbyte;
-  *p_result++ = p_ie->reserved_15thbyte;
 
-  //Below are the additions for R2
-  *p_result++ = p_ie->cap_ext_ver_num;
-  *p_result++ = (uint8_t)(p_ie->aptx_adaptive_sup_features & 0x000000FF);
-  *p_result++ = (uint8_t)((p_ie->aptx_adaptive_sup_features & 0x0000FF00) >> 8);
-  *p_result++ = (uint8_t)((p_ie->aptx_adaptive_sup_features & 0x00FF0000) >> 16);
-  *p_result++ = (uint8_t)((p_ie->aptx_adaptive_sup_features & 0xFF000000) >> 24);
-  *p_result++ = p_ie->first_setup_pref;
-  *p_result++ = p_ie->second_setup_pref;
-  *p_result++ = p_ie->third_setup_pref;
-  *p_result++ = p_ie->fourth_setup_pref;
-  *p_result++ = p_ie->eoc0;
-  *p_result++ = p_ie->eoc1;
+  memcpy(p_result, &(p_ie->aptx_data), sizeof(p_ie->aptx_data));
+  p_result += 18;
   memset(p_result, 0x0, sizeof(p_ie->reserved_data));
   p_result += sizeof(p_ie->reserved_data);
-  //*p_result++ = p_ie->ttp_tws_0;
-  //*p_result++ = p_ie->ttp_tws_1;
 
   return A2DP_SUCCESS;
 }
@@ -299,38 +270,15 @@ static tA2DP_STATUS A2DP_ParseInfoAptxAdaptive(tA2DP_APTX_ADAPTIVE_CIE* p_ie,
     return A2DP_WRONG_CODEC;
   }
 
-  //p_ie->sourceType = *p_codec_info & 0x0F;
-  //p_ie->sampleRate = *p_codec_info & 0xF0;
   p_ie->sourceType = *p_codec_info & 0x07;
   p_ie->sampleRate = *p_codec_info & 0xF8;
   p_codec_info++;
 
   p_ie->channelMode = *p_codec_info & 0x3F;
   p_codec_info++;
-  //p_ie->channelMode = *(p_codec_info ++);
-  p_ie->ttp_ll_0 = *(p_codec_info ++);
-  p_ie->ttp_ll_1 = *(p_codec_info ++);
-  p_ie->ttp_hq_0 = *(p_codec_info ++);
-  p_ie->ttp_hq_1 = *(p_codec_info ++);
-  //p_ie->ttp_tws_0 = *(p_codec_info ++);
-  //p_ie->ttp_tws_1 = *(p_codec_info ++);
-  p_ie->reserved_13thbyte = *(p_codec_info ++);
-  p_ie->reserved_14thbyte = *(p_codec_info ++);
-  p_ie->reserved_15thbyte = *(p_codec_info ++);
 
-  //Below are the additions for R2
-  p_ie->cap_ext_ver_num = *(p_codec_info ++);
-  p_ie->aptx_adaptive_sup_features = (*p_codec_info & 0x000000FF) |
-                                     (*(p_codec_info + 1) << 8 & 0x0000FF00) |
-                                     (*(p_codec_info + 2) << 16 & 0x00FF0000) |
-                                     (*(p_codec_info + 3) << 24 & 0xFF000000);
-  p_codec_info += 4;
-  p_ie->first_setup_pref = *(p_codec_info ++);
-  p_ie->second_setup_pref = *(p_codec_info ++);
-  p_ie->third_setup_pref = *(p_codec_info ++);
-  p_ie->fourth_setup_pref = *(p_codec_info ++);
-  p_ie->eoc0 = *(p_codec_info ++);
-  p_ie->eoc1 = *(p_codec_info ++);
+  memcpy(&(p_ie->aptx_data), p_codec_info, sizeof(p_ie->aptx_data));
+  p_codec_info += 18;
 
   if (is_capability) return A2DP_SUCCESS;
 
@@ -1194,34 +1142,8 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
               sink_info_cie.channelMode);
 
   result_config_cie.sourceType = a2dp_aptx_adaptive_caps.sourceType;
-  result_config_cie.ttp_ll_0 = a2dp_aptx_adaptive_caps.ttp_ll_0;
-  result_config_cie.ttp_ll_1 = a2dp_aptx_adaptive_caps.ttp_ll_1;
-  result_config_cie.ttp_hq_0 = a2dp_aptx_adaptive_caps.ttp_hq_0;
-  result_config_cie.ttp_hq_1 = a2dp_aptx_adaptive_caps.ttp_hq_1;
-  //result_config_cie.ttp_tws_0 = a2dp_aptx_adaptive_caps.ttp_tws_0;
-  //result_config_cie.ttp_tws_1 = a2dp_aptx_adaptive_caps.ttp_tws_1;
-  result_config_cie.reserved_13thbyte =
-                 a2dp_aptx_adaptive_caps.reserved_13thbyte;
-  result_config_cie.reserved_14thbyte =
-                 a2dp_aptx_adaptive_caps.reserved_14thbyte;
-  result_config_cie.reserved_15thbyte =
-                           sink_info_cie.reserved_15thbyte;
-  //Below are the additions for R2
-  result_config_cie.cap_ext_ver_num = (a2dp_aptx_adaptive_caps.cap_ext_ver_num &
-                                 sink_info_cie.cap_ext_ver_num);
-  result_config_cie.aptx_adaptive_sup_features =
-                                  (a2dp_aptx_adaptive_caps.aptx_adaptive_sup_features &
-                                   sink_info_cie.aptx_adaptive_sup_features);
-  result_config_cie.first_setup_pref = (a2dp_aptx_adaptive_caps.first_setup_pref &
-                                        sink_info_cie.first_setup_pref);
-  result_config_cie.second_setup_pref = (a2dp_aptx_adaptive_caps.second_setup_pref &
-                                         sink_info_cie.second_setup_pref);
-  result_config_cie.third_setup_pref = (a2dp_aptx_adaptive_caps.third_setup_pref &
-                                        sink_info_cie.third_setup_pref);
-  result_config_cie.fourth_setup_pref = (a2dp_aptx_adaptive_caps.fourth_setup_pref &
-                                         sink_info_cie.fourth_setup_pref);
-  result_config_cie.eoc0 = (a2dp_aptx_adaptive_caps.eoc0 & sink_info_cie.eoc0);
-  result_config_cie.eoc1 = (a2dp_aptx_adaptive_caps.eoc1 & sink_info_cie.eoc1);
+  result_config_cie.aptx_data = sink_info_cie.aptx_data;
+
   memset(result_config_cie.reserved_data, 0, sizeof(result_config_cie.reserved_data));
 
   if (A2DP_BuildInfoAptxAdaptive(AVDT_MEDIA_TYPE_AUDIO, &result_config_cie,
