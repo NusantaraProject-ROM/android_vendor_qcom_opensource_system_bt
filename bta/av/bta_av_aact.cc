@@ -4069,16 +4069,22 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
     offload_start.p_scb = p_scb;
     if(strcmp(codec_name,"aptX-adaptive") == 0)
     {
-        const uint16_t ULL_MODE = 0x6000;
-        const uint16_t LL_MODE = 0x2000;
         tBTA_AV_DATA av_data;
-        av_data.encoder_mode.enc_mode = btif_av_get_aptx_mode_info();
-        if((av_data.encoder_mode.enc_mode & ULL_MODE) == ULL_MODE) {
-            av_data.encoder_mode.enc_mode = LL_MODE;
-            bta_av_update_enc_mode(&av_data);
-            BTA_AvUpdateAptxData(ULL_MODE);
-        } else {
-            bta_av_update_enc_mode(&av_data);
+        av_data.encoder_mode.enc_mode = (btif_av_get_aptx_mode_info() & APTX_MODE_MASK);
+        switch(av_data.encoder_mode.enc_mode) {
+            case APTX_HQ:
+            case APTX_LL:
+              bta_av_update_enc_mode(&av_data);
+              break;
+            case APTX_ULL:
+              av_data.encoder_mode.enc_mode = APTX_LL;
+              bta_av_update_enc_mode(&av_data);
+              BTA_AvUpdateAptxData(APTX_ULL);
+              break;
+            default:
+              av_data.encoder_mode.enc_mode = APTX_HQ;
+              bta_av_update_enc_mode(&av_data);
+              APPL_TRACE_WARNING("Unknown aptX mode, send HQ as default");
         }
     }
   }

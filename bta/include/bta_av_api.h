@@ -754,7 +754,7 @@ void BTA_AvUpdateEncoderMode(uint16_t enc_mode);
  * Returns            void
  *
  ******************************************************************************/
-void BTA_AvUpdateAptxData(uint16_t data);
+void BTA_AvUpdateAptxData(uint32_t data);
 
 
 /*******************************************************************************
