@@ -2067,7 +2067,7 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
             if (btif_av_cb[i].current_playing) {
               is_playing = true;
               BTIF_TRACE_DEBUG("%s: current playing index: %d, is_playing: %d",
-                           __func__, btif_av_cb[i].current_playing, is_playing);
+                           __func__, i, is_playing);
               break;
             }
           }

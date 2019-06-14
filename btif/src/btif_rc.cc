@@ -4659,7 +4659,9 @@ static void handle_notification_response(tBTA_AV_META_MSG* pmeta_msg,
         /* Start timer to get play status periodically
          * if the play state is playing.
          */
+        BTIF_TRACE_DEBUG("%s: Interim play_status: %d", __func__, p_rsp->param.play_status);
         if (p_rsp->param.play_status == AVRC_PLAYSTATE_PLAYING) {
+          btif_sink_ho_through_avrcp_pback_status(rc_addr);
           rc_start_play_status_timer(p_dev);
         }
         HAL_CBACK(bt_rc_ctrl_callbacks, play_status_changed_cb, &rc_addr,
@@ -4758,7 +4760,7 @@ static void handle_notification_response(tBTA_AV_META_MSG* pmeta_msg,
         /* Start timer to get play status periodically
          * if the play state is playing.
          */
-        BTIF_TRACE_DEBUG("%s: play_status: %d", __func__, p_rsp->param.play_status);
+        BTIF_TRACE_DEBUG("%s: Changed play_status: %d", __func__, p_rsp->param.play_status);
         if (p_rsp->param.play_status == AVRC_PLAYSTATE_PLAYING) {
           btif_sink_ho_through_avrcp_pback_status(rc_addr);
           rc_start_play_status_timer(p_dev);
