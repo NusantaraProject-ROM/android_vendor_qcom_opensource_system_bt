@@ -357,7 +357,8 @@ void bta_gattc_disc_cmpl_cback(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
   tBTA_GATTC_CLCB* p_clcb = bta_gattc_find_clcb_by_conn_id(conn_id);
 
   if (p_clcb && (status != GATT_SUCCESS || p_clcb->status != GATT_SUCCESS)) {
-    if (status == GATT_SUCCESS) p_clcb->status = status;
+    if ((status == GATT_SUCCESS) ||(status == GATT_ERROR))
+      p_clcb->status = status;
     bta_gattc_sm_execute(p_clcb, BTA_GATTC_DISCOVER_CMPL_EVT, NULL);
     return;
   }
