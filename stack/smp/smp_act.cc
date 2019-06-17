@@ -504,7 +504,7 @@ void smp_proc_pair_fail(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
                       __func__, p_cb->rcvd_cmd_len);
     p_cb->status = SMP_INVALID_PARAMETERS;
   } else {
-    p_cb->status = p_data->status;
+    p_cb->status = *(uint8_t *)p_data->p_data;
   }
 
   /* Cancel pending auth complete timer if set */
@@ -1454,7 +1454,6 @@ void smp_br_send_pair_response(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
 void smp_pairing_cmpl(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
   if (p_cb->total_tx_unacked == 0) {
     /* process the pairing complete */
-    p_cb->status = *(uint8_t*)p_data;
     smp_proc_pairing_cmpl(p_cb);
   }
 }
