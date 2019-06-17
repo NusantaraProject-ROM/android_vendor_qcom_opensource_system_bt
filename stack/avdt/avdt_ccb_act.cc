@@ -218,7 +218,11 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
     }
   }
   //p_scb = &avdt_cb.scb[0];
-  p_scb = avdt_scb_by_peer_addr(p_ccb->peer_addr);
+  if (p_ccb != NULL) {
+    p_scb = avdt_scb_by_peer_addr(p_ccb->peer_addr);
+  } else {
+    APPL_TRACE_DEBUG("p_ccb is NULL");
+  }
   if (p_scb == NULL)
     p_scb = &avdt_cb.scb[0];
   i = (avdt_scb_to_hdl(p_scb) - 1);
@@ -227,7 +231,7 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   for (; i < AVDT_NUM_SEPS; i++, p_scb++) {
     if (effective_num_seps == num_codecs)
       break;
-    if ((p_scb->allocated) && (!p_scb->in_use)) {
+    if ((p_ccb != NULL) && (p_scb->allocated) && (!p_scb->in_use)) {
       effective_num_seps++;
       codec_name = A2DP_CodecName(p_scb->cs.cfg.codec_info);
       APPL_TRACE_DEBUG("codec name %s", A2DP_CodecName(p_scb->cs.cfg.codec_info));
@@ -358,9 +362,13 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
     }
   }
   AVDT_TRACE_WARNING("%s: effective number of endpoints: %d", __func__, effective_num_seps);
-  bta_av_refresh_accept_signalling_timer(p_ccb->peer_addr);
-  /* send response */
-  avdt_ccb_event(p_ccb, AVDT_CCB_API_DISCOVER_RSP_EVT, p_data);
+  if (p_ccb != NULL) {
+    bta_av_refresh_accept_signalling_timer(p_ccb->peer_addr);
+    /* send response */
+    avdt_ccb_event(p_ccb, AVDT_CCB_API_DISCOVER_RSP_EVT, p_data);
+  } else {
+    APPL_TRACE_DEBUG("p_ccb is NULL");
+  }
 }
 
 /*******************************************************************************
