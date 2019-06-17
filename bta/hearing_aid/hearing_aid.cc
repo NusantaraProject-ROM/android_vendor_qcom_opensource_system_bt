@@ -86,6 +86,13 @@ constexpr uint8_t AUDIOTYPE_UNKNOWN = 0x00;
 constexpr uint8_t OTHER_SIDE_NOT_STREAMING = 0x00;
 constexpr uint8_t OTHER_SIDE_IS_STREAMING = 0x01;
 
+// This ADD_RENDER_DELAY_INTERVALS is the number of connection intervals when
+// the audio data packet is send by Audio Engine to when the Hearing Aids device
+// received it from the air. We assumed that there is 2 data buffer queued from
+// audio subsystem to bluetooth chip. Then the estimated OTA delay is two
+// connnection intervals.
+constexpr uint16_t ADD_RENDER_DELAY_INTERVALS = 4;
+
 namespace {
 
 // clang-format off
@@ -212,6 +219,24 @@ static void write_rpt_ctl_cfg_cb(uint16_t conn_id, tGATT_STATUS status,
 
 g722_encode_state_t* encoder_state_left = nullptr;
 g722_encode_state_t* encoder_state_right = nullptr;
+
+inline void encoder_state_init() {
+  if (encoder_state_left != nullptr) {
+    LOG(WARNING) << __func__ << ": encoder already initialized";
+    return;
+  }
+  encoder_state_left = g722_encode_init(nullptr, 64000, G722_PACKED);
+  encoder_state_right = g722_encode_init(nullptr, 64000, G722_PACKED);
+}
+
+inline void encoder_state_release() {
+  if (encoder_state_left != nullptr) {
+    g722_encode_release(encoder_state_left);
+    encoder_state_left = nullptr;
+    g722_encode_release(encoder_state_right);
+    encoder_state_right = nullptr;
+  }
+}
 
 class HearingAidImpl : public HearingAid {
  private:
@@ -966,8 +991,7 @@ class HearingAidImpl : public HearingAid {
     VLOG(0) << __func__ << ": device=" << hearingDevice.address;
 
     if (encoder_state_left == nullptr) {
-      encoder_state_left = g722_encode_init(nullptr, 64000, G722_PACKED);
-      encoder_state_right = g722_encode_init(nullptr, 64000, G722_PACKED);
+      encoder_state_init();
       seq_counter = 0;
 
       // use the best codec avaliable for this pair of devices.
@@ -989,7 +1013,13 @@ class HearingAidImpl : public HearingAid {
       codec.bit_rate = 16;
       codec.data_interval_ms = default_data_interval_ms;
 
-      HearingAidAudioSource::Start(codec, audioReceiver);
+      uint16_t delay_report_ms = 0;
+      if (hearingDevice.render_delay != 0) {
+        delay_report_ms =
+            hearingDevice.render_delay +
+            (ADD_RENDER_DELAY_INTERVALS * default_data_interval_ms);
+      }
+      HearingAidAudioSource::Start(codec, audioReceiver, delay_report_ms);
     }
   }
 
@@ -1029,12 +1059,8 @@ class HearingAidImpl : public HearingAid {
     audio_running = true;
 
     // TODO: shall we also reset the encoder ?
-    if (encoder_state_left != nullptr) {
-      g722_encode_release(encoder_state_left);
-      g722_encode_release(encoder_state_right);
-      encoder_state_left = g722_encode_init(nullptr, 64000, G722_PACKED);
-      encoder_state_right = g722_encode_init(nullptr, 64000, G722_PACKED);
-    }
+    encoder_state_release();
+    encoder_state_init();
     seq_counter = 0;
 
     for (auto& device : hearingDevices.devices) {
@@ -1133,6 +1159,7 @@ class HearingAidImpl : public HearingAid {
 
     if (left == nullptr && right == nullptr) {
       HearingAidAudioSource::Stop();
+      encoder_state_release();
       current_volume = VOLUME_UNKNOWN;
       return;
     }
@@ -1267,10 +1294,8 @@ class HearingAidImpl : public HearingAid {
 
     DVLOG(2) << hearingAid->address << " : " << base::HexEncode(p, packet_size);
 
-    uint16_t result = 0;
-#ifdef USE_QC_HA_AUDIO_HAL
-    result = GAP_ConnWriteData(hearingAid->gap_handle, audio_packet);
-#endif
+    uint16_t result = GAP_ConnWriteData(hearingAid->gap_handle, audio_packet);
+
     if (result != BT_PASS) {
       LOG(ERROR) << " Error sending data: " << loghex(result);
     }
@@ -1297,7 +1322,9 @@ class HearingAidImpl : public HearingAid {
       case GAP_EVT_CONN_CLOSED:
         LOG(INFO) << __func__
                   << ": GAP_EVT_CONN_CLOSED: " << hearingDevice->address
-                  << ", playback_started=" << hearingDevice->playback_started;
+                  << ", playback_started=" << hearingDevice->playback_started
+                  << ", accepting_audio=" << hearingDevice->accepting_audio;
+
         hearingDevice->accepting_audio = false;
         hearingDevice->gap_handle = 0;
         hearingDevice->playback_started = false;
@@ -1468,6 +1495,8 @@ class HearingAidImpl : public HearingAid {
               << loghex(conn_id);
       return;
     }
+    VLOG(2) << __func__ << ": conn_id=" << loghex(conn_id)
+            << ", reason=" << loghex(reason) << ", remote_bda=" << remote_bda;
 
     // Inform the other side (if any) of this disconnection
     std::vector<uint8_t> inform_disconn_state(
@@ -1529,6 +1558,8 @@ class HearingAidImpl : public HearingAid {
     }
 
     hearingDevices.devices.clear();
+
+    encoder_state_release();
   }
 
  private:
