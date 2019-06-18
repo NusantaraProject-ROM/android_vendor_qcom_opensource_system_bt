@@ -1029,7 +1029,8 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
         btif_av_update_multicast_state(index);
         if (btif_av_cb[index].peer_sep == AVDT_TSEP_SNK) {
           /* if queued PLAY command,  send it now */
-          btif_rc_check_handle_pending_play(p_bta_data->open.bd_addr,
+          if (!btif_a2dp_source_is_hal_v2_supported())
+            btif_rc_check_handle_pending_play(p_bta_data->open.bd_addr,
                    (p_bta_data->open.status == BTA_AV_SUCCESS));
         } else if (btif_av_cb[index].peer_sep == AVDT_TSEP_SRC) {
           /* if queued PLAY command,  send it now */
@@ -1223,11 +1224,12 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
          * and update multicast state
          */
         btif_av_update_multicast_state(index);
-        if (btif_av_cb[index].peer_sep == AVDT_TSEP_SNK)
+        if (btif_av_cb[index].peer_sep == AVDT_TSEP_SNK) {
           /* if queued PLAY command,  send it now */
-          btif_rc_check_handle_pending_play(p_bta_data->open.bd_addr,
+          if (!btif_a2dp_source_is_hal_v2_supported())
+            btif_rc_check_handle_pending_play(p_bta_data->open.bd_addr,
                       (p_bta_data->open.status == BTA_AV_SUCCESS));
-        else if (btif_av_cb[index].peer_sep == AVDT_TSEP_SRC) {
+        } else if (btif_av_cb[index].peer_sep == AVDT_TSEP_SRC) {
           /* if queued PLAY command,  send it now */
           btif_rc_check_handle_pending_play(p_bta_data->open.bd_addr, false);
           /* Bring up AVRCP connection too */
@@ -2693,6 +2695,13 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
           config->peer_bd.ToString().c_str(), index);
       } break;
 
+    case BTIF_AV_CHECK_PENDING_PLAY_EVT:
+      bt_addr = (RawAddress *)p_param;
+      BTIF_TRACE_WARNING("%s: device %s ",__func__, (*bt_addr).ToString().c_str());
+      if (*bt_addr != RawAddress::kEmpty)
+        btif_rc_check_handle_pending_play(*bt_addr, true);
+      break;
+
     case BTIF_AV_TRIGGER_HANDOFF_REQ_EVT:
       bt_addr = (RawAddress *)p_param;
       BTIF_TRACE_WARNING("%s: device %s ",__func__, (*bt_addr).ToString().c_str());
@@ -4150,8 +4159,10 @@ static bt_status_t set_active_device(const RawAddress& bd_addr) {
     session_wait_cv.wait_for(guard, std::chrono::milliseconds(1000),
                       []{return session_wait;});
     BTIF_TRACE_EVENT("%s: done with signal",__func__);
+    if (!bd_addr.IsEmpty())
+      btif_transfer_context(btif_av_handle_event, BTIF_AV_CHECK_PENDING_PLAY_EVT,
+                                    (char *)&bd_addr, sizeof(RawAddress), NULL);
     return BT_STATUS_SUCCESS;
-
   } else {
     /* Initiate handoff for the device with address in the argument*/
     return btif_transfer_context(btif_av_handle_event,
