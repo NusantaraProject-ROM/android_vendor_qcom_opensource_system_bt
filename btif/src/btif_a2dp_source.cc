@@ -54,6 +54,7 @@
 #include "btif_bat.h"
 #include "btif_hf.h"
 #include "btif_av.h"
+#include "bta_sys.h"
 using system_bt_osi::BluetoothMetricsLogger;
 using system_bt_osi::A2dpSessionMetrics;
 
@@ -1612,6 +1613,20 @@ void btif_a2dp_update_sink_latency_change() {
   }
 }
 
+void btif_a2dp_source_command_ack(tA2DP_CTRL_CMD cmd, tA2DP_CTRL_ACK status) {
+  switch (cmd) {
+    case A2DP_CTRL_CMD_START:
+      bluetooth::audio::a2dp::ack_stream_started(status);
+      break;
+    case A2DP_CTRL_CMD_SUSPEND:
+    case A2DP_CTRL_CMD_STOP:
+      bluetooth::audio::a2dp::ack_stream_suspended(status);
+      break;
+    default:
+      break;
+  }
+}
+
 void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
   tA2DP_CTRL_ACK status = A2DP_CTRL_ACK_FAILURE;
 
@@ -1630,6 +1645,12 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
       bool remote_start_flag = false;
       int remote_start_idx = btif_max_av_clients;
       int latest_playing_idx = btif_max_av_clients;
+
+      if (!bta_sys_is_register(BTA_ID_AV)) {
+        APPL_TRACE_ERROR("AV is disabled, return disc in progress");
+        status = A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS;
+        break;
+      }
       if (!bluetooth::headset::btif_hf_is_call_vr_idle()) {
         status = A2DP_CTRL_ACK_INCALL_FAILURE;
         break;
@@ -1788,6 +1809,12 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
     }
 
     case A2DP_CTRL_CMD_STOP: {
+
+      if (!bta_sys_is_register(BTA_ID_AV)) {
+        APPL_TRACE_ERROR("AV is disabled, return disc in progress");
+        status = A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS;
+        break;
+      }
       if (btif_ba_is_active())
       {
         ba_send_message(BTIF_BA_AUDIO_STOP_REQ_EVT, 0, NULL, false);
@@ -1811,6 +1838,12 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
       break;
     }
     case A2DP_CTRL_CMD_SUSPEND: {
+
+      if (!bta_sys_is_register(BTA_ID_AV)) {
+        APPL_TRACE_ERROR("AV is disabled, return disc in progress");
+        status = A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS;
+        break;
+      }
       /* Local suspend */
       if (btif_ba_is_active()) {
         ba_send_message(BTIF_BA_AUDIO_PAUSE_REQ_EVT, 0, NULL, false);

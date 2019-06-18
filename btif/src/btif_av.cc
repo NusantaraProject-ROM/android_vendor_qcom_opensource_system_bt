@@ -4741,7 +4741,12 @@ bt_status_t btif_av_execute_service(bool b_enable) {
             BTIF_TRACE_DEBUG("%s: a2dp-ctrl-cmd : %s", __func__,
                                      audio_a2dp_hw_dump_ctrl_event(pending_cmd));
             if (pending_cmd) {
-              btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+              if(btif_a2dp_source_is_hal_v2_supported()) {
+                btif_a2dp_source_command_ack(pending_cmd,
+                            A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS);
+              } else {
+                btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+              }
             }
             btif_a2dp_source_on_stopped(NULL);
             btif_sm_change_state(btif_av_cb[i].sm_handle, BTIF_AV_STATE_IDLE);

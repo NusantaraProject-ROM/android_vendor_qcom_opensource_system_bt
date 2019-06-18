@@ -1243,17 +1243,6 @@ void end_session() {
     return;
   }
   LOG(WARNING) << __func__;
-  a2dp_sink->Cleanup();
-  audio_start_awaited = false;
-  btif_av_reset_reconfig_flag();
-  is_playing = false;
-  a2dp_hal_clientif->EndSession();
-  sw_codec_type = BTAV_A2DP_CODEC_INDEX_SOURCE_MIN;
-  session_peer_mtu = 0;
-  session_type = SessionType::UNKNOWN;
-  is_session_started = false;
-  death_handler_thread = nullptr;
-  remote_delay = 0;
   tA2DP_CTRL_CMD pending_cmd = A2DP_CTRL_CMD_NONE;
   pending_cmd = a2dp_sink->GetPendingCmd();
   if (pending_cmd == A2DP_CTRL_CMD_START) {
@@ -1265,6 +1254,17 @@ void end_session() {
     a2dp_hal_clientif->StreamSuspended(a2dp_ack_to_bt_audio_ctrl_ack
                     (A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS));
   }
+  a2dp_sink->Cleanup();
+  audio_start_awaited = false;
+  btif_av_reset_reconfig_flag();
+  is_playing = false;
+  a2dp_hal_clientif->EndSession();
+  sw_codec_type = BTAV_A2DP_CODEC_INDEX_SOURCE_MIN;
+  session_peer_mtu = 0;
+  session_type = SessionType::UNKNOWN;
+  is_session_started = false;
+  death_handler_thread = nullptr;
+  remote_delay = 0;
 }
 
 tA2DP_CTRL_CMD get_pending_command() {
