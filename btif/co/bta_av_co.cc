@@ -1208,7 +1208,7 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
       APPL_TRACE_DEBUG("%s: selected codec %s", __func__, iter->name().c_str());
       if ((p_peer->num_rx_sinks != p_peer->num_sinks) &&
           (p_peer->num_sup_sinks != BTA_AV_CO_NUM_ELEMENTS(p_peer->sinks))) {
-        APPL_TRACE_DEBUG("%s: GetCap did not complete", __func__);
+        APPL_TRACE_DEBUG("%s: GetCap did not complete, avoid sending codec config updated evt", __func__);
       } else {
         if (p_peer->isIncoming) {
           btav_a2dp_codec_index_t current_peer_codec_index = A2DP_SourceCodecIndex(p_peer->codec_config);
@@ -1221,18 +1221,16 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
                                  __func__, p_peer->reconfig_needed);
           }
         }
+        // NOTE: Conditionally dispatch the event to make sure a callback with
+        // the most recent codec info is generated.
+        btif_dispatch_sm_event(BTIF_AV_SOURCE_CONFIG_UPDATED_EVT, (void *)p_peer->addr.address,
+                         sizeof(RawAddress));
       }
       break;
     }
     APPL_TRACE_DEBUG("%s: cannot use codec %s", __func__, iter->name().c_str());
   }
-
-  // NOTE: Unconditionally dispatch the event to make sure a callback with
-  // the most recent codec info is generated.
-  btif_dispatch_sm_event(BTIF_AV_SOURCE_CONFIG_UPDATED_EVT, (void *)p_peer->addr.address,
-                   sizeof(RawAddress));
   APPL_TRACE_DEBUG("%s BDA:%s", __func__, p_peer->addr.ToString().c_str());
-
   return p_sink;
 }
 
