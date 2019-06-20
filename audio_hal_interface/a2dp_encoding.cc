@@ -828,9 +828,9 @@ bool a2dp_get_selected_hal_codec_config(CodecConfiguration* codec_config) {
       aptx_adaptive_config.aptxMode = static_cast<AptxMode>
                             (btif_av_get_aptx_mode_info());
       aptx_adaptive_config.sinkBuffering = { 20, 50, 20, 50, 20, 50 };
-      aptx_adaptive_config.ttp = { adaptive_cie.ttp_ll_0, adaptive_cie.ttp_ll_1,
-                                   adaptive_cie.ttp_hq_0, adaptive_cie.ttp_hq_1,
-                                   0x00, 0x00
+      aptx_adaptive_config.ttp = { adaptive_cie.aptx_data.ttp_ll_0, adaptive_cie.aptx_data.ttp_ll_1,
+                                   adaptive_cie.aptx_data.ttp_hq_0, adaptive_cie.aptx_data.ttp_hq_1,
+                                   adaptive_cie.aptx_data.ttp_tws_0, adaptive_cie.aptx_data.ttp_tws_1
                                  };
       if (btif_av_current_device_is_tws()) {
         aptx_adaptive_config.inputMode = static_cast<InputMode>(0x01);
@@ -838,17 +838,17 @@ bool a2dp_get_selected_hal_codec_config(CodecConfiguration* codec_config) {
         aptx_adaptive_config.inputMode = static_cast<InputMode>(0x00);
       }
       aptx_adaptive_config.inputFadeDuration = 0xff;
-      aptx_adaptive_config.aptxAdaptiveConfigStream[0] =  adaptive_cie.cap_ext_ver_num;
-      aptx_adaptive_config.aptxAdaptiveConfigStream[1] =  adaptive_cie.aptx_adaptive_sup_features & 0x000000FF;
-      aptx_adaptive_config.aptxAdaptiveConfigStream[2] =  ((adaptive_cie.aptx_adaptive_sup_features & 0x0000FF00) >> 8);
-      aptx_adaptive_config.aptxAdaptiveConfigStream[3] =  ((adaptive_cie.aptx_adaptive_sup_features & 0x00FF0000) >> 16);
-      aptx_adaptive_config.aptxAdaptiveConfigStream[4] =  ((adaptive_cie.aptx_adaptive_sup_features & 0xFF000000) >> 24);
-      aptx_adaptive_config.aptxAdaptiveConfigStream[5] =  adaptive_cie.first_setup_pref;
-      aptx_adaptive_config.aptxAdaptiveConfigStream[6] =  adaptive_cie.second_setup_pref;
-      aptx_adaptive_config.aptxAdaptiveConfigStream[7] =  adaptive_cie.third_setup_pref;
-      aptx_adaptive_config.aptxAdaptiveConfigStream[8] =  adaptive_cie.fourth_setup_pref;
-      aptx_adaptive_config.aptxAdaptiveConfigStream[9] =  adaptive_cie.eoc0;
-      aptx_adaptive_config.aptxAdaptiveConfigStream[10] =  adaptive_cie.eoc1;
+      aptx_adaptive_config.aptxAdaptiveConfigStream[0] =  adaptive_cie.aptx_data.cap_ext_ver_num;
+      aptx_adaptive_config.aptxAdaptiveConfigStream[1] =  adaptive_cie.aptx_data.aptx_adaptive_sup_features & 0x000000FF;
+      aptx_adaptive_config.aptxAdaptiveConfigStream[2] =  ((adaptive_cie.aptx_data.aptx_adaptive_sup_features & 0x0000FF00) >> 8);
+      aptx_adaptive_config.aptxAdaptiveConfigStream[3] =  ((adaptive_cie.aptx_data.aptx_adaptive_sup_features & 0x00FF0000) >> 16);
+      aptx_adaptive_config.aptxAdaptiveConfigStream[4] =  ((adaptive_cie.aptx_data.aptx_adaptive_sup_features & 0xFF000000) >> 24);
+      aptx_adaptive_config.aptxAdaptiveConfigStream[5] =  adaptive_cie.aptx_data.first_setup_pref;
+      aptx_adaptive_config.aptxAdaptiveConfigStream[6] =  adaptive_cie.aptx_data.second_setup_pref;
+      aptx_adaptive_config.aptxAdaptiveConfigStream[7] =  adaptive_cie.aptx_data.third_setup_pref;
+      aptx_adaptive_config.aptxAdaptiveConfigStream[8] =  adaptive_cie.aptx_data.fourth_setup_pref;
+      aptx_adaptive_config.aptxAdaptiveConfigStream[9] =  adaptive_cie.aptx_data.eoc0;
+      aptx_adaptive_config.aptxAdaptiveConfigStream[10] =  adaptive_cie.aptx_data.eoc1;
 
       codec_config->config.aptxAdaptiveConfig = aptx_adaptive_config;
       break;
