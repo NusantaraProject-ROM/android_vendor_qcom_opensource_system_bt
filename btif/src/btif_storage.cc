@@ -1014,7 +1014,7 @@ static void remove_devices_with_sample_ltk() {
     memset(&key, 0, sizeof(key));
 
     if (btif_storage_get_ble_bonding_key(
-            &bd_addr, BTIF_DM_LE_KEY_PENC, (char*)&key,
+            &bd_addr, BTIF_DM_LE_KEY_PENC, (uint8_t*)&key,
             sizeof(tBTM_LE_PENC_KEYS)) == BT_STATUS_SUCCESS) {
       if (is_sample_ltk(key.penc_key.ltk)) {
         bad_ltk.push_back(bd_addr);
