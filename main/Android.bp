@@ -14,7 +14,6 @@ cc_library_shared {
         "bte_logmsg.cc",
         "bte_main.cc",
         "stack_config.cc",
-        "wipower.cc"
     ],
     include_dirs: [
         "vendor/qcom/opensource/commonsys/system/bt",
@@ -36,7 +35,6 @@ cc_library_shared {
         "vendor/qcom/opensource/commonsys/system/bt/embdrv/sbc/encoder/include",
         "vendor/qcom/opensource/commonsys/system/bt/embdrv/sbc/decoder/include",
         "vendor/qcom/opensource/commonsys/system/bt/utils/include",
-        "vendor/qcom/opensource/commonsys/bluetooth/hal/include",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext"
     ],
