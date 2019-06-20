@@ -43,6 +43,7 @@
 #include "stack/gatt/connection_manager.h"
 
 #include "gatt_int.h"
+#include "hci/include/vendor.h"
 
 extern thread_t* bt_workqueue_thread;
 
@@ -862,7 +863,13 @@ void btm_vendor_specific_evt(uint8_t* p, uint8_t evt_len) {
       (*btm_cb.devcb.p_vnd_iot_info_cb)(evt_len, pp);
       return;
     }
-  }
+  } else if (HCI_BT_SOC_CRASHED_OGF == vse_subcode) {
+      STREAM_TO_UINT8 (vse_subcode, pp);
+      if (HCI_BT_SOC_CRASHED_OCF == vse_subcode) {
+        decode_crash_reason(pp, (evt_len - 2));
+        return;
+      }
+   }
 
   BTM_TRACE_DEBUG("BTM Event: Vendor Specific event from controller");
 
@@ -870,6 +877,50 @@ void btm_vendor_specific_evt(uint8_t* p, uint8_t evt_len) {
     if (btm_cb.devcb.p_vend_spec_cb[i])
       (*btm_cb.devcb.p_vend_spec_cb[i])(evt_len, p);
   }
+}
+
+char *get_primary_reason_str(host_crash_reason_e reason)
+{
+  int i = 0;
+  for(; i < (int)(sizeof(primary_crash_reason)/sizeof(primary_reason)); i++) {
+    if (primary_crash_reason[i].reason == reason)
+      return primary_crash_reason[i].reasonstr;
+  }
+  return NULL;
+}
+
+char *get_secondary_reason_str(soc_crash_reason_e reason)
+{
+  int i = 0;
+  for(; i < (int)(sizeof(secondary_crash_reason)/sizeof(secondary_reason)); i++) {
+    if (secondary_crash_reason[i].reason == reason)
+      return secondary_crash_reason[i].reasonstr;
+  }
+  return NULL;
+}
+
+void decode_crash_reason(uint8_t* p, uint8_t evt_len)
+{
+  uint16_t primary_reason;
+  uint16_t secondary_reason;
+  uint8_t pp[HCI_CRASH_MESSAGE_SIZE];
+
+  BTM_TRACE_ERROR("BTM Event: Vendor Specific crash event from controller");
+
+  /* Crash reason frame formnat
+   * Primary crash reason (2 bytes) | Secondary crash reason (2 bytes) | time stamp
+   */
+  STREAM_TO_UINT16(primary_reason, p);
+  STREAM_TO_UINT16(secondary_reason, p);
+
+  evt_len = evt_len - 4;
+  memcpy(pp, p, evt_len);
+  pp[evt_len] = '\0';
+  BTM_TRACE_ERROR("%s: PrimaryCrashReason:%s", __func__,
+                  get_primary_reason_str((host_crash_reason_e)primary_reason));
+  BTM_TRACE_ERROR("%s: SecondaryCrashReason:%s at time %s", __func__,
+                  get_secondary_reason_str((soc_crash_reason_e)secondary_reason),
+                  (char *)pp);
 }
 
 /*******************************************************************************
