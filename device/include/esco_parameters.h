@@ -42,7 +42,7 @@ typedef enum {
 } esco_codec_t;
 
 #if (SWB_ENABLED == TRUE)
-#define ESCO_NUM_CODECS 7
+#define ESCO_NUM_CODECS 4
 #else
 #define ESCO_NUM_CODECS 3
 #endif
