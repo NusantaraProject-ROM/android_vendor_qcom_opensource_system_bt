@@ -282,31 +282,38 @@ typedef void (* bthf_client_last_voice_tag_number_callback) (const RawAddress *b
  */
 typedef void (* bthf_client_ring_indication_callback) (const RawAddress *bd_addr);
 
+/**
+ * Callback for sending unknown (vendor specific) event
+ */
+typedef void (*bthf_client_unknown_event_callback)(const RawAddress* bd_addr,
+                                                   const char* unknow_event);
+
 /** BT-HF callback structure. */
 typedef struct {
-    /** set to sizeof(BtHfClientCallbacks) */
-    size_t      size;
-    bthf_client_connection_state_callback  connection_state_cb;
-    bthf_client_audio_state_callback       audio_state_cb;
-    bthf_client_vr_cmd_callback            vr_cmd_cb;
-    bthf_client_network_state_callback     network_state_cb;
-    bthf_client_network_roaming_callback   network_roaming_cb;
-    bthf_client_network_signal_callback    network_signal_cb;
-    bthf_client_battery_level_callback     battery_level_cb;
-    bthf_client_current_operator_callback  current_operator_cb;
-    bthf_client_call_callback              call_cb;
-    bthf_client_callsetup_callback         callsetup_cb;
-    bthf_client_callheld_callback          callheld_cb;
-    bthf_client_resp_and_hold_callback     resp_and_hold_cb;
-    bthf_client_clip_callback              clip_cb;
-    bthf_client_call_waiting_callback      call_waiting_cb;
-    bthf_client_current_calls              current_calls_cb;
-    bthf_client_volume_change_callback     volume_change_cb;
-    bthf_client_cmd_complete_callback      cmd_complete_cb;
-    bthf_client_subscriber_info_callback   subscriber_info_cb;
-    bthf_client_in_band_ring_tone_callback in_band_ring_tone_cb;
-    bthf_client_last_voice_tag_number_callback last_voice_tag_number_callback;
-    bthf_client_ring_indication_callback   ring_indication_cb;
+  /** set to sizeof(BtHfClientCallbacks) */
+  size_t size;
+  bthf_client_connection_state_callback connection_state_cb;
+  bthf_client_audio_state_callback audio_state_cb;
+  bthf_client_vr_cmd_callback vr_cmd_cb;
+  bthf_client_network_state_callback network_state_cb;
+  bthf_client_network_roaming_callback network_roaming_cb;
+  bthf_client_network_signal_callback network_signal_cb;
+  bthf_client_battery_level_callback battery_level_cb;
+  bthf_client_current_operator_callback current_operator_cb;
+  bthf_client_call_callback call_cb;
+  bthf_client_callsetup_callback callsetup_cb;
+  bthf_client_callheld_callback callheld_cb;
+  bthf_client_resp_and_hold_callback resp_and_hold_cb;
+  bthf_client_clip_callback clip_cb;
+  bthf_client_call_waiting_callback call_waiting_cb;
+  bthf_client_current_calls current_calls_cb;
+  bthf_client_volume_change_callback volume_change_cb;
+  bthf_client_cmd_complete_callback cmd_complete_cb;
+  bthf_client_subscriber_info_callback subscriber_info_cb;
+  bthf_client_in_band_ring_tone_callback in_band_ring_tone_cb;
+  bthf_client_last_voice_tag_number_callback last_voice_tag_number_callback;
+  bthf_client_ring_indication_callback ring_indication_cb;
+  bthf_client_unknown_event_callback unknown_event_cb;
 } bthf_client_callbacks_t;
 
 /** Represents the standard BT-HF interface. */
