@@ -1135,7 +1135,8 @@ bool avdt_msg_send(tAVDT_CCB* p_ccb, BT_HDR* p_msg) {
       if (msg == AVDT_MSG_TYPE_CMD) {
         /* if retransmit timeout set to zero, sig doesn't use retransmit */
         if ((sig == AVDT_SIG_DISCOVER) || (sig == AVDT_SIG_GETCAP) ||
-            (sig == AVDT_SIG_SECURITY) || (avdt_cb.rcb.ret_tout == 0)) {
+            (sig == AVDT_SIG_SECURITY) || (sig == AVDT_SIG_GET_ALLCAP) ||
+            (avdt_cb.rcb.ret_tout == 0)) {
           alarm_cancel(p_ccb->idle_ccb_timer);
           alarm_cancel(p_ccb->ret_ccb_timer);
           period_ms_t interval_ms = avdt_cb.rcb.sig_tout * 1000;
