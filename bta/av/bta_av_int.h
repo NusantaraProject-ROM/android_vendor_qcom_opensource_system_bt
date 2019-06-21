@@ -146,6 +146,7 @@ enum {
   BTA_AV_ENABLE_MULTICAST_EVT, /* Event for enable and disable multicast */
   BTA_AV_RC_COLLISSION_DETECTED_EVT,
   BTA_AV_UPDATE_ENCODER_MODE_EVT,
+  BTA_AV_UPDATE_APTX_DATA_EVT,
 #if (TWS_ENABLED == TRUE)
   BTA_AV_SET_EARBUD_ROLE_EVT, /* Set TWS earbud role */
   BTA_AV_SET_TWS_DEVICE_EVT, /* Update TWS state */
@@ -182,6 +183,8 @@ enum {
 
 /* Info ID from updating aptX Adaptive Encoder mode */
 #define BTA_AV_ENCODER_MODE_CHANGE_ID 5
+
+#define BTA_AV_ENCODER_DATA_ID 0x0E
 
 /* maximum number of SEPS in stream discovery results */
 #define BTA_AV_NUM_SEPS 32
@@ -400,6 +403,11 @@ typedef struct {
   uint16_t enc_mode;
 } tBTA_AV_ENC_MODE;
 
+typedef struct {
+  BT_HDR hdr;
+  uint16_t type;
+  uint16_t data;
+} tBTA_AV_APTX_DATA;
 
 /* data type for BTA_AV_CI_SETCONFIG_OK_EVT and BTA_AV_CI_SETCONFIG_FAIL_EVT */
 typedef struct {
@@ -532,6 +540,7 @@ union tBTA_AV_DATA {
   tBTA_AV_ENABLE_MULTICAST multicast_state;
   tBTA_AV_MAX_CLIENT max_av_clients;
   tBTA_AV_ENC_MODE encoder_mode;
+  tBTA_AV_APTX_DATA aptx_data;
 #if (TWS_ENABLED == TRUE)
   tBTA_AV_TWS_SET_EARBUD_ROLE tws_set_earbud_role;
   tBTA_AV_SET_TWS_DEVICE tws_set_device;
@@ -658,6 +667,9 @@ typedef struct {
   tBTA_AV_FEAT peer_features; /* peer features mask */
   uint16_t  cover_art_psm;  /* l2cap psm for cover art on remote */
   bool is_browse_active;    /* active for browse connetion */
+  bool browse_open;
+  bool rc_opened;
+  RawAddress peer_addr;
 } tBTA_AV_RCB;
 #define BTA_AV_NUM_RCB (BTA_AV_NUM_STRS + 2)
 
@@ -840,6 +852,7 @@ extern void bta_av_conn_chg(tBTA_AV_DATA* p_data);
 extern void bta_av_dereg_comp(tBTA_AV_DATA* p_data);
 extern void bta_av_rc_collission_detected(tBTA_AV_DATA *p_data);
 extern void bta_av_update_enc_mode(tBTA_AV_DATA* p_data);
+extern void bta_av_update_aptx_data(tBTA_AV_DATA* p_data);
 extern void bta_av_active_browse(tBTA_AV_DATA *p_data);
 
 /* sm action functions */

@@ -66,6 +66,82 @@ typedef struct {
   bool start_reset;
 } tBTIF_A2DP_SOURCE_VSC;
 
+typedef struct {
+  // Counter for total updates
+  size_t total_updates;
+
+  // Last update timestamp (in us)
+  uint64_t last_update_us;
+
+  // Counter for overdue scheduling
+  size_t overdue_scheduling_count;
+
+  // Accumulated overdue scheduling deviations (in us)
+  uint64_t total_overdue_scheduling_delta_us;
+
+  // Max. overdue scheduling delta time (in us)
+  uint64_t max_overdue_scheduling_delta_us;
+
+  // Counter for premature scheduling
+  size_t premature_scheduling_count;
+
+  // Accumulated premature scheduling deviations (in us)
+  uint64_t total_premature_scheduling_delta_us;
+
+  // Max. premature scheduling delta time (in us)
+  uint64_t max_premature_scheduling_delta_us;
+
+  // Counter for exact scheduling
+  size_t exact_scheduling_count;
+
+  // Accumulated and counted scheduling time (in us)
+  uint64_t total_scheduling_time_us;
+} scheduling_stats_t;
+
+typedef struct {
+  uint64_t session_start_us;
+  uint64_t session_end_us;
+
+  scheduling_stats_t tx_queue_enqueue_stats;
+  scheduling_stats_t tx_queue_dequeue_stats;
+
+  size_t tx_queue_total_frames;
+  size_t tx_queue_max_frames_per_packet;
+
+  uint64_t tx_queue_total_queueing_time_us;
+  uint64_t tx_queue_max_queueing_time_us;
+
+  size_t tx_queue_total_readbuf_calls;
+  uint64_t tx_queue_last_readbuf_us;
+
+  size_t tx_queue_total_flushed_messages;
+  uint64_t tx_queue_last_flushed_us;
+  size_t tx_queue_total_dropped_messages;
+  size_t tx_queue_max_dropped_messages;
+  size_t tx_queue_dropouts;
+  uint64_t tx_queue_last_dropouts_us;
+
+  size_t media_read_total_underflow_bytes;
+  size_t media_read_total_underflow_count;
+  uint64_t media_read_last_underflow_us;
+} btif_media_stats_t;
+
+typedef struct {
+  thread_t* worker_thread;
+  fixed_queue_t* cmd_msg_queue;
+  fixed_queue_t* tx_audio_queue;
+  bool tx_flush; /* Discards any outgoing data when true */
+  alarm_t* unblock_audio_start_alarm;
+  alarm_t* media_alarm;
+  alarm_t *remote_start_alarm;
+  const tA2DP_ENCODER_INTERFACE* encoder_interface;
+  period_ms_t encoder_interval_ms; /* Local copy of the encoder interval */
+  btif_media_stats_t stats;
+  btif_media_stats_t accumulated_stats;
+  int last_remote_started_index;
+  int *last_started_index_pointer;
+} tBTIF_A2DP_SOURCE_CB;
+
 // Initialize and startup the A2DP Source module.
 // This function should be called by the BTIF state machine prior to using the
 // module.
@@ -200,4 +276,7 @@ void btif_a2dp_source_if_init(void);
 void btif_a2dp_source_if_deinit(void);
 // Function to update latency/delay value to Audio
 void btif_a2dp_update_sink_latency_change();
+
+// Function to process requests from HIDL requests
+void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd);
 #endif /* BTIF_A2DP_SOURCE_H */

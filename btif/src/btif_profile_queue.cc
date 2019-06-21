@@ -63,7 +63,7 @@ typedef struct {
 
 static list_t* connect_queue;
 
-static const size_t MAX_REASONABLE_REQUESTS = 10;
+static const size_t MAX_REASONABLE_REQUESTS = 20;
 
 extern thread_t *bt_jni_workqueue_thread;
 /*******************************************************************************

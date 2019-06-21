@@ -252,6 +252,23 @@ extern uint16_t GAP_ConnBTRead(uint16_t gap_handle, BT_HDR** pp_buf);
  *                  GAP_CONGESTION          - system is congested
  *
  ******************************************************************************/
+extern uint16_t GAP_ConnWriteData(uint16_t gap_handle, BT_HDR* msg);
+
+
+/*******************************************************************************
+ *
+ * Function         GAP_ConnWriteData
+ *
+ * Description      GKI buffer unaware application will call this function
+ *                  to send data to the connection. A data copy is made into a
+ *                  GKI buffer.
+ *
+ * Returns          BT_PASS                 - data read
+ *                  GAP_ERR_BAD_HANDLE      - invalid handle
+ *                  GAP_ERR_BAD_STATE       - connection not established
+ *                  GAP_CONGESTION          - system is congested
+ *
+ ******************************************************************************/
 extern uint16_t GAP_ConnWriteData(uint16_t gap_handle, uint8_t* p_data,
                                   uint16_t max_len, uint16_t* p_len);
 

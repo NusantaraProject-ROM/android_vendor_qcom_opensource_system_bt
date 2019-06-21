@@ -23,7 +23,4 @@ cc_library_static {
         "include",
         "srce",
     ],
-    sanitize: {
-        never: true,
-    },
 }

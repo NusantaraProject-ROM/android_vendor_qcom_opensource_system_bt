@@ -197,6 +197,21 @@ void bte_main_disable(void) {
 
 /******************************************************************************
  *
+ * Function         bte_main_hci_close
+ *
+ * Description      BTE MAIN API - closes hci module
+ *
+ * Returns          None
+ *
+ *****************************************************************************/
+void bte_main_hci_close(void) {
+  APPL_TRACE_DEBUG("%s", __func__);
+
+  module_shut_down(get_module(HCI_MODULE));
+}
+
+/******************************************************************************
+ *
  * Function         bte_main_postload_cfg
  *
  * Description      BTE MAIN API - Stack postload configuration

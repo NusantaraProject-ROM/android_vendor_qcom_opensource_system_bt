@@ -1,6 +1,6 @@
 bootstrap_go_package {
     name: "soong-fluoride_qti",
-    pkgPath: "android/soong/fluoride",
+    pkgPath: "android/soong/fluoride_qti",
     deps: [
         "blueprint",
         "blueprint-pathtools",
@@ -14,7 +14,7 @@ bootstrap_go_package {
     pluginFor: ["soong_build"],
 }
 
-fluoride_defaults {
+fluoride_defaults_qti {
     name: "libchrome_support_defaults_qti",
     shared_libs: ["libchrome"],
     cflags: [
@@ -28,7 +28,7 @@ fluoride_defaults {
         },
     },
 }
-fluoride_defaults {
+fluoride_defaults_qti {
     name: "fluoride_types_defaults_qti",
     defaults: ["libchrome_support_defaults_qti"],
     cflags: [
@@ -52,7 +52,7 @@ fluoride_defaults {
     },
 }
 
-fluoride_defaults {
+fluoride_defaults_qti {
     name: "fluoride_defaults_qti",
     defaults: ["fluoride_types_defaults_qti"],
     header_libs: ["libbluetooth_headers"],

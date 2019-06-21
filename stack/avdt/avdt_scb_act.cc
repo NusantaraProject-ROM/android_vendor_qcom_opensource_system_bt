@@ -183,10 +183,10 @@ void avdt_scb_hdl_getconfig_rsp(UNUSED_ATTR tAVDT_SCB* p_scb,
  *
  ******************************************************************************/
 void avdt_scb_hdl_open_cmd(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
-  if(!avdt_cb.conn_in_progress) {
+  if(!avdt_cb.conn_in_progress || p_scb->in_use) {
     avdt_scb_event(p_scb, AVDT_SCB_API_OPEN_RSP_EVT, p_data);
   } else {
-    AVDT_TRACE_WARNING("Outgoing conn in progress, Reject Remote initiated AV Open");
+    AVDT_TRACE_WARNING("Outgoing conn in progress, Reject Remote initiated AV Open scb use %d", p_scb->in_use);
     avdt_scb_rej_state(p_scb, p_data);
   }
 }
@@ -1105,6 +1105,8 @@ void avdt_scb_hdl_write_req(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
   uint8_t* p;
   uint32_t ssrc;
   bool add_rtp_header = !(p_data->apiwrite.opt & AVDT_DATA_OPT_NO_RTP);
+  AVDT_TRACE_DEBUG("%s: add_rtp_header: %d, num_protect: %d",
+                        __func__, add_rtp_header, p_scb->curr_cfg.num_protect);
 
   /* free packet we're holding, if any; to be replaced with new */
   if (p_scb->p_pkt != NULL) {

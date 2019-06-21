@@ -85,6 +85,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #if (TWS_AG_ENABLED == TRUE)
 #include "btif_tws_plus.h"
 #include "btif_twsp_hf.h"
+#include "bta_ag_twsp.h"
 #endif
 #include "device/include/device_iot_config.h"
 
@@ -183,8 +184,6 @@ btif_hf_cb_t btif_hf_cb[BTA_AG_MAX_NUM_CLIENTS];
 #endif
 
 static bool btif_conf_hf_force_wbs = BTIF_HF_WBS_PREFERRED;
-bool send_bvra_other_index = FALSE;
-int bvra_other_index_state  = 0;
 
 /*******************************************************************************
  *  Functions
@@ -249,89 +248,6 @@ bool is_connected(RawAddress* bd_addr) {
       return true;
   }
   return false;
-}
-/*******************************************************************************
-**
-** Function         btif_hf_is_connected_on_other_idx
-**
-** Description      Checks if any other AV SCB is connected
-**
-** Returns          bool
-**
-*******************************************************************************/
-
-bool btif_hf_is_connected_on_other_idx(int current_index)
-{
-    int i;
-    for (i = 0; i < btif_max_hf_clients; i++)
-    {
-        if (i != current_index)
-        {
-            if ((btif_hf_cb[i].state == BTHF_CONNECTION_STATE_CONNECTED) ||
-                 (btif_hf_cb[i].state == BTHF_CONNECTION_STATE_SLC_CONNECTED))
-                return TRUE;
-        }
-    }
-    return FALSE;
-}
-
-/*******************************************************************************
-**
-** Function         btif_hf_get_other_connected_index
-**
-** Description      Checks for other connected index
-**
-** Returns          Other connected index
-**
-*******************************************************************************/
-
-int btif_hf_get_other_connected_index(int current_index)
-{
-    int i;
-    for (i = 0; i < btif_max_hf_clients; i++)
-    {
-        if (i != current_index)
-        {
-            if ((btif_hf_cb[i].state == BTHF_CONNECTION_STATE_CONNECTED) ||
-                 (btif_hf_cb[i].state == BTHF_CONNECTION_STATE_SLC_CONNECTED))
-                return i;
-        }
-    }
-    return btif_max_hf_clients;
-}
-
-/*******************************************************************************
-**
-** Function         send_bvra_update
-**
-** Description      Internal function to updated other connected HS for BVRA state
-**
-** Returns          void
-**
-*******************************************************************************/
-static void send_bvra_update(int index)
-{
-    BTIF_TRACE_EVENT("connected %d",btif_hf_is_connected_on_other_idx(index));
-    if (btif_hf_is_connected_on_other_idx(index))
-    {
-        int other_idx = btif_hf_get_other_connected_index(index);
-        BTIF_TRACE_EVENT("other_idx %d",other_idx);
-        if (other_idx < btif_max_hf_clients &&
-                (btif_hf_cb[other_idx].peer_feat & BTA_AG_PEER_FEAT_VREC))
-        {
-            tBTA_AG_RES_DATA ag_res;
-            memset(&ag_res, 0, sizeof(ag_res));
-            ag_res.state = bvra_other_index_state;
-            BTIF_TRACE_EVENT("sending on idex %d",other_idx);
-            BTA_AgResult (btif_hf_cb[other_idx].handle,
-                    BTA_AG_BVRA_RES, &ag_res);
-        }
-        else
-        {
-            BTIF_TRACE_EVENT("Invalid connected index");
-        }
-    }
-
 }
 
 /*******************************************************************************
@@ -719,27 +635,16 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       }
 #endif
       btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_DISCONNECTED;
-      HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_DISCONNECTED,
+
+      // Ignore SCO disconnection event if SLC is already disconnected
+      if (btif_hf_cb[idx].state == BTHF_CONNECTION_STATE_SLC_CONNECTED) {
+        HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_DISCONNECTED,
                 &btif_hf_cb[idx].connected_bda);
+      }
       break;
 
     /* BTA auto-responds, silently discard */
     case BTA_AG_SPK_EVT:
-#if (TWS_AG_ENABLED == TRUE)
-        if (btif_is_tws_plus_device(&btif_hf_cb[idx].connected_bda) &&
-            is_active_device(btif_hf_cb[idx].connected_bda)) {
-            tBTA_AG_RES_DATA ag_res;
-            int other_idx;
-            memset(&ag_res, 0, sizeof(tBTA_AG_RES_DATA));
-            ag_res.num = p_data->val.num;
-            other_idx = btif_hf_get_other_connected_twsp_index(idx);
-            if (other_idx != btif_max_hf_clients) {
-                BTA_AgResult(
-                   btif_hf_cb[other_idx].handle,
-                   BTA_AG_SPK_RES, &ag_res);
-            }
-        }
-#endif
         FALLTHROUGH;
     case BTA_AG_MIC_EVT:
       HAL_HF_CBACK(bt_hf_callbacks, VolumeControlCallback,
@@ -778,8 +683,6 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
                 (p_data->val.num == 1) ? BTHF_VR_STATE_STARTED
                                        : BTHF_VR_STATE_STOPPED,
                 &btif_hf_cb[idx].connected_bda);
-            send_bvra_other_index = TRUE;
-            bvra_other_index_state = p_data->val.num;
       break;
 
     case BTA_AG_AT_NREC_EVT:
@@ -816,7 +719,7 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
     case BTA_AG_SWB_EVT:
       BTIF_TRACE_DEBUG("%s: AG final selected SWB codec is 0x%02x 0=Q0 4=Q1 6=Q3 7=Q4",
                        __func__, p_data->val.num);
-      btif_handle_vendor_hf_events(event, p_data->val.num, &btif_hf_cb[idx].connected_bda);
+      btif_handle_vendor_hf_events(event, p_data, &btif_hf_cb[idx].connected_bda);
       break;
 #endif
 
@@ -882,7 +785,7 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
     case BTA_AG_AT_QCS_EVT:
       BTIF_TRACE_DEBUG("%s: AG final selected SWB codec is 0x%02x 0=Q0 4=Q1 6=Q3 7=Q4",
                        __func__, p_data->val.num);
-      btif_handle_vendor_hf_events(event, p_data->val.num, &btif_hf_cb[idx].connected_bda);
+      btif_handle_vendor_hf_events(event, p_data, &btif_hf_cb[idx].connected_bda);
       break;
 #endif
 
@@ -899,6 +802,14 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
                 (int)p_data->val.num, &btif_hf_cb[idx].connected_bda);
       }
       break;
+    case BTA_AG_TWSP_BATTERY_UPDATE: {
+        BTIF_TRACE_DEBUG("%s: Twsp battery status update : %s",
+                                           __func__, p_data->val.str);
+        btif_handle_vendor_hf_events(event, p_data,
+                               &btif_hf_cb[idx].connected_bda);
+    }
+    break;
+
     default:
       BTIF_TRACE_WARNING("%s: Unhandled event: %d", __func__, event);
       break;
@@ -1280,29 +1191,27 @@ bt_status_t HeadsetInterface::DisconnectAudio(RawAddress* bd_addr) {
  ******************************************************************************/
 bt_status_t HeadsetInterface::StartVoiceRecognition(RawAddress* bd_addr) {
     CHECK_BTHF_INIT();
-    bool is_success = FALSE;
-    for (int i = 0; i < btif_max_hf_clients; i++)
-    {
-        if (((btif_hf_cb[i].state == BTHF_CONNECTION_STATE_CONNECTED) ||
-                (btif_hf_cb[i].state == BTHF_CONNECTION_STATE_SLC_CONNECTED)) &&
-                btif_hf_cb[i].peer_feat & BTA_AG_PEER_FEAT_VREC)
-        {
-            tBTA_AG_RES_DATA ag_res;
-            memset(&ag_res, 0, sizeof(ag_res));
-            ag_res.state = 1;
-            BTA_AgResult (btif_hf_cb[i].handle, BTA_AG_BVRA_RES, &ag_res);
-            is_success = TRUE;
-        }
+    int idx = btif_hf_idx_by_bdaddr(bd_addr);
+
+    if ((idx < 0) || (idx >= BTA_AG_MAX_NUM_CLIENTS)) {
+      BTIF_TRACE_ERROR("%s: Invalid index %d", __func__, idx);
+      return BT_STATUS_FAIL;
+    }
+    if (!is_connected(bd_addr)) {
+      BTIF_TRACE_ERROR("%s: %s is not connected", __func__,
+                       bd_addr->ToString().c_str());
+      return BT_STATUS_NOT_READY;
+    }
+    if (!(btif_hf_cb[idx].peer_feat & BTA_AG_PEER_FEAT_VREC)) {
+      BTIF_TRACE_ERROR("%s: voice recognition not supported, features=0x%x",
+                       __func__, btif_hf_cb[idx].peer_feat);
+      return BT_STATUS_UNSUPPORTED;
     }
 
-    if (is_success)
-    {
-        return BT_STATUS_SUCCESS;
-    }
-    else
-    {
-        return BT_STATUS_NOT_READY;
-    }
+    tBTA_AG_RES_DATA ag_res = {};
+    ag_res.state = true;
+    BTA_AgResult(btif_hf_cb[idx].handle, BTA_AG_BVRA_RES, &ag_res);
+    return BT_STATUS_SUCCESS;
 }
 
 
@@ -1317,29 +1226,28 @@ bt_status_t HeadsetInterface::StartVoiceRecognition(RawAddress* bd_addr) {
  ******************************************************************************/
 bt_status_t HeadsetInterface::StopVoiceRecognition(RawAddress* bd_addr) {
     CHECK_BTHF_INIT();
-    bool is_success = FALSE;
-    for (int i = 0; i < btif_max_hf_clients; i++)
-    {
-        if (((btif_hf_cb[i].state == BTHF_CONNECTION_STATE_CONNECTED) ||
-                (btif_hf_cb[i].state == BTHF_CONNECTION_STATE_SLC_CONNECTED)) &&
-                btif_hf_cb[i].peer_feat & BTA_AG_PEER_FEAT_VREC)
-        {
-            tBTA_AG_RES_DATA ag_res;
-            memset(&ag_res, 0, sizeof(ag_res));
-            ag_res.state = 0;
-            BTA_AgResult (btif_hf_cb[i].handle, BTA_AG_BVRA_RES, &ag_res);
-            is_success = TRUE;
-        }
+
+    int idx = btif_hf_idx_by_bdaddr(bd_addr);
+
+    if ((idx < 0) || (idx >= BTA_AG_MAX_NUM_CLIENTS)) {
+      BTIF_TRACE_ERROR("%s: Invalid index %d", __func__, idx);
+      return BT_STATUS_FAIL;
+    }
+    if (!is_connected(bd_addr)) {
+      BTIF_TRACE_ERROR("%s: %s is not connected", __func__,
+                       bd_addr->ToString().c_str());
+      return BT_STATUS_NOT_READY;
+    }
+    if (!(btif_hf_cb[idx].peer_feat & BTA_AG_PEER_FEAT_VREC)) {
+      BTIF_TRACE_ERROR("%s: voice recognition not supported, features=0x%x",
+                       __func__, btif_hf_cb[idx].peer_feat);
+      return BT_STATUS_UNSUPPORTED;
     }
 
-    if (is_success)
-    {
-        return BT_STATUS_SUCCESS;
-    }
-    else
-    {
-        return BT_STATUS_NOT_READY;
-    }
+    tBTA_AG_RES_DATA ag_res = {};
+    ag_res.state = false;
+    BTA_AgResult(btif_hf_cb[idx].handle, BTA_AG_BVRA_RES, &ag_res);
+    return BT_STATUS_SUCCESS;
 }
 
 
@@ -1371,19 +1279,8 @@ bt_status_t HeadsetInterface::VolumeControl(bthf_volume_type_t type, int volume,
         btif_hf_cb[idx].handle,
         (type == BTHF_VOLUME_TYPE_SPK) ? BTA_AG_SPK_RES : BTA_AG_MIC_RES,
         &ag_res);
-#if (TWS_AG_ENABLED == TRUE)
-    if (btif_is_tws_plus_device(bd_addr) && type == BTHF_VOLUME_TYPE_SPK) {
-        int other_idx = btif_hf_get_other_connected_twsp_index(idx);
-        if (other_idx != btif_max_hf_clients) {
-            BTA_AgResult(
-                btif_hf_cb[other_idx].handle,
-                BTA_AG_SPK_RES, &ag_res);
-        }
-    }
-#endif
     return BT_STATUS_SUCCESS;
   }
-
   return BT_STATUS_FAIL;
 }
 
@@ -1573,11 +1470,6 @@ bt_status_t HeadsetInterface::AtResponse(bthf_at_response_t response_code,
     send_at_result((response_code == BTHF_AT_RESPONSE_OK) ? BTA_AG_OK_DONE
                                                           : BTA_AG_OK_ERROR,
                    error_code, idx);
-    if (response_code == BTHF_AT_RESPONSE_OK && send_bvra_other_index)
-    {
-       send_bvra_update(idx);
-       send_bvra_other_index = FALSE;
-    }
     return BT_STATUS_SUCCESS;
   }
 

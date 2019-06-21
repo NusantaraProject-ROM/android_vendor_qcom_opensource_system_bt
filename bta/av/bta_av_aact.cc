@@ -130,7 +130,7 @@ static void bta_av_vendor_offload_select_codec(tBTA_AV_SCB* p_scb);
 
 void bta_av_vendor_offload_check_stop_start(tBTA_AV_SCB* p_scb);
 void update_sub_band_info(uint8_t **param, int *param_len, uint8_t id, uint16_t data);
-void update_sub_band_info(uint8_t **param, int *param_len, uint8_t id, uint8_t *data, uint8_t len);
+void update_sub_band_info(uint8_t **param, int *param_len, uint8_t id, uint8_t *data, uint8_t size);
 void enc_mode_change_callback(tBTM_VSC_CMPL *param);
 
 /* state machine states */
@@ -1532,15 +1532,13 @@ void bta_av_security_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
 void bta_av_setconfig_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   uint8_t num = p_data->ci_setconfig.num_seid + 1;
   uint8_t avdt_handle = p_data->ci_setconfig.avdt_handle;
-  uint8_t* p_seid = p_data->ci_setconfig.p_seid;
-  int i;
   uint8_t local_sep;
 
   /* we like this codec_type. find the sep_idx */
   local_sep = bta_av_get_scb_sep_type(p_scb, avdt_handle);
   bta_av_adjust_seps_idx(p_scb, avdt_handle);
-  APPL_TRACE_DEBUG("%s: sep_idx: %d cur_psc_mask:0x%x", __func__,
-                   p_scb->sep_idx, p_scb->cur_psc_mask);
+  APPL_TRACE_DEBUG("%s: sep_idx: %d cur_psc_mask:0x%x, num: %d", __func__,
+                   p_scb->sep_idx, p_scb->cur_psc_mask, num);
 
   if ((AVDT_TSEP_SNK == local_sep) &&
       (p_data->ci_setconfig.err_code == AVDT_SUCCESS) &&
@@ -1572,37 +1570,11 @@ void bta_av_setconfig_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     else
       p_scb->avdt_version = AVDT_VERSION;
 
-    if (A2DP_GetCodecType(p_scb->cfg.codec_info) == A2DP_MEDIA_CT_SBC || num > 1) {
-        /* For any codec used by the SNK as INT, discover req is not sent in bta_av_config_ind.
-         * This is done since we saw an IOT issue with APTX codec. Thus, we now take same
-         * path for all codecs as for SBC. call disc_res now */
-        /* this is called in A2DP SRC path only, In case of SINK we don't need it  */
-        if (local_sep == AVDT_TSEP_SRC)
-          p_scb->p_cos->disc_res(p_scb->hndl, num, num, 0, p_scb->peer_addr,
-                                 UUID_SERVCLASS_AUDIO_SOURCE);
-
-        for (i = 1; i < num; i++) {
-          APPL_TRACE_DEBUG("%s: sep_info[%d] SEID: %d", __func__, i, p_seid[i - 1]);
-          /* initialize the sep_info[] to get capabilities */
-          p_scb->sep_info[i].in_use = false;
-          p_scb->sep_info[i].tsep = AVDT_TSEP_SNK;
-          p_scb->sep_info[i].media_type = p_scb->media_type;
-          p_scb->sep_info[i].seid = p_seid[i - 1];
-        }
-
-        /* only in case of local sep as SRC we need to look for other SEPs, In case
-         * of SINK we don't */
-        if (local_sep == AVDT_TSEP_SRC) {
-          /* Make sure UUID has been initialized... */
-          if (p_scb->uuid_int == 0) p_scb->uuid_int = UUID_SERVCLASS_AUDIO_SOURCE;
-            bta_av_next_getcap(p_scb, p_data);
-        }
-    } else {
-        if (local_sep == AVDT_TSEP_SRC)
-          if (p_scb->uuid_int == 0) p_scb->uuid_int = UUID_SERVCLASS_AUDIO_SOURCE/*p_scb->open_api.uuid*/;
-            /* we do not know the peer device and it is using non-SBC codec
-             * we need to know all the SEPs on SNK */
-          bta_av_discover_req(p_scb, NULL);
+    if (local_sep == AVDT_TSEP_SRC) {
+      if (p_scb->uuid_int == 0) p_scb->uuid_int = UUID_SERVCLASS_AUDIO_SOURCE;
+        /* we do not know the peer device and it is using non-SBC codec
+         * we need to know all the SEPs on SNK */
+      bta_av_discover_req(p_scb, NULL);
     }
   }
 }
@@ -1708,7 +1680,7 @@ void bta_av_str_opened(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   p_scb->tws_device = BTM_SecIsTwsPlusDev(p_scb->peer_addr);
   if (p_scb->tws_device == true) {
     char *codec_name = (char *)A2DP_CodecName(p_scb->cfg.codec_info);
-    if (strcmp(codec_name, "aptX-TWS") != 0) {
+    if (strcmp(codec_name, "aptX-TWS") && strcmp(codec_name, "aptX-adaptive")) {
       APPL_TRACE_DEBUG("%s:TWSP device configured with Non-TWSP ocdec", __func__);
       p_scb->tws_device = false;
     }
@@ -1766,9 +1738,28 @@ void bta_av_str_opened(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     (*bta_av_cb.p_cback)(BTA_AV_OPEN_EVT, &bta_av_data);
 #if (TWS_ENABLED == TRUE)
     APPL_TRACE_DEBUG("%s:audio count  = %d ",__func__, bta_av_cb.audio_open_cnt);
-    if (p_scb->tws_device && bta_av_cb.audio_open_cnt > 1) {
-      APPL_TRACE_DEBUG("%s: 2nd TWS device, set channel mode",__func__);
-      bta_av_set_tws_chn_mode(p_scb, false);
+    if (p_scb->tws_device) {
+      bool channel_set = false;
+      RawAddress p_addr;
+      if (bta_av_cb.audio_open_cnt > 1 &&
+       BTM_SecGetTwsPlusPeerDev(p_scb->peer_addr,p_addr) &&
+       !p_addr.IsEmpty()) {
+       for (int i = 0; i < BTA_AV_NUM_STRS; i++) {
+         if (bta_av_cb.p_scb[i]->peer_addr == p_addr &&
+          bta_av_cb.p_scb[i]->state == BTA_AV_OPEN_SST)
+          APPL_TRACE_DEBUG("%s: 2nd TWS device, adjust channel mode",__func__);
+          bta_av_set_tws_chn_mode(p_scb, false);
+          channel_set = true;
+          break;
+        }
+      }
+      if (!channel_set) {
+        APPL_TRACE_DEBUG("%s: 1st TWS device, set default mode",__func__);
+        if (open.bd_addr.address[5] % 2)
+          p_scb->channel_mode = 0;//Left channel
+        else
+          p_scb->channel_mode = 1;//Right channe
+      }
     }
     if (p_scb->tws_device && ((p_scb->role & BTA_AV_ROLE_AD_ACP) == 0)) {
     //For outgoing TWS+ connection, initiate avrcp connection
@@ -2744,6 +2735,24 @@ void bta_av_update_enc_mode(tBTA_AV_DATA* p_data) {
   *num_sub_band += 1;
 
    BTM_VendorSpecificCommand(HCI_VSQC_CONTROLLER_A2DP_OPCODE, param_len,
+                                 param, NULL);
+}
+void bta_av_update_aptx_data(tBTA_AV_DATA* p_data) {
+  uint8_t param[48];
+  uint8_t *p_param;
+  uint8_t *num_sub_band;
+  int param_len = 0;
+  uint8_t subband_id = p_data->aptx_data.type;
+  uint8_t subband_data = p_data->aptx_data.data;
+  memset(param, 0, 48);
+  p_param = param;
+  *p_param++ = VS_QHCI_ENCODER_MODE_CHANGE;
+  param_len++;
+  num_sub_band = p_param++;
+  param_len++;
+  update_sub_band_info(&p_param, &param_len, subband_id, &subband_data, 1);
+  *num_sub_band += 1;
+   BTM_VendorSpecificCommand(HCI_VSQC_CONTROLLER_A2DP_OPCODE, param_len,
                                  param, enc_mode_change_callback);
 }
 
@@ -2761,9 +2770,17 @@ void update_sub_band_info(uint8_t **param, int *p_param_len, uint8_t id, uint16_
   *param = p_param;
 }
 
-void update_sub_band_info(uint8_t **param, int *p_param_len, uint8_t id, uint8_t *data, uint8_t len)
+void update_sub_band_info(uint8_t **param, int *p_param_len, uint8_t id, uint8_t *data, uint8_t size)
 {
-  /* For future use */
+  uint8_t *p_param = *param;
+  *p_param++ = BTA_AV_ENCODER_DATA_ID;
+  *p_param_len += 1;
+  *p_param++ = 2;
+  *p_param_len += 1;
+  *p_param++ = id;
+  *p_param++ = *data;
+  *p_param_len += 2;
+  *param = p_param;
 }
 
 void enc_mode_change_callback(tBTM_VSC_CMPL *param)
@@ -2787,6 +2804,7 @@ void bta_av_data_path(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
   uint8_t m_pt = 0x60;
   tAVDT_DATA_OPT_MASK opt;
 
+  APPL_TRACE_DEBUG("%s: p_scb->cong: %d", __func__, p_scb->cong);
   if (p_scb->cong) return;
 
   // Always get the current number of bufs que'd up
@@ -2804,6 +2822,7 @@ void bta_av_data_path(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
     p_buf = (BT_HDR*)p_scb->p_cos->data(p_scb->cfg.codec_info, &timestamp);
 
     if (p_buf) {
+      APPL_TRACE_DEBUG("%s: p_buf is valid: %d", __func__);
       /* use the offset area for the time stamp */
       *(uint32_t*)(p_buf + 1) = timestamp;
 
@@ -4070,8 +4089,22 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
     if(strcmp(codec_name,"aptX-adaptive") == 0)
     {
         tBTA_AV_DATA av_data;
-        av_data.encoder_mode.enc_mode = btif_av_get_aptx_mode_info();
-        bta_av_update_enc_mode(&av_data);
+        av_data.encoder_mode.enc_mode = (btif_av_get_aptx_mode_info() & APTX_MODE_MASK);
+        switch(av_data.encoder_mode.enc_mode) {
+            case APTX_HQ:
+            case APTX_LL:
+              bta_av_update_enc_mode(&av_data);
+              break;
+            case APTX_ULL:
+              av_data.encoder_mode.enc_mode = APTX_LL;
+              bta_av_update_enc_mode(&av_data);
+              BTA_AvUpdateAptxData(APTX_ULL);
+              break;
+            default:
+              av_data.encoder_mode.enc_mode = APTX_HQ;
+              bta_av_update_enc_mode(&av_data);
+              APPL_TRACE_WARNING("Unknown aptX mode, send HQ as default");
+        }
     }
   }
 }
@@ -4217,7 +4250,13 @@ void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     else if ((strcmp(codec_name,"AAC")) == 0) codec_type = 2;
     else if ((strcmp(codec_name,"aptX")) == 0) codec_type = 8;
     else if ((strcmp(codec_name,"aptX-HD")) == 0) codec_type = 9;
-    else if ((strcmp(codec_name,"aptX-adaptive")) == 0) codec_type = 10;
+    else if ((strcmp(codec_name,"aptX-adaptive")) == 0) {
+      if (BTM_SecIsTwsPlusDev(p_scb->peer_addr)) {
+        codec_type = 12;
+      } else {
+        codec_type = 10;
+      }
+    }
     else if ((strcmp(codec_name,"LDAC")) == 0) codec_type = 4;
     else if ((strcmp(codec_name,"aptX-TWS")) == 0) codec_type = 11;
     if ((codec_type == 8) || (codec_type == 9) || (codec_type == 4)) {
@@ -4408,4 +4447,34 @@ void bta_av_offload_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   tBTA_AV bta_av_data;
   bta_av_data.status = status;
   (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, &bta_av_data);
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_av_fake_suspend_rsp
+ *
+ * Description      This function is called when the 2sec timer expired, to fake
+ *                  suspend response to btif
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void bta_av_fake_suspend_rsp(const RawAddress &remote_bdaddr) {
+  tBTA_AV_SCB* p_scb = NULL;
+  tBTA_AV_SUSPEND suspend_rsp;
+  p_scb = bta_av_addr_to_scb(remote_bdaddr);
+  if (p_scb == NULL) {
+    APPL_TRACE_IMP("%s: p_scb is null, return", __func__);
+    return;
+  }
+  APPL_TRACE_IMP("%s: add: %s hdi = %d", __func__,
+                           remote_bdaddr.ToString().c_str(), p_scb->hdi);
+
+  suspend_rsp.status = BTA_AV_SUCCESS;
+  suspend_rsp.chnl = p_scb->chnl;
+  suspend_rsp.hndl = p_scb->hndl;
+  suspend_rsp.initiator = true;
+  tBTA_AV bta_av_data;
+  bta_av_data.suspend = suspend_rsp;
+  (*bta_av_cb.p_cback)(BTA_AV_SUSPEND_EVT, &bta_av_data);
 }

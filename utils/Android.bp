@@ -15,8 +15,4 @@ cc_library_static {
     static_libs: [
         "libprocessgroup",
     ],
-
-    sanitize: {
-        never: true,
-    },
 }

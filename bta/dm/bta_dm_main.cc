@@ -93,6 +93,7 @@ const tBTA_DM_ACTION bta_dm_action[] = {
     bta_dm_remove_device,  /* BTA_DM_API_REMOVE_DEVICE_EVT */
     bta_dm_hci_raw_command, /* BTA_DM_API_HCI_RAW_COMMAND_EVT */
     bta_dm_set_wifi_state, /* BTA_DM_API_SET_WIFI_STATE_EVT */
+    bta_dm_power_back_off, /* BTA_DM_API_SET_PWR_BACKOFF_EVT */
     bta_dm_process_iot_report, /*BTA_DM_API_IOT_REPORT_EVT*/
     bta_dm_bredr_cleanup, /* BTA_DM_API_BREDR_CLEANUP_EVT */
     bta_dm_bredr_startup, /* BTA_DM_API_BREDR_STARTUP_EVT */

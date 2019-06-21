@@ -233,6 +233,8 @@ void bta_av_del_rc(tBTA_AV_RCB* p_rcb) {
       p_rcb->lidx = 0;
       p_rcb->is_browse_active = false;
     }
+    p_rcb->rc_opened = false;
+    p_rcb->peer_addr = RawAddress::kEmpty;
     /* else ACP && connected. do not clear the handle yet */
     AVRC_Close(rc_handle);
     if (rc_handle == bta_av_cb.rc_acp_handle)
@@ -307,6 +309,10 @@ static void bta_av_rc_ctrl_cback(uint8_t handle, uint8_t event,
                                  UNUSED_ATTR uint16_t result,
                                  const RawAddress* peer_addr) {
   uint16_t msg_event = 0;
+  tBTA_AV_CB* p_cb = &bta_av_cb;
+  uint8_t rc_handle = BTA_AV_RC_HANDLE_NONE;
+  if(handle < AVCT_NUM_LINKS)
+    rc_handle = p_cb->rcb[handle].handle;
 
   APPL_TRACE_IMP("%s handle: %d, result %d, event=0x%x", __func__, handle, result, event);
   if (event == AVRC_OPEN_IND_EVT) {
@@ -317,10 +323,11 @@ static void bta_av_rc_ctrl_cback(uint8_t handle, uint8_t event,
   } else if (event == AVRC_CLOSE_IND_EVT) {
     msg_event = BTA_AV_AVRC_CLOSE_EVT;
   } else if (event == AVRC_BROWSE_OPEN_IND_EVT) {
-      if (result != 0) {
+      if (result != 0 && (rc_handle != BTA_AV_RC_HANDLE_NONE)) {
         if (browse_conn_retry_count <= 1) {
           browse_conn_retry_count++;
           bta_av_browsing_channel_open_retry(handle);
+          p_cb->rcb[handle].browse_open = true;
         } else {
           browse_conn_retry_count = 1;
           APPL_TRACE_IMP("%s Browse Connection Retry count exceeded", __func__);
@@ -670,7 +677,10 @@ void bta_av_rc_opened(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
   }
 
   p_cb->rcb[i].shdl = shdl;
+  p_cb->rcb[i].browse_open = true;
   rc_open.rc_handle = i;
+  p_cb->rcb[i].peer_addr = p_data->rc_conn_chg.peer_addr;
+  p_cb->rcb[i].rc_opened = true;
   APPL_TRACE_ERROR("bta_av_rc_opened rcb[%d] shdl:%d lidx:%d/%d", i, shdl,
                    p_cb->rcb[i].lidx, p_cb->lcb[BTA_AV_NUM_LINKS].lidx);
   p_cb->rcb[i].status |= BTA_AV_RC_CONN_MASK;
@@ -1445,6 +1455,11 @@ void bta_av_conn_chg(tBTA_AV_DATA* p_data) {
             p_lcb_rc->addr == p_data->conn_chg.peer_addr) {
           /* AVRCP is already connected.
            * need to update the association betwen SCB and RCB */
+          if (!p_cb->rcb[p_cb->rc_acp_handle].rc_opened) {
+            if (p_cb->rcb[p_cb->rc_acp_handle].peer_addr != p_lcb_rc->addr) {
+              APPL_TRACE_ERROR("%s:RC is not open, stale entry",__func__);
+            }
+          }
           p_lcb_rc->conn_msk = 0; /* indicate RC ONLY is not connected */
           p_lcb_rc->lidx = 0;
           p_scb->rc_handle = p_cb->rc_acp_handle;
@@ -2466,6 +2481,7 @@ void bta_av_rc_closed(tBTA_AV_DATA* p_data) {
   int i;
   bool conn = false;
   tBTA_AV_LCB* p_lcb;
+  bool browse_support = false;
 
   rc_close.rc_handle = BTA_AV_RC_HANDLE_NONE;
   p_scb = NULL;
@@ -2479,7 +2495,9 @@ void bta_av_rc_closed(tBTA_AV_DATA* p_data) {
       rc_close.rc_handle = i;
       p_rcb->status &= ~BTA_AV_RC_CONN_MASK;
       p_rcb->peer_features = 0;
-      APPL_TRACE_DEBUG("       shdl:%d, lidx:%d", p_rcb->shdl, p_rcb->lidx);
+      if(p_rcb->browse_open && (p_rcb->peer_features & BTA_AV_FEAT_BROWSE))
+        browse_support = true;
+      APPL_TRACE_DEBUG("shdl:%d, lidx:%d", p_rcb->shdl, p_rcb->lidx);
       if (p_rcb->shdl) {
         if ((p_rcb->shdl - 1) < BTA_AV_NUM_STRS) {
           p_scb = bta_av_cb.p_scb[p_rcb->shdl - 1];
@@ -2541,8 +2559,11 @@ void bta_av_rc_closed(tBTA_AV_DATA* p_data) {
   tBTA_AV bta_av_data;
   bta_av_data.rc_close = rc_close;
   (*p_cb->p_cback)(BTA_AV_RC_CLOSE_EVT, &bta_av_data);
-  if (bta_av_cb.rc_acp_handle == BTA_AV_RC_HANDLE_NONE
-                  && bta_av_cb.features & BTA_AV_FEAT_RCTG)
+
+  /*blocking rc_create for acceptor handle if peer is supporting brwosing connection
+  waiting to close browsing connection*/
+  if (!browse_support && (bta_av_cb.rc_acp_handle == BTA_AV_RC_HANDLE_NONE) &&
+     (bta_av_cb.features & BTA_AV_FEAT_RCTG))
       bta_av_rc_create(&bta_av_cb, AVCT_ACP, 0, BTA_AV_NUM_LINKS + 1);
 }
 
@@ -2585,13 +2606,25 @@ void bta_av_rc_browse_closed(tBTA_AV_DATA* p_data) {
   tBTA_AV_CB* p_cb = &bta_av_cb;
   tBTA_AV_RC_CONN_CHG* p_msg = (tBTA_AV_RC_CONN_CHG*)p_data;
   tBTA_AV_RC_BROWSE_CLOSE rc_browse_close;
+  tBTA_AV_RCB* p_rcb;
 
   VLOG(1) << "bta_av_rc_browse_closed bd_addr:" << p_msg->peer_addr;
   APPL_TRACE_DEBUG("bta_av_rc_browse_closed rc_handle:%d", p_msg->handle);
 
   rc_browse_close.rc_handle = p_msg->handle;
   rc_browse_close.peer_addr = p_msg->peer_addr;
-
+  p_rcb = &p_cb->rcb[p_msg->handle];
+  /*if handle in none means rc cleaup is triggered but due to
+  browsing bcb it is not finished. So again celaning RC for handler*/
+  if(p_rcb->handle == BTA_AV_RC_HANDLE_NONE) {
+    p_rcb->handle = p_msg->handle;
+    bta_av_del_rc(p_rcb);
+    p_rcb->handle = BTA_AV_RC_HANDLE_NONE;
+    if (p_rcb->browse_open && (bta_av_cb.rc_acp_handle ==
+        BTA_AV_RC_HANDLE_NONE) && (bta_av_cb.features & BTA_AV_FEAT_RCTG))
+      bta_av_rc_create(&bta_av_cb, AVCT_ACP, 0, BTA_AV_NUM_LINKS + 1);
+  }
+  p_rcb->browse_open = false;
   tBTA_AV bta_av_data;
   bta_av_data.rc_browse_close = rc_browse_close;
   (*p_cb->p_cback)(BTA_AV_RC_BROWSE_CLOSE_EVT, &bta_av_data);

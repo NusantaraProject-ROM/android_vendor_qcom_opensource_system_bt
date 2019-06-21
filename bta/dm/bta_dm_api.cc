@@ -264,6 +264,24 @@ void BTA_DmSearchCancel(void) {
 
 /*******************************************************************************
  *
+ * Function         BTA_DmPowerBackOff
+ *
+ * Description      This function sets/resets PowerBackOff
+ *
+ * Returns          void
+ *
+ *******************************************************************************/
+void BTA_DmPowerBackOff(bool status) {
+  tBTA_DM_API_SET_PWR_BACKOFF *p_msg =
+      (tBTA_DM_API_SET_PWR_BACKOFF *)osi_calloc(sizeof(tBTA_DM_API_SET_PWR_BACKOFF));
+
+  p_msg->hdr.event = BTA_DM_API_SET_PWR_BACKOFF_EVT;
+  p_msg->status = status;
+  bta_sys_sendmsg(p_msg);
+}
+
+/*******************************************************************************
+ *
  * Function         BTA_DmSetWifiState
  *
  * Description      This function sets wifi on/off state

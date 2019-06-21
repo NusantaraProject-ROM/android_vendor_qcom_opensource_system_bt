@@ -79,7 +79,7 @@ static bool btm_sec_queue_mx_request(const RawAddress& bd_addr, uint16_t psm,
                                      tBTM_SEC_CALLBACK* p_callback,
                                      void* p_ref_data);
 static void btm_sec_bond_cancel_complete(void);
-static void btm_send_link_key_notif(tBTM_SEC_DEV_REC* p_dev_rec);
+void btm_send_link_key_notif(tBTM_SEC_DEV_REC* p_dev_rec);
 static bool btm_sec_check_prefetch_pin(tBTM_SEC_DEV_REC* p_dev_rec);
 
 static uint8_t btm_sec_start_authorization(tBTM_SEC_DEV_REC* p_dev_rec);
@@ -3220,7 +3220,7 @@ void btm_sec_rmt_name_request_complete(const RawAddress* p_bd_addr,
         BTM_TRACE_ERROR("%s: failed to start remote name request", __func__);
         if (btm_cb.api.p_auth_complete_callback) {
           (*btm_cb.api.p_auth_complete_callback)(
-              p_dev_rec->bd_addr, p_dev_rec->dev_class, p_dev_rec->sec_bd_name,
+              btm_cb.pairing_bda, 0, p_bd_name,
               HCI_ERR_MEMORY_FULL);
         }
       };
@@ -4264,6 +4264,7 @@ void btm_sec_encrypt_change(uint16_t handle, uint8_t status,
           BTM_TRACE_DEBUG("%s NO SM over BR/EDR", __func__);
         } else {
           BTM_TRACE_DEBUG("%s start SM over BR/EDR", __func__);
+          p_dev_rec->sec_smp_pair_pending = BTM_SEC_SMP_PAIR_PENDING;
           SMP_BR_PairWith(p_dev_rec->bd_addr);
         }
       }
@@ -4274,20 +4275,34 @@ void btm_sec_encrypt_change(uint16_t handle, uint8_t status,
           /* LK type is for BR/EDR SC */
           (p_dev_rec->link_key_type == BTM_LKEY_TYPE_UNAUTH_COMB_P_256 ||
            p_dev_rec->link_key_type == BTM_LKEY_TYPE_AUTH_COMB_P_256)) {
-        if (p_dev_rec->link_key_type == BTM_LKEY_TYPE_UNAUTH_COMB_P_256)
-          p_dev_rec->link_key_type = BTM_LKEY_TYPE_UNAUTH_COMB;
-        else /* BTM_LKEY_TYPE_AUTH_COMB_P_256 */
-          p_dev_rec->link_key_type = BTM_LKEY_TYPE_AUTH_COMB;
+          if (p_dev_rec->sec_smp_pair_pending != BTM_SEC_SMP_PAIR_PENDING) {
+            if (p_dev_rec->link_key_type == BTM_LKEY_TYPE_UNAUTH_COMB_P_256)
+              p_dev_rec->link_key_type = BTM_LKEY_TYPE_UNAUTH_COMB;
+            else /* BTM_LKEY_TYPE_AUTH_COMB_P_256 */
+              p_dev_rec->link_key_type = BTM_LKEY_TYPE_AUTH_COMB;
 
-        BTM_TRACE_DEBUG("updated link key type to %d",
+            BTM_TRACE_DEBUG("updated link key type to %d",
                         p_dev_rec->link_key_type);
-        btm_send_link_key_notif(p_dev_rec);
+            btm_send_link_key_notif(p_dev_rec);
+          } else {
+            BTM_TRACE_DEBUG("link key type to %d will update after SMP",
+                        p_dev_rec->link_key_type);
+            if (p_dev_rec->link_key_type == BTM_LKEY_TYPE_UNAUTH_COMB_P_256)
+              p_dev_rec->sec_smp_pair_pending |= BTM_SEC_LINK_KEY_TYPE_UNAUTH;
+            else
+              p_dev_rec->sec_smp_pair_pending |= BTM_SEC_LINK_KEY_TYPE_AUTH;
+          }
       }
     }
   }
 
+  if ((status == HCI_SUCCESS) && (p_dev_rec->sec_state == BTM_SEC_STATE_IDLE) &&
+      (alarm_is_scheduled(btm_cb.sec_collision_timer)) &&
+      (btm_cb.p_collided_dev_rec == p_dev_rec))  {
+      BTM_TRACE_DEBUG("incoming encryption succeded, cancel collision timer");
+      alarm_cancel(btm_cb.sec_collision_timer);
   /* If this encryption was started by peer do not need to do anything */
-  if (p_dev_rec->sec_state != BTM_SEC_STATE_ENCRYPTING) {
+  } else if (p_dev_rec->sec_state != BTM_SEC_STATE_ENCRYPTING) {
     if (BTM_SEC_STATE_DELAY_FOR_ENC == p_dev_rec->sec_state) {
       p_dev_rec->sec_state = BTM_SEC_STATE_IDLE;
       BTM_TRACE_DEBUG("%s: clearing callback. p_dev_rec=%p, p_callback=%p",
@@ -4777,6 +4792,7 @@ void btm_sec_disconnected(uint16_t handle, uint8_t reason) {
   }
   p_dev_rec->sec_state = BTM_SEC_STATE_IDLE;
   p_dev_rec->security_required = BTM_SEC_NONE;
+  p_dev_rec->sec_smp_pair_pending = BTM_SEC_SMP_NO_PAIR_PENDING;
 
   p_callback = p_dev_rec->p_callback;
   RawAddress addr = p_dev_rec->bd_addr;
@@ -5703,7 +5719,7 @@ static void btm_sec_collision_timeout(UNUSED_ATTR void* data) {
  * Returns          Pointer to the record or NULL
  *
  ******************************************************************************/
-static void btm_send_link_key_notif(tBTM_SEC_DEV_REC* p_dev_rec) {
+void btm_send_link_key_notif(tBTM_SEC_DEV_REC* p_dev_rec) {
   if (btm_cb.api.p_link_key_callback)
     (*btm_cb.api.p_link_key_callback)(
         p_dev_rec->bd_addr, p_dev_rec->dev_class, p_dev_rec->sec_bd_name,

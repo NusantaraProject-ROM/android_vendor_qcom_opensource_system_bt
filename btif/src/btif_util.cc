@@ -52,6 +52,7 @@
 #include "btif_dm.h"
 #include "btu.h"
 #include "btif_av.h"
+#include "btif_twsp_hf.h"
 #if (SWB_ENABLED == TRUE)
 #include "bta_ag_swb.h"
 #endif
@@ -221,7 +222,7 @@ const char* dump_hf_event(uint16_t event) {
     CASE_RETURN_STR(BTA_AG_AT_BCS_EVT)
     CASE_RETURN_STR(BTA_AG_AT_BIND_EVT)
     CASE_RETURN_STR(BTA_AG_AT_BIEV_EVT)
-
+    CASE_RETURN_STR(BTA_AG_TWSP_BATTERY_UPDATE)
     default:
       return "UNKNOWN MSG ID";
   }

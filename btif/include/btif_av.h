@@ -39,8 +39,17 @@
 #define SOFT_HANDOFF 1
 #define RECONFIG_A2DP_PARAM 2
 
-#define APTX_HQ_LATENCY 200
-#define APTX_LL_LATENCY 70
+#define APTX_HQ 0X1000
+#define APTX_LL 0X2000
+#define APTX_ULL_S 0X4000
+#define APTX_ULL 0X6000
+#define APTX_MODE_MASK 0X7000
+#define APTX_SCAN_CONTROL_MASK 0X8000
+#define APTX_BATTERY_INFO 0X0F
+
+#define APTX_HQ_LATENCY 2000
+#define APTX_LL_LATENCY 700
+#define APTX_ULL_LATENCY 700
 
 /*******************************************************************************
  *  Type definitions for callback functions
@@ -67,6 +76,7 @@ typedef enum {
   BTIF_AV_TRIGGER_HANDOFF_REQ_EVT,
   BTIF_AV_ENCODER_MODE_CHANGED_EVT,
   BTIF_AV_SINK_QUICK_HANDOFF_EVT,
+  BTIF_AV_PROCESS_HIDL_REQ_EVT,
 } btif_av_sm_event_t;
 
 /*******************************************************************************
@@ -548,5 +558,7 @@ int btif_get_max_allowable_sink_connections();
 tBTA_AV_HNDL btif_av_get_hndl_by_addr(RawAddress peer_address);
 
 void btif_av_signal_session_ready();
-
+void btif_av_set_suspend_rsp_track_timer(int index);
+void btif_av_set_suspend_rsp_track_timer_tout(void* data);
+void btif_av_clear_suspend_rsp_track_timer(int index);
 #endif /* BTIF_AV_H */

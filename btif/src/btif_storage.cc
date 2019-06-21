@@ -709,6 +709,8 @@ bt_status_t btif_storage_get_adapter_property(bt_property_t* property) {
   } else if (property->type == BT_PROPERTY_ADAPTER_BONDED_DEVICES) {
     list_t *bonded_devices = list_new(osi_free);
     int len = 0;
+    int i = 0;
+    property->len = 0;
 
     btif_in_fetch_bonded_devices(&bonded_devices, 0);
 
@@ -719,9 +721,11 @@ bt_status_t btif_storage_get_adapter_property(bt_property_t* property) {
 
     if (list_length(bonded_devices)) {
       property->len = list_length(bonded_devices) * RawAddress::kLength;
+      RawAddress* devices_list = (RawAddress*)osi_malloc(property->len);
+      property->val = devices_list;
       for (list_node_t* node = list_begin(bonded_devices);
-            node != list_end(bonded_devices); node = list_next(node)) {
-        memcpy(&(property->val) + len, (RawAddress *)list_node(node), RawAddress::kLength);
+            node != list_end(bonded_devices); node = list_next(node), i++) {
+        memcpy(&devices_list[i], list_node(node), RawAddress::kLength);
         len = len + RawAddress::kLength;
       }
     }
@@ -966,14 +970,10 @@ bt_status_t btif_storage_remove_bonded_device(
     ret &= btif_config_remove(bdstr, "AvdtpVersion");
   if (btif_config_exist(bdstr, "HfpVersion"))
     ret &= btif_config_remove(bdstr, "HfpVersion");
-  if (btif_config_exist(bdstr, "AvrcpCtVersion"))
-    ret &= btif_config_remove(bdstr, "AvrcpCtVersion");
   if (btif_config_exist(bdstr, "AvrcpTgVersion"))
     ret &= btif_config_remove(bdstr, "AvrcpTgVersion");
   if (btif_config_exist(bdstr, "PbapPceVersion"))
     ret &= btif_config_remove(bdstr, "PbapPceVersion");
-  if (btif_config_exist(bdstr, "AvrcpFeatures"))
-    ret &= btif_config_remove(bdstr, "AvrcpFeatures");
   if (btif_config_exist(bdstr, "VendorID"))
     ret &= btif_config_remove(bdstr, "VendorID");
   if (btif_config_exist(bdstr, "ProductID"))
@@ -982,7 +982,8 @@ bt_status_t btif_storage_remove_bonded_device(
     ret &= btif_config_remove(bdstr, "ProductVersion");
   if (btif_config_exist(bdstr, MAP_MCE_VERSION_CONFIG_KEY))
     ret &= btif_config_remove(bdstr, MAP_MCE_VERSION_CONFIG_KEY);
-  /* Retaining TwsPlusPeerAddr as this is needed even after unpair */
+  /* Retaining TwsPlusPeerAddr , AvrcpCtVersion and AvrcpFeatures
+     as these are needed even after unpair */
   /* write bonded info immediately */
   btif_config_flush();
   return ret ? BT_STATUS_SUCCESS : BT_STATUS_FAIL;
@@ -1758,11 +1759,12 @@ void btif_storage_remove_hearing_aid(const RawAddress& address) {
   btif_config_save();
 }
 
-/** Remove the hearing aid device from white list */
-void btif_storage_remove_hearing_aid_white_list(const RawAddress& address) {
-  std::string addrstr = address.ToString();
-  const char* bdstr = addrstr.c_str();
-  btif_config_set_int(bdstr, HEARING_AID_IS_WHITE_LISTED, false);
+/** Set/Unset the hearing aid device HEARING_AID_IS_WHITE_LISTED flag. */
+void btif_storage_set_hearing_aid_white_list(const RawAddress& address,
+                                             bool add_to_whitelist) {
+  const char* bdstr = address.ToString().c_str();
+  btif_config_set_int(bdstr, HEARING_AID_IS_WHITE_LISTED, add_to_whitelist);
+  btif_config_save();
 }
 
 /** Get the hearing aid device properties. */

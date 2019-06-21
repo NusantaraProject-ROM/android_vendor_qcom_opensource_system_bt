@@ -579,6 +579,8 @@ static void btif_config_remove_unpaired(config_t* conf) {
           !config_has_key(conf, section, "LE_KEY_PCSRK") &&
           !config_has_key(conf, section, "LE_KEY_LENC") &&
           !config_has_key(conf, section, "LE_KEY_LCSRK") &&
+          !config_has_key(conf, section, "AvrcpCtVersion") &&
+          !config_has_key(conf, section, "AvrcpFeatures") &&
           !config_has_key(conf, section, "TwsPlusPeerAddr")) {
         snode = config_section_next(snode);
         config_remove_section(conf, section);

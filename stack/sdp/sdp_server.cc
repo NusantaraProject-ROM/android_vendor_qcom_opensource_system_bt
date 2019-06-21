@@ -154,6 +154,7 @@ static bool is_pbap_adv_enabled();
 #endif
 
 #define PBAP_1_2 0x0102
+#define PBAP_1_2_BL_LEN 14
 
 #ifndef SDP_ENABLE_PTS_MAP
 #define SDP_ENABLE_PTS_MAP  "vendor.bt.pts.map"
@@ -1428,30 +1429,42 @@ static uint16_t sdp_update_pbap_blacklist_len(tCONN_CB* p_ccb, tSDP_ATTR_SEQ* at
       if ((attr.id == ATTR_ID_SERVICE_CLASS_ID_LIST) &&
           (((attr.value_ptr[1] << 8) | (attr.value_ptr[2])) == UUID_SERVCLASS_PBAP_PSE)) {
         // PBAP PSE Record
+        p_rec = sdp_upgrade_pse_record(p_rec, p_ccb->device_address);
         SDP_TRACE_DEBUG("%s: response has PBAP PSE record for BL device", __func__);
+
+        int att_index;
+        bool l2cap_psm_len_included = false, supp_attr_len_included = false;
         for (xx = p_ccb->cont_info.next_attr_index; xx < attr_seq->num_attr; xx++) {
-          if (attr_seq->attr_entry[xx].start == attr_seq->attr_entry[xx].end) {
-            SDP_TRACE_DEBUG("%s start and end match for xx = %d", __func__, xx);
-            if (attr_seq->attr_entry[xx].start == ATTR_ID_GOEP_L2CAP_PSM) {
+          SDP_TRACE_DEBUG("%s: xx = %d attr_seq->num_attr = %d, "
+              "attr_seq->attr_entry[xx].start = %d , attr_seq->attr_entry[xx].end = %d",
+              __func__, xx, attr_seq->num_attr, attr_seq->attr_entry[xx].start,
+              attr_seq->attr_entry[xx].end);
+
+          for (att_index = 0; att_index < p_rec->num_attributes; att_index++) {
+            tSDP_ATTRIBUTE cur_attr = p_rec->attribute[att_index];
+            if (cur_attr.id == ATTR_ID_GOEP_L2CAP_PSM
+                && !l2cap_psm_len_included
+                &&  cur_attr.id >= attr_seq->attr_entry[xx].start
+                &&  cur_attr.id <= attr_seq->attr_entry[xx].end) {
+              l2cap_psm_len_included = true;
               p_ccb->bl_update_len += PBAP_GOEP_L2CAP_PSM_LEN;
               SDP_TRACE_ERROR("%s: ATTR_ID_GOEP_L2CAP_PSM requested,"
                   " need to change length by %d", __func__,
                   p_ccb->bl_update_len);
-            } else if (attr_seq->attr_entry[xx].start ==
-              ATTR_ID_PBAP_SUPPORTED_FEATURES) {
+            } else if (cur_attr.id == ATTR_ID_PBAP_SUPPORTED_FEATURES
+                &&  !supp_attr_len_included
+                &&  cur_attr.id >= attr_seq->attr_entry[xx].start
+                &&  cur_attr.id <= attr_seq->attr_entry[xx].end) {
+              supp_attr_len_included = true;
               p_ccb->bl_update_len += PBAP_SUPP_FEA_LEN;
               SDP_TRACE_DEBUG("%s: ATTR_ID_PBAP_SUPPORTED_FEATURES requested,"
                   " need to change length by %d", __func__,
                   p_ccb->bl_update_len);
             }
-          } else {
-            p_ccb->bl_update_len = PBAP_GOEP_L2CAP_PSM_LEN +
-                PBAP_SUPP_FEA_LEN;
-            SDP_TRACE_DEBUG("%s: All attributes requested"
-                " need to change length by %d", __func__,
-                p_ccb->bl_update_len);
           }
+          if (p_ccb->bl_update_len == PBAP_1_2_BL_LEN) break;
         }
+        break;
       }
     }
   }

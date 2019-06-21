@@ -67,6 +67,7 @@
 #include "bta_av_api.h"
 #include "bta_av_int.h"
 #include "bta_sys.h"
+#include "btif/include/btif_av.h"
 
 #include "osi/include/allocator.h"
 
@@ -443,6 +444,34 @@ void BTA_AvUpdateEncoderMode(uint16_t enc_mode) {
   bta_sys_sendmsg(p_buf);
 }
 
+void BTA_AvUpdateAptxData(uint32_t data) {
+  bool battery_info = (data & APTX_BATTERY_INFO);
+  uint16_t aptx_mode = (uint16_t)(data & APTX_MODE_MASK);
+  if(battery_info) {
+    tBTA_AV_APTX_DATA* p_buf_battery =
+        (tBTA_AV_APTX_DATA*)osi_malloc(sizeof(tBTA_AV_APTX_DATA));
+    p_buf_battery->type = 4;
+    p_buf_battery->data = (uint16_t)data;
+    p_buf_battery->hdr.event = BTA_AV_UPDATE_APTX_DATA_EVT;
+    bta_sys_sendmsg(p_buf_battery);
+  }
+  if(aptx_mode == APTX_ULL || aptx_mode == APTX_ULL_S) {
+    tBTA_AV_APTX_DATA* p_buf_ull =
+        (tBTA_AV_APTX_DATA*)osi_malloc(sizeof(tBTA_AV_APTX_DATA));
+    p_buf_ull->type = 3;
+    p_buf_ull->data = 1;
+    p_buf_ull->hdr.event = BTA_AV_UPDATE_APTX_DATA_EVT;
+    bta_sys_sendmsg(p_buf_ull);
+  }
+  if(aptx_mode == APTX_HQ || aptx_mode == APTX_LL) {
+    tBTA_AV_APTX_DATA* p_buf_ull =
+        (tBTA_AV_APTX_DATA*)osi_malloc(sizeof(tBTA_AV_APTX_DATA));
+    p_buf_ull->type = 3;
+    p_buf_ull->data = 0;
+    p_buf_ull->hdr.event = BTA_AV_UPDATE_APTX_DATA_EVT;
+    bta_sys_sendmsg(p_buf_ull);
+  }
+}
 
 /*******************************************************************************
  *
