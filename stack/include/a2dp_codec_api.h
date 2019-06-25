@@ -87,6 +87,8 @@ bool getCodecSpecificConfig(tBT_A2DP_OFFLOAD* p_a2dp_offload);
   // Returns a copy of the current codec configuration.
   btav_a2dp_codec_config_t getCodecConfig();
 
+  // update audio config with the same config which is updating encoder
+  virtual bool updateCodecConfig(const btav_a2dp_codec_config_t& codec_config_enc_audio, bool audio_update);
   // Gets the current codec capability.
   // The capability is computed by intersecting the local codec's capability
   // and the peer's codec capability. However, if there is an explicit user
@@ -131,7 +133,6 @@ bool getCodecSpecificConfig(tBT_A2DP_OFFLOAD* p_a2dp_offload);
 
   uint8_t ota_codec_config_[AVDT_CODEC_SIZE];
   uint8_t ota_codec_peer_config_[AVDT_CODEC_SIZE];
-
  protected:
   // Sets the current priority of the codec to |codec_priority|.
   // If |codec_priority| is BTAV_A2DP_CODEC_PRIORITY_DEFAULT, the priority is
@@ -282,6 +283,8 @@ class A2dpCodecs {
   // initialized, otherwise false.
   bool init(bool isMulticastEnabled = false);
 
+  // update audio config with the same config which is updating encoder
+  bool updateCodecConfig(const btav_a2dp_codec_config_t& codec_config_enc_audio);
   // Finds the Source codec that corresponds to the A2DP over-the-air
   // |p_codec_info| information.
   // Returns the Source codec if found, otherwise nullptr.

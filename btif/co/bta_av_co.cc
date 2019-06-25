@@ -79,6 +79,7 @@
 #include "btif/include/btif_a2dp_source.h"
 #include "device/include/device_iot_config.h"
 #include "btif/include/btif_config.h"
+#include "stack/include/a2dp_vendor_ldac_constants.h"
 #define MAX_2MBPS_AVDTP_MTU 663
 #define A2DP_LDAC_CODEC_BEST_SAMPLE_RATE 96000
 extern const btgatt_interface_t* btif_gatt_get_interface();
@@ -1239,7 +1240,6 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
 static tBTA_AV_CO_SINK* bta_av_co_audio_codec_selected(
     A2dpCodecConfig& codec_config, tBTA_AV_CO_PEER* p_peer) {
   uint8_t new_codec_config[AVDT_CODEC_SIZE];
-
   APPL_TRACE_DEBUG("%s", __func__);
 
   // Find the peer sink for the codec
@@ -1278,15 +1278,34 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_codec_selected(
   }
 
   /*
-  ** In case of acceptor or remote initiated connection need to update enocder with codec config
-  ** details as sent by remote during set config
+  ** In case of acceptor or remote initiated connection need to update enocder
+  ** and audio config with codec config details as sent by remote during set config
   */
   if (p_peer->acp == true && isDevUiReq != true  && p_peer->rcfg_done != true) {
-    /* check if sample rate or channel mode is non-zero (remote set-conf) and
+    /* check if sample rate is non-zero (remote set-conf) and
      * cache peer config for possibility of reconfiguation for better config */
-    if ((codec_config.ota_codec_peer_config_[9] != 0) && (codec_config.ota_codec_peer_config_[10] != 0)) {
-      memcpy(codec_config.ota_codec_config_, codec_config.ota_codec_peer_config_, AVDT_CODEC_SIZE);
-      APPL_TRACE_WARNING("%s: Cache remote config for encoder update on codec select ", __func__);
+    A2dpCodecConfig* current_codec_ = bta_av_get_a2dp_current_codec();
+    if (current_codec_ != nullptr) {
+      btav_a2dp_codec_config_t update_codec_config = current_codec_->getCodecConfig();
+      /* check if sample rate is non-zero (remote set-conf) and
+       * cache peer config for possibility of reconfiguation for better config */
+      if (codec_config.ota_codec_peer_config_[9] != 0) {
+        uint8_t sampleRate = codec_config.ota_codec_peer_config_[9];
+        if (sampleRate & A2DP_LDAC_SAMPLING_FREQ_44100) {
+          update_codec_config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
+        } else if (sampleRate & A2DP_LDAC_SAMPLING_FREQ_48000) {
+          update_codec_config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_48000;
+        } else if (sampleRate & A2DP_LDAC_SAMPLING_FREQ_88200) {
+          update_codec_config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_88200;
+        } else if (sampleRate & A2DP_LDAC_SAMPLING_FREQ_96000) {
+          update_codec_config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_96000;
+        }
+        APPL_TRACE_WARNING("%s: Update encoder config with peer config ", __func__);
+        if (p_peer->codecs->updateCodecConfig(update_codec_config))
+          memcpy(codec_config.ota_codec_config_, codec_config.ota_codec_peer_config_, AVDT_CODEC_SIZE);
+      }
+    } else {
+      APPL_TRACE_WARNING("%s: current codec is NULL, do not update encoder and audio config ", __func__);
     }
   }
 

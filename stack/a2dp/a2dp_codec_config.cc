@@ -978,6 +978,21 @@ void A2dpCodecs::debug_codec_dump(int fd) {
   }
 }
 
+bool A2dpCodecConfig::updateCodecConfig(const btav_a2dp_codec_config_t& update_codec_config,
+                         bool audio_update) {
+    if (audio_update == true)
+      codec_config_ = update_codec_config;
+    LOG_DEBUG(LOG_TAG, "%s: Updated audio config ", __func__);
+    return true;
+}
+
+bool A2dpCodecs::updateCodecConfig(const btav_a2dp_codec_config_t& update_codec_config) {
+    A2dpCodecConfig* a2dp_codec_config_update = nullptr;
+    a2dp_codec_config_update = current_codec_config_;
+    bool ret = a2dp_codec_config_update->updateCodecConfig(update_codec_config, true);
+    return ret;
+}
+
 #if (BT_IOT_LOGGING_ENABLED == TRUE)
 int A2DP_IotGetPeerSinkCodecType(const uint8_t* p_codec_info) {
   int peer_codec_type = 0;
