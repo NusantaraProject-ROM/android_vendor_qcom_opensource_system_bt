@@ -649,6 +649,7 @@ struct tBTA_AV_SCB {
   uint8_t channel_mode; //L:0 R:1 S:2 M:3
   bool offload_started;
 //#endif
+  bool rc_conn;
 };
 
 #define BTA_AV_RC_ROLE_MASK 0x10
