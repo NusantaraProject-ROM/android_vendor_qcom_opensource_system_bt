@@ -320,39 +320,21 @@ static void aptx_init_framing_params(tAPTX_FRAMING_PARAMS* framing_params) {
 //
 static void aptx_update_framing_params(tAPTX_FRAMING_PARAMS* framing_params) {
   if (a2dp_aptx_encoder_cb.feeding_params.sample_rate == 48000) {
-    if (a2dp_aptx_encoder_cb.use_SCMS_T) {
-      framing_params->aptx_bytes = 624;
-      framing_params->pcm_bytes_per_read = 208;
-      framing_params->pcm_reads = 12;
-    } else {
-      framing_params->aptx_bytes = 672;
-      framing_params->pcm_bytes_per_read = 224;
-      framing_params->pcm_reads = 12;
-    }
+    framing_params->aptx_bytes = 624;
+    framing_params->pcm_bytes_per_read = 208;
+    framing_params->pcm_reads = 12;
   } else {
     // Assume the sample rate is 44100
-    if (a2dp_aptx_encoder_cb.use_SCMS_T) {
-      if (++framing_params->frame_size_counter < 20) {
-        framing_params->aptx_bytes = 616;
-        framing_params->pcm_bytes_per_read = 224;
-        framing_params->pcm_reads = 11;
-      } else {
+
+    if (++framing_params->frame_size_counter < 20) {
+      framing_params->aptx_bytes = 616;
+      framing_params->pcm_bytes_per_read = 224;
+      framing_params->pcm_reads = 11;
+    } else {
         framing_params->aptx_bytes = 644;
         framing_params->pcm_bytes_per_read = 368;
         framing_params->pcm_reads = 7;
         framing_params->frame_size_counter = 0;
-      }
-    } else {
-      if (++framing_params->frame_size_counter < 8) {
-        framing_params->aptx_bytes = 660;
-        framing_params->pcm_bytes_per_read = 240;
-        framing_params->pcm_reads = 11;
-      } else {
-        framing_params->aptx_bytes = 672;
-        framing_params->pcm_bytes_per_read = 224;
-        framing_params->pcm_reads = 12;
-        framing_params->frame_size_counter = 0;
-      }
     }
   }
 
