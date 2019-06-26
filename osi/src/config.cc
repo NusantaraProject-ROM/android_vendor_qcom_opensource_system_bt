@@ -500,13 +500,16 @@ bool config_save(const config_t* config, const char* filename) {
              directoryname, strerror(errno));
   }
 
+  if (syncfs(dir_fd) < 0) {
+    LOG_WARN(LOG_TAG, "%s unable to syncfs dir '%s': %s", __func__,
+             directoryname, strerror(errno));
+  }
+
   if (close(dir_fd) < 0) {
     LOG_ERROR(LOG_TAG, "%s unable to close dir '%s': %s", __func__,
               directoryname, strerror(errno));
     goto error;
   }
-  //sync() will ensure bt_config is saved to NVRAM and prevent file curruption
-  sync();
   osi_free(temp_filename);
   osi_free(temp_dirname);
   return true;
