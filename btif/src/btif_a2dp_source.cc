@@ -1779,6 +1779,11 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
 #endif
           break;
         }
+        if (btif_av_current_device_is_tws()) {
+          int index = btif_av_get_latest_stream_device_idx();
+          btif_dispatch_sm_event(BTIF_AV_REPORT_AUDIO_STATE_EVT,
+                                  (char *)&index, 1);
+        }
         btif_av_reset_reconfig_flag();
         status = A2DP_CTRL_ACK_SUCCESS;
         break;

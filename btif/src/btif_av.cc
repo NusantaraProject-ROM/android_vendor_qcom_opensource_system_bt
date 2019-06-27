@@ -2961,6 +2961,13 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
     case BTIF_AV_RESET_REMOTE_STARTED_FLAG_EVT:
       btif_av_reset_remote_started_flag();
       return;
+    case BTIF_AV_REPORT_AUDIO_STATE_EVT:
+      index = (int) *p_param;
+      if (index < btif_max_av_clients && btif_av_cb[index].tws_device) {
+        BTIF_TRACE_IMP("%s: report audio state for index %d",__func__,index);
+        btif_report_audio_state(BTAV_AUDIO_STATE_STARTED, &(btif_av_cb[index].peer_bda));
+      }
+      return;
       // Events from the stack, BTA
     case BTA_AV_ENABLE_EVT:
       index = 0;
