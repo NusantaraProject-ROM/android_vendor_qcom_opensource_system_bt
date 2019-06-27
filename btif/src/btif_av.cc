@@ -951,8 +951,7 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
 
     case BTIF_AV_SOURCE_CONFIG_UPDATED_EVT:
     {
-      RawAddress dummy_bdaddr = {{0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
-      btif_report_source_codec_state(NULL, &dummy_bdaddr);
+      BTIF_TRACE_DEBUG("%s: BTIF_AV_SOURCE_CONFIG_UPDATED_EVT received, ignore", __func__);
     }
     break;
 
@@ -2727,6 +2726,7 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
                              BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL);
             btif_a2dp_source_stop_audio_req();
           }
+          btif_av_signal_session_ready();
         }
         break;
       }
@@ -4136,13 +4136,13 @@ static bt_status_t set_active_device(const RawAddress& bd_addr) {
 
   int active_index = btif_av_get_latest_device_idx_to_start();
   int set_active_device_index = btif_av_idx_by_bdaddr(&(RawAddress&)bd_addr);
-  BTIF_TRACE_EVENT("%s: active_index: %d, set_active_device_index: %d, flags: %d",
-               __func__, active_index, set_active_device_index,
-             btif_av_cb[set_active_device_index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING);
-  if (active_index < btif_max_av_clients &&
-      ((btif_av_cb[active_index].flags & BTIF_AV_FLAG_PENDING_START) ||
+  BTIF_TRACE_EVENT("%s: active_index: %d, set_active_device_index: %d",
+                                         __func__, active_index, set_active_device_index);
+  if (((active_index < btif_max_av_clients) &&
+       (btif_av_cb[active_index].flags & BTIF_AV_FLAG_PENDING_START)) ||
+      ((set_active_device_index < btif_max_av_clients) &&
        (btif_av_cb[set_active_device_index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING))) {
-    BTIF_TRACE_ERROR("%s: Pending Start/Suspend Response on current device, Return Fail",__func__);
+    BTIF_TRACE_ERROR("%s: Pending start on current device or pending suspend on req dev, return fail",__func__);
     return BT_STATUS_NOT_READY;
   }
 
