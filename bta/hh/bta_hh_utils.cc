@@ -416,6 +416,11 @@ tBTA_HH_STATUS bta_hh_read_ssr_param(const RawAddress& bd_addr,
         if (ssr_max_latency > BTA_HH_SSR_MAX_LATENCY_DEF)
           ssr_max_latency = BTA_HH_SSR_MAX_LATENCY_DEF;
 
+        if (interop_match_addr(INTEROP_HID_HOST_LIMIT_SNIFF_INTERVAL,
+                &bd_addr)) {
+           if (ssr_max_latency > 18 /* slots * 0.625ms */) ssr_max_latency = 18;
+        }
+
         *p_max_ssr_lat = ssr_max_latency;
       } else
         *p_max_ssr_lat = p_cb->kdev[i].dscp_info.ssr_max_latency;

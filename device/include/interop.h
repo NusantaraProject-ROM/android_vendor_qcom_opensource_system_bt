@@ -218,6 +218,9 @@ typedef enum {
   //For some remote devicea, disable sniff mode during the call
   INTEROP_DISABLE_SNIFF_DURING_CALL,
 
+  // Set a very low initial sniff subrating for HID devices that do not
+  // set their own sniff interval.
+  INTEROP_HID_HOST_LIMIT_SNIFF_INTERVAL,
   END_OF_INTEROP_LIST
 } interop_feature_t;
 
