@@ -223,6 +223,7 @@ void BluetoothAudioClientInterface::fetch_audio_provider() {
   auto getProviderCapabilities_cb =
       [& capabilities = this->capabilities_, &getProviderCapabilities_promise](
           const hidl_vec<AudioCapabilities>& audioCapabilities) {
+        capabilities.clear();
         for (auto capability : audioCapabilities) {
           capabilities.push_back(capability);
         }
