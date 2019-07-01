@@ -270,7 +270,8 @@ static void bta_ag_sco_disc_cback(uint16_t sco_idx) {
     if (bta_ag_cb.sco.p_curr_scb != NULL &&
            (bta_ag_cb.sco.p_curr_scb->inuse_codec == BTA_AG_CODEC_MSBC
 #if (SWB_ENABLED == TRUE)
-        || bta_ag_cb.sco.p_curr_scb->inuse_codec == BTA_AG_SCO_SWB_SETTINGS_Q0
+        || (bta_ag_cb.sco.p_curr_scb->inuse_codec == BTA_AG_SCO_SWB_SETTINGS_Q0 &&
+            bta_ag_cb.sco.p_curr_scb->is_swb_codec)
 #endif
        )) {
       /* Bypass vendor specific and voice settings if enhanced eSCO supported */
