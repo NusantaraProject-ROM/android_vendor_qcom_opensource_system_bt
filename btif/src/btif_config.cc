@@ -420,7 +420,7 @@ bool btif_config_get_bin(const char* section, const char* key, uint8_t* value,
   const char* value_str = config_get_string(config, section, key, NULL);
 
   if (!value_str) {
-    LOG(WARNING) << __func__ << ": cannot find string for section " << section
+    VLOG(2)  << __func__ << ": cannot find string for section " << section
                  << ", key " << key;
     return false;
   }
