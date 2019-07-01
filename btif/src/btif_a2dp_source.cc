@@ -1629,7 +1629,7 @@ void btif_a2dp_source_command_ack(tA2DP_CTRL_CMD cmd, tA2DP_CTRL_ACK status) {
 
 void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
   tA2DP_CTRL_ACK status = A2DP_CTRL_ACK_FAILURE;
-
+  bool start_audio = false;
   // update the pending command
   bluetooth::audio::a2dp::update_pending_command(cmd);
 
@@ -1738,6 +1738,7 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
               status = A2DP_CTRL_ACK_PENDING;
             } else {
               APPL_TRACE_DEBUG("Av stream already remote started in NS mode");
+              start_audio = true;
               status = A2DP_CTRL_ACK_SUCCESS;
               break;
             }
@@ -1898,6 +1899,9 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
   switch (cmd) {
     case A2DP_CTRL_CMD_START:
       bluetooth::audio::a2dp::ack_stream_started(status);
+      if (start_audio) {
+        btif_a2dp_source_start_audio_req();
+      }
       break;
     case A2DP_CTRL_CMD_SUSPEND:
     case A2DP_CTRL_CMD_STOP:
