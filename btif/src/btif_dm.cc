@@ -1421,6 +1421,15 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
       btif_storage_remove_bonded_device(&bd_addr);
     }
     BTA_DmResetPairingflag(bd_addr);
+
+    if (btif_is_tws_plus_device(&bd_addr)) {
+      RawAddress peer_eb_addr;
+      if (btif_tws_plus_get_peer_eb_addr(&bd_addr, &peer_eb_addr)) {
+        btif_storage_remove_bonded_device(&peer_eb_addr);
+        BTA_DmRemoveDevice(peer_eb_addr);
+        bond_state_changed(status, peer_eb_addr, state);
+      }
+    }
     bond_state_changed(status, bd_addr, state);
   }
 }
