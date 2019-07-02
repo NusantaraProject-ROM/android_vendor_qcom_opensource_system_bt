@@ -1798,6 +1798,17 @@ void bta_ag_hfp_result(tBTA_AG_SCB* p_scb, tBTA_AG_API_RESULT* p_result) {
         p_scb->post_sco = BTA_AG_POST_SCO_CALL_END;
         APPL_TRACE_DEBUG("%s:calling sco_close : %d",__func__, p_result->result);
         bta_ag_sco_close(p_scb, (tBTA_AG_DATA*)p_result);
+      } else if (
+#if (TWS_AG_ENABLED == TRUE)
+                 !is_twsp_device(p_scb->peer_addr) &&
+#endif
+                  bta_ag_is_sco_present_on_any_device()) {
+        /* send call inds after SCO close to all legacy devices */
+        APPL_TRACE_IMP("%s: SCO is present, send call end indicators for all scbs" \
+                            " after SCO close, device %s", __func__,
+                             p_scb->peer_addr.ToString().c_str());
+        p_scb->post_sco = BTA_AG_POST_SCO_CALL_END;
+
       } else if (p_scb->post_sco == BTA_AG_POST_SCO_CALL_END_INCALL) {
         /* sco closing for outgoing call because of incoming call */
         /* Send only callsetup end indicator after sco close */

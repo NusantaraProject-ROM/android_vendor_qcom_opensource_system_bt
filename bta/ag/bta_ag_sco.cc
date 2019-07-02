@@ -2055,6 +2055,33 @@ bool bta_ag_sco_is_opening(tBTA_AG_SCB* p_scb) {
 
 /*******************************************************************************
  *
+ * Function         bta_ag_is_sco_present_on_any_device
+ *
+ * Description      Check if sco is present on any device.
+ *
+ *
+ * Returns          true if sco is in Open/Opening/Closing state for any scb, false
+ *                  otherwise.
+ *
+ ******************************************************************************/
+bool bta_ag_is_sco_present_on_any_device() {
+  tBTA_AG_SCO_CB *sco_hdl = NULL;
+  bool ret_val = false;
+
+  sco_hdl = &bta_ag_cb.sco;
+
+  ret_val = sco_hdl->state == BTA_AG_SCO_OPEN_ST ||
+            sco_hdl->state == BTA_AG_SCO_OPENING_ST ||
+            sco_hdl->state == BTA_AG_SCO_CODEC_ST ||
+            sco_hdl->state == BTA_AG_SCO_CLOSING_ST;
+
+  APPL_TRACE_IMP("%s: returning : %d", __func__, ret_val);
+
+  return ret_val;
+}
+
+/*******************************************************************************
+ *
  * Function         bta_ag_sco_listen
  *
  * Description

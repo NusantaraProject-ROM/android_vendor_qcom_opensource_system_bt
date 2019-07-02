@@ -883,8 +883,17 @@ void bta_ag_post_sco_close(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
       break;
 
     case BTA_AG_POST_SCO_CALL_END:
-      bta_ag_send_call_inds(p_scb, BTA_AG_END_CALL_RES);
-      p_scb->post_sco = BTA_AG_POST_SCO_NONE;
+      for (size_t i = 0; i < BTA_AG_MAX_NUM_CLIENTS; i++) {
+        if (bta_ag_cb.scb[i].in_use &&
+            bta_ag_cb.scb[i].svc_conn &&
+            bta_ag_cb.scb[i].post_sco == BTA_AG_POST_SCO_CALL_END) {
+           bta_ag_send_call_inds(&bta_ag_cb.scb[i], BTA_AG_END_CALL_RES);
+           bta_ag_cb.scb[i].post_sco = BTA_AG_POST_SCO_NONE;
+           APPL_TRACE_IMP("%s: sending call end indicators after SCO close for scb" \
+              " on index %x, device %s",
+               __func__, i, bta_ag_cb.scb[i].peer_addr.ToString().c_str());
+        }
+      }
       break;
 
     case BTA_AG_POST_SCO_CALL_END_INCALL:
