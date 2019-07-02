@@ -158,6 +158,8 @@ extern bool btif_av_is_tws_device_playing(int index);
 extern bool btif_av_is_idx_tws_device(int index);
 extern int btif_av_get_tws_pair_idx(int index);
 extern void btif_av_clear_pending_start_flag();
+extern bool btif_av_is_tws_suspend_triggered(int index);
+
 static char a2dp_hal_imp[PROPERTY_VALUE_MAX] = "false";
 UNUSED_ATTR static const char* dump_media_event(uint16_t event) {
   switch (event) {
@@ -1873,7 +1875,8 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
       }else if (btif_av_current_device_is_tws()) {
         //Check if either of the index is streaming
         for (int i = 0; i < btif_max_av_clients; i++) {
-          if (btif_av_is_tws_device_playing(i)) {
+          if (btif_av_is_tws_device_playing(i) &&
+            !btif_av_is_tws_suspend_triggered(i)) {
             APPL_TRACE_DEBUG("Suspend TWS+ stream on index %d",i);
             btif_dispatch_sm_event(BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL, 0);
             status = A2DP_CTRL_ACK_PENDING;
