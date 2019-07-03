@@ -6439,5 +6439,6 @@ void btif_av_clear_pending_start_flag() {
   if (btif_av_cb[i].reconfig_pending &&
     (btif_av_cb[i].flags &= BTIF_AV_FLAG_PENDING_START) != 0) {
     BTIF_TRACE_DEBUG("%s:clear pending start",__func__);
+    btif_av_cb[i].flags &= ~BTIF_AV_FLAG_PENDING_START;
   }
 }

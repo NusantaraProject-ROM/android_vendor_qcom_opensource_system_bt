@@ -93,6 +93,7 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
              if(bluetooth::audio::a2dp::get_session_type() ==
                   SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH) {
                APPL_TRACE_IMP("%s: start audio as it is SW session", __func__);
+               btif_av_reset_reconfig_flag();
                btif_a2dp_source_start_audio_req();
              }
           }
