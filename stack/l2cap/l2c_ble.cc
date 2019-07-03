@@ -320,7 +320,9 @@ void l2cble_conn_comp(uint16_t handle, uint8_t role, const RawAddress& bda,
                              L2CAP_FIXED_CHNL_SMP_BIT;
 
 #if (BLE_PRIVACY_SPT == TRUE)
-  btm_ble_disable_resolving_list(BTM_BLE_RL_INIT, true);
+  if (!btm_cb.rpa_gen_offload_enabled) {
+    btm_ble_disable_resolving_list(BTM_BLE_RL_INIT, true);
+  }
 #endif
 
   if (role == HCI_ROLE_SLAVE) {

@@ -671,6 +671,10 @@ bool BTM_BleConfigPrivacy(bool privacy_mode) {
 
   GAP_BleAttrDBUpdate(GATT_UUID_GAP_CENTRAL_ADDR_RESOL, &gap_ble_attr_value);
 
+  if (btm_cb.rpa_gen_offload_enabled) {
+    p_cb->addr_mgnt_cb.own_addr_type = BLE_ADDR_RANDOM_ID;
+    btm_ble_resolving_list_load_devices_rpa_offload();
+  }
   return true;
 #else
   return false;

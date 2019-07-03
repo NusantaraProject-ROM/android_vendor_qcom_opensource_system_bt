@@ -69,15 +69,20 @@ void btm_gen_resolve_paddr_low(const RawAddress& address) {
   /* set it to controller */
   btm_ble_set_random_address(p_cb->private_addr);
 
-  p_cb->own_addr_type = BLE_ADDR_RANDOM;
+  if (!btm_cb.rpa_gen_offload_enabled) {
+    p_cb->own_addr_type = BLE_ADDR_RANDOM;
 
-  /* start a periodical timer to refresh random addr */
-  period_ms_t interval_ms = BTM_BLE_PRIVATE_ADDR_INT_MS;
+    /* start a periodical timer to refresh random addr */
+    period_ms_t interval_ms = BTM_BLE_PRIVATE_ADDR_INT_MS;
 #if (BTM_BLE_CONFORMANCE_TESTING == TRUE)
-  interval_ms = btm_cb.ble_ctr_cb.rpa_tout * 1000;
+    interval_ms = btm_cb.ble_ctr_cb.rpa_tout * 1000;
 #endif
-  alarm_set_on_mloop(p_cb->refresh_raddr_timer, interval_ms,
+    alarm_set_on_mloop(p_cb->refresh_raddr_timer, interval_ms,
                      btm_ble_refresh_raddr_timer_timeout, NULL);
+  }
+  else {
+    p_cb->own_addr_type = BLE_ADDR_RANDOM_ID;
+  }
 }
 
 /** This function generate a resolvable private address using local IRK */

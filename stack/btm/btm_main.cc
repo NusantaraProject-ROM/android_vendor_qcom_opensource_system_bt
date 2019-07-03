@@ -27,6 +27,7 @@
 #include "bt_types.h"
 #include "btm_int.h"
 #include "stack_config.h"
+#include "osi/include/properties.h"
 
 /* Global BTM control block structure
 */
@@ -47,11 +48,19 @@ tBTM_CB btm_cb;
 void btm_init(void) {
   /* All fields are cleared; nonzero fields are reinitialized in appropriate
    * function */
+  char rpa_offload_prop[PROPERTY_VALUE_MAX] = "false";
   memset(&btm_cb, 0, sizeof(tBTM_CB));
   btm_cb.page_queue = fixed_queue_new(SIZE_MAX);
   btm_cb.sec_pending_q = fixed_queue_new(SIZE_MAX);
   btm_cb.sec_collision_timer = alarm_new("btm.sec_collision_timer");
   btm_cb.pairing_timer = alarm_new("btm.pairing_timer");
+  if (property_get("persist.vendor.btstack.enable.rpa_gen_offload", rpa_offload_prop, "false")
+      && !strcmp(rpa_offload_prop, "true")) {
+    btm_cb.rpa_gen_offload_enabled = true;
+  }
+  else {
+    btm_cb.rpa_gen_offload_enabled = false;
+  }
 
 #if defined(BTM_INITIAL_TRACE_LEVEL)
   btm_cb.trace_level = BTM_INITIAL_TRACE_LEVEL;

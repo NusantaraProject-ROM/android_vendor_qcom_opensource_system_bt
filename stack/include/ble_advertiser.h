@@ -147,6 +147,15 @@ class BleAdvertisingManager {
   /*  This function disable a Multi-ADV instance */
   virtual void Unregister(uint8_t inst_id) = 0;
 
+  /*  This function gets the number of Multi-ADV instances */
+  virtual uint8_t GetMaxAdvInstances(void) = 0;
+
+  /*  This function updates RPA offload status */
+  virtual void UpdateRpaGenOffloadStatus(bool) = 0;
+
+  /*  This function checks if RPA offload is enabled */
+  virtual bool IsRpaGenOffloadEnabled(void) = 0;
+
   /* When resolving list is used, we need to suspend and resume all advertising
    * instances for the time of operation. Suspend() saves current state,
    * Resume() resumes the advertising.
