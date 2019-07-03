@@ -99,6 +99,7 @@ bool aptxhd_sw = false;
 bool aptx_adaptive_sw = false;
 bool ldac_sw = false;
 bool aptxtws_sw = false;
+std::string offload_caps = "";
 static void init_btav_a2dp_codec_config(
     btav_a2dp_codec_config_t* codec_config, btav_a2dp_codec_index_t codec_index,
     btav_a2dp_codec_priority_t codec_priority) {
@@ -534,6 +535,10 @@ std::string A2dpCodecConfig::codecBitsPerSample2Str(
   }
 
   return result;
+}
+
+std::string A2dpCodecConfig::getOffloadCaps() {
+    return offload_caps;
 }
 
 std::string A2dpCodecConfig::codecChannelMode2Str(
@@ -1730,6 +1735,7 @@ void A2DP_SetOffloadStatus(bool offload_status, const char *offload_cap,
   }
   mA2dp_offload_scrambling_support = scrambling_support;
   mA2dp_offload_44p1kFreq_support = is44p1kFreq_support;
+  offload_caps = controller_get_interface()->get_a2dp_offload_cap();
 }
 
 bool A2DP_GetOffloadStatus() {

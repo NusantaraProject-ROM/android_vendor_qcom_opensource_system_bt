@@ -224,6 +224,8 @@ bool getCodecSpecificConfig(tBT_A2DP_OFFLOAD* p_a2dp_offload);
   static std::string codecConfig2Str(
       const btav_a2dp_codec_config_t& codec_config);
 
+  static std::string getOffloadCaps();
+
   // Gets the string representation of A2DP Codec Sample Rate.
   // Returns the string representation of A2DP Codec Sample Rate stored
   // in |codec_sample_rate|. If there are multiple values stored in
