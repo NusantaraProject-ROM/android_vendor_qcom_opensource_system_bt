@@ -1459,7 +1459,8 @@ void bta_av_conn_chg(tBTA_AV_DATA* p_data) {
             p_lcb_rc->addr == p_data->conn_chg.peer_addr) {
           /* AVRCP is already connected.
            * need to update the association betwen SCB and RCB */
-          if (!p_cb->rcb[p_cb->rc_acp_handle].rc_opened) {
+          if (p_cb->rc_acp_handle < BTA_AV_NUM_RCB &&
+               !p_cb->rcb[p_cb->rc_acp_handle].rc_opened) {
             if (p_cb->rcb[p_cb->rc_acp_handle].peer_addr != p_lcb_rc->addr) {
               APPL_TRACE_ERROR("%s:RC is not open, stale entry",__func__);
             }
