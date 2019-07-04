@@ -103,6 +103,7 @@ bool background_connect_add(uint8_t app_id, const RawAddress& address) {
 
     // Already in white list ?
     if (anyone_connecting(it)) {
+      LOG(INFO) << "Already in whitelist";
       in_white_list = true;
     }
 
@@ -115,7 +116,10 @@ bool background_connect_add(uint8_t app_id, const RawAddress& address) {
 
   if (!in_white_list) {
     // the device is not in the whitelist
-    if (!BTM_WhiteListAdd(address)) return false;
+    if (!BTM_WhiteListAdd(address)) {
+      LOG(ERROR) << "white list is full, we can't add to white list";
+      return false;
+    }
   }
 
   // create endtry for address, and insert app_id.
@@ -138,7 +142,7 @@ bool remove_unconditional(const RawAddress& address) {
  * advertising list.  Returns true if device was on the list and was succesfully
  * removed */
 bool background_connect_remove(uint8_t app_id, const RawAddress& address) {
-  VLOG(2) << __func__;
+  VLOG(2) << __func__ << " : address" << address;
   auto it = bgconn_dev.find(address);
   if (it == bgconn_dev.end()) return false;
 
@@ -154,6 +158,8 @@ bool background_connect_remove(uint8_t app_id, const RawAddress& address) {
 
 /** deregister all related background connetion device. */
 void on_app_deregistered(uint8_t app_id) {
+  VLOG(1) << __func__ <<" : app_id " << loghex(app_id);
+
   auto it = bgconn_dev.begin();
   auto end = bgconn_dev.end();
   /* update the BG conn device list */
@@ -186,6 +192,8 @@ void on_connection_complete(const RawAddress& address) {
 /** Reset bg device list. If called after controller reset, set |after_reset| to
  * true, as there is no need to wipe controller white list in this case. */
 void reset(bool after_reset) {
+  VLOG(1) << __func__ <<" : after_reset" << after_reset;
+
   bgconn_dev.clear();
   if (!after_reset) BTM_WhiteListClear();
 }
@@ -195,14 +203,17 @@ void wl_direct_connect_timeout_cb(uint8_t app_id, const RawAddress& address) {
 
   // TODO: this would free the timer, from within the timer callback, which is
   // bad.
+  VLOG(1) << __func__ <<" : app_id " << loghex(app_id) << " : address" << address;
   direct_connect_remove(app_id, address);
 }
 
-/** Add a device to the direcgt connection list.  Returns true if device
+/** Add a device to the direct connection list.  Returns true if device
  * added to the list, false otherwise */
 bool direct_connect_add(uint8_t app_id, const RawAddress& address) {
   auto it = bgconn_dev.find(address);
   bool in_white_list = false;
+
+  VLOG(1) << __func__ <<" : address:" << address;
 
   if (it != bgconn_dev.end()) {
     // app already trying to connect to this particular device
@@ -214,6 +225,7 @@ bool direct_connect_add(uint8_t app_id, const RawAddress& address) {
 
     // are we already in the white list ?
     if (anyone_connecting(it)) {
+      LOG(INFO) << "Already in whitelist";
       in_white_list = true;
     }
   }
@@ -223,6 +235,7 @@ bool direct_connect_add(uint8_t app_id, const RawAddress& address) {
   if (!in_white_list) {
     if (!BTM_WhiteListAdd(address)) {
       // if we can't add to white list, turn parameters back to slow.
+      LOG(ERROR) << "white list is full, we can't add to white list";
       if (params_changed) BTM_SetLeConnectionModeToSlow();
       return false;
     }
@@ -261,6 +274,7 @@ bool direct_connect_remove(uint8_t app_id, const RawAddress& address) {
   // if we removed last direct connection, lower the scan parameters used for
   // connecting
   if (!any_direct_connect_left()) {
+    LOG(INFO) << "lower the scan parameters used for connecting";
     BTM_SetLeConnectionModeToSlow();
   }
 

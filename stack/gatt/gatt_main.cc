@@ -859,6 +859,7 @@ static void gatt_send_conn_cback(tGATT_TCB* p_tcb) {
   tGATT_REG* p_reg;
   uint16_t conn_id;
 
+  VLOG(1) << __func__ << " : address " << p_tcb->peer_bda;
   std::set<tGATT_IF> apps =
       connection_manager::get_apps_connecting_to(p_tcb->peer_bda);
 

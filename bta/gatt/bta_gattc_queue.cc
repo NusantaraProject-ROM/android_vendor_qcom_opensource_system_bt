@@ -47,6 +47,9 @@ void BtaGattQueue::gatt_read_op_finished(uint16_t conn_id, tGATT_STATUS status,
   GATT_READ_OP_CB tmp_cb = tmp->cb;
   void* tmp_cb_data = tmp->cb_data;
 
+  APPL_TRACE_DEBUG("%s: conn_id=0x%x handle=%d status=%d len=%d", __func__,
+    conn_id, handle, status, len);
+
   osi_free(data);
 
   mark_as_not_executing(conn_id);
@@ -68,6 +71,9 @@ void BtaGattQueue::gatt_write_op_finished(uint16_t conn_id, tGATT_STATUS status,
   gatt_write_op_data* tmp = (gatt_write_op_data*)data;
   GATT_WRITE_OP_CB tmp_cb = tmp->cb;
   void* tmp_cb_data = tmp->cb_data;
+
+  APPL_TRACE_DEBUG("%s: conn_id=0x%x handle=%d status=%d", __func__, conn_id,
+    handle, status);
 
   osi_free(data);
 
@@ -105,6 +111,8 @@ void BtaGattQueue::gatt_execute_next_op(uint16_t conn_id) {
 
   gatt_operation& op = gatt_ops.front();
 
+  APPL_TRACE_DEBUG("%s: op.type=%d, handle=%d", __func__, op.type,
+    op.handle);
   if (op.type == GATT_READ_CHAR) {
     gatt_read_op_data* data =
         (gatt_read_op_data*)osi_malloc(sizeof(gatt_read_op_data));
@@ -143,6 +151,8 @@ void BtaGattQueue::gatt_execute_next_op(uint16_t conn_id) {
 }
 
 void BtaGattQueue::Clean(uint16_t conn_id) {
+  APPL_TRACE_DEBUG("%s: conn_id=0x%x", __func__, conn_id);
+
   gatt_op_queue.erase(conn_id);
   gatt_op_queue_executing.erase(conn_id);
 }

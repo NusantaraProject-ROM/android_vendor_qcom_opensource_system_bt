@@ -175,6 +175,7 @@ void btm_ble_bgconn_cancel_if_disconnected(const RawAddress& bd_addr) {
 
 bool BTM_BackgroundConnectAddressKnown(const RawAddress& address) {
   tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(address);
+  VLOG(2) << __func__ << ": address " << address;
 
   //  not a known device, or a classic device, we assume public address
   if (p_dev_rec == NULL || (p_dev_rec->device_type & BT_DEVICE_TYPE_BLE) == 0)
@@ -183,17 +184,20 @@ bool BTM_BackgroundConnectAddressKnown(const RawAddress& address) {
   // bonded device with identity address known
   if (p_dev_rec->ble.identity_addr != address &&
       !p_dev_rec->ble.identity_addr.IsEmpty()) {
+    VLOG(2) << "bonded device with identity address known";
     return true;
   }
 
   // Public address, Random Static, or Random Non-Resolvable Address known
   if (p_dev_rec->ble.ble_addr_type == BLE_ADDR_PUBLIC ||
       !BTM_BLE_IS_RESOLVE_BDA(address)) {
+    VLOG(2) << "Public address/Random Static/Random Non-ResolAddress known";
     return true;
   }
 
   // Only Resolvable Private Address (RPA) is known, we don't allow it into
   // the background connection procedure.
+  VLOG(2) << "Only Resolvable Private Address (RPA) is known";
   return false;
 }
 
