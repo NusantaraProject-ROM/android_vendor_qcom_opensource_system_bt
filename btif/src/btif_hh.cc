@@ -1183,14 +1183,17 @@ static void btif_hh_handle_evt(uint16_t event, char* p_param) {
   int ret;
   switch (event) {
     case BTIF_HH_CONNECT_REQ_EVT: {
+      /* Check if device not already connected via incoming connection */
+      if (btif_hh_find_connected_dev_by_bda(*bd_addr) != NULL) {
+        BTIF_TRACE_WARNING("%s: device already connected", __func__);
+        HAL_CBACK(bt_hh_callbacks, connection_state_cb, bd_addr,
+                  BTHH_CONN_STATE_CONNECTED);
+        break;
+      }
       ret = btif_hh_connect(bd_addr);
       if (ret == BT_STATUS_SUCCESS) {
-        if (btif_hh_cb.status != BTIF_HH_DEV_CONNECTED) {
-          HAL_CBACK(bt_hh_callbacks, connection_state_cb, bd_addr,
-              BTHH_CONN_STATE_CONNECTING);
-        } else {
-          BTIF_TRACE_EVENT("%s: ignore BTHH_CONN_STATE_CONNECTING callback ", __func__);
-        }
+        HAL_CBACK(bt_hh_callbacks, connection_state_cb, bd_addr,
+                  BTHH_CONN_STATE_CONNECTING);
       } else
         HAL_CBACK(bt_hh_callbacks, connection_state_cb, bd_addr,
                   BTHH_CONN_STATE_DISCONNECTED);
@@ -1279,8 +1282,9 @@ static bt_status_t connect(RawAddress* bd_addr) {
     BTIF_TRACE_ERROR("%s: Error, HH status = %d", __func__, btif_hh_cb.status);
     return BT_STATUS_FAIL;
   }
-  if (btif_hh_cb.status == BTIF_HH_DEV_CONNECTED) {
-    BTIF_TRACE_EVENT("%s Ignore connect request, status = %d  ", __func__, btif_hh_cb.status);
+  if (btif_hh_cb.status == BTIF_HH_DEV_CONNECTED &&
+    btif_hh_find_connected_dev_by_bda(*bd_addr) != NULL) {
+    BTIF_TRACE_EVENT("%s Ignore connect request, device already connected", __func__);
     return BT_STATUS_SUCCESS;
   } else if (btif_hh_cb.status != BTIF_HH_DEV_CONNECTING) {
     btif_transfer_context(btif_hh_handle_evt, BTIF_HH_CONNECT_REQ_EVT,
