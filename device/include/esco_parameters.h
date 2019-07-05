@@ -41,11 +41,7 @@ typedef enum {
 #endif
 } esco_codec_t;
 
-#if (SWB_ENABLED == TRUE)
-#define ESCO_NUM_CODECS 4
-#else
 #define ESCO_NUM_CODECS 3
-#endif
 
 // Coding Formats (BT 4.1 or later Assigned numbers)
 #define ESCO_CODING_FORMAT_ULAW ((uint8_t)0x00)     /* u-Law log    */

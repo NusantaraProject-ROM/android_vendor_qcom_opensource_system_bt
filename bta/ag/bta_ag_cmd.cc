@@ -311,8 +311,12 @@ void bta_ag_send_result(tBTA_AG_SCB* p_scb, size_t code,
   if (result->arg_type == BTA_AG_RES_FMT_INT) {
     p += utl_itoa((uint16_t)int_arg, p);
   } else if (result->arg_type == BTA_AG_RES_FMT_STR) {
-    strcpy(p, p_arg);
-    p += strlen(p_arg);
+    if (p_arg != NULL) {
+      strcpy(p, p_arg);
+      p += strlen(p_arg);
+    }
+    else
+      APPL_TRACE_WARNING("%s: p_arg is NULL", __func__);
   }
 
   /* finish with \r\n */

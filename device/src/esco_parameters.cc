@@ -144,12 +144,20 @@ static const enh_esco_params_t default_esco_parameters[ESCO_NUM_CODECS] = {
 
 enh_esco_params_t esco_parameters_for_codec(esco_codec_t codec) {
   CHECK(codec >= 0) << "codec index " << (int)codec << "< 0";
+#if (SWB_ENABLED == TRUE)
+  CHECK(codec < (ESCO_NUM_CODECS + SWB_ESCO_NUM_CODECS)) << "codec index " << (int)codec << " > "
+                                 << (ESCO_NUM_CODECS + SWB_ESCO_NUM_CODECS);
+  if (codec > LEGACY_CODECS && codec <= (LEGACY_CODECS + SWB_ESCO_NUM_CODECS))
+    return default_esco_swb_parameters[codec - LEGACY_CODECS - 1];
+  else if (codec <= LEGACY_CODECS)
+    return default_esco_parameters[codec];
+  /* If the invalid codec index is given, return with CVSD codec. Shouldn't
+   * hit this. Added for fixing compilation error. */
+  else
+    return default_esco_parameters[0];
+#else
   CHECK(codec < ESCO_NUM_CODECS) << "codec index " << (int)codec << " > "
                                  << ESCO_NUM_CODECS;
-#if (SWB_ENABLED == TRUE)
-  if (codec > LEGACY_CODECS)
-      return default_esco_swb_parameters[codec - LEGACY_CODECS - 1];
-  else
-#endif
   return default_esco_parameters[codec];
+#endif
 }
