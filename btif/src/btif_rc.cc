@@ -3036,7 +3036,8 @@ static bt_status_t register_notification_rsp_sho_mcast(
       BTIF_TRACE_DEBUG("%s: play_status: %d",__FUNCTION__,
                             avrc_rsp.reg_notif.param.play_status);
       if ((avrc_rsp.reg_notif.param.play_status == PLAY_STATUS_PLAYING) &&
-          (btif_av_check_flag_remote_suspend(av_index))
+          (btif_av_check_flag_remote_suspend(av_index)) &&
+          (type == BTRC_NOTIFICATION_TYPE_CHANGED)
 #if (TWS_ENABLED == TRUE)
          && !BTM_SecIsTwsPlusDev(p_dev->rc_addr)
 #endif
@@ -3046,7 +3047,7 @@ static bt_status_t register_notification_rsp_sho_mcast(
           if (bluetooth::headset::btif_hf_check_if_sco_connected() == BT_STATUS_SUCCESS) {
                BTIF_TRACE_ERROR("Ignore sending avdtp_start due to avrcp playing state since sco is present.");
                break;
-            }
+          }
           btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
       }
       break;
@@ -3155,7 +3156,8 @@ static bt_status_t register_notification_rsp(
         BTIF_TRACE_ERROR("%s: play_status: %d",__FUNCTION__,
                               avrc_rsp.reg_notif.param.play_status);
         if ((avrc_rsp.reg_notif.param.play_status == PLAY_STATUS_PLAYING) &&
-            (btif_av_check_flag_remote_suspend(av_index))
+            (btif_av_check_flag_remote_suspend(av_index)) &&
+            (type == BTRC_NOTIFICATION_TYPE_CHANGED)
 #if (TWS_ENABLED == TRUE)
             && !BTM_SecIsTwsPlusDev(btif_rc_cb.rc_multi_cb[idx].rc_addr)
 #endif
