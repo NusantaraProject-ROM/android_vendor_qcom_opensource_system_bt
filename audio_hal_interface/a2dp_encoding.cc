@@ -1098,24 +1098,8 @@ bool init( thread_t* message_loop) {
 
 // Clean up BluetoothAudio HAL
 void cleanup() {
-  std::unique_lock<std::mutex> guard(internal_mutex_);
-  if (!is_hal_2_0_enabled()) return;
-  tA2DP_CTRL_CMD pending_cmd = A2DP_CTRL_CMD_NONE;
-  pending_cmd = a2dp_sink->GetPendingCmd();
-  if (pending_cmd == A2DP_CTRL_CMD_START) {
-    LOG(INFO) << __func__ << ":honoring pending A2DP_CTRL_CMD_START";
-    a2dp_hal_clientif->StreamStarted(a2dp_ack_to_bt_audio_ctrl_ack
-                    (A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS));
-  } else if (pending_cmd == A2DP_CTRL_CMD_SUSPEND) {
-    LOG(INFO) << __func__ << ":honoring pending A2DP_CTRL_CMD_SUSPEND/STOP";
-    a2dp_hal_clientif->StreamSuspended(a2dp_ack_to_bt_audio_ctrl_ack
-                    (A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS));
-  }
-  a2dp_sink->Cleanup();
-  a2dp_hal_clientif->EndSession();
-  session_type = SessionType::UNKNOWN;
-  death_handler_thread = nullptr;
-  remote_delay = 0;
+  LOG(WARNING) << __func__ << ": end_session has been called.";
+  end_session();
 }
 
 
