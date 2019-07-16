@@ -4305,7 +4305,35 @@ void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
 #endif
     offload_start.cp_flag = p_scb->p_cos->cp_flag();
 
-    offload_start.sample_rate = A2DP_GetTrackSampleRate(p_scb->cfg.codec_info);
+    switch (A2DP_GetTrackSampleRate(p_scb->cfg.codec_info)) {
+      case SAMPLING_FREQ_44100:
+         offload_start.sample_rate = A2DP_SAMPLING_FREQ_44100;
+         break;
+       case SAMPLING_FREQ_48000:
+         offload_start.sample_rate = A2DP_SAMPLING_FREQ_48000;
+         break;
+       case SAMPLING_FREQ_88200:
+         offload_start.sample_rate = A2DP_SAMPLING_FREQ_88200;
+         break;
+       case SAMPLING_FREQ_96000:
+         offload_start.sample_rate = A2DP_SAMPLING_FREQ_96000;
+         break;
+       case SAMPLING_FREQ_176400:
+         offload_start.sample_rate = A2DP_SAMPLING_FREQ_176400;
+         break;
+       case SAMPLING_FREQ_192000:
+         offload_start.sample_rate = A2DP_SAMPLING_FREQ_192000;
+         break;
+       case SAMPLING_FREQ_16000:
+         offload_start.sample_rate = A2DP_SAMPLING_FREQ_16000;
+         break;
+       case SAMPLING_FREQ_24000:
+         offload_start.sample_rate = A2DP_SAMPLING_FREQ_24000;
+         break;
+       default:
+         APPL_TRACE_IMP("%s: Unknown sampling frequency ", __func__);
+         break;
+    }
     if (L2CA_GetIdentifiers(p_scb->l2c_cid,&offload_start.l2c_rcid,NULL) == false)
     {
       APPL_TRACE_DEBUG("Failed to fetch l2c rcid");

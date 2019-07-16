@@ -62,7 +62,8 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_src_caps = {
     A2DP_APTX_ADAPTIVE_VENDOR_ID,          /* vendorId */
     A2DP_APTX_ADAPTIVE_CODEC_ID_BLUETOOTH, /* codecId */
     //A2DP_APTX_ADAPTIVE_SAMPLERATE_48000,   /* sampleRate */
-    A2DP_APTX_ADAPTIVE_SAMPLERATE_48000,   /* sampleRate */
+    A2DP_APTX_ADAPTIVE_SAMPLERATE_48000 |
+    A2DP_APTX_ADAPTIVE_SAMPLERATE_96000,   /* sampleRate */
     A2DP_APTX_ADAPTIVE_SOURCE_TYPE_2,
     (A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_STEREO |
@@ -92,7 +93,8 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_src_caps = {
 static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_offload_caps = {
     A2DP_APTX_ADAPTIVE_VENDOR_ID,          /* vendorId */
     A2DP_APTX_ADAPTIVE_CODEC_ID_BLUETOOTH, /* codecId */
-    A2DP_APTX_ADAPTIVE_SAMPLERATE_48000,   /* sampleRate */
+    A2DP_APTX_ADAPTIVE_SAMPLERATE_48000 |
+    A2DP_APTX_ADAPTIVE_SAMPLERATE_96000,   /* sampleRate */
     A2DP_APTX_ADAPTIVE_SOURCE_TYPE_1,
     (A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_STEREO |
@@ -452,6 +454,7 @@ int A2DP_VendorGetTrackSampleRateAptxAdaptive(const uint8_t* p_codec_info) {
 
   if (aptx_adaptive_cie.sampleRate == A2DP_APTX_ADAPTIVE_SAMPLERATE_44100) return 44100;
   if (aptx_adaptive_cie.sampleRate == A2DP_APTX_ADAPTIVE_SAMPLERATE_48000) return 48000;
+  if (aptx_adaptive_cie.sampleRate == A2DP_APTX_ADAPTIVE_SAMPLERATE_96000) return 96000;
 
   return -1;
 }
@@ -534,7 +537,9 @@ bool A2DP_VendorDumpCodecInfoAptxAdaptive(const uint8_t* p_codec_info) {
   if (aptx_adaptive_cie.sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_48000) {
     LOG_DEBUG(LOG_TAG, "\tsamp_freq: (48000)");
   }
-
+  if (aptx_adaptive_cie.sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_96000) {
+    LOG_DEBUG(LOG_TAG, "\tsamp_freq: (96000)");
+  }
   LOG_DEBUG(LOG_TAG, "\tch_mode: 0x%x", aptx_adaptive_cie.channelMode);
   if (aptx_adaptive_cie.channelMode & A2DP_APTX_ADAPTIVE_CHANNELS_MONO) {
     LOG_DEBUG(LOG_TAG, "\tch_mode: (Mono)");
@@ -622,6 +627,9 @@ A2dpCodecConfigAptxAdaptive::A2dpCodecConfigAptxAdaptive(
   if (a2dp_aptx_adaptive_caps.sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_48000) {
     codec_local_capability_.sample_rate |= BTAV_A2DP_CODEC_SAMPLE_RATE_48000;
   }
+  if (a2dp_aptx_adaptive_caps.sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_96000) {
+    codec_local_capability_.sample_rate |= BTAV_A2DP_CODEC_SAMPLE_RATE_96000;
+  }
   codec_local_capability_.bits_per_sample = a2dp_aptx_adaptive_caps.bits_per_sample;
   if (a2dp_aptx_adaptive_caps.channelMode & A2DP_APTX_ADAPTIVE_CHANNELS_MONO) {
     codec_local_capability_.channel_mode |= BTAV_A2DP_CODEC_CHANNEL_MODE_MONO;
@@ -681,6 +689,11 @@ static bool select_best_sample_rate(uint8_t sampleRate,
     p_codec_config->sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_48000;
     return true;
   }
+  if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_96000) {
+    p_result->sampleRate = A2DP_APTX_ADAPTIVE_SAMPLERATE_96000;
+    p_codec_config->sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_96000;
+    return true;
+  }
 /*
 don't support 44.1 yet
   if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_44100) {
@@ -716,8 +729,14 @@ static bool select_audio_sample_rate(
         return true;
       }
       break;
-    case BTAV_A2DP_CODEC_SAMPLE_RATE_88200:
     case BTAV_A2DP_CODEC_SAMPLE_RATE_96000:
+      if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_96000) {
+        p_result->sampleRate = A2DP_APTX_ADAPTIVE_SAMPLERATE_96000;
+        p_codec_config->sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_96000;
+        return true;
+      }
+      break;
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_88200:
     case BTAV_A2DP_CODEC_SAMPLE_RATE_176400:
     case BTAV_A2DP_CODEC_SAMPLE_RATE_192000:
     case BTAV_A2DP_CODEC_SAMPLE_RATE_NONE:
@@ -924,8 +943,14 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
         codec_config_.sample_rate = codec_user_config_.sample_rate;
       }
       break;
-    case BTAV_A2DP_CODEC_SAMPLE_RATE_88200:
     case BTAV_A2DP_CODEC_SAMPLE_RATE_96000:
+      if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_96000) {
+        result_config_cie.sampleRate = A2DP_APTX_ADAPTIVE_SAMPLERATE_96000;
+        codec_capability_.sample_rate = codec_user_config_.sample_rate;
+        codec_config_.sample_rate = codec_user_config_.sample_rate;
+      }
+      break;
+    case BTAV_A2DP_CODEC_SAMPLE_RATE_88200:
     case BTAV_A2DP_CODEC_SAMPLE_RATE_176400:
     case BTAV_A2DP_CODEC_SAMPLE_RATE_192000:
     case BTAV_A2DP_CODEC_SAMPLE_RATE_NONE:
@@ -946,6 +971,10 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
       codec_selectable_capability_.sample_rate |=
           BTAV_A2DP_CODEC_SAMPLE_RATE_48000;
     }
+    if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_96000) {
+      codec_selectable_capability_.sample_rate |=
+          BTAV_A2DP_CODEC_SAMPLE_RATE_96000;
+    }
 
     if (codec_config_.sample_rate != BTAV_A2DP_CODEC_SAMPLE_RATE_NONE) break;
 
@@ -954,6 +983,8 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
       codec_capability_.sample_rate |= BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
     if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_48000)
       codec_capability_.sample_rate |= BTAV_A2DP_CODEC_SAMPLE_RATE_48000;
+    if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_96000)
+      codec_capability_.sample_rate |= BTAV_A2DP_CODEC_SAMPLE_RATE_96000;
 
     // No user preference - try the codec audio config
     if (select_audio_sample_rate(&codec_audio_config_, sampleRate,
