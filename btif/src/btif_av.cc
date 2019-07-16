@@ -4343,9 +4343,15 @@ static bt_status_t set_active_device(const RawAddress& bd_addr) {
   int active_index = btif_av_get_latest_device_idx_to_start();
   int set_active_device_index = btif_av_idx_by_bdaddr(&(RawAddress&)bd_addr);
   int tws_pair_index = btif_max_av_clients;
-  BTIF_TRACE_EVENT("%s: active_index: %d, set_active_device_index: %d, flags: %d",
-               __func__, active_index, set_active_device_index,
-             btif_av_cb[set_active_device_index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING);
+  BTIF_TRACE_EVENT("%s: active_index: %d, set_active_device_index: %d",
+               __func__, active_index, set_active_device_index);
+
+  if(set_active_device_index < btif_max_av_clients) {
+    BTIF_TRACE_EVENT("%s: set_active_device_index flags: %d",
+                 __func__, btif_av_cb[set_active_device_index].flags &
+                      BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING);
+  }
+
   if (active_index < btif_max_av_clients && btif_av_cb[active_index].tws_device) {
     tws_pair_index = btif_av_get_tws_pair_idx(active_index);
   }
