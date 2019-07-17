@@ -313,7 +313,7 @@ void btif_a2dp_source_shutdown(void) {
 static void btif_a2dp_source_shutdown_delayed(UNUSED_ATTR void* context) {
   APPL_TRACE_DEBUG("%s", __func__);
   btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
-  if (btif_a2dp_source_is_hal_v2_enabled()){
+  if (btif_a2dp_source_is_hal_v2_supported()){
     bluetooth::audio::a2dp::cleanup();
   } else {
     btif_a2dp_control_cleanup();
@@ -905,7 +905,7 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
   tA2DP_CTRL_CMD pending_cmd = A2DP_CTRL_CMD_NONE;
 
   // Keep track of audio data still left in the pipe
-  if (btif_a2dp_source_is_hal_v2_enabled()) {
+  if (btif_a2dp_source_is_hal_v2_supported()) {
     btif_a2dp_control_log_bytes_read(
         bluetooth::audio::a2dp::read(p_buf, sizeof(p_buf)));
   } else {
@@ -918,7 +918,7 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
   alarm_free(btif_a2dp_source_cb.media_alarm);
   btif_a2dp_source_cb.media_alarm = NULL;
 
-  if (!btif_a2dp_source_is_hal_v2_enabled()) {
+  if (!btif_a2dp_source_is_hal_v2_supported()) {
     UIPC_Close(UIPC_CH_ID_AV_AUDIO);
   }
   /*
@@ -949,7 +949,7 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
     }
   } else if (pending_cmd == A2DP_CTRL_CMD_START) {
     BTIF_TRACE_ERROR("Ack Pending Start while Disconnect in Progress");
-    if (btif_a2dp_source_is_hal_v2_enabled()) {
+    if (btif_a2dp_source_is_hal_v2_supported()) {
       bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS);
     } else {
       btif_a2dp_command_ack(A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS);
@@ -1000,7 +1000,7 @@ static void btif_a2dp_source_audio_handle_timer(UNUSED_ATTR void* context) {
 static uint32_t btif_a2dp_source_read_callback(uint8_t* p_buf, uint32_t len) {
   uint16_t event;
   uint32_t bytes_read = 0;
-  if (btif_a2dp_source_is_hal_v2_enabled()) {
+  if (btif_a2dp_source_is_hal_v2_supported()) {
     bytes_read = bluetooth::audio::a2dp::read(p_buf, len);
   } else {
     bytes_read = UIPC_Read(UIPC_CH_ID_AV_AUDIO, &event, p_buf, len);
@@ -1118,7 +1118,7 @@ static void btif_a2dp_source_audio_tx_flush_event(UNUSED_ATTR BT_HDR* p_msg) {
       time_get_os_boottime_us();
   fixed_queue_flush(btif_a2dp_source_cb.tx_audio_queue, osi_free);
 
-  if (!btif_a2dp_source_is_hal_v2_enabled()) {
+  if (!btif_a2dp_source_is_hal_v2_supported()) {
     UIPC_Ioctl(UIPC_CH_ID_AV_AUDIO, UIPC_REQ_RX_FLUSH, NULL);
   }
 }
