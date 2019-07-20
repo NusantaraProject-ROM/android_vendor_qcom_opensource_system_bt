@@ -1289,7 +1289,8 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_codec_selected(
       btav_a2dp_codec_config_t update_codec_config = current_codec_->getCodecConfig();
       /* check if sample rate is non-zero (remote set-conf) and
        * cache peer config for possibility of reconfiguation for better config */
-      if (codec_config.ota_codec_peer_config_[9] != 0) {
+      if (A2DP_SourceCodecIndex(codec_config.ota_codec_peer_config_) ==
+        BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC && codec_config.ota_codec_peer_config_[9] != 0) {
         uint8_t sampleRate = codec_config.ota_codec_peer_config_[9];
         if (sampleRate & A2DP_LDAC_SAMPLING_FREQ_44100) {
           update_codec_config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
