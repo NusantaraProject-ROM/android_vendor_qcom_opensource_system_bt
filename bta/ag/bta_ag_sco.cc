@@ -1277,7 +1277,8 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           //Atleast try connecting to 2nd twsp
           if (is_twsp_device(p_scb->peer_addr) && !p_scb->rmt_sco_req) {
              tBTA_AG_SCB *other_scb = get_other_twsp_scb((p_scb->peer_addr));
-             if (other_scb && twsp_sco_active(other_scb) == false) {
+             if (other_scb && twsp_sco_active(other_scb) == false &&
+                     get_twsp_state(other_scb) == TWSPLUS_EB_STATE_INEAR) {
                  dispatch_event_twsp_peer_device(p_scb, BTA_AG_SCO_OPEN_E);
              }
           }
@@ -1401,7 +1402,8 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           //Once SCO connected
           if (is_twsp_device(p_scb->peer_addr) && !p_scb->rmt_sco_req) {
               tBTA_AG_SCB *other_scb = get_other_twsp_scb((p_scb->peer_addr));
-              if (other_scb && twsp_sco_active(other_scb) == false) {
+              if (other_scb && twsp_sco_active(other_scb) == false &&
+                      get_twsp_state(other_scb) == TWSPLUS_EB_STATE_INEAR) {
                   //trigger the secondary SCO connection for TWS
                   dispatch_event_twsp_peer_device(p_scb, BTA_AG_SCO_OPEN_E);
               }
