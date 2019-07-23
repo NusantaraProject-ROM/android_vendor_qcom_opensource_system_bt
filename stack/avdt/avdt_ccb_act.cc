@@ -384,6 +384,7 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
  *
  ******************************************************************************/
 void avdt_ccb_hdl_discover_rsp(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
+  AVDT_TRACE_DEBUG("%s: bd_add: %s", __func__, p_ccb->peer_addr.ToString().c_str());
   /* we're done with procedure */
   p_ccb->proc_busy = false;
 
@@ -434,6 +435,7 @@ void avdt_ccb_hdl_getcap_rsp(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   /* we're done with procedure */
   p_ccb->proc_busy = false;
 
+  AVDT_TRACE_DEBUG("%s: bd_add: %s", __func__, p_ccb->peer_addr.ToString().c_str());
   /* call app callback with results */
   (*p_ccb->proc_cback)(0, &p_ccb->peer_addr, AVDT_GETCAP_CFM_EVT,
                        (tAVDT_CTRL*)(&p_data->msg.svccap));
@@ -459,6 +461,8 @@ void avdt_ccb_hdl_start_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   uint8_t seid =
       avdt_scb_verify(p_ccb, AVDT_VERIFY_START, p_data->msg.multi.seid_list,
                       p_data->msg.multi.num_seps, &err_code);
+  AVDT_TRACE_DEBUG("%s: bd_add: %s, seid: %d", __func__,
+                     p_ccb->peer_addr.ToString().c_str(), seid);
   if (seid == 0 && err_code == 0) {
     /* we're ok, send response */
     avdt_ccb_event(p_ccb, AVDT_CCB_API_START_RSP_EVT, p_data);
@@ -524,6 +528,7 @@ void avdt_ccb_hdl_suspend_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   uint8_t seid;
   uint8_t err_code = 0;
 
+  AVDT_TRACE_DEBUG("%s: bd_add: %s", __func__, p_ccb->peer_addr.ToString().c_str());
   /* verify all streams in the right state */
   if ((seid = avdt_scb_verify(p_ccb, AVDT_VERIFY_SUSPEND,
                               p_data->msg.multi.seid_list,
@@ -564,6 +569,8 @@ void avdt_ccb_hdl_suspend_rsp(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   event = (p_data->msg.hdr.err_code == 0) ? AVDT_SCB_MSG_SUSPEND_RSP_EVT
                                           : AVDT_SCB_MSG_SUSPEND_REJ_EVT;
 
+  AVDT_TRACE_DEBUG("%s: bd_add: %s, event: %d", __func__,
+                   p_ccb->peer_addr.ToString().c_str(), event);
   /* get to where seid's are stashed in current cmd */
   p = (uint8_t*)(p_ccb->p_curr_cmd + 1);
 
@@ -598,6 +605,7 @@ void avdt_ccb_snd_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   /* we're busy */
   p_ccb->proc_busy = true;
 
+  AVDT_TRACE_DEBUG("%s: bd_add: %s", __func__, p_ccb->peer_addr.ToString().c_str());
   /* build and queue discover req */
   avdt_msg_send_cmd(p_ccb, NULL, AVDT_SIG_DISCOVER, NULL);
 }
@@ -616,6 +624,7 @@ void avdt_ccb_snd_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
  ******************************************************************************/
 void avdt_ccb_snd_discover_rsp(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   /* send response */
+  AVDT_TRACE_DEBUG("%s: bd_add: %s", __func__, p_ccb->peer_addr.ToString().c_str());
   avdt_msg_send_rsp(p_ccb, AVDT_SIG_DISCOVER, &p_data->msg);
 }
 
@@ -642,6 +651,7 @@ void avdt_ccb_snd_getcap_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   /* we're busy */
   p_ccb->proc_busy = true;
 
+  AVDT_TRACE_DEBUG("%s: bd_add: %s", __func__, p_ccb->peer_addr.ToString().c_str());
   /* build and queue discover req */
   if (p_data->msg.hdr.sig_id == AVDT_SIG_GET_ALLCAP)
     sig_id = AVDT_SIG_GET_ALLCAP;
@@ -664,6 +674,7 @@ void avdt_ccb_snd_getcap_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
 void avdt_ccb_snd_getcap_rsp(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   uint8_t sig_id = AVDT_SIG_GETCAP;
 
+  AVDT_TRACE_DEBUG("%s: bd_add: %s", __func__, p_ccb->peer_addr.ToString().c_str());
   if (p_data->msg.hdr.sig_id == AVDT_SIG_GET_ALLCAP)
     sig_id = AVDT_SIG_GET_ALLCAP;
 

@@ -405,6 +405,7 @@ static tBTA_AV_SCB* bta_av_alloc_scb(tBTA_AV_CHNL chnl) {
         p_ret->hdi = xx;
         p_ret->a2dp_list = list_new(NULL);
         p_ret->avrc_ct_timer = alarm_new("bta_av.avrc_ct_timer");
+        p_ret->cache_setconfig = NULL;
         bta_av_cb.p_scb[xx] = p_ret;
         APPL_TRACE_EVENT("AV: Alloc success, handle is =%d", p_ret->hndl);
         break;
