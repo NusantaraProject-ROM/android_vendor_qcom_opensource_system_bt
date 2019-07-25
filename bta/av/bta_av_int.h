@@ -691,6 +691,7 @@ struct tBTA_AV_SCB {
   uint8_t start_pending;
   bool offload_started;
 //#endif
+  bool vendor_start;
   bool rc_conn;
   tBTA_AV_DATA *cache_setconfig;
 };

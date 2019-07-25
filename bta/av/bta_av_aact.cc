@@ -1302,6 +1302,7 @@ void bta_av_cleanup(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
   p_scb->num_disc_snks = 0;
   p_scb->offload_supported = false;
   p_scb->offload_started = false;
+  p_scb->vendor_start = false;
   alarm_cancel(p_scb->avrc_ct_timer);
 
   /* TODO(eisenbach): RE-IMPLEMENT USING VSC OR HAL EXTENSION
@@ -4070,6 +4071,7 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
       (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
       return;
     }
+    p_scb->vendor_start = true;
     uint8_t *p_param = param;
     int param_len = 0;
     *p_param++ = VS_QHCI_A2DP_OFFLOAD_START;
@@ -4151,6 +4153,11 @@ void bta_av_vendor_offload_stop(tBTA_AV_SCB* p_scb)
       }
     }
   }
+
+  if(p_scb != NULL && !p_scb->vendor_start) {
+    APPL_TRACE_WARNING("VSC Start is not sent for this device");
+    return;
+  }
   if (!btif_a2dp_src_vsc.multi_vsc_support) {
     APPL_TRACE_DEBUG("bta_av_vendor_offload_stop: sending STOP");
     goto stop;
@@ -4190,8 +4197,10 @@ stop:
   last_sent_vsc_cmd = VS_QHCI_STOP_A2DP_MEDIA;
   BTM_VendorSpecificCommand(HCI_VSQC_CONTROLLER_A2DP_OPCODE, 2, param,
       offload_vendor_callback);
-  if (p_scb != NULL)
+  if (p_scb != NULL) {
     p_scb->offload_supported = false;
+    p_scb->vendor_start = false;
+  }
   /*if (p_scb->tws_device) {
     for (int xx = 0; xx < BTA_AV_NUM_STRS; xx++) {
       if (bta_av_cb.p_scb[xx] != NULL && bta_av_cb.p_scb[xx] != p_scb &&

@@ -1828,6 +1828,30 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
         break;
       }
 
+      if ((!btif_av_cb[index].current_playing) &&
+          (btif_av_cb[index].flags & BTIF_AV_FLAG_PENDING_START)) {
+#if (TWS_ENABLED == TRUE)
+        bool active_tws = false;
+        if(btif_av_cb[index].tws_device) {
+          for (int idx = 0; idx < btif_max_av_clients; idx++) {
+            if(btif_av_cb[idx].tws_device && idx != index
+                 && btif_av_cb[idx].current_playing) {
+              active_tws = true;
+              break;
+            }
+          }
+        }
+        if(!active_tws)
+#endif
+        {
+          BTIF_TRACE_EVENT("%s: Start event received for in-active device", __func__);
+          btif_av_cb[index].flags &= ~BTIF_AV_FLAG_PENDING_START;
+          btif_av_cb[index].flags |= BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING;
+          BTA_AvStop(true, btif_av_cb[index].bta_handle);
+          break;
+        }
+      }
+
       /* if remote tries to start a2dp when DUT is a2dp source
        * then suspend. In case a2dp is sink and call is active
        * then disconnect the AVDTP channel
