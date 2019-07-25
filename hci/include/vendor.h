@@ -26,6 +26,11 @@
 #include "hci_internals.h"
 #include "hci_layer.h"
 
+#define HCI_BT_SOC_CRASHED_OGF    0xfc
+#define HCI_BT_SOC_CRASHED_OCF    0x00
+
+#define HCI_CRASH_MESSAGE_SIZE    (60)
+
 typedef enum {
   VENDOR_CHIP_POWER_CONTROL = BT_VND_OP_POWER_CTRL,
   VENDOR_OPEN_USERIAL = BT_VND_OP_USERIAL_OPEN,
@@ -68,3 +73,116 @@ typedef struct vendor_t {
 } vendor_t;
 
 const vendor_t* vendor_get_interface();
+
+typedef enum {
+  BT_CRASH_REASON_DEFAULT        =  0x00,
+  BT_CRASH_REASON_RX_NULL        =  0x01,
+  BT_CRASH_REASON_TX_RX_INVALID_PKT = 0x40,
+  BT_CRASH_REASON_TX_RX_INVALID_LEN = 0x41,
+  BT_CRASH_REASON_TX_RX_INVALID_PKT_FATAL = 0xC0,
+  BT_CRASH_REASON_TX_RX_INVALID_LEN_FATAL = 0xC1,
+  BT_CRASH_REASON_UNKNOWN        =  0x81,
+  BT_CRASH_REASON_SW_REQUESTED   =  0x82,
+  BT_CRASH_REASON_STACK_OVERFLOW =  0x83,
+  BT_CRASH_REASON_EXCEPTION      =  0x84,
+  BT_CRASH_REASON_ASSERT         =  0x85,
+  BT_CRASH_REASON_TRAP           =  0x86,
+  BT_CRASH_REASON_OS_FATAL       =  0x87,
+  BT_CRASH_REASON_HCI_RESET      =  0x88,
+  BT_CRASH_REASON_PATCH_RESET    =  0x89,
+  BT_CRASH_REASON_ABT            =  0x8A,
+  BT_CRASH_REASON_RAMMASK        =  0x8B,
+  BT_CRASH_REASON_PREBARK        =  0x8C,
+  BT_CRASH_REASON_BUSERROR       =  0x8D,
+  BT_CRASH_REASON_IO_FATAL       =  0x8E,
+  BT_CRASH_REASON_SSR_CMD        =  0x8F,
+  BT_CRASH_REASON_POWERON        =  0x90,
+  BT_CRASH_REASON_WATCHDOG       =  0x91
+} soc_crash_reason_e;
+
+typedef struct {
+  soc_crash_reason_e reason;
+  char reasonstr[HCI_CRASH_MESSAGE_SIZE];
+} secondary_reason;
+
+static secondary_reason secondary_crash_reason [] = {
+{ BT_CRASH_REASON_DEFAULT                  ,    "Default"},
+{ BT_CRASH_REASON_RX_NULL                  ,    "Rx Null"},
+{ BT_CRASH_REASON_UNKNOWN                  ,    "Unknown"},
+{ BT_CRASH_REASON_TX_RX_INVALID_PKT        ,    "Tx/Rx invalid packet"},
+{ BT_CRASH_REASON_TX_RX_INVALID_LEN        ,    "Tx/Rx invalid len"},
+{ BT_CRASH_REASON_TX_RX_INVALID_PKT_FATAL  ,    "Tx/Rx invalid packet fatal error"},
+{ BT_CRASH_REASON_TX_RX_INVALID_LEN_FATAL  ,    "Tx/Rx invalid lenght fatal error"},
+{ BT_CRASH_REASON_SW_REQUESTED             ,    "SW Requested"},
+{ BT_CRASH_REASON_STACK_OVERFLOW           ,    "Stack Overflow"},
+{ BT_CRASH_REASON_EXCEPTION                ,    "Exception"},
+{ BT_CRASH_REASON_ASSERT                   ,    "Assert"},
+{ BT_CRASH_REASON_TRAP                     ,    "Trap"},
+{ BT_CRASH_REASON_OS_FATAL                 ,    "OS Fatal"},
+{ BT_CRASH_REASON_HCI_RESET                ,    "HCI Reset"},
+{ BT_CRASH_REASON_PATCH_RESET              ,    "Patch Reset"},
+{ BT_CRASH_REASON_ABT                      ,    "SoC Abort"},
+{ BT_CRASH_REASON_RAMMASK                  ,    "RAM MASK"},
+{ BT_CRASH_REASON_PREBARK                  ,    "PREBARK"},
+{ BT_CRASH_REASON_BUSERROR                 ,    "Bus error"},
+{ BT_CRASH_REASON_IO_FATAL                 ,    "IO fatal eror"},
+{ BT_CRASH_REASON_SSR_CMD                  ,    "SSR CMD"},
+{ BT_CRASH_REASON_POWERON                  ,    "Power ON"},
+{ BT_CRASH_REASON_WATCHDOG                 ,    "Watchdog"},
+};
+
+enum host_crash_reason_e  {
+  REASON_DEFAULT_NONE  = 0x00,                         //INVALID REASON
+  REASON_SOC_CRASHED = 0x01,                           //SOC WAS CRASHED
+  REASON_SOC_CRASHED_DIAG_SSR = 0x02,                  //SOC CRASHED DIAG INITIATED SSR
+  REASON_PATCH_DLDNG_FAILED_SOCINIT = 0x03,            //CONTROLLED INIT FAILED
+  REASON_CLOSE_RCVD_DURING_INIT = 0x04,                //CLOSE RECEIVED FROM STACK DURING SOC INIT
+  REASON_ERROR_READING_DATA_FROM_UART = 0x05,          //ERROR READING DATA FROM UART
+  REASON_WRITE_FAIL_SPCL_BUFF_CRASH_SOC = 0x06,        //FAILED TO WRITE SPECIAL BYTES TO CRASH SOC
+  REASON_RX_THREAD_STRUCK = 0x07,                      //RX THREAD STRUCK
+  REASON_DUMPING_FOR_PRONTO = 0x08,                    //DUMPING FOR SMD BASED TARGET
+  REASON_SSR_CMD_TIMEDOUT = 0x10,                      //SSR DUE TO CMD TIMED OUT
+  REASON_SSR_SPURIOUS_WAKEUP = 0x11,                   //SSR DUE TO SPURIOUS WAKE UP
+  REASON_SSR_INVALID_BYTES_RCVD = 0x12,                //INVALID HCI CMD TYPE RECEIVED
+  REASON_SSR_RCVD_LARGE_PKT_FROM_SOC = 0x13,           //SSR DUE TO LARGE PKT RECVIVED FROM SOC
+  REASON_SSR_UNABLE_TO_WAKEUP_SOC = 0x14,              //UNABLE TO WAKE UP SOC
+  REASON_CMD_TIMEDOUT_SOC_WAIT_TIMEOUT = 0x20,         //COMMAND TIMEOUT AND SOC CRASH WAIT TIMEOUT
+  REASON_SPURIOUS_WAKEUP_SOC_WAIT_TIMEOUT = 0x21,      //SPURIOUS WAKE AND SOC CRASH WAIT TIMEOUT
+  REASON_INV_BYTES_SOC_WAIT_TIMEOUT = 0x22,            //INVALID BYTES AND SOC CRASH WAIT TIMEOUT
+  REASON_SOC_WAKEUP_FAILED_SOC_WAIT_TIMEOUT = 0x23,    //SOC WAKEUP FAILURE AND SOC CRASH WAIT TIMEOUT
+  REASON_SOC_CRASHED_DIAG_SSR_SOC_WAIT_TIMEOUT = 0x24, //SOC CRASHED DIAG INITIATED SSR CRASH WAIT TIMEOUT
+  REASON_NONE_SOC_WAIT_TIMEOUT = 0x25,                 //INVALID FAILURE AND SOC CRASH WAIT TIMEOUT
+};
+
+typedef struct {
+  host_crash_reason_e reason;
+  char reasonstr[HCI_CRASH_MESSAGE_SIZE];
+} primary_reason;
+
+static primary_reason primary_crash_reason [] = {
+{ REASON_DEFAULT_NONE                         , "Invalid reason"},
+{ REASON_SOC_CRASHED                          , "SOC crashed"},
+{ REASON_SOC_CRASHED_DIAG_SSR                 , "SOC crashed with diag initiated SSR"},
+{ REASON_PATCH_DLDNG_FAILED_SOCINIT           , "SOC init failed during patch downloading"},
+{ REASON_CLOSE_RCVD_DURING_INIT               , "Close received from stack during SOC init"},
+{ REASON_ERROR_READING_DATA_FROM_UART         , "Error reading data from UART"},
+{ REASON_WRITE_FAIL_SPCL_BUFF_CRASH_SOC       , "Failed to write special bytes to crash SOC"},
+{ REASON_RX_THREAD_STRUCK                     , "Rx Thread Struck"},
+{ REASON_DUMPING_FOR_PRONTO                   , "Dumping for SMD based target"},
+{ REASON_SSR_CMD_TIMEDOUT                     , "SSR due to command timed out"},
+{ REASON_SSR_SPURIOUS_WAKEUP                  , "SSR due to spurious wakeup"},
+{ REASON_SSR_INVALID_BYTES_RCVD               , "Invalid HCI cmd type received"},
+{ REASON_SSR_RCVD_LARGE_PKT_FROM_SOC          , "Large packet received from SOC"},
+{ REASON_SSR_UNABLE_TO_WAKEUP_SOC             , "Unable to wake SOC"},
+{ REASON_CMD_TIMEDOUT_SOC_WAIT_TIMEOUT        , "Command timedout and SOC crash wait timeout"},
+{ REASON_SPURIOUS_WAKEUP_SOC_WAIT_TIMEOUT     , "Spurious wake and SOC crash wait timeout"},
+{ REASON_INV_BYTES_SOC_WAIT_TIMEOUT           , "Invalid bytes received and SOC crash wait timeout"},
+{ REASON_SOC_WAKEUP_FAILED_SOC_WAIT_TIMEOUT   , "SOC Wakeup failed and SOC crash wait timeout"},
+{ REASON_NONE_SOC_WAIT_TIMEOUT                , "Invalid Reason and SOC crash wait timeout"},
+{ REASON_SOC_CRASHED_DIAG_SSR_SOC_WAIT_TIMEOUT, "SOC crashed with diag initiated SSR and SOC wait timeout"},
+{ REASON_NONE_SOC_WAIT_TIMEOUT                , "Invalid Reason and SOC crash wait timeout"},
+};
+
+void decode_crash_reason(uint8_t* p, uint8_t evt_len);
+char *get_secondary_reason_str(soc_crash_reason_e reason);
+char *get_primary_reason_str(host_crash_reason_e reason);

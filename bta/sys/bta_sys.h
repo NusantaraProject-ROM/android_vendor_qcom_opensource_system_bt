@@ -92,7 +92,7 @@ typedef uint16_t tBTA_SYS_HW_MODULE;
 #define BTA_ID_MCE 29           /* Message Client Equipment */
 #define BTA_ID_HL 30            /* Health Device Profile*/
 #define BTA_ID_GATTC 31         /* GATT Client */
-#define BTA_ID_GATTS 32         /* GATT Client */
+#define BTA_ID_GATTS 32         /* GATT Server */
 #define BTA_ID_SDP 33           /* SDP Client */
 #define BTA_ID_TWS_PLUS 34      /* TWS+ Interface */
 #define BTA_ID_BAT 35           /* Broadcast Audio Transmitter  */

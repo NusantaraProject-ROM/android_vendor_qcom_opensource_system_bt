@@ -4062,27 +4062,23 @@ void bta_dm_link_power_cntrl_callback(tBTM_VSC_CMPL *param)
  *
  ******************************************************************************/
 static void bta_dm_set_tech_based_max_power(bool status) {
-  uint8_t* param = NULL ;
-  uint8_t HCI_VS_LINK_POWER_CTRL_PARAM_SIZE = 2;
+  uint8_t param[8] = {0};
+  param[0] = HCI_VS_SET_MAX_RADIATED_POWER_SUB_OPCODE;
+  uint8_t HCI_VS_LINK_POWER_CTRL_PARAM_SIZE;
 
   if (status == true) {
     static max_pow_feature_t tech_based_max_power;
-    uint8_t tech_count = 0, size = 2, i = 2;
+    uint8_t tech_count = 0, i = 2;
 
     APPL_TRACE_DEBUG("%s",__func__);
-    param = (uint8_t*)calloc(size, sizeof(uint8_t));
-    param[0] = HCI_VS_SET_MAX_RADIATED_POWER_SUB_OPCODE;
-    param[1] = tech_count;
+
     int tech_name;
     for (tech_name = BR_MAX_POW_SUPPORT;tech_name <= BLE_MAX_POW_SUPPORT;tech_name++) {
       tech_based_max_power = max_radiated_power_fetch(MAX_POW_ID, (profile_info_t)tech_name);
     }
 
     if (tech_based_max_power.BR_max_pow_feature == true) {
-      param = (uint8_t*)realloc(param, size + 2);
-      tech_count ++;
-      HCI_VS_LINK_POWER_CTRL_PARAM_SIZE += 2;
-      param[1] = tech_count;
+      param[1] = ++tech_count;
       param[i++] = BR_TECH_VALUE;
       param[i++] = tech_based_max_power.BR_max_pow_support;
 
@@ -4091,10 +4087,7 @@ static void bta_dm_set_tech_based_max_power(bool status) {
     }
 
     if (tech_based_max_power.EDR_max_pow_feature == true) {
-      param = (uint8_t*)realloc(param, size + 2);
-      tech_count ++;
-      HCI_VS_LINK_POWER_CTRL_PARAM_SIZE += 2;
-      param[1] = tech_count;
+      param[1] = ++tech_count;
       param[i++] = EDR_TECH_VALUE;
       param[i++] = tech_based_max_power.EDR_max_pow_support;
 
@@ -4103,10 +4096,8 @@ static void bta_dm_set_tech_based_max_power(bool status) {
     }
 
     if (tech_based_max_power.BLE_max_pow_feature == true) {
-      param = (uint8_t*)realloc(param, size + 2);
-      tech_count ++;
-      HCI_VS_LINK_POWER_CTRL_PARAM_SIZE += 2;
-      param[1] = tech_count;
+
+      param[1] = ++tech_count;
       param[i++] = BLE_TECH_VALUE;
       param[i++] = tech_based_max_power.BLE_max_pow_support;
 
@@ -4114,18 +4105,22 @@ static void bta_dm_set_tech_based_max_power(bool status) {
             __func__, tech_based_max_power.BLE_max_pow_support);
     }
 
+    if (!tech_count) {
+      APPL_TRACE_DEBUG("%s: max power not configured for any tech ",__func__);
+      return;
+    } else {
+      HCI_VS_LINK_POWER_CTRL_PARAM_SIZE = 2 + (tech_count * 2);
+    }
+
   } else {
     HCI_VS_LINK_POWER_CTRL_PARAM_SIZE = 8;
-    param = (uint8_t*)calloc(8, sizeof(uint8_t));
-
-    param[0] = HCI_VS_SET_MAX_RADIATED_POWER_SUB_OPCODE;
     param[1] = 0x03;
     param[2] = BR_TECH_VALUE;
-    param[3] = 0xFF;
+    param[3] = 0x80;
     param[4] = EDR_TECH_VALUE;
-    param[5] = 0xFF;
+    param[5] = 0x80;
     param[6] = BLE_TECH_VALUE;
-    param[7] = 0xFF;
+    param[7] = 0x80;
   }
 
     BTM_VendorSpecificCommand(HCI_VS_LINK_POWER_CTRL_REQ_OPCODE,

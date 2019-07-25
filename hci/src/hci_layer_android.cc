@@ -28,15 +28,18 @@
 #include <base/logging.h>
 #include "buffer_allocator.h"
 #include "osi/include/log.h"
+#include <cutils/properties.h>
 
 #include <android/hardware/bluetooth/1.0/IBluetoothHci.h>
 #include <android/hardware/bluetooth/1.0/IBluetoothHciCallbacks.h>
 #include <android/hardware/bluetooth/1.0/types.h>
 #include <hwbinder/ProcessState.h>
+#include <hwbinder/IPCThreadState.h>
 
 #define LOG_PATH "/data/misc/bluetooth/logs/firmware_events.log"
 #define LAST_LOG_PATH "/data/misc/bluetooth/logs/firmware_events.log.last"
 
+using android::hardware::IPCThreadState;
 using android::hardware::bluetooth::V1_0::IBluetoothHci;
 using android::hardware::bluetooth::V1_0::IBluetoothHciCallbacks;
 using android::hardware::bluetooth::V1_0::HciPacket;
@@ -55,6 +58,8 @@ extern void sco_data_received(BT_HDR* packet);
 static std::mutex bthci_mutex;
 
 android::sp<IBluetoothHci> btHci;
+
+const bool IsLazyHalSupported(property_get_bool("ro.vendor.bt.enablelazyhal", false));
 
 class BluetoothHciCallbacks : public IBluetoothHciCallbacks {
  public:
@@ -122,6 +127,10 @@ void hci_initialize() {
     auto hidl_daemon_status = btHci->initialize(callbacks);
     if(!hidl_daemon_status.isOk()) {
       LOG_ERROR(LOG_TAG, "%s: HIDL daemon is dead", __func__);
+
+      if (IsLazyHalSupported)
+        IPCThreadState::self()->flushCommands();
+
       btHci = nullptr;
     }
   }
@@ -135,6 +144,9 @@ void hci_close() {
     auto hidl_daemon_status = btHci->close();
     if(!hidl_daemon_status.isOk())
       LOG_ERROR(LOG_TAG, "%s: HIDL daemon is dead", __func__);
+
+    if (IsLazyHalSupported)
+      IPCThreadState::self()->flushCommands();
 
     btHci = nullptr;
   }

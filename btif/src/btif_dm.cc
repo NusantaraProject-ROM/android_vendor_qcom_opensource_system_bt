@@ -86,6 +86,7 @@
 #include "bta_closure_api.h"
 #include "bta_gatt_api.h"
 #include "btif_api.h"
+#include "btif_bqr.h"
 #include "btif_config.h"
 #include "btif_dm.h"
 #include "btif_av.h"
@@ -163,6 +164,7 @@ const Uuid UUID_HEARING_AID = Uuid::FromString("FDF0");
 
 #define INVALID_MANUFACTURER 0
 
+#define BTIF_DM_ENABLE_MCAST_RESTRICTIONS FALSE
 typedef struct {
   bt_bond_state_t state;
   RawAddress static_bdaddr;
@@ -1420,6 +1422,15 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
       btif_storage_remove_bonded_device(&bd_addr);
     }
     BTA_DmResetPairingflag(bd_addr);
+
+    if (btif_is_tws_plus_device(&bd_addr)) {
+      RawAddress peer_eb_addr;
+      if (btif_tws_plus_get_peer_eb_addr(&bd_addr, &peer_eb_addr)) {
+        btif_storage_remove_bonded_device(&peer_eb_addr);
+        BTA_DmRemoveDevice(peer_eb_addr);
+        bond_state_changed(status, peer_eb_addr, state);
+      }
+    }
     bond_state_changed(status, bd_addr, state);
   }
 }
@@ -1938,6 +1949,7 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
 
       btif_vendor_update_add_on_features();
 
+      bluetooth::bqr::EnableBtQualityReport(true);
       btif_enable_bluetooth_evt(p_data->enable.status);
     } break;
 
@@ -1949,6 +1961,7 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
           (tBTA_SERVICE_MASK)(BTA_SERVICE_ID_TO_SERVICE_MASK(BTA_BLE_SERVICE_ID))) {
         btif_in_execute_service_request(BTA_BLE_SERVICE_ID, FALSE);
       }
+      bluetooth::bqr::EnableBtQualityReport(false);
       btif_disable_bluetooth_evt();
       break;
 
@@ -2031,10 +2044,12 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
        * During active muisc streaming no new connection can happen, hence
        * We will get this only when multistreaming is happening due to tuchtones
        */
+#if (BTIF_DM_ENABLE_MCAST_RESTRICTIONS == TRUE)
       if (btif_av_get_ongoing_multicast()) {
         // trigger a2dp suspend
         btif_av_trigger_suspend();
       }
+#endif
       btif_update_remote_version_property(&bd_addr);
 
       HAL_CBACK(bt_hal_cbacks, acl_state_changed_cb, BT_STATUS_SUCCESS,

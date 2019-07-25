@@ -319,6 +319,8 @@ static tGATT_STATUS bta_gattc_sdp_service_disc(uint16_t conn_id,
 /** callback function to GATT client stack */
 void bta_gattc_disc_res_cback(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
                               tGATT_DISC_RES* p_data) {
+  VLOG(1)<<__func__<< "conn_id " << conn_id << "disc_type "
+      << disc_type;
   tBTA_GATTC_CLCB* p_clcb = bta_gattc_find_clcb_by_conn_id(conn_id);
   tBTA_GATTC_SERV* p_srvc_cb = bta_gattc_find_scb_by_cid(conn_id);
 
@@ -354,6 +356,8 @@ void bta_gattc_disc_res_cback(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
 
 void bta_gattc_disc_cmpl_cback(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
                                tGATT_STATUS status) {
+  VLOG(1) << __func__ << "Disc_type " << disc_type
+            << " status:" << status;
   tBTA_GATTC_CLCB* p_clcb = bta_gattc_find_clcb_by_conn_id(conn_id);
 
   if (p_clcb && (status != GATT_SUCCESS || p_clcb->status != GATT_SUCCESS)) {

@@ -100,6 +100,8 @@ typedef struct controller_t {
   bool (*supports_spilt_a2dp)();
   bool (*supports_aac_frame_ctl)();
   bool (*supports_wipower)();
+  bool (*is_multicast_enabled)();
+  bool (*supports_twsp_remote_state)();
 } controller_t;
 
 const controller_t* controller_get_interface();

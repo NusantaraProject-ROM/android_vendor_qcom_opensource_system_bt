@@ -123,6 +123,7 @@ extern bool btif_av_current_device_is_tws();
 extern bool btif_av_is_tws_device_playing(int index);
 extern bool btif_av_is_idx_tws_device(int index);
 extern int btif_av_get_tws_pair_idx(int index);
+extern bool btif_av_is_tws_suspend_triggered(int index);
 extern bool reconfig_a2dp;
 extern bool audio_start_awaited;
 extern bool tws_defaultmono_supported;
@@ -772,6 +773,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         uint8_t codec_type;
         tA2DP_ENCODER_INIT_PEER_PARAMS peer_param;
         uint32_t bitrate = 0;
+        uint32_t bits_per_sample = 0;
         len = 0;
         a2dp_local_cmd_pending = cmd;
         LOG_INFO(LOG_TAG,"A2DP_CTRL_GET_CODEC_CONFIG");
@@ -811,6 +813,7 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
 
         codec_type = A2DP_GetCodecType((const uint8_t*)p_codec_info);
         LOG_INFO(LOG_TAG,"codec_type = %x",codec_type);
+        peer_param.peer_mtu = peer_param.peer_mtu - A2DP_HEADER_SIZE;
         if (A2DP_MEDIA_CT_SBC == codec_type)
         {
           bitrate = A2DP_GetOffloadBitrateSbc(CodecConfig, peer_param.is_peer_edr);
@@ -831,16 +834,33 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         }
         else if (A2DP_MEDIA_CT_AAC == codec_type)
         {
-          bitrate = 0;//Bitrate is present in codec info
+          bool is_AAC_frame_ctrl_stack_enable = false;
+          char AAC_frame_ctrl_stack_val[PROPERTY_VALUE_MAX] = {'\0'};
+          osi_property_get("persist.vendor.btstack.aac_frm_ctl.enabled", AAC_frame_ctrl_stack_val, "false");
+          if (!strcmp(AAC_frame_ctrl_stack_val, "true"))
+            is_AAC_frame_ctrl_stack_enable = true;
+          LOG_INFO(LOG_TAG, "Stack AAC frame control enabled: %d", is_AAC_frame_ctrl_stack_enable);
+          if (is_AAC_frame_ctrl_stack_enable) {
+            int sample_rate = A2DP_GetTrackSampleRate(p_codec_info);
+            LOG_INFO(LOG_TAG,"sample_rate = %d", sample_rate);
+            bitrate = (peer_param.peer_mtu - AAC_LATM_HEADER) * (8 * sample_rate / AAC_SAMPLE_SIZE);
+          } else {
+            bitrate = 0;//Bitrate is present in codec info
+          }
         }
+
+        bits_per_sample = CodecConfig->getAudioBitsPerSample();
+        LOG_INFO(LOG_TAG,"bitrate = %d, bits_per_sample = %d, peer_param.peer_mtu = %d",
+                          bitrate, bits_per_sample, peer_param.peer_mtu);
         codec_info[0] = 0; //playing device handle
         len = p_codec_info[0] + 2;
-        codec_info[len++] = (uint8_t)(peer_param.peer_mtu & 0x00FF);
-        codec_info[len++] = (uint8_t)(((peer_param.peer_mtu & 0xFF00) >> 8) & 0x00FF);
-        codec_info[len++] = (uint8_t)(bitrate & 0x00FF);
-        codec_info[len++] = (uint8_t)(((bitrate & 0xFF00) >> 8) & 0x00FF);
-        codec_info[len++] = (uint8_t)(((bitrate & 0xFF0000) >> 16) & 0x00FF);
-        codec_info[len++] = (uint8_t)(((bitrate & 0xFF000000) >> 24) & 0x00FF);
+        *(uint16_t *)&codec_info[len] = (uint16_t)peer_param.peer_mtu;
+        len = len + 2;
+        *(uint32_t *)&codec_info[len] = (uint32_t)bitrate;
+        len = len + 4;
+        *(uint32_t *)&codec_info[len] = (uint32_t)bits_per_sample;
+        LOG_INFO(LOG_TAG,"len  = %d", len);
+        len = len + 4;
         status = A2DP_CTRL_ACK_SUCCESS;
         a2dp_local_cmd_pending = A2DP_CTRL_CMD_NONE;
         break;
@@ -866,6 +886,9 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         break;
 
       default:
+        APPL_TRACE_IMP("%s: a2dp_cmd_pending=%s, a2dp_cmd_queued=%s",
+            __func__, audio_a2dp_hw_dump_ctrl_event((tA2DP_CTRL_CMD)a2dp_cmd_pending),
+            audio_a2dp_hw_dump_ctrl_event((tA2DP_CTRL_CMD)a2dp_cmd_queued));
         if (a2dp_cmd_pending != A2DP_CTRL_CMD_NONE)
         {
           status = A2DP_CTRL_ACK_PREVIOUS_COMMAND_PENDING;
@@ -883,6 +906,12 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         {
           a2dp_cmd_pending = cmd;
           status = btif_a2dp_audio_snd_ctrl_cmd(cmd);
+          if (a2dp_cmd_queued != A2DP_CTRL_CMD_NONE &&
+              (status == A2DP_CTRL_ACK_SUCCESS || status == A2DP_CTRL_ACK_PENDING)) {
+            APPL_TRACE_IMP("a2dp_cmd_queued is %s, set it to NONE",
+                audio_a2dp_hw_dump_ctrl_event((tA2DP_CTRL_CMD)a2dp_cmd_queued));
+            a2dp_cmd_queued = A2DP_CTRL_CMD_NONE;
+          }
         }
     }
   } else {
@@ -1142,7 +1171,8 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
         }else if (btif_av_current_device_is_tws()) {
           //Check if either of the index is streaming
           for (int i = 0; i < btif_max_av_clients; i++) {
-            if (btif_av_is_tws_device_playing(i)) {
+            if (btif_av_is_tws_device_playing(i) &&
+              !btif_av_is_tws_suspend_triggered(i)) {
               APPL_TRACE_DEBUG("Suspend TWS+ stream on index %d",i);
               btif_dispatch_sm_event(BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL, 0);
               status = A2DP_CTRL_ACK_PENDING;

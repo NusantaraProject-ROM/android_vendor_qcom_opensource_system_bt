@@ -74,9 +74,12 @@ typedef enum {
   BTIF_AV_REINIT_AUDIO_IF,
   BTIF_AV_SETUP_CODEC_REQ_EVT,
   BTIF_AV_TRIGGER_HANDOFF_REQ_EVT,
+  BTIF_AV_SET_SILENT_REQ_EVT,
   BTIF_AV_ENCODER_MODE_CHANGED_EVT,
   BTIF_AV_SINK_QUICK_HANDOFF_EVT,
   BTIF_AV_PROCESS_HIDL_REQ_EVT,
+  BTIF_AV_CHECK_PENDING_PLAY_EVT,
+  BTIF_AV_REPORT_AUDIO_STATE_EVT,
 } btif_av_sm_event_t;
 
 /*******************************************************************************

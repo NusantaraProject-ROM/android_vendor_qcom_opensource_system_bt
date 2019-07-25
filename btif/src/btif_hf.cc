@@ -184,6 +184,10 @@ btif_hf_cb_t btif_hf_cb[BTA_AG_MAX_NUM_CLIENTS];
 #endif
 
 static bool btif_conf_hf_force_wbs = BTIF_HF_WBS_PREFERRED;
+#if (TWS_AG_ENABLED == TRUE)
+static bool btif_twsp_send_bvra_update = FALSE;
+static int btif_twsp_bvra_peer_eb_state = BTHF_VR_STATE_STOPPED;
+#endif
 
 /*******************************************************************************
  *  Functions
@@ -683,6 +687,13 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
                 (p_data->val.num == 1) ? BTHF_VR_STATE_STARTED
                                        : BTHF_VR_STATE_STOPPED,
                 &btif_hf_cb[idx].connected_bda);
+#if (TWS_AG_ENABLED == TRUE)
+      if (btif_is_tws_plus_device(&btif_hf_cb[idx].connected_bda)) {
+        BTIF_TRACE_DEBUG("%s: VR is initiated from TWS+ device, idx: %d", __FUNCTION__, idx);
+        btif_twsp_send_bvra_update = TRUE;
+        btif_twsp_bvra_peer_eb_state = p_data->val.num;
+      }
+#endif
       break;
 
     case BTA_AG_AT_NREC_EVT:
@@ -1211,6 +1222,12 @@ bt_status_t HeadsetInterface::StartVoiceRecognition(RawAddress* bd_addr) {
     tBTA_AG_RES_DATA ag_res = {};
     ag_res.state = true;
     BTA_AgResult(btif_hf_cb[idx].handle, BTA_AG_BVRA_RES, &ag_res);
+
+#if (TWS_AG_ENABLED == TRUE)
+    if (btif_is_tws_plus_device(bd_addr)) {
+        btif_hf_twsp_send_bvra_update(idx, &ag_res);
+    }
+#endif
     return BT_STATUS_SUCCESS;
 }
 
@@ -1247,6 +1264,12 @@ bt_status_t HeadsetInterface::StopVoiceRecognition(RawAddress* bd_addr) {
     tBTA_AG_RES_DATA ag_res = {};
     ag_res.state = false;
     BTA_AgResult(btif_hf_cb[idx].handle, BTA_AG_BVRA_RES, &ag_res);
+
+#if (TWS_AG_ENABLED == TRUE)
+    if (btif_is_tws_plus_device(bd_addr)) {
+        btif_hf_twsp_send_bvra_update(idx, &ag_res);
+    }
+#endif
     return BT_STATUS_SUCCESS;
 }
 
@@ -1470,6 +1493,16 @@ bt_status_t HeadsetInterface::AtResponse(bthf_at_response_t response_code,
     send_at_result((response_code == BTHF_AT_RESPONSE_OK) ? BTA_AG_OK_DONE
                                                           : BTA_AG_OK_ERROR,
                    error_code, idx);
+#if (TWS_AG_ENABLED == TRUE)
+    if (response_code == BTHF_AT_RESPONSE_OK && btif_twsp_send_bvra_update &&
+        btif_is_tws_plus_device(bd_addr)) {
+        tBTA_AG_RES_DATA ag_res;
+        memset(&ag_res, 0, sizeof(ag_res));
+        ag_res.state = btif_twsp_bvra_peer_eb_state;
+        btif_hf_twsp_send_bvra_update(idx, &ag_res);
+        btif_twsp_send_bvra_update = FALSE;
+    }
+#endif
     return BT_STATUS_SUCCESS;
   }
 

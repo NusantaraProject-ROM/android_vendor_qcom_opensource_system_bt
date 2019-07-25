@@ -36,7 +36,7 @@
  *  Constants and data types
  ****************************************************************************/
 enum {
-  BTA_GATTS_API_REG_EVT = BTA_SYS_EVT_START(BTA_ID_GATTS),
+  BTA_GATTS_API_REG_EVT = BTA_SYS_EVT_START(BTA_ID_GATTS), // 0x2000
   BTA_GATTS_INT_START_IF_EVT,
   BTA_GATTS_API_DEREG_EVT,
   BTA_GATTS_API_INDICATION_EVT,

@@ -205,8 +205,12 @@ void bta_hh_le_enable(void) {
                             bta_hh_cb.gatt_if = BTA_GATTS_INVALID_IF;
                           }
 
-                          /* signal BTA call back event */
-                          (*bta_hh_cb.p_cback)(BTA_HH_ENABLE_EVT, &bta_hh);
+                          /* null check is needed in case HID profile is shut
+                           * down before BTA_GATTC_AppRegister is done */
+                          if (bta_hh_cb.p_cback) {
+                            /* signal BTA call back event */
+                            (*bta_hh_cb.p_cback)(BTA_HH_ENABLE_EVT, &bta_hh);
+                          }
                         }));
 }
 
@@ -903,6 +907,8 @@ void bta_hh_le_get_protocol_mode(tBTA_HH_DEV_CB* p_cb) {
   tBTA_HH_HSDATA hs_data;
     int i;
   p_cb->w4_evt = BTA_HH_GET_PROTO_EVT;
+
+  APPL_TRACE_DEBUG("%s conn_id=%d", __func__, p_cb->conn_id);
   for (i = 0; i < BTA_HH_LE_HID_SRVC_MAX; i ++) {
       if (p_cb->hid_srvc[i].in_use && p_cb->hid_srvc[i].proto_mode_handle != 0) {
         BtaGattQueue::ReadCharacteristic(p_cb->conn_id,
@@ -1668,7 +1674,8 @@ void bta_hh_le_input_rpt_notify(tBTA_GATTC_NOTIFY* p_data) {
   else if (p_char->uuid == Uuid::From16Bit(GATT_UUID_HID_BT_KB_INPUT))
     app_id = BTA_HH_APP_ID_KB;
 
-  APPL_TRACE_DEBUG("Notification received on report ID: %d", p_rpt->rpt_id);
+  APPL_TRACE_DEBUG("%s Notification received on report ID: %d, conn_id: 0x%04x"
+    ,__func__, p_rpt->rpt_id, p_data->conn_id);
 
   /* need to append report ID to the head of data */
   if (p_rpt->rpt_id != 0) {
@@ -1958,6 +1965,7 @@ void bta_hh_le_write_rpt(tBTA_HH_DEV_CB* p_cb, uint8_t srvc_inst, tBTA_HH_RPT_TY
     APPL_TRACE_ERROR("%s: Illegal data", __func__);
     return;
   }
+  APPL_TRACE_DEBUG("%s conn_id=%d", __func__, p_cb->conn_id);
 
   /* strip report ID from the data */
   uint8_t* vec_start = (uint8_t*)(p_buf + 1) + p_buf->offset;
@@ -2005,6 +2013,8 @@ void bta_hh_le_suspend(tBTA_HH_DEV_CB* p_cb,
                        tBTA_HH_TRANS_CTRL_TYPE ctrl_type) {
   ctrl_type -= BTA_HH_CTRL_SUSPEND;
 
+  APPL_TRACE_DEBUG(" %s conn_id=%d", __func__, p_cb->conn_id);
+
   // We don't care about response
   BtaGattQueue::WriteCharacteristic(
       p_cb->conn_id, p_cb->hid_srvc[0].control_point_handle, {(uint8_t)ctrl_type},
@@ -2022,6 +2032,9 @@ void bta_hh_le_suspend(tBTA_HH_DEV_CB* p_cb,
  ******************************************************************************/
 void bta_hh_le_write_dev_act(tBTA_HH_DEV_CB* p_cb, tBTA_HH_DATA* p_data) {
   uint8_t  srvc_inst=0;
+  APPL_TRACE_DEBUG(" %s  send_cmd_type %d", __func__,
+    p_data->api_sndcmd.t_type);
+
   switch (p_data->api_sndcmd.t_type) {
     case HID_TRANS_SET_PROTOCOL:
       p_cb->w4_evt = BTA_HH_SET_PROTO_EVT;
@@ -2082,6 +2095,8 @@ void bta_hh_le_write_dev_act(tBTA_HH_DEV_CB* p_cb, tBTA_HH_DATA* p_data) {
  ******************************************************************************/
 void bta_hh_le_get_dscp_act(tBTA_HH_DEV_CB* p_cb) {
   uint8_t i;
+  APPL_TRACE_DEBUG("%s", __func__);
+
   for (i = 0; i < BTA_HH_LE_HID_SRVC_MAX && p_cb->hid_srvc[i].in_use; i ++) {
     tBTA_HH_DEV_HANDLE_DSCP_INFO handle_dscp_info;
 
@@ -2108,6 +2123,8 @@ void bta_hh_le_get_dscp_act(tBTA_HH_DEV_CB* p_cb) {
 static void bta_hh_le_add_dev_bg_conn(tBTA_HH_DEV_CB* p_cb, bool check_bond) {
   uint8_t sec_flag = 0;
   bool to_add = true;
+
+  APPL_TRACE_DEBUG("%s check_bond %d", __func__, check_bond);
 
   if (check_bond) {
     /* start reconnection if remote is a bonded device */

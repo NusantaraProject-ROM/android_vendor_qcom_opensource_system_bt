@@ -99,6 +99,7 @@ bool aptxhd_sw = false;
 bool aptx_adaptive_sw = false;
 bool ldac_sw = false;
 bool aptxtws_sw = false;
+std::string offload_caps = "";
 static void init_btav_a2dp_codec_config(
     btav_a2dp_codec_config_t* codec_config, btav_a2dp_codec_index_t codec_index,
     btav_a2dp_codec_priority_t codec_priority) {
@@ -534,6 +535,10 @@ std::string A2dpCodecConfig::codecBitsPerSample2Str(
   }
 
   return result;
+}
+
+std::string A2dpCodecConfig::getOffloadCaps() {
+    return offload_caps;
 }
 
 std::string A2dpCodecConfig::codecChannelMode2Str(
@@ -976,6 +981,21 @@ void A2dpCodecs::debug_codec_dump(int fd) {
   for (auto codec_config : ordered_source_codecs_) {
     codec_config->debug_codec_dump(fd);
   }
+}
+
+bool A2dpCodecConfig::updateCodecConfig(const btav_a2dp_codec_config_t& update_codec_config,
+                         bool audio_update) {
+    if (audio_update == true)
+      codec_config_ = update_codec_config;
+    LOG_DEBUG(LOG_TAG, "%s: Updated audio config ", __func__);
+    return true;
+}
+
+bool A2dpCodecs::updateCodecConfig(const btav_a2dp_codec_config_t& update_codec_config) {
+    A2dpCodecConfig* a2dp_codec_config_update = nullptr;
+    a2dp_codec_config_update = current_codec_config_;
+    bool ret = a2dp_codec_config_update->updateCodecConfig(update_codec_config, true);
+    return ret;
 }
 
 #if (BT_IOT_LOGGING_ENABLED == TRUE)
@@ -1715,6 +1735,7 @@ void A2DP_SetOffloadStatus(bool offload_status, const char *offload_cap,
   }
   mA2dp_offload_scrambling_support = scrambling_support;
   mA2dp_offload_44p1kFreq_support = is44p1kFreq_support;
+  offload_caps = controller_get_interface()->get_a2dp_offload_cap();
 }
 
 bool A2DP_GetOffloadStatus() {

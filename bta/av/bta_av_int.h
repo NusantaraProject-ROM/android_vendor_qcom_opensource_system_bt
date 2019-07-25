@@ -148,6 +148,9 @@ enum {
   BTA_AV_UPDATE_ENCODER_MODE_EVT,
   BTA_AV_UPDATE_APTX_DATA_EVT,
 #if (TWS_ENABLED == TRUE)
+#if (TWS_STATE_ENABLED == TRUE)
+  BTA_AV_SET_EARBUD_STATE_EVT, /* Set TWS earbud state */
+#endif
   BTA_AV_SET_EARBUD_ROLE_EVT, /* Set TWS earbud role */
   BTA_AV_SET_TWS_DEVICE_EVT, /* Update TWS state */
 #endif
@@ -211,6 +214,28 @@ enum {
              (((uint32_t)(*(p))) << 16));                                 \
     (p) += 3;                                                             \
   }
+
+/* A2dp sampling frequencies */
+
+#define SAMPLING_FREQ_44100 44100
+#define SAMPLING_FREQ_48000 48000
+#define SAMPLING_FREQ_88200 88200
+#define SAMPLING_FREQ_96000 96000
+#define SAMPLING_FREQ_176400 176400
+#define SAMPLING_FREQ_192000 192000
+#define SAMPLING_FREQ_16000 16000
+#define SAMPLING_FREQ_24000 24000
+
+/*Mapping of above sampling frequencies when sending VSC*/
+
+#define A2DP_SAMPLING_FREQ_44100 0x01
+#define A2DP_SAMPLING_FREQ_48000 0x02
+#define A2DP_SAMPLING_FREQ_88200 0x04
+#define A2DP_SAMPLING_FREQ_96000 0x08
+#define A2DP_SAMPLING_FREQ_176400 0x10
+#define A2DP_SAMPLING_FREQ_192000 0x20
+#define A2DP_SAMPLING_FREQ_16000 0x40
+#define A2DP_SAMPLING_FREQ_24000 0x80
 
 /*****************************************************************************
  *  Data types
@@ -315,6 +340,18 @@ typedef struct
 } tBTA_AV_ENABLE_MULTICAST;
 
 #if (TWS_ENABLED == TRUE)
+#define TWSP_EB_STATE_UNKNOWN 0
+#define TWSP_EB_STATE_IN_CASE 1
+#define TWSP_EB_STATE_OUT_OF_EAR 2
+#define TWSP_EB_STATE_IN_EAR 3
+/* data type for BTA_AV_TWS_SET_EARBUD_STATE_EVT */
+#if (TWS_STATE_ENABLED == TRUE)
+typedef struct
+{
+  BT_HDR hdr;
+  uint8_t eb_state;
+} tBTA_AV_TWS_SET_EARBUD_STATE;
+#endif
 /* data type for BTA_AV_TWS_SET_EARBUD_ROLE_EVT */
 typedef struct
 {
@@ -542,6 +579,9 @@ union tBTA_AV_DATA {
   tBTA_AV_ENC_MODE encoder_mode;
   tBTA_AV_APTX_DATA aptx_data;
 #if (TWS_ENABLED == TRUE)
+#if (TWS_STATE_ENABLED == TRUE)
+  tBTA_AV_TWS_SET_EARBUD_STATE tws_set_earbud_state;
+#endif
   tBTA_AV_TWS_SET_EARBUD_ROLE tws_set_earbud_role;
   tBTA_AV_SET_TWS_DEVICE tws_set_device;
 #endif
@@ -646,9 +686,12 @@ struct tBTA_AV_SCB {
   bool do_scrambling;
 //#ifdef TWS_ENABLED
   bool tws_device; //true for earbud false otherwise
+  uint8_t eb_state; //TWS+ EB state, IN-EAR=3, OUT-OF-EAR=2
   uint8_t channel_mode; //L:0 R:1 S:2 M:3
+  uint8_t start_pending;
   bool offload_started;
 //#endif
+  bool rc_conn;
 };
 
 #define BTA_AV_RC_ROLE_MASK 0x10

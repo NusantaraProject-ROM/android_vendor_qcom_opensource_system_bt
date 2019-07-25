@@ -641,7 +641,7 @@ typedef struct {
 } tBTA_DM_SRVCS;
 
 #ifndef BTA_DM_NUM_CONN_SRVS
-#define BTA_DM_NUM_CONN_SRVS 10
+#define BTA_DM_NUM_CONN_SRVS 30
 #endif
 
 typedef struct {

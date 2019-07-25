@@ -440,6 +440,7 @@ extern void bta_ag_rfc_do_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data);
 extern bool bta_ag_sco_is_active_device(const RawAddress& bd_addr);
 extern bool bta_ag_sco_is_open(tBTA_AG_SCB* p_scb);
 extern bool bta_ag_sco_is_opening(tBTA_AG_SCB* p_scb);
+extern bool bta_ag_is_sco_present_on_any_device();
 extern void bta_ag_sco_conn_rsp(tBTA_AG_SCB* p_scb,
                                 tBTM_ESCO_CONN_REQ_EVT_DATA* p_data);
 extern void bta_ag_cback_sco(tBTA_AG_SCB* p_scb, uint8_t event);

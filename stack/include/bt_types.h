@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 #ifndef FALSE
 #define FALSE false
@@ -566,6 +567,15 @@ typedef std::array<uint8_t, OCTET16_LEN> Octet16;
 
 constexpr int LINK_KEY_LEN = OCTET16_LEN;
 typedef Octet16 LinkKey; /* Link Key */
+
+static inline bool is_sample_ltk(const Octet16& ltk) {
+  /* Sample LTK from BT Spec 5.1 | Vol 6, Part C 1
+   * 0x4C68384139F574D836BCF34E9DFB01BF */
+  const uint8_t SAMPLE_LTK[] = {0xbf, 0x01, 0xfb, 0x9d, 0x4e, 0xf3, 0xbc, 0x36,
+                                0xd8, 0x74, 0xf5, 0x39, 0x41, 0x38, 0x68, 0x4c};
+  return memcmp(&ltk, SAMPLE_LTK, OCTET16_LEN) == 0;
+}
+
 
 #endif
 

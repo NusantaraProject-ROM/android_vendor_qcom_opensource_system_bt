@@ -635,10 +635,9 @@ static void bta_pan_callback_transfer(uint16_t event, char* p_param) {
       break;
     }
     case BTA_PAN_CLOSE_EVT: {
-      LOG_INFO(LOG_TAG, "%s: event = BTA_PAN_CLOSE_EVT handle %d", __func__,
+      LOG_INFO(LOG_TAG, "%s event = BTA_PAN_CLOSE_EVT handle %d", __func__,
                p_data->close.handle);
       btpan_conn_t* conn = btpan_find_conn_handle(p_data->close.handle);
-      btpan_close_conn(conn);
 
       if (conn && conn->handle >= 0) {
         int btpan_conn_local_role = bta_role_to_btpan(conn->local_role);
@@ -646,9 +645,12 @@ static void bta_pan_callback_transfer(uint16_t event, char* p_param) {
         callback.connection_state_cb(BTPAN_STATE_DISCONNECTED, (bt_status_t)0,
                                      &conn->peer, btpan_conn_local_role,
                                      btpan_remote_role);
+        btpan_close_conn(conn);
         btpan_cleanup_conn(conn);
-      } else
+      } else {
+        btpan_close_conn(conn);
         BTIF_TRACE_ERROR("pan handle not found (%d)", p_data->close.handle);
+      }
       break;
     }
     default:

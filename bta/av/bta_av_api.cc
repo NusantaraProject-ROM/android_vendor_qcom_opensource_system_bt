@@ -348,6 +348,20 @@ void BTA_AvEnableMultiCast(bool state, tBTA_AV_HNDL handle)
 }
 
 #if (TWS_ENABLED == TRUE)
+#if (TWS_STATE_ENABLED == TRUE)
+void BTA_AVSetEarbudState(uint8_t state, tBTA_AV_HNDL handle)
+{
+  APPL_TRACE_DEBUG("%s",__func__);
+  tBTA_AV_TWS_SET_EARBUD_STATE *p_buf;
+
+  if ((p_buf = (tBTA_AV_TWS_SET_EARBUD_STATE *)osi_malloc(sizeof(tBTA_AV_TWS_SET_EARBUD_STATE))) != NULL) {
+    p_buf->hdr.event = BTA_AV_SET_EARBUD_STATE_EVT;
+    p_buf->hdr.layer_specific = handle;
+    p_buf->eb_state = state;
+    bta_sys_sendmsg(p_buf);
+  }
+}
+#endif
 void BTA_AVSetEarbudRole(uint8_t role, tBTA_AV_HNDL handle)
 {
   APPL_TRACE_DEBUG("%s",__func__);

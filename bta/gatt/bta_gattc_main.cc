@@ -280,10 +280,8 @@ const tBTA_GATTC_ST_TBL bta_gattc_st_tbl[] = {
 /* GATTC control block */
 tBTA_GATTC_CB bta_gattc_cb;
 
-#if (BTA_GATT_DEBUG == TRUE)
 static const char* gattc_evt_code(tBTA_GATTC_INT_EVT evt_code);
 static const char* gattc_state_code(tBTA_GATTC_STATE state_code);
-#endif
 
 /*******************************************************************************
  *
@@ -304,14 +302,9 @@ bool bta_gattc_sm_execute(tBTA_GATTC_CLCB* p_clcb, uint16_t event,
   bool rt = true;
   tBTA_GATTC_STATE in_state = p_clcb->state;
   uint16_t in_event = event;
-#if (BTA_GATT_DEBUG == TRUE)
   VLOG(1) << StringPrintf("%s: State 0x%02x [%s], Event 0x%x[%s]", __func__,
                           in_state, gattc_state_code(in_state), in_event,
                           gattc_evt_code(in_event));
-#else
-  VLOG(1) << StringPrintf("%s: State 0x%02x, Event 0x%x", __func__, in_state,
-                          in_event);
-#endif
 
   /* look up the state table for the current state */
   state_table = bta_gattc_st_tbl[p_clcb->state];
@@ -365,9 +358,8 @@ bool bta_gattc_sm_execute(tBTA_GATTC_CLCB* p_clcb, uint16_t event,
 bool bta_gattc_hdl_event(BT_HDR* p_msg) {
   tBTA_GATTC_CLCB* p_clcb = NULL;
   bool rt = true;
-#if (BTA_GATT_DEBUG == TRUE)
   VLOG(1) << __func__ << ": Event:" << gattc_evt_code(p_msg->event);
-#endif
+
   switch (p_msg->event) {
 
     case BTA_GATTC_API_OPEN_EVT:
@@ -402,7 +394,6 @@ bool bta_gattc_hdl_event(BT_HDR* p_msg) {
 /*****************************************************************************
  *  Debug Functions
  ****************************************************************************/
-#if (BTA_GATT_DEBUG == TRUE)
 
 /*******************************************************************************
  *
@@ -478,4 +469,3 @@ static const char* gattc_state_code(tBTA_GATTC_STATE state_code) {
   }
 }
 
-#endif /* Debug Functions */

@@ -270,7 +270,8 @@ static void bta_ag_sco_disc_cback(uint16_t sco_idx) {
     if (bta_ag_cb.sco.p_curr_scb != NULL &&
            (bta_ag_cb.sco.p_curr_scb->inuse_codec == BTA_AG_CODEC_MSBC
 #if (SWB_ENABLED == TRUE)
-        || bta_ag_cb.sco.p_curr_scb->inuse_codec == BTA_AG_SCO_SWB_SETTINGS_Q0
+        || (bta_ag_cb.sco.p_curr_scb->inuse_codec == BTA_AG_SCO_SWB_SETTINGS_Q0 &&
+            bta_ag_cb.sco.p_curr_scb->is_swb_codec)
 #endif
        )) {
       /* Bypass vendor specific and voice settings if enhanced eSCO supported */
@@ -2055,6 +2056,33 @@ bool bta_ag_sco_is_opening(tBTA_AG_SCB* p_scb) {
 
 /*******************************************************************************
  *
+ * Function         bta_ag_is_sco_present_on_any_device
+ *
+ * Description      Check if sco is present on any device.
+ *
+ *
+ * Returns          true if sco is in Open/Opening/Closing state for any scb, false
+ *                  otherwise.
+ *
+ ******************************************************************************/
+bool bta_ag_is_sco_present_on_any_device() {
+  tBTA_AG_SCO_CB *sco_hdl = NULL;
+  bool ret_val = false;
+
+  sco_hdl = &bta_ag_cb.sco;
+
+  ret_val = sco_hdl->state == BTA_AG_SCO_OPEN_ST ||
+            sco_hdl->state == BTA_AG_SCO_OPENING_ST ||
+            sco_hdl->state == BTA_AG_SCO_CODEC_ST ||
+            sco_hdl->state == BTA_AG_SCO_CLOSING_ST;
+
+  APPL_TRACE_IMP("%s: returning : %d", __func__, ret_val);
+
+  return ret_val;
+}
+
+/*******************************************************************************
+ *
  * Function         bta_ag_sco_listen
  *
  * Description
@@ -2093,7 +2121,9 @@ void bta_ag_sco_open(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
         && p_scb == bta_ag_cb.sec_sm_scb) {
             if (bta_ag_cb.sco.state != BTA_AG_SCO_LISTEN_ST &&
                 bta_ag_cb.sco.state != BTA_AG_SCO_SHUTDOWN_ST &&
-                bta_ag_cb.sco.state != BTA_AG_SCO_OPEN_ST) {
+                bta_ag_cb.sco.state != BTA_AG_SCO_OPEN_ST &&
+                (bta_ag_cb.sco.p_curr_scb &&
+                !is_twsp_device(bta_ag_cb.sco.p_curr_scb->peer_addr))) {
                 APPL_TRACE_DEBUG("%s: primary sco SM is not in stable state",
                                                                  __func__);
                 APPL_TRACE_DEBUG("%s: Ignore SCO request on secondary SM",
@@ -2101,6 +2131,8 @@ void bta_ag_sco_open(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
                 //This should be part of QueryPhoneState where device on sec sco
                 //SM queries phonestate when legacy device on primary SCO SM
                 //in process of closing or in any other intermediate state
+                //When Primary SCO SM is not in stable state and It is serving
+                //legacy HF device, Ignore sco on secondary SM
                 bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
             } else {
                 //If primary SCO is in stable state and current req is TWS

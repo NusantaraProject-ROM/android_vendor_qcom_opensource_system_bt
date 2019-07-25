@@ -332,7 +332,10 @@ tHID_STATUS HID_HostAddDev(const RawAddress& addr, uint16_t attr_mask,
     }
   }
 
-  if (i == HID_HOST_MAX_DEVICES) return HID_ERR_NO_RESOURCES;
+  if (i == HID_HOST_MAX_DEVICES) {
+    HIDH_TRACE_ERROR(" HID_ERR_NO_RESOURCES ");
+    return HID_ERR_NO_RESOURCES;
+  }
 
   if (!hh_cb.devices[i].in_use) {
     hh_cb.devices[i].in_use = true;

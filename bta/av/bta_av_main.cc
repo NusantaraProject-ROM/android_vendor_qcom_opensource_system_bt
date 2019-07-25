@@ -197,6 +197,9 @@ bool bta_av_multiple_streams_started(void);
 extern int btif_get_is_remote_started_idx();
 extern int btif_max_av_clients;
 #if (TWS_ENABLED == TRUE)
+#if (TWS_STATE_ENABLED == TRUE)
+static void bta_av_api_set_tws_earbud_state(tBTA_AV_DATA * p_data);
+#endif
 static void bta_av_api_set_tws_earbud_role(tBTA_AV_DATA * p_data);
 static void bta_av_api_set_is_tws_device(tBTA_AV_DATA * p_data);
 #endif
@@ -229,6 +232,9 @@ const tBTA_AV_NSM_ACT bta_av_nsm_act[] = {
     bta_av_update_enc_mode, /* BTA_AV_UPDATE_ENCODER_MODE_EVT */
     bta_av_update_aptx_data,     /* BTA_AV_UPDATE_APTX_DATA_EVT */
 #if (TWS_ENABLED == TRUE)
+#if (TWS_STATE_ENABLED == TRUE)
+    bta_av_api_set_tws_earbud_state, /* BTA_AV_SET_EARBUD_STATE_EVT */
+#endif
     bta_av_api_set_tws_earbud_role, /* BTA_AV_SET_EARBUD_ROLE_EVT */
     bta_av_api_set_is_tws_device, /* BTA_AV_SET_TWS_DEVICE_EVT */
 #endif
@@ -905,6 +911,15 @@ static void bta_av_api_to_ssm(tBTA_AV_DATA* p_data) {
           if (tws_device > 1 && bta_av_cb.p_scb[xx] != NULL && bta_av_cb.p_scb[xx]->tws_device &&
            ((bta_av_cb.p_scb[xx]->peer_addr != p_scb->peer_addr) ||
             (tws_pair_found && bta_av_cb.p_scb[xx]->peer_addr != tws_pair_addr))) {
+            APPL_TRACE_DEBUG("%s:peer_addr: %s eb state: %d",__func__,
+                bta_av_cb.p_scb[xx]->peer_addr.ToString().c_str(),bta_av_cb.p_scb[xx]->eb_state);
+#if (TWS_STATE_ENABLED == TRUE)
+            if (event == BTA_AV_AP_START_EVT && bta_av_cb.p_scb[xx]->eb_state == TWSP_EB_STATE_OUT_OF_EAR) {
+              APPL_TRACE_DEBUG("%s:EB not in ear skip start",__func__);
+              continue;
+            }
+#endif
+            APPL_TRACE_DEBUG("%s:Execute event %d",__func__,event);
             bta_av_ssm_execute(bta_av_cb.p_scb[xx], event, p_data);
           }
       }
@@ -934,6 +949,36 @@ static void bta_av_api_enable_multicast(tBTA_AV_DATA *p_data)
 }
 
 #if (TWS_ENABLED == TRUE)
+#if (TWS_STATE_ENABLED == TRUE)
+static void bta_av_api_set_tws_earbud_state(tBTA_AV_DATA * p_data)
+{
+  APPL_TRACE_DEBUG("%s:EB_STATE=%d",__func__,p_data->tws_set_earbud_state.eb_state);
+  tBTA_AV_SCB *p_scb = bta_av_hndl_to_scb(p_data->hdr.layer_specific);
+  RawAddress tws_pair_addr;
+  if (p_scb == NULL) {
+    APPL_TRACE_ERROR("bta_av_api_set_tws_earbud_state: scb not found");
+    return;
+  }
+  p_scb->eb_state = p_data->tws_set_earbud_state.eb_state;
+  for (int i = 0; i < BTA_AV_NUM_STRS; i++) {
+    tBTA_AV_SCB *p_scbi;
+    p_scbi = bta_av_cb.p_scb[i];
+    if (p_scbi == NULL || p_scbi == p_scb) continue;
+    APPL_TRACE_DEBUG("%s:p_scbi is tws dev = %d",__func__,p_scbi->tws_device);
+    if (p_scbi->tws_device &&
+      (BTM_SecGetTwsPlusPeerDev(p_scb->peer_addr,
+                             tws_pair_addr) == true)) {
+      if ((tws_pair_addr == p_scbi->peer_addr) && (p_scbi->started || p_scbi->start_pending)) {
+        if (p_scb->eb_state == TWSP_EB_STATE_IN_EAR && !p_scb->started) {
+          APPL_TRACE_ERROR("%:streaming on other eb, sending start to eb",__func__);
+          bta_av_ssm_execute(p_scb, BTA_AV_AP_START_EVT, p_data);
+          return;
+        }
+      }
+    }
+  }
+}
+#endif
 static void bta_av_api_set_tws_earbud_role(tBTA_AV_DATA * p_data)
 {
   APPL_TRACE_DEBUG("bta_av_api_set_earbud_role = %d",p_data->tws_set_earbud_role.chn_mode);

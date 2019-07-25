@@ -1383,6 +1383,9 @@
 #endif
 #ifndef TWS_ENABLED
 #define TWS_ENABLED TRUE
+#ifndef TWS_STATE_ENABLED
+#define TWS_STATE_ENABLED TRUE
+#endif
 #endif
 /******************************************************************************
  *

@@ -32,7 +32,7 @@
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 #include "btif/include/btif_a2dp_source.h"
-
+#include "osi/include/properties.h"
 /* Buffer pool */
 #define A2DP_SBC_BUFFER_SIZE BT_DEFAULT_BUFFER_SIZE
 
@@ -886,7 +886,12 @@ static uint16_t a2dp_sbc_offload_source_rate(bool is_peer_edr) {
 }
 static uint16_t a2dp_sbc_source_rate(void) {
   uint16_t rate = A2DP_SBC_DEFAULT_BITRATE;
-
+  char value[PROPERTY_VALUE_MAX] = {'\0'};
+  osi_property_get("persist.vendor.btstack.sbcmq", value, "false");
+  if (!(strcmp(value,"true"))) {
+     LOG_ERROR(LOG_TAG,"%s:MQ enabled",__func__);
+     return A2DP_SBC_NON_EDR_MAX_RATE;
+  }
   /* restrict bitrate if a2dp link is non-edr */
   if (!a2dp_sbc_encoder_cb.is_peer_edr) {
     rate = A2DP_SBC_NON_EDR_MAX_RATE;
