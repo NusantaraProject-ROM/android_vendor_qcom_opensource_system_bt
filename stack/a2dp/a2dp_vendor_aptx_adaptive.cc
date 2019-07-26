@@ -314,8 +314,8 @@ static tA2DP_STATUS A2DP_ParseInfoAptxAdaptive(tA2DP_APTX_ADAPTIVE_CIE* p_ie,
 
   if (is_capability) return A2DP_SUCCESS;
 
-  if (A2DP_BitsSet(p_ie->sampleRate) != A2DP_SET_ONE_BIT)
-    return A2DP_BAD_SAMP_FREQ;
+//  if (A2DP_BitsSet(p_ie->sampleRate) != A2DP_SET_ONE_BIT)
+//    return A2DP_BAD_SAMP_FREQ;
   if (A2DP_BitsSet(p_ie->channelMode) != A2DP_SET_ONE_BIT)
     return A2DP_BAD_CH_MODE;
 
