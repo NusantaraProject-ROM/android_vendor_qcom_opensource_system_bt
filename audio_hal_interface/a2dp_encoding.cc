@@ -1083,7 +1083,8 @@ bool init( thread_t* message_loop) {
   } else if(death_handler_thread != message_loop) {
     death_handler_thread = message_loop;
     //update the client interface as well
-    LOG(WARNING) << __func__ << ": updating death handler thread";
+    LOG(WARNING) << __func__ << ": updating death handler thread  "
+                 << death_handler_thread;
     a2dp_hal_clientif->UpdateDeathHandlerThread(death_handler_thread);
   }
 

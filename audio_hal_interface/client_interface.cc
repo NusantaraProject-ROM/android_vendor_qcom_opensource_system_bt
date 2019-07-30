@@ -150,21 +150,26 @@ class BluetoothAudioDeathRecipient
   BluetoothAudioDeathRecipient(
       BluetoothAudioClientInterface* clientif,
        thread_t* message_loop)
-      : bluetooth_audio_clientif_(clientif), message_loop_(message_loop) {}
+      : bluetooth_audio_clientif_(clientif), message_loop_(message_loop) {
+        LOG(WARNING) << __func__ << ": worker thread  " << message_loop_;
+      }
   void serviceDied(
       uint64_t /*cookie*/,
       const ::android::wp<::android::hidl::base::V1_0::IBase>& /*who*/) {
     LOG(WARNING) << __func__ << ": restarting connection with new Audio Hal";
     if (bluetooth_audio_clientif_ != nullptr && message_loop_ != nullptr) {
       // restart the session on the correct thread
+      LOG(WARNING) << __func__ << ": posting restart request to worker thread  "
+                   << message_loop_;
       thread_post(message_loop_, RenewAudioProviderAndSession, bluetooth_audio_clientif_);
+      LOG(WARNING) << __func__ << ": done with posting restart request";
     } else {
       LOG(ERROR) << __func__ << ": BluetoothAudioClientInterface corrupted";
     }
   }
 
   void updateDeathHandlerThread(thread_t* message_loop) {
-    LOG(WARNING) << __func__ << ": Updated DeathHandler Thread";
+    LOG(WARNING) << __func__ << ": new thread id is " << message_loop;
     message_loop_ = message_loop;
   }
 
