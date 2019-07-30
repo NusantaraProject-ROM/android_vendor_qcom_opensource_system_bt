@@ -923,4 +923,71 @@ void btm_ble_resolving_list_cleanup(void) {
 
   osi_free_and_reset((void**)&btm_cb.ble_ctr_cb.irk_list_mask);
 }
+
+/*******************************************************************************
+ *
+ * Function         btm_ble_resolving_list_load_devices_rpa_offload
+ *
+ * Description      This function adds devices to resolving list for offloading
+ *                  RPA generation.
+ *
+ * Parameters
+ *
+ * Returns          true if device added, otherwise false.
+ *
+ ******************************************************************************/
+bool btm_ble_resolving_list_load_devices_rpa_offload() {
+  const uint8_t rl_state = btm_cb.ble_ctr_cb.rl_state;
+  int index = 0;
+
+  if (controller_get_interface()->get_ble_resolving_list_max_size() == 0) {
+    BTM_TRACE_DEBUG(
+        "%s: Controller does not support RPA offloading or privacy 1.2",
+        __func__);
+    return false;
+  }
+
+  BTM_TRACE_DEBUG("%s: btm_cb.ble_ctr_cb.privacy_mode = %d", __func__,
+                  btm_cb.ble_ctr_cb.privacy_mode);
+
+  if (btm_cb.ble_ctr_cb.resolving_list_avail_size == 0) {
+    return false;
+  }
+
+  if (rl_state && !btm_ble_disable_resolving_list(rl_state, false)) {
+    return false;
+  }
+
+  if (controller_get_interface()->supports_ble_privacy()) {
+    const Octet16& peer_irk = {0};
+    const Octet16& local_irk = btm_cb.devcb.id_keys.irk;
+    tBLE_ADDR_TYPE peer_addr_type = BLE_ADDR_PUBLIC;
+    RawAddress peer_bda;
+    std::string peer_base_addr = "00:00:00:00:00";
+    std::string peer_addr_str;
+    char buffer[50];
+
+    uint8_t inst_cnt = btm_ble_get_max_adv_instances();
+    BTM_TRACE_DEBUG("%s: inst_cnt =%d", __func__, inst_cnt);
+    for (index=0; index < inst_cnt; index++) {
+      sprintf (buffer, "%02x", index);
+      std::string index_str(buffer);
+      peer_addr_str = peer_base_addr + ":" + index_str;
+      RawAddress::FromString(peer_addr_str, peer_bda);
+
+      btsnd_hcic_ble_add_device_resolving_list(peer_addr_type,
+                                               peer_bda,
+                                               peer_irk, local_irk);
+
+    }
+  }
+
+  /* if resolving list has been turned on, re-enable it */
+  if (rl_state)
+    btm_ble_enable_resolving_list(rl_state);
+  else
+    btm_ble_enable_resolving_list(BTM_BLE_RL_INIT);
+
+  return true;
+}
 #endif

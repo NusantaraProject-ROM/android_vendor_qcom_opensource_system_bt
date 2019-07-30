@@ -172,6 +172,7 @@ extern void btm_ble_resolving_list_cleanup(void);
 extern void btm_ble_adv_init(void);
 extern void* btm_ble_multi_adv_get_ref(uint8_t inst_id);
 extern void btm_ble_multi_adv_cleanup(void);
+extern uint8_t btm_ble_get_max_adv_instances(void);
 extern void btm_ble_batchscan_init(void);
 extern void btm_ble_batchscan_cleanup(void);
 extern void btm_ble_adv_filter_init(void);

@@ -905,6 +905,7 @@ typedef struct {
   char state_temp_buffer[BTM_STATE_BUFFER_SIZE];
   // BQR Receiver
   tBTM_BT_QUALITY_REPORT_RECEIVER* p_bqr_report_receiver;
+  bool rpa_gen_offload_enabled;
 } tBTM_CB;
 
 /* security action for L2CAP COC channels */

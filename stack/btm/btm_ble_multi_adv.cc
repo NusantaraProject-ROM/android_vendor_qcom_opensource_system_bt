@@ -24,6 +24,7 @@
 #include "stack_config.h"
 #include "ble_advertiser.h"
 #include "ble_advertiser_hci_interface.h"
+#include "btm_int.h"
 #include "btm_int_types.h"
 
 #include <string.h>
@@ -268,10 +269,10 @@ class BleAdvertisingManagerImpl
       // set up periodic timer to update address.
       if (BTM_BleLocalPrivacyEnabled()) {
         p_inst->own_address_type = BLE_ADDR_RANDOM;
-        GenerateRpa(Bind(
+        if (!rpa_gen_offload_enabled) {
+          GenerateRpa(Bind(
             [](AdvertisingInstance* p_inst,
-               base::Callback<void(uint8_t /* inst_id */, uint8_t /* status */)>
-                   cb,
+               base::Callback<void(uint8_t, uint8_t)> cb,
                const RawAddress& bda) {
               p_inst->own_address = bda;
 
@@ -279,8 +280,11 @@ class BleAdvertisingManagerImpl
                                  BTM_BLE_PRIVATE_ADDR_INT_MS,
                                  btm_ble_adv_raddr_timer_timeout, p_inst);
               cb.Run(p_inst->inst_id, BTM_BLE_MULTI_ADV_SUCCESS);
-            },
-            p_inst, cb));
+            }, p_inst, cb));
+        }
+        else {
+          cb.Run(p_inst->inst_id, BTM_BLE_MULTI_ADV_SUCCESS);
+        }
       } else {
         p_inst->own_address_type = BLE_ADDR_PUBLIC;
         p_inst->own_address = *controller_get_interface()->get_address();
@@ -292,6 +296,18 @@ class BleAdvertisingManagerImpl
 
     LOG(INFO) << "no free advertiser instance";
     cb.Run(0xFF, ADVERTISE_FAILED_TOO_MANY_ADVERTISERS);
+  }
+
+  uint8_t GetMaxAdvInstances() {
+    return inst_count;
+  }
+
+  void UpdateRpaGenOffloadStatus(bool enable) {
+    rpa_gen_offload_enabled = enable;
+  }
+
+  bool IsRpaGenOffloadEnabled() {
+    return rpa_gen_offload_enabled;
   }
 
   void StartAdvertising(uint8_t advertiser_id, MultiAdvCb cb,
@@ -452,24 +468,28 @@ class BleAdvertisingManagerImpl
               return;
             }
 
-            //own_address_type == BLE_ADDR_RANDOM
-            const RawAddress& rpa = c->self->adv_inst[c->inst_id].own_address;
-            c->self->GetHciInterface()->SetRandomAddress(c->inst_id, rpa, Bind(
-              [](c_type c, uint8_t status) {
-                if (!c->self) {
-                  LOG(INFO) << "Stack was shut down";
-                  return;
-                }
+            if(!BleAdvertisingManager::Get()->IsRpaGenOffloadEnabled()) {
+              //own_address_type == BLE_ADDR_RANDOM
+              const RawAddress& rpa = c->self->adv_inst[c->inst_id].own_address;
+              c->self->GetHciInterface()->SetRandomAddress(c->inst_id, rpa, Bind(
+                [](c_type c, uint8_t status) {
+                  if (!c->self) {
+                    LOG(INFO) << "Stack was shut down";
+                    return;
+                  }
 
-                if (status != 0) {
-                  c->self->Unregister(c->inst_id);
-                  LOG(ERROR) << "setting random address failed, status: " << +status;
-                  c->cb.Run(0, 0, status);
-                  return;
-                }
-
-                c->self->StartAdvertisingSetAfterAddressPart(std::move(c));
-          }, base::Passed(&c)));
+                  if (status != 0) {
+                    c->self->Unregister(c->inst_id);
+                    LOG(ERROR) << "setting random address failed, status: " << +status;
+                    c->cb.Run(0, 0, status);
+                    return;
+                  }
+                  c->self->StartAdvertisingSetAfterAddressPart(std::move(c));
+              }, base::Passed(&c)));
+            }
+            else {
+              c->self->StartAdvertisingSetAfterAddressPart(std::move(c));
+            }
         }, base::Passed(&c)));
     }, base::Passed(&c)));
     // clang-format on
@@ -647,12 +667,14 @@ class BleAdvertisingManagerImpl
     p_inst->duration = duration;
     p_inst->maxExtAdvEvents = maxExtAdvEvents;
 
-    if (enable && p_inst->address_update_required) {
-      p_inst->address_update_required = false;
-      ConfigureRpa(p_inst, base::Bind(&BleAdvertisingManagerImpl::EnableFinish,
-                                      weak_factory_.GetWeakPtr(), p_inst,
-                                      enable, std::move(cb)));
-      return;
+    if (!rpa_gen_offload_enabled) {
+      if (enable && p_inst->address_update_required) {
+        p_inst->address_update_required = false;
+        ConfigureRpa(p_inst, base::Bind(&BleAdvertisingManagerImpl::EnableFinish,
+                                        weak_factory_.GetWeakPtr(), p_inst,
+                                        enable, std::move(cb)));
+        return;
+      }
     }
 
     EnableFinish(p_inst, enable, std::move(cb), 0);
@@ -706,7 +728,19 @@ class BleAdvertisingManagerImpl
         p_params->advertising_event_properties;
     p_inst->tx_power = p_params->tx_power;
     p_inst->advertising_interval = p_params->adv_int_min;
-    const RawAddress& peer_address = RawAddress::kEmpty;
+    RawAddress peer_address = RawAddress::kEmpty;
+
+    if (rpa_gen_offload_enabled) {
+      //peer addr for RPA offload
+      std::string peer_base_addr = "00:00:00:00:00";
+      std::string peer_addr_str;
+      char buffer[50];
+      sprintf (buffer, "%02x", p_inst->inst_id);
+      std::string index_str(buffer);
+      peer_addr_str = peer_base_addr + ":"+ index_str;
+      RawAddress::FromString(peer_addr_str, peer_address);
+      p_inst->own_address_type = BLE_ADDR_RANDOM_ID;
+    }
 
     GetHciInterface()->SetParameters(
         p_inst->inst_id, p_params->advertising_event_properties,
@@ -996,9 +1030,11 @@ class BleAdvertisingManagerImpl
       return;
     }
 
-    if (BTM_BleLocalPrivacyEnabled() &&
-        advertising_handle <= BTM_BLE_MULTI_ADV_MAX) {
-      btm_acl_update_conn_addr(connection_handle, p_inst->own_address);
+    if (!rpa_gen_offload_enabled) {
+      if (BTM_BleLocalPrivacyEnabled() &&
+          advertising_handle <= BTM_BLE_MULTI_ADV_MAX) {
+        btm_acl_update_conn_addr(connection_handle, p_inst->own_address);
+      }
     }
 
     VLOG(1) << "reneabling advertising";
@@ -1053,6 +1089,7 @@ class BleAdvertisingManagerImpl
   BleAdvertiserHciInterface* hci_interface = nullptr;
   std::vector<AdvertisingInstance> adv_inst;
   uint8_t inst_count;
+  bool rpa_gen_offload_enabled;
 
   // Member variables should appear before the WeakPtrFactory, to ensure
   // that any WeakPtrs are invalidated before its members
@@ -1097,6 +1134,7 @@ void btm_ble_adv_init() {
     // If handle 0 can't be used, register advertiser for it, but never use it.
     BleAdvertisingManager::Get().get()->RegisterAdvertiser(base::DoNothing());
   }
+  BleAdvertisingManager::Get()->UpdateRpaGenOffloadStatus(btm_cb.rpa_gen_offload_enabled);
 }
 
 /*******************************************************************************
@@ -1117,6 +1155,10 @@ void btm_ble_multi_adv_cleanup(void) {
 #endif
   BleAdvertisingManager::CleanUp();
   BleAdvertiserHciInterface::CleanUp();
+}
+
+uint8_t btm_ble_get_max_adv_instances(void) {
+  return (BleAdvertisingManager::Get()->GetMaxAdvInstances());
 }
 
 // TODO(jpawlowski): Find a nicer way to test RecomputeTimeout without exposing

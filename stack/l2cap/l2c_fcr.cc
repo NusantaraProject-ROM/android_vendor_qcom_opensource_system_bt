@@ -1723,6 +1723,7 @@ BT_HDR* l2c_fcr_get_next_xmit_sdu_seg(tL2C_CCB* p_ccb,
     if (p_buf->event == 0) {
       first_seg = true;
       sdu_len = p_buf->len;
+      max_pdu -= 2;          // send 2 bytes less in start pkt
     } else
       mid_seg = true;
 

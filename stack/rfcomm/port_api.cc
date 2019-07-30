@@ -254,8 +254,10 @@ int RFCOMM_RemoveConnection(uint16_t handle) {
   }
   p_port = &rfc_cb.port.port[handle - 1];
 
-  if (!p_port->in_use || (p_port->state == PORT_STATE_CLOSED)) {
-    RFCOMM_TRACE_EVENT("RFCOMM_RemoveConnection() Not opened:%d", handle);
+  if (!p_port->in_use ||
+      (p_port->state == PORT_STATE_CLOSED) ||
+      (p_port->state == PORT_STATE_CLOSING)) {
+    RFCOMM_TRACE_ERROR("RFCOMM_RemoveConnection handle:%d, port state %d", handle,p_port->state);
     return (PORT_SUCCESS);
   }
 
@@ -290,8 +292,10 @@ int RFCOMM_RemoveServer(uint16_t handle) {
   /* Do not report any events to the client any more. */
   p_port->p_mgmt_callback = NULL;
 
-  if (!p_port->in_use || (p_port->state == PORT_STATE_CLOSED)) {
-    RFCOMM_TRACE_EVENT("RFCOMM_RemoveServer() Not opened:%d", handle);
+  if (!p_port->in_use ||
+      (p_port->state == PORT_STATE_CLOSED) ||
+      (p_port->state == PORT_STATE_CLOSING)) {
+    RFCOMM_TRACE_ERROR("RFCOMM_RemoveServer() handle:%d, port state %d", handle,p_port->state);
     return (PORT_SUCCESS);
   }
 

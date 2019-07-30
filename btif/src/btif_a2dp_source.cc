@@ -1728,7 +1728,7 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
           if (latest_playing_idx >= btif_max_av_clients ||
               latest_playing_idx < 0) {
               APPL_TRACE_ERROR("%s: Invalid index",__func__);
-              status = A2DP_CTRL_ACK_FAILURE;//Invalid status to stop start retry
+              status = A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS;//status to stop start retry
               break;
           }
           if (remote_start_flag) {
@@ -1812,7 +1812,12 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
 
       APPL_TRACE_WARNING("%s: A2DP command %s while AV stream is not ready",
               __func__, audio_a2dp_hw_dump_ctrl_event((tA2DP_CTRL_CMD)cmd));
-      status = A2DP_CTRL_ACK_FAILURE;
+      if (latest_playing_idx >= btif_max_av_clients || latest_playing_idx < 0) {
+        status = A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS;//status to stop start retry
+      } else {
+        status = A2DP_CTRL_ACK_FAILURE;
+      }
+
       break;
     }
 

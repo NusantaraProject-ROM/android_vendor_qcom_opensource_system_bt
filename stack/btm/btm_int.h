@@ -194,6 +194,7 @@ extern tBTM_STATUS btm_ble_read_resolving_list_entry(
     tBTM_SEC_DEV_REC* p_dev_rec);
 extern bool btm_ble_resolving_list_load_dev(tBTM_SEC_DEV_REC* p_dev_rec);
 extern void btm_ble_resolving_list_remove_dev(tBTM_SEC_DEV_REC* p_dev_rec);
+extern bool btm_ble_resolving_list_load_devices_rpa_offload(void);
 
 /* Vendor Specific Command complete evt handler */
 extern void btm_vsc_complete(uint8_t* p, uint16_t cc_opcode, uint16_t evt_len,
