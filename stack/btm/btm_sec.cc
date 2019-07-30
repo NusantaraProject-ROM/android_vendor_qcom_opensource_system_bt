@@ -1282,6 +1282,7 @@ tBTM_STATUS BTM_SecResetPairingFlag(const RawAddress& bd_addr) {
         (*p_callback)(&bd_addr, BT_TRANSPORT_BR_EDR, p_dev_rec->p_ref_data, (uint8_t)rc);
       }
     }
+    l2cu_resubmit_pending_sec_req(&p_dev_rec->bd_addr);
   }
 
   return (BTM_SUCCESS);
