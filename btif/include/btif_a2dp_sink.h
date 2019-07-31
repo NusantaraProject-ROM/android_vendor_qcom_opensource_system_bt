@@ -61,12 +61,6 @@ tA2DP_CHANNEL_COUNT btif_a2dp_sink_get_channel_count(void);
 // |p_codec_info| contains the new codec information.
 void btif_a2dp_sink_update_decoder(const uint8_t* p_codec_info);
 
-//stop audio decoding
-void btif_a2dp_sink_audio_handle_stop_decoding();
-
-//stop & delete audio track
-void btif_a2dp_sink_clear_track_event();
-
 // Process 'idle' request from the BTIF state machine during initialization.
 void btif_a2dp_sink_on_idle(void);
 

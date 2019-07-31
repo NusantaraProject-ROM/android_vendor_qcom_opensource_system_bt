@@ -6460,9 +6460,6 @@ void btif_initiate_sink_handoff(int idx, bool audio_state_changed) {
       BTIF_TRACE_DEBUG("%s, updating decoder on SHO through audio state change", __func__);
       uint8_t* a2dp_codec_config = bta_av_co_get_peer_codec_info(btif_av_cb[idx].bta_handle);
       if (a2dp_codec_config != NULL) {
-          /* Before create a new audiotrack, we need to stop and delete old audiotrack. */
-          btif_a2dp_sink_audio_handle_stop_decoding();
-          btif_a2dp_sink_clear_track_event();
           btif_a2dp_sink_update_decoder(a2dp_codec_config);
       } else {
           BTIF_TRACE_DEBUG("%s, a2dp_codec_config is NULL", __func__);
