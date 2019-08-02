@@ -717,7 +717,7 @@ class BleAdvertisingManagerImpl
       std::string peer_base_addr = "00:00:00:00:00";
       std::string peer_addr_str;
       char buffer[50];
-      sprintf (buffer, "%02x", p_inst->inst_id);
+      snprintf (buffer, sizeof(buffer), "%02x", p_inst->inst_id);
       std::string index_str(buffer);
       peer_addr_str = peer_base_addr + ":"+ index_str;
       RawAddress::FromString(peer_addr_str, peer_address);
@@ -1097,7 +1097,10 @@ void btm_ble_adv_init() {
     // If handle 0 can't be used, register advertiser for it, but never use it.
     BleAdvertisingManager::Get().get()->RegisterAdvertiser(base::DoNothing());
   }
-  BleAdvertisingManager::Get()->UpdateRpaGenOffloadStatus(btm_cb.rpa_gen_offload_enabled);
+  auto ble_adv_mgr_ptr = (BleAdvertisingManagerImpl*)BleAdvertisingManager::Get().get();
+  if (ble_adv_mgr_ptr) {
+    ble_adv_mgr_ptr->UpdateRpaGenOffloadStatus(btm_cb.rpa_gen_offload_enabled);
+  }
 }
 
 /*******************************************************************************
@@ -1117,7 +1120,8 @@ void btm_ble_multi_adv_cleanup(void) {
 }
 
 uint8_t btm_ble_get_max_adv_instances(void) {
-  return (BleAdvertisingManager::Get()->GetMaxAdvInstances());
+  auto ble_adv_mgr_ptr = (BleAdvertisingManagerImpl*)BleAdvertisingManager::Get().get();
+  return (ble_adv_mgr_ptr ? ble_adv_mgr_ptr->GetMaxAdvInstances() : 0);
 }
 
 // TODO(jpawlowski): Find a nicer way to test RecomputeTimeout without exposing

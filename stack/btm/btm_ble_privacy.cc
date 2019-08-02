@@ -970,7 +970,7 @@ bool btm_ble_resolving_list_load_devices_rpa_offload() {
     uint8_t inst_cnt = btm_ble_get_max_adv_instances();
     BTM_TRACE_DEBUG("%s: inst_cnt =%d", __func__, inst_cnt);
     for (index=0; index < inst_cnt; index++) {
-      sprintf (buffer, "%02x", index);
+      snprintf (buffer, sizeof(buffer), "%02x", index);
       std::string index_str(buffer);
       peer_addr_str = peer_base_addr + ":" + index_str;
       RawAddress::FromString(peer_addr_str, peer_bda);
