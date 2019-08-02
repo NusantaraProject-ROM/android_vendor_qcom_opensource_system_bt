@@ -53,10 +53,12 @@ static std::atomic_int thread_handle{-1};
 static thread_t* thread;
 
 btsock_interface_t* btif_sock_get_interface(void) {
-  static btsock_interface_t interface = {sizeof(interface), btsock_listen,
-                                          btsock_connect
-                                          , btsock_request_max_tx_data_length
-                                        };
+  static btsock_interface_t interface = {
+      sizeof(interface), btsock_listen, /* listen */
+      btsock_connect,                   /* connect */
+      btsock_request_max_tx_data_length /* request_max_tx_data_length */
+  };
+
   return &interface;
 }
 
@@ -220,7 +222,7 @@ static bt_status_t btsock_connect(const RawAddress* bd_addr, btsock_type_t type,
 }
 
 static void btsock_request_max_tx_data_length(const RawAddress& remote_device) {
-  LOG_INFO(LOG_TAG, "%s", __func__)
+  LOG_INFO(LOG_TAG, "%s", __func__);
 }
 
 

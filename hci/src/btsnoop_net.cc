@@ -78,7 +78,7 @@ static int notify_listen_thread() {
   OSI_NO_INTR(ret = write(notification_write_fd, &buffer, 1));
   if ( ret < 0){
     LOG_ERROR(LOG_TAG,
-        "%s: Error in notifying the listen thread to exit",__func__)
+        "%s: Error in notifying the listen thread to exit",__func__);
     return -1;
   }
 
