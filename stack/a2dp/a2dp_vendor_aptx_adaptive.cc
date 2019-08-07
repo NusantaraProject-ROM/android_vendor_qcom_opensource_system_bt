@@ -66,6 +66,7 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_src_caps = {
     A2DP_APTX_ADAPTIVE_SAMPLERATE_96000,   /* sampleRate */
     A2DP_APTX_ADAPTIVE_SOURCE_TYPE_2,
     (A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO |
+     A2DP_APTX_ADAPTIVE_CHANNELS_STEREO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_STEREO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_MONO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_PLUS),
@@ -97,6 +98,7 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_offload_caps = {
     A2DP_APTX_ADAPTIVE_SAMPLERATE_96000,   /* sampleRate */
     A2DP_APTX_ADAPTIVE_SOURCE_TYPE_1,
     (A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO |
+     A2DP_APTX_ADAPTIVE_CHANNELS_STEREO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_STEREO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_MONO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_PLUS),      /* channelMode */
@@ -126,7 +128,7 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_src_config = {
     A2DP_APTX_ADAPTIVE_CODEC_ID_BLUETOOTH, /* codecId */
     A2DP_APTX_ADAPTIVE_SAMPLERATE_48000,   /* sampleRate */
     A2DP_APTX_ADAPTIVE_SOURCE_TYPE_2,
-    A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO | A2DP_APTX_ADAPTIVE_CHANNELS_TWS_PLUS,      /* channelMode */
+    A2DP_APTX_ADAPTIVE_CHANNELS_STEREO | A2DP_APTX_ADAPTIVE_CHANNELS_TWS_PLUS,      /* channelMode */
     { A2DP_APTX_ADAPTIVE_TTP_LL_0,
       A2DP_APTX_ADAPTIVE_TTP_LL_1,
       A2DP_APTX_ADAPTIVE_TTP_HQ_0,
@@ -154,6 +156,7 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_offload_config =
     A2DP_APTX_ADAPTIVE_SAMPLERATE_48000,   /* sampleRate */
     A2DP_APTX_ADAPTIVE_SOURCE_TYPE_1,
     (A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO |
+     A2DP_APTX_ADAPTIVE_CHANNELS_STEREO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_STEREO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_MONO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_PLUS),      /* channelMode */
@@ -184,6 +187,7 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_r1_config = {
     A2DP_APTX_ADAPTIVE_SAMPLERATE_48000,   /* sampleRate */
     A2DP_APTX_ADAPTIVE_SOURCE_TYPE_1,
     (A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO |
+     A2DP_APTX_ADAPTIVE_CHANNELS_STEREO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_STEREO |
      A2DP_APTX_ADAPTIVE_CHANNELS_TWS_MONO ),      /* channelMode */
     { A2DP_APTX_ADAPTIVE_TTP_LL_0,
@@ -797,11 +801,12 @@ static bool select_best_channel_mode(uint8_t channelMode,
     return true;
   }
 
-  if (channelMode & A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO) {
-    p_result->channelMode = A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO;
+  if (channelMode & A2DP_APTX_ADAPTIVE_CHANNELS_STEREO) {
+    p_result->channelMode = A2DP_APTX_ADAPTIVE_CHANNELS_STEREO;
     p_codec_config->channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO;
     return true;
   }
+
 
   if (channelMode & A2DP_APTX_ADAPTIVE_CHANNELS_TWS_STEREO) {
     p_result->channelMode = A2DP_APTX_ADAPTIVE_CHANNELS_TWS_STEREO;
@@ -809,8 +814,8 @@ static bool select_best_channel_mode(uint8_t channelMode,
     return true;
   }
 
-  if (channelMode & A2DP_APTX_ADAPTIVE_CHANNELS_STEREO) {
-    p_result->channelMode = A2DP_APTX_ADAPTIVE_CHANNELS_STEREO;
+  if (channelMode & A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO) {
+    p_result->channelMode = A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO;
     p_codec_config->channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO;
     return true;
   }
@@ -859,6 +864,11 @@ static bool select_audio_channel_mode(
         p_codec_config->channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO;
         return true;
       }
+      if (channelMode & A2DP_APTX_ADAPTIVE_CHANNELS_STEREO) {
+        p_result->channelMode = A2DP_APTX_ADAPTIVE_CHANNELS_STEREO;
+        p_codec_config->channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO;
+        return true;
+      }
       if (channelMode & A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO) {
         p_result->channelMode = A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO;
         p_codec_config->channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO;
@@ -866,11 +876,6 @@ static bool select_audio_channel_mode(
       }
       if (channelMode & A2DP_APTX_ADAPTIVE_CHANNELS_TWS_STEREO) {
         p_result->channelMode = A2DP_APTX_ADAPTIVE_CHANNELS_TWS_STEREO;
-        p_codec_config->channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO;
-        return true;
-      }
-      if (channelMode & A2DP_APTX_ADAPTIVE_CHANNELS_STEREO) {
-        p_result->channelMode = A2DP_APTX_ADAPTIVE_CHANNELS_STEREO;
         p_codec_config->channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO;
         return true;
       }
@@ -1102,6 +1107,12 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
         codec_config_.channel_mode = codec_user_config_.channel_mode;
         break;
       }
+      if (channelMode & A2DP_APTX_ADAPTIVE_CHANNELS_STEREO) {
+        result_config_cie.channelMode = A2DP_APTX_ADAPTIVE_CHANNELS_STEREO;
+        codec_capability_.channel_mode = codec_user_config_.channel_mode;
+        codec_config_.channel_mode = codec_user_config_.channel_mode;
+        break;
+      }
       if (channelMode & A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO) {
         result_config_cie.channelMode = A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO;
         codec_capability_.channel_mode = codec_user_config_.channel_mode;
@@ -1110,12 +1121,6 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
       }
       if (channelMode & A2DP_APTX_ADAPTIVE_CHANNELS_TWS_STEREO) {
         result_config_cie.channelMode = A2DP_APTX_ADAPTIVE_CHANNELS_TWS_STEREO;
-        codec_capability_.channel_mode = codec_user_config_.channel_mode;
-        codec_config_.channel_mode = codec_user_config_.channel_mode;
-        break;
-      }
-      if (channelMode & A2DP_APTX_ADAPTIVE_CHANNELS_STEREO) {
-        result_config_cie.channelMode = A2DP_APTX_ADAPTIVE_CHANNELS_STEREO;
         codec_capability_.channel_mode = codec_user_config_.channel_mode;
         codec_config_.channel_mode = codec_user_config_.channel_mode;
         break;
