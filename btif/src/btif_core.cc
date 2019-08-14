@@ -201,7 +201,7 @@ bt_status_t btif_transfer_context(tBTIF_CBACK* p_cback, uint16_t event,
                                   char* p_params, int param_len,
                                   tBTIF_COPY_CBACK* p_copy_cback) {
   tBTIF_CONTEXT_SWITCH_CBACK* p_msg = (tBTIF_CONTEXT_SWITCH_CBACK*)osi_malloc(
-      sizeof(tBTIF_CONTEXT_SWITCH_CBACK) + param_len);
+      sizeof(tBTIF_CONTEXT_SWITCH_CBACK) + param_len + 1);
 
   BTIF_TRACE_VERBOSE("btif_transfer_context event %d, len %d", event,
                      param_len);
@@ -965,6 +965,13 @@ static void btif_in_storage_request_copy_cb(uint16_t event, char* p_new_buf,
           (uint8_t*)(p_new_buf + sizeof(btif_storage_req_t));
       memcpy(new_req->write_req.prop.val, old_req->write_req.prop.val,
              old_req->write_req.prop.len);
+      // Bluetooth APP writes name without null termination,but stack
+      // uses string operations to copy name, hence we need to use null terminated strings
+      // otherwise string operation like strlcpy leads to undesired results
+      if ((new_req->write_req.prop.type == BT_PROPERTY_BDNAME) ||
+          (new_req->write_req.prop.type == BT_PROPERTY_REMOTE_FRIENDLY_NAME)) {
+        memset((char*)new_req->write_req.prop.val + new_req->write_req.prop.len, '\0', 1);
+      }
     } break;
   }
 }
