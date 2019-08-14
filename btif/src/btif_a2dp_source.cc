@@ -1571,15 +1571,9 @@ bool btif_a2dp_source_restart_session(const RawAddress& old_peer_address,
 
   btif_av_set_offload_status();
   // Start the session.
-  // If audio was streaming before, start audio streaming as well.
   btif_a2dp_source_start_session(new_peer_address);
-  // fetch the new session type again
-  session_type = bluetooth::audio::a2dp::get_session_type();
-  if (is_streaming &&
-      session_type == SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH) {
-    APPL_TRACE_EVENT("%s start audio as new session is SW and streaming", __func__);
-    btif_a2dp_source_start_audio_req();
-  }
+  // No need to start the audio here as on remote start ack
+  // it will start the audio
   return true;
 }
 
