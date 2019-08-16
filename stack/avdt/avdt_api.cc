@@ -1346,3 +1346,25 @@ void AVDT_AssociateScb(uint8_t hdl, const RawAddress& bd_addr) {
   AVDT_TRACE_DEBUG("%s: hdl: %d remote_bda: %s", __func__, hdl, bd_addr.ToString().c_str());
   avdt_associate_scb(hdl,bd_addr);
 }
+
+/*******************************************************************************
+ *
+ * Function         AVDT_GetPeerSeid
+ *
+ * Description      Get the seid of associated peer sep.
+ *
+ * Returns          uint8_t
+ *
+ ******************************************************************************/
+uint8_t AVDT_GetPeerSeid(uint8_t handle) {
+  tAVDT_SCB* p_scb;
+  uint8_t peer_seid = 0;
+
+  p_scb = avdt_scb_by_hdl(handle);
+  if (p_scb != NULL && p_scb->in_use) {
+    peer_seid = p_scb->peer_seid;
+  }
+
+  AVDT_TRACE_DEBUG("%s: handle=%d, seid=%d", __func__, handle, peer_seid);
+  return peer_seid;
+}

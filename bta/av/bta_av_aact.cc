@@ -3352,8 +3352,23 @@ void bta_av_suspend_cfm(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
  *
  ******************************************************************************/
 void bta_av_rcfg_str_ok(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
+  uint8_t avdt_handle = 0;
   p_scb->l2c_cid = AVDT_GetL2CapChannel(p_scb->avdt_handle);
   APPL_TRACE_DEBUG("%s: l2c_cid: %d", __func__, p_scb->l2c_cid);
+
+  if (p_data != NULL)
+    avdt_handle = p_data->str_msg.handle;
+
+  uint8_t peer_seid = AVDT_GetPeerSeid(avdt_handle);
+  uint8_t rcfg_seid = p_scb->sep_info[p_scb->rcfg_idx].seid;
+  APPL_TRACE_WARNING("%s: avdt_handle: %d, peer_seid: %d, rcfg_seid: %d, rcfg_idx: %d",
+       __func__, avdt_handle, peer_seid, rcfg_seid, p_scb->rcfg_idx);
+  if (peer_seid != 0 && rcfg_seid != 0 && peer_seid != rcfg_seid) {
+    APPL_TRACE_WARNING("%s: rcfg_idx is changed, reconfig again", __func__);
+    p_scb->state = BTA_AV_RCFG_SST;
+    AVDT_CloseReq(avdt_handle);
+    return;
+  }
 
   if (p_data != NULL) {
     // p_data could be NULL if the reconfig was triggered by the local device
