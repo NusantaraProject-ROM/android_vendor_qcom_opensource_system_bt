@@ -291,7 +291,7 @@ void btm_acl_created(const RawAddress& bda, DEV_CLASS dc, BD_NAME bdn,
 
         btsnd_hcic_read_rmt_clk_offset(p->hci_handle);
 
-        if ((soc_type == BT_SOC_TYPE_CHEROKEE) &&
+        if ((soc_type == BT_SOC_TYPE_CHEROKEE || soc_type == BT_SOC_TYPE_HASTINGS) &&
             interop_match_addr_or_name(INTEROP_ENABLE_PL10_ADAPTIVE_CONTROL, &bda)) {
           btm_enable_link_PL10_adaptive_ctrl(hci_handle, true);
         }
