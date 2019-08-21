@@ -1744,8 +1744,10 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
         APPL_TRACE_DEBUG("TWS+ device enter opened state");
         for(int i = 0; i < btif_max_av_clients; i++) {
           if (i != index && btif_av_cb[i].tws_device &&
-              (btif_av_cb[i].flags & BTIF_AV_FLAG_PENDING_START)) {
-            APPL_TRACE_DEBUG("The other TWS+ is pending start, sending bta av start");
+              (btif_av_cb[i].flags & BTIF_AV_FLAG_PENDING_START) &&
+              !(btif_av_cb[i].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING)) {
+            APPL_TRACE_DEBUG("The other TWS+ is pending start, sending bta av start, flags %x",
+                              btif_av_cb[i].flags);
             btif_av_cb[index].flags |= BTIF_AV_FLAG_PENDING_START;
             BTA_AvStart(btif_av_cb[index].bta_handle);
           }
