@@ -160,7 +160,7 @@ static bool is_pbap_adv_enabled();
 #define SDP_ENABLE_PTS_MAP  "vendor.bt.pts.map"
 #endif
 
-#define MAP_1_4 0x0103
+#define MAP_1_4 0x0104
 
 struct blacklist_entry
 {
