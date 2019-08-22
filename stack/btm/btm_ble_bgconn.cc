@@ -39,6 +39,7 @@ extern void btm_send_hci_create_connection(
     uint16_t conn_timeout, uint16_t min_ce_len, uint16_t max_ce_len,
     uint8_t phy);
 extern void btm_ble_create_conn_cancel();
+void wl_remove_complete(uint8_t* p_data, uint16_t /* evt_len */);
 
 // Unfortunately (for now?) we have to maintain a copy of the device whitelist
 // on the host to determine if a device is pending to be connected or not. This
@@ -72,12 +73,20 @@ static void background_connection_add(uint8_t addr_type,
         BackgroundConnection{address, addr_type, false, 0, false};
   } else {
     BackgroundConnection* connection = &map_iter->second;
-    connection->addr_type = addr_type;
+    if (addr_type != connection->addr_type) {
+      VLOG(1) << __func__ << " Addr type mismatch " << address;
+      btsnd_hcic_ble_remove_from_white_list(
+        connection->addr_type_in_wl, connection->address,
+        base::Bind(&wl_remove_complete));
+      connection->addr_type = addr_type;
+      connection->in_controller_wl = false;
+    }
     connection->pending_removal = false;
   }
 }
 
 static void background_connection_remove(const RawAddress& address) {
+  VLOG(1) << __func__ << " : " << address;
   auto map_iter = background_connections.find(address);
   if (map_iter != background_connections.end()) {
     if (map_iter->second.in_controller_wl) {
@@ -280,6 +289,7 @@ bool btm_execute_wl_dev_operation(void) {
        map_it != background_connections.end();) {
     BackgroundConnection* connection = &map_it->second;
     if (connection->pending_removal) {
+      VLOG(1) << __func__ << ": Remove "<<connection->address;
       btsnd_hcic_ble_remove_from_white_list(
           connection->addr_type_in_wl, connection->address,
           base::Bind(&wl_remove_complete));
@@ -292,6 +302,7 @@ bool btm_execute_wl_dev_operation(void) {
     const bool connected =
         BTM_IsAclConnectionUp(connection->address, BT_TRANSPORT_LE);
     if (!connection->in_controller_wl && !connected) {
+      VLOG(1) << __func__ << ": Add "<<connection->address;
       btsnd_hcic_ble_add_white_list(connection->addr_type, connection->address,
                                     base::Bind(&wl_add_complete));
       connection->in_controller_wl = true;
@@ -301,6 +312,7 @@ bool btm_execute_wl_dev_operation(void) {
          connection between two LE addresses. Not all controllers handle this
          correctly, therefore we must make sure connected devices are not in
          the white list when bg connection attempt is active. */
+      VLOG(1) << __func__ << " Remove connected device "<<connection->address;
       btsnd_hcic_ble_remove_from_white_list(
           connection->addr_type_in_wl, connection->address,
           base::Bind(&wl_remove_complete));
