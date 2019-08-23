@@ -1536,8 +1536,8 @@ static bool btif_av_state_closing_handler(btif_sm_event_t event, void* p_data, i
              if (btif_av_cb[index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING) {
                  APPL_TRACE_DEBUG("%s: Not playing on other device: Stop media task as local suspend pending", __func__);
                  btif_a2dp_on_stopped(NULL);
-             } else {
-                APPL_TRACE_DEBUG("%s: Not playing on other device: Set Flush", __func__);
+             } else if (btif_av_cb[index].current_playing) {
+                APPL_TRACE_DEBUG("%s: Not playing on other device: Set Flush as active device", __func__);
                 btif_a2dp_source_set_tx_flush(true);
                 btif_a2dp_source_stop_audio_req();
              }
@@ -2006,9 +2006,9 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
             ((btif_av_cb[index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING) == 0)) {
           /* fake handoff state to switch streaming to other codec device */
           btif_av_cb[index].dual_handoff = true;
-        } else if (!btif_av_is_playing() ||
-          (is_multicast_supported && btif_av_cb[index].current_playing)) {
-          APPL_TRACE_WARNING("%s: Suspend the AV Data channel", __func__);
+        } else if ((!btif_av_is_playing() || is_multicast_supported)
+                  && btif_av_cb[index].current_playing) {
+          APPL_TRACE_WARNING("%s: Suspend the AV Data channel for active device", __func__);
           /* ensure tx frames are immediately suspended */
           btif_a2dp_source_set_tx_flush(true);
           btif_a2dp_source_stop_audio_req();
@@ -2568,15 +2568,20 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
         BTIF_TRACE_DEBUG("%s: HAL suspend/stop pending ack the suspend", __func__);
         hal_suspend_pending = true;
       }
-      if ((p_av->suspend.status != BTA_AV_SUCCESS) ||
-          hal_suspend_pending ||
-          (!btif_av_is_playing_on_other_idx(index)) ||
-          (!btif_av_is_local_started_on_other_idx(index))) {
-          BTIF_TRACE_DEBUG("%s: Other device suspended/Remote started, ack the suspend",
-                                     __func__);
+
+      if ((p_av->suspend.status != BTA_AV_SUCCESS) || hal_suspend_pending) {
+        BTIF_TRACE_DEBUG("%s: Suspend failed or HAL pending ack, ack the suspend",__func__);
+        btif_a2dp_on_suspended(&p_av->suspend);
+      } else if (!btif_av_is_local_started_on_other_idx(index)) {
+        BTIF_TRACE_DEBUG("%s: Other device not locally started",__func__);
+        if (btif_av_check_flag_remote_suspend(index)){
+          BTIF_TRACE_DEBUG("%s: Remote suspended on index = %d, don't ack the suspend ", __func__, index);
+        } else{
+          BTIF_TRACE_DEBUG("%s: ack the suspend ", __func__);
           btif_a2dp_on_suspended(&p_av->suspend);
-      } else if(btif_av_is_playing_on_other_idx(index)) {
-        BTIF_TRACE_DEBUG("%s: Other device not suspended, don't ack the suspend", __func__);
+        }
+      } else {
+        BTIF_TRACE_DEBUG("%s: Other device locally started, don't ack the suspend", __func__);
       }
 
       BTIF_TRACE_DEBUG("%s: local suspend flag: %d, reconfig_event: %d", __func__,
@@ -5813,7 +5818,9 @@ bool btif_av_is_multicast_supported() {
 }
 
 bool btif_av_check_flag_remote_suspend(int index) {
-  BTIF_TRACE_ERROR("%s(): index = %d",__func__,index);
+  BTIF_TRACE_ERROR("%s(): index = %d",__func__, index);
+  if (index >= btif_max_av_clients || index < 0)
+    return false;
   if (btif_av_cb[index].flags & BTIF_AV_FLAG_REMOTE_SUSPEND) {
     BTIF_TRACE_DEBUG("remote suspend flag set on index = %d",index);
     return true;
