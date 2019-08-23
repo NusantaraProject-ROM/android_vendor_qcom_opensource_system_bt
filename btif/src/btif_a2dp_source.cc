@@ -950,7 +950,7 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
   } else if (pending_cmd == A2DP_CTRL_CMD_START) {
     BTIF_TRACE_ERROR("Ack Pending Start while Disconnect in Progress");
     if (btif_a2dp_source_is_hal_v2_supported()) {
-      bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS);
+      bluetooth::audio::a2dp::ack_stream_started(A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS);
     } else {
       btif_a2dp_command_ack(A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS);
     }
