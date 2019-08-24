@@ -676,6 +676,7 @@ static void btif_report_source_codec_state(UNUSED_ATTR void* p_data,
       if(btif_a2dp_source_is_restart_session_needed()) {
         RawAddress bt_addr = btif_av_cb[index].peer_bda;
         btif_a2dp_source_restart_session(bt_addr, bt_addr);
+        codec_cfg_change = false;
         if (btif_av_cb[index].reconfig_pending) {
           BTIF_TRACE_DEBUG("%s:Set reconfig_a2dp true",__func__);
           reconfig_a2dp = true;
@@ -1644,9 +1645,7 @@ void btif_av_update_reconfigure_event(int index) {
 
   if (btif_av_is_split_a2dp_enabled() &&
       btif_av_cb[index].current_playing == TRUE) {
-    if ((codec_cfg_change && !btif_a2dp_source_is_hal_v2_supported()) ||
-        (btif_a2dp_source_is_hal_v2_supported() &&
-         btif_a2dp_source_is_restart_session_needed())) {
+    if (codec_cfg_change && !btif_a2dp_source_is_hal_v2_supported()) {
       codec_cfg_change = false;
       if (!isBitRateChange && !isBitsPerSampleChange)
         reconfig_a2dp = TRUE;
@@ -4435,6 +4434,7 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
 #endif
   btif_av_codec_config_req_t codec_req;
   isDevUiReq = false;
+  codec_cfg_change = false;
   for (auto cp : codec_preferences) {
     BTIF_TRACE_DEBUG(
         "%s: codec_type=%d codec_priority=%d "
@@ -4447,10 +4447,7 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
         cp.codec_specific_2, cp.codec_specific_3, cp.codec_specific_4);
 
     A2dpCodecConfig* current_codec = bta_av_get_a2dp_current_codec();
-    if (index < btif_max_av_clients && btif_av_cb[index].reconfig_pending) {
-      BTIF_TRACE_ERROR("%s:Reconfig Pending, dishonor codec switch",__func__);
-      return BT_STATUS_FAIL;
-    }
+
     if (current_codec != nullptr) {
       btav_a2dp_codec_config_t codec_config;
       codec_config = current_codec->getCodecConfig();
@@ -4508,15 +4505,23 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
           if ((cp.bits_per_sample != 0) && (codec_config.bits_per_sample != 0)) {
             reconfig_a2dp_param_id = BITSPERSAMPLE_PARAM_ID;
             isBitsPerSampleChange = true;
+          } else {
+            codec_cfg_change = true;
           }
+        } else {
+          codec_cfg_change = true;
         }
     }
 
-    if (cp.codec_specific_4 == 0 ||
-         cp.codec_type != BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)
-      codec_cfg_change = true;
-    else {
-      BTIF_TRACE_WARNING("%s: Dont set codec_cfg_change for Aptx mode change call", __func__);
+    if(cp.codec_specific_4 > 0 &&
+          cp.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE) {
+          codec_cfg_change = false;
+      BTIF_TRACE_WARNING("%s: Reset codec_cfg_change for Aptx mode change call", __func__);
+    }
+
+    if (index < btif_max_av_clients && btif_av_cb[index].reconfig_pending && codec_cfg_change) {
+      BTIF_TRACE_ERROR("%s:Reconfig Pending, dishonor codec switch",__func__);
+      return BT_STATUS_FAIL;
     }
 
     isDevUiReq = true;
