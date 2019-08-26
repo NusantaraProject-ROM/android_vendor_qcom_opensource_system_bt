@@ -1114,7 +1114,7 @@ void avdt_scb_hdl_write_req(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
     AVDT_TRACE_WARNING("Dropped media packet; congested");
   }
   osi_free_and_reset((void**)&p_scb->p_pkt);
-
+  AVDT_TRACE_DEBUG("%s:pkt freed and reset",__func__);
   /* Recompute only if the RTP header wasn't disabled by the API */
   if (add_rtp_header) {
     bool is_content_protection = (p_scb->curr_cfg.num_protect > 0);
@@ -1124,6 +1124,7 @@ void avdt_scb_hdl_write_req(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
 
   /* Build a media packet, and add an RTP header if required. */
   if (add_rtp_header) {
+    AVDT_TRACE_DEBUG("%s:add rtp header",__func__);
     ssrc = avdt_scb_gen_ssrc(p_scb);
 
     p_data->apiwrite.p_buf->len += AVDT_MEDIA_HDR_SIZE;
@@ -1136,10 +1137,12 @@ void avdt_scb_hdl_write_req(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
     UINT16_TO_BE_STREAM(p, p_scb->media_seq);
     UINT32_TO_BE_STREAM(p, p_data->apiwrite.time_stamp);
     UINT32_TO_BE_STREAM(p, ssrc);
+    AVDT_TRACE_DEBUG("%s:rtp header added",__func__);
   }
 
   /* store it */
   p_scb->p_pkt = p_data->apiwrite.p_buf;
+  AVDT_TRACE_DEBUG("%s:Exit",__func__);
 }
 
 /*******************************************************************************

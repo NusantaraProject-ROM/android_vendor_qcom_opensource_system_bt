@@ -49,9 +49,6 @@
 #if (SWB_ENABLED == TRUE)
 #include <hardware/vendor_hf.h>
 #endif
-#ifdef WIPOWER_SUPPORTED
-#include <hardware/wipower.h>
-#endif
 #include <hardware/vendor.h>
 #include <hardware/vendor_socket.h>
 #include <hardware/bt_ba.h>
@@ -123,10 +120,6 @@ extern btrc_interface_t* btif_rc_get_interface();
 extern btrc_interface_t* btif_rc_ctrl_get_interface();
 /*SDP search client*/
 extern btsdp_interface_t* btif_sdp_get_interface();
-
-#ifdef WIPOWER_SUPPORTED
-extern wipower_interface_t *get_wipower_interface();
-#endif
 
 /*Hearing Aid client*/
 extern HearingAidInterface* btif_hearing_aid_get_interface();
@@ -417,11 +410,6 @@ static const void* get_profile_interface(const char* profile_id) {
 #if (SWB_ENABLED == TRUE)
   if (is_profile(profile_id, BT_PROFILE_VENDOR_HF_ID))
     return btif_vendor_hf_get_interface();
-#endif
-
-#ifdef WIPOWER_SUPPORTED
-  if (is_profile(profile_id, BT_PROFILE_WIPOWER_VENDOR_ID))
-    return get_wipower_interface();
 #endif
 
   if (is_profile(profile_id, BT_PROFILE_BAT_ID))

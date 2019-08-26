@@ -39,19 +39,6 @@
 #include <base/strings/string_number_conversions.h>
 #include <base/time/time.h>
 
-#ifdef WIPOWER_SUPPORTED
-#define BTM_BLE_MULTI_ADV_DEFAULT_STD 0xFF
-
-#define WIPOWER_16_UUID_LSB 0xFE
-#define WIPOWER_16_UUID_MSB 0xFF
-
-static bool is_wipower_adv = false;
-uint8_t wipower_inst_id  = BTM_BLE_MULTI_ADV_DEFAULT_STD;
-
-extern int enable_power_apply(bool enable, bool on, bool time_flag);
-
-#endif
-
 using base::Bind;
 using base::TimeDelta;
 using base::TimeTicks;
@@ -247,11 +234,6 @@ class BleAdvertisingManagerImpl
             p_inst->enable_status = true;
             hci_interface->Enable(true, p_inst->inst_id, 0x00, 0x00,
                                   base::DoNothing());
-#ifdef WIPOWER_SUPPORTED
-            if ((is_wipower_adv && (p_inst->inst_id == wipower_inst_id))) {
-              enable_power_apply(false, false, false);
-            }
-#endif
           }
         },
         p_inst, std::move(configuredCb)));
@@ -735,7 +717,7 @@ class BleAdvertisingManagerImpl
       std::string peer_base_addr = "00:00:00:00:00";
       std::string peer_addr_str;
       char buffer[50];
-      sprintf (buffer, "%02x", p_inst->inst_id);
+      snprintf (buffer, sizeof(buffer), "%02x", p_inst->inst_id);
       std::string index_str(buffer);
       peer_addr_str = peer_base_addr + ":"+ index_str;
       RawAddress::FromString(peer_addr_str, peer_address);
@@ -801,15 +783,6 @@ class BleAdvertisingManagerImpl
         i += data[i] + 1;
       }
     }
-#ifdef WIPOWER_SUPPORTED
-    if (data.size() >= 6) {
-      if (data[5] == WIPOWER_16_UUID_LSB && data[6] == WIPOWER_16_UUID_MSB)
-      {
-        is_wipower_adv = true;
-        wipower_inst_id = inst_id;
-      }
-    }
-#endif
 
     VLOG(1) << "data is: " << base::HexEncode(data.data(), data.size());
     DivideAndSendData(
@@ -1045,21 +1018,11 @@ class BleAdvertisingManagerImpl
       if ((p_inst->advertising_event_properties & 0x0C) == 0) {
         /* directed advertising bits not set */
 
-#ifdef WIPOWER_SUPPORTED
-        if (!(is_wipower_adv && (advertising_handle == wipower_inst_id))) {
-          RecomputeTimeout(p_inst, TimeTicks::Now());
-          if (p_inst->enable_status) {
-              GetHciInterface()->Enable(true, advertising_handle, 0x00, 0x00,
-                                  base::DoNothing());
-          }
-        }
-#else
         RecomputeTimeout(p_inst, TimeTicks::Now());
         if (p_inst->enable_status) {
           GetHciInterface()->Enable(true, advertising_handle, p_inst->duration,
                                     p_inst->maxExtAdvEvents, base::DoNothing());
         }
-#endif
       } else {
         /* mark directed adv as disabled if adv has been stopped */
         p_inst->in_use = false;
@@ -1134,7 +1097,10 @@ void btm_ble_adv_init() {
     // If handle 0 can't be used, register advertiser for it, but never use it.
     BleAdvertisingManager::Get().get()->RegisterAdvertiser(base::DoNothing());
   }
-  BleAdvertisingManager::Get()->UpdateRpaGenOffloadStatus(btm_cb.rpa_gen_offload_enabled);
+  auto ble_adv_mgr_ptr = (BleAdvertisingManagerImpl*)BleAdvertisingManager::Get().get();
+  if (ble_adv_mgr_ptr) {
+    ble_adv_mgr_ptr->UpdateRpaGenOffloadStatus(btm_cb.rpa_gen_offload_enabled);
+  }
 }
 
 /*******************************************************************************
@@ -1149,16 +1115,13 @@ void btm_ble_adv_init() {
  ******************************************************************************/
 void btm_ble_multi_adv_cleanup(void) {
   std::lock_guard<std::mutex> lock(lock_);
-#ifdef WIPOWER_SUPPORTED
-  is_wipower_adv = false;
-  wipower_inst_id = BTM_BLE_MULTI_ADV_DEFAULT_STD;
-#endif
   BleAdvertisingManager::CleanUp();
   BleAdvertiserHciInterface::CleanUp();
 }
 
 uint8_t btm_ble_get_max_adv_instances(void) {
-  return (BleAdvertisingManager::Get()->GetMaxAdvInstances());
+  auto ble_adv_mgr_ptr = (BleAdvertisingManagerImpl*)BleAdvertisingManager::Get().get();
+  return (ble_adv_mgr_ptr ? ble_adv_mgr_ptr->GetMaxAdvInstances() : 0);
 }
 
 // TODO(jpawlowski): Find a nicer way to test RecomputeTimeout without exposing

@@ -1282,6 +1282,7 @@ tBTM_STATUS BTM_SecResetPairingFlag(const RawAddress& bd_addr) {
         (*p_callback)(&bd_addr, BT_TRANSPORT_BR_EDR, p_dev_rec->p_ref_data, (uint8_t)rc);
       }
     }
+    l2cu_resubmit_pending_sec_req(&p_dev_rec->bd_addr);
   }
 
   return (BTM_SUCCESS);
@@ -3174,6 +3175,15 @@ void btm_sec_rmt_name_request_complete(const RawAddress* p_bd_addr,
         /* If it is set, there may be a race condition */
         BTM_TRACE_DEBUG("%s IS_SM4_UNKNOWN Flags:0x%04x", __func__,
                         btm_cb.pairing_flags);
+
+        if ((p_dev_rec->num_read_pages == 0) &&
+            (btm_cb.pairing_flags & BTM_PAIR_FLAGS_WE_STARTED_DD) &&
+            (p_dev_rec->hci_handle != BTM_SEC_INVALID_HANDLE)) {
+          BTM_TRACE_WARNING("%s:RNR done after connection, wait for remote features complete",
+                              __func__);
+          btm_sec_change_pairing_state(BTM_PAIR_STATE_WAIT_PIN_REQ);
+          return;
+        }
         if ((btm_cb.pairing_flags & BTM_PAIR_FLAGS_REJECTED_CONNECT) == 0)
           p_dev_rec->sm4 |= BTM_SM4_KNOWN;
       }

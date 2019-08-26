@@ -378,7 +378,11 @@ static void transmit_downward(uint16_t type, void* data) {
 static void event_finish_startup(UNUSED_ATTR void* context) {
   LOG_INFO(LOG_TAG, "%s", __func__);
   std::lock_guard<std::recursive_mutex> lock(commands_pending_response_mutex);
-  alarm_cancel(startup_timer);
+  if (alarm_is_scheduled(startup_timer)) {
+    alarm_cancel(startup_timer);
+  } else {
+    LOG_DEBUG(LOG_TAG,"%s startup_timer not scheduled", __func__);
+  }
   // added null check if startup_future has become null
   // due to timer expiry
   // eventually it will lead to command timeout incase timer expires
@@ -740,7 +744,12 @@ static void update_command_response_timer(void) {
 
   if (command_response_timer == NULL) return;
   if (list_is_empty(commands_pending_response)) {
-    alarm_cancel(command_response_timer);
+    if (alarm_is_scheduled(command_response_timer)) {
+      alarm_cancel(command_response_timer);
+    } else {
+      LOG_DEBUG(LOG_TAG,"%s command_response_timer not scheduled",
+                __func__);
+    }
   } else {
     alarm_set(command_response_timer, COMMAND_PENDING_TIMEOUT_MS,
               command_timed_out, list_front(commands_pending_response));
