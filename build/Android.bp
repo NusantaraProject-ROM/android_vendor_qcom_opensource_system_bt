@@ -61,11 +61,7 @@ fluoride_defaults_qti {
     ],
     cpp_std: "c++17",
     sanitize: {
-        misc_undefined: [
-            "unsigned-integer-overflow",
-            "signed-integer-overflow",
-            "bounds",
-        ],
+        misc_undefined: ["bounds"],
     },
 }
 
