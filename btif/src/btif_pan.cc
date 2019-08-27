@@ -219,9 +219,19 @@ static int btpan_get_local_role() {
 
 static bt_status_t btpan_connect(const RawAddress* bd_addr, int local_role,
                                  int remote_role) {
-  BTIF_TRACE_DEBUG("local_role:%d, remote_role:%d", local_role, remote_role);
   int bta_local_role = btpan_role_to_bta(local_role);
   int bta_remote_role = btpan_role_to_bta(remote_role);
+  btpan_conn_t* conn = btpan_find_conn_addr(*bd_addr);
+
+  BTIF_TRACE_DEBUG("%s: local_role:%d, remote_role:%d, conn: %p",
+      __func__, local_role, remote_role, conn);
+
+  if (conn != NULL) {
+    BTIF_TRACE_WARNING("%s: connection already present conn->handle: %d remote bd address: %s",
+        __func__, conn->handle, bd_addr->ToString().c_str());
+    return BT_STATUS_FAIL;
+  }
+
   btpan_new_conn(-1, *bd_addr, bta_local_role, bta_remote_role);
   BTA_PanOpen(*bd_addr, bta_local_role, bta_remote_role);
   return BT_STATUS_SUCCESS;
