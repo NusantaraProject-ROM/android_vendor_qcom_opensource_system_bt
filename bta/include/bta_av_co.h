@@ -27,6 +27,50 @@
 #include "bta_av_api.h"
 #include "l2c_api.h"
 
+typedef struct {
+  uint8_t sep_info_idx;                   /* local SEP index (in BTA tables) */
+  uint8_t seid;                           /* peer SEP index (in peer tables) */
+  uint8_t codec_caps[AVDT_CODEC_SIZE];    /* peer SEP codec capabilities */
+  uint8_t num_protect;                    /* peer SEP number of CP elements */
+  uint8_t protect_info[AVDT_CP_INFO_LEN]; /* peer SEP content protection info */
+} tBTA_AV_CO_SINK;
+
+typedef struct {
+  RawAddress addr; /* address of audio/video peer */
+  tBTA_AV_CO_SINK
+      sinks[BTAV_A2DP_CODEC_INDEX_MAX]; /* array of supported sinks */
+  tBTA_AV_CO_SINK srcs[BTAV_A2DP_CODEC_INDEX_MAX]; /* array of supported srcs */
+  uint8_t num_sinks;     /* total number of sinks at peer */
+  uint8_t num_srcs;      /* total number of srcs at peer */
+  uint8_t num_seps;      /* total number of seids at peer */
+  uint8_t num_rx_sinks;  /* number of received sinks */
+  uint8_t num_rx_srcs;   /* number of received srcs */
+  uint8_t num_sup_sinks; /* number of supported sinks in the sinks array */
+  uint8_t num_sup_srcs;  /* number of supported srcs in the srcs array */
+  const tBTA_AV_CO_SINK* p_sink;         /* currently selected sink */
+  const tBTA_AV_CO_SINK* p_src;          /* currently selected src */
+  uint8_t codec_config[AVDT_CODEC_SIZE]; /* current codec configuration */
+  bool cp_active;                        /* current CP configuration */
+  bool acp;                              /* acceptor */
+  bool reconfig_needed;                  /* reconfiguration is needed */
+  bool rcfg_done;                        /* reconfiguration complete */
+  bool opened;                           /* opened */
+  uint16_t mtu;                          /* maximum transmit unit size */
+  uint16_t uuid_to_connect;              /* uuid of peer device */
+  tBTA_AV_HNDL handle;                   /* handle to use */
+  A2dpCodecs* codecs;                    /* Locally supported codecs */
+  bool is_active_peer;                   /* If this is active peer */
+  bool rcfg_pend_getcap;                 /* if reconfig is pending for get_cap */
+  bool isIncoming;                       /* to know whether it is incmoming connection */
+  btav_a2dp_codec_index_t codecIndextoCompare; /* save codec index when incoming setconfig done */
+  bool getcap_pending;   /* Get_caps for all remote SEPS done or not*/
+} tBTA_AV_CO_PEER;
+
+typedef struct {
+  bool active;
+  uint8_t flag;
+} tBTA_AV_CO_CP;
+
 /*****************************************************************************
  *  Constants and data types
  ****************************************************************************/
@@ -238,4 +282,5 @@ uint8_t bta_av_co_cp_get_flag(void);
 bool bta_av_co_cp_is_active(void);
 
 uint8_t* bta_av_co_get_peer_codec_info(tBTA_AV_HNDL hndl);
+tBTA_AV_CO_PEER* bta_av_co_get_active_peer(void);
 #endif /* BTA_AV_CO_H */

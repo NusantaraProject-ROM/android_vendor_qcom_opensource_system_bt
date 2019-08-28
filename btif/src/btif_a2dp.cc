@@ -378,7 +378,7 @@ void btif_a2dp_on_offload_started(tBTA_AV_STATUS status) {
       */
       APPL_TRACE_ERROR("%s offload start failed", __func__);
       RawAddress bd_addr;
-      btif_av_get_peer_addr(&bd_addr);
+      btif_av_get_active_peer_addr(&bd_addr);
      /* status 13 means that there is a sco connection request during start vs cmd
         in such case, will not disconnect the stack, this trigger connect again*/
       if (status != BTIF_A2DP_START_BLOCK_SCO_CONNECTED)

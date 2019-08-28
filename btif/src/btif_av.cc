@@ -4717,19 +4717,16 @@ RawAddress btif_av_get_addr(RawAddress address) {
  *
  * Returns          void. Updates the peer_bda argument
  *******************************************************************************/
-void btif_av_get_peer_addr(RawAddress* peer_bda) {
-  btif_sm_state_t state = BTIF_AV_STATE_IDLE;
-  for (int i = 0; i < btif_max_av_clients; i++) {
-    state = btif_sm_get_state(btif_av_cb[i].sm_handle);
-    if ((state == BTIF_AV_STATE_OPENED) ||
-        (state == BTIF_AV_STATE_STARTED)) {
-      BTIF_TRACE_DEBUG("btif_av_get_peer_addr: %u state: %d ",
-              btif_av_cb[i].peer_bda, state);
-      *peer_bda = btif_av_cb[i].peer_bda;
-      if (state == BTIF_AV_STATE_STARTED)
-        break;
-    }
+void btif_av_get_active_peer_addr(RawAddress* peer_bda) {
+  // Find the peer that is currently Active.
+  tBTA_AV_CO_PEER* p_peer = nullptr;
+  p_peer = bta_av_co_get_active_peer();
+  if (p_peer == nullptr) {
+    APPL_TRACE_ERROR("%s: no active peer device found", __func__);
+    return;
   }
+  BTIF_TRACE_DEBUG("%s: active peer_add: %s ", __func__, p_peer->addr.ToString().c_str());
+  *peer_bda = p_peer->addr;
 }
 
 /*******************************************************************************

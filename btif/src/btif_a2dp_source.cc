@@ -525,7 +525,7 @@ bt_status_t btif_a2dp_source_setup_codec(tBTA_AV_HNDL hndl) {
     //int index = 0;
     //index = HANDLE_TO_INDEX(hndl);
     RawAddress peer_bda;
-    btif_av_get_peer_addr(&peer_bda);
+    btif_av_get_active_peer_addr(&peer_bda);
 
     tBT_FLOW_SPEC flow_spec;
     memset(&flow_spec, 0x00, sizeof(flow_spec));
@@ -1074,7 +1074,7 @@ static bool btif_a2dp_source_enqueue_callback(BT_HDR* p_buf, size_t frames_n,
     // Request RSSI and Failed Contact Counter for log purposes if we had to
     // flush buffers.
     RawAddress peer_bda;
-    btif_av_get_peer_addr(&peer_bda);
+    btif_av_get_active_peer_addr(&peer_bda);
     tBTM_STATUS status = BTM_ReadRSSI(peer_bda, btm_read_rssi_cb);
     if (status != BTM_CMD_STARTED) {
       LOG_DEBUG(LOG_TAG, "%s: Cannot read RSSI: status %d", __func__, status);
