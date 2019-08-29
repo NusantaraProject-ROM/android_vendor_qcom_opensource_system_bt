@@ -1347,17 +1347,19 @@ void BTA_DmProcessQueuedServiceDiscovery(void) {
 
     tBTA_DM_MSG* p_data =(tBTA_DM_MSG*) bta_dm_search_cb.p_disc_queue.front();
     bta_dm_search_cb.p_disc_queue.pop();
-    RawAddress bda = p_data->discover.bd_addr;
+    if (p_data != NULL) {
+      RawAddress bda = p_data->discover.bd_addr;
 
-    if (p_data->discover.transport != BT_TRANSPORT_INVALID) {
-      transport = p_data->discover.transport;
-    }
-    if (BTM_IsAclConnectionUp(bda, transport)) {
-      bta_sys_sendmsg(p_data);
-      break;
-    }
-    else if (p_data) {
-      osi_free(p_data);
+      if (p_data->discover.transport != BT_TRANSPORT_INVALID) {
+        transport = p_data->discover.transport;
+      }
+      if (BTM_IsAclConnectionUp(bda, transport)) {
+        bta_sys_sendmsg(p_data);
+        break;
+      }
+      else {
+        osi_free(p_data);
+      }
     }
   }
 }
