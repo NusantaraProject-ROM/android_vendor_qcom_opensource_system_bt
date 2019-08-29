@@ -553,6 +553,7 @@ typedef struct {
 
   uint16_t le_dyn_psm; /* Next LE dynamic PSM value to try to assign */
   bool le_dyn_psm_assigned[LE_DYNAMIC_PSM_RANGE]; /* Table of assigned LE PSM */
+  uint8_t cert_failure; /*Insufficient Enc case for certification */
 
 } tL2C_CB;
 
