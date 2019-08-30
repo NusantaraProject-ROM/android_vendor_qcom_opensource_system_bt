@@ -474,7 +474,6 @@ uint8_t bta_av_rc_create(tBTA_AV_CB* p_cb, uint8_t role, uint8_t shdl,
   //no need to over write rc hadle detail for duplicate handle
   if (p_rcb->handle != BTA_AV_RC_HANDLE_NONE) {
     APPL_TRACE_ERROR("bta_av_rc_create found duplicated handle:%d", rc_handle);
-    return BTA_AV_RC_HANDLE_NONE;
   }
 
   APPL_TRACE_WARNING("%s RC handle %d is connected", __func__, rc_handle);
@@ -1736,7 +1735,8 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
           p_lcb = &p_cb->lcb[xx];
           p_lcb->lidx = xx + 1;
           /* start listening when the signal channel is open */
-          if (!bta_av_map_scb_rc(p_data->str_msg.bd_addr, p_cb->rcb)) {
+          if (p_cb->features & BTA_AV_FEAT_RCTG &&
+              !bta_av_map_scb_rc(p_data->str_msg.bd_addr, p_cb->rcb)) {
             if ((handle = bta_av_rc_create(p_cb, AVCT_ACP, 0, p_lcb->lidx)) != 0 &&
                  (handle != BTA_AV_RC_HANDLE_NONE)) {
               p_cb->p_scb[xx]->rc_ccb_alloc_handle = handle;
