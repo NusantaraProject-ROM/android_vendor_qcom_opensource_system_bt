@@ -501,7 +501,6 @@ bt_status_t btif_a2dp_source_setup_codec(tBTA_AV_HNDL hndl) {
 
     A2dpCodecConfig* current_codec = bta_av_get_a2dp_current_codec();
     btav_a2dp_codec_config_t codec_config;
-    APPL_TRACE_DEBUG("%s: codec_config.codec_type:%d", __func__, codec_config.codec_type);
 
     //get the current codec config, so that we can get the codec type.
     if (current_codec != nullptr) {
@@ -512,6 +511,7 @@ bt_status_t btif_a2dp_source_setup_codec(tBTA_AV_HNDL hndl) {
       return BT_STATUS_FAIL;
     }
 
+    APPL_TRACE_DEBUG("%s: codec_config.codec_type:%d", __func__, codec_config.codec_type);
     uint8_t p_codec_info[AVDT_CODEC_SIZE];
     memset(p_codec_info, 0, AVDT_CODEC_SIZE);
 
