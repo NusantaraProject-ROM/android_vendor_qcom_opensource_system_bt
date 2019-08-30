@@ -911,11 +911,17 @@ static void bta_ag_bind_response(tBTA_AG_SCB* p_scb, uint8_t arg_type) {
  ******************************************************************************/
 static bool bta_ag_parse_biev_response(tBTA_AG_SCB* p_scb, tBTA_AG_VAL* val) {
   char* p_token = strtok(val->str, ",");
+  if (p_token == NULL) {
+     APPL_TRACE_WARNING("%s received invalid string %s", __func__,
+                       val->str);
+     return false;
+  }
+
   uint16_t rcv_ind_id = atoi(p_token);
 
   p_token = strtok(NULL, ",");
   if (p_token == NULL) {
-     APPL_TRACE_DEBUG("%s received invalid string %s", __func__,
+     APPL_TRACE_WARNING("%s received invalid string %s", __func__,
                        val->str);
      return false;
   }
