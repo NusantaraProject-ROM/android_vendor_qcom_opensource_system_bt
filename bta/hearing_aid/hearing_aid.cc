@@ -1411,7 +1411,7 @@ class HearingAidImpl : public HearingAid {
       char eventtime[20];
       char temptime[20];
       struct tm* tstamp = localtime(&rssi_logs.timestamp.tv_sec);
-      if (!strftime(temptime, sizeof(temptime), "%H:%M:%S", tstamp)) {
+      if (tstamp && !strftime(temptime, sizeof(temptime), "%H:%M:%S", tstamp)) {
         LOG(ERROR) << __func__ << ": strftime fails. tm_sec=" << tstamp->tm_sec << ", tm_min=" << tstamp->tm_min
                    << ", tm_hour=" << tstamp->tm_hour;
         strlcpy(temptime, "UNKNOWN TIME", sizeof(temptime));
