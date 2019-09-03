@@ -11,7 +11,11 @@ cc_library_static {
         "vendor/qcom/opensource/commonsys/system/bt/btif/include",
         "vendor/qcom/opensource/commonsys/system/bt/stack/include",
         "system/bt/audio_hearing_aid_hw/include",
-        "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/btif/include"
+        "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/btif/include",
+        "vendor/qcom/opensource/commonsys/system/bt/btcore/include",
+        "vendor/qcom/opensource/commonsys/system/bt/hci/include",
+        "vendor/qcom/opensource/commonsys-intf/bluetooth/include",
+        "vendor/qcom/opensource/commonsys/system/bt/device/include"
     ],
     srcs: [
         "a2dp_encoding.cc",

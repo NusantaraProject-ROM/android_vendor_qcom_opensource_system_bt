@@ -29,6 +29,7 @@
 #include "osi/include/properties.h"
 #include "a2dp_sbc.h"
 #include <a2dp_vendor.h>
+#include "controller.h"
 #include "btif_bat.h"
 
 extern bool audio_start_awaited;
@@ -959,12 +960,8 @@ bool a2dp_get_selected_hal_codec_config(CodecConfiguration* codec_config) {
     }
   }
   else if (A2DP_MEDIA_CT_AAC == codec_type) {
-    bool is_AAC_frame_ctrl_stack_enable = false;
-    char AAC_frame_ctrl_stack_val[PROPERTY_VALUE_MAX] = {'\0'};
-    osi_property_get("persist.vendor.btstack.aac_frm_ctl.enabled", AAC_frame_ctrl_stack_val,
-                                                       "false");
-    if (!strcmp(AAC_frame_ctrl_stack_val, "true"))
-      is_AAC_frame_ctrl_stack_enable = true;
+    bool is_AAC_frame_ctrl_stack_enable =
+                    controller_get_interface()->supports_aac_frame_ctl();
     LOG(INFO) << __func__ << "Stack AAC frame control enabled"
                           << is_AAC_frame_ctrl_stack_enable;
     if (is_AAC_frame_ctrl_stack_enable) {
