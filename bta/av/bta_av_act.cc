@@ -2283,7 +2283,7 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
             rc_open.peer_addr = p_scb->peer_addr;
             rc_open.peer_features = 0;
             rc_open.status = BTA_AV_FAIL_RESOURCES;
-            (*p_cb->p_cback)(BTA_AV_RC_CLOSE_EVT, (tBTA_AV *) &rc_open);
+            (*p_cb->p_cback)(BTA_AV_RC_OPEN_EVT, (tBTA_AV *) &rc_open);
           }
         } else {
           APPL_TRACE_ERROR("can not find LCB!!");
