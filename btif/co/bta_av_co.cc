@@ -608,7 +608,7 @@ tA2DP_STATUS bta_av_co_audio_getconfig(tBTA_AV_HNDL hndl, uint8_t* p_codec_info,
  **
  ******************************************************************************/
 void bta_av_co_audio_setconfig(tBTA_AV_HNDL hndl, const uint8_t* p_codec_info,
-                               UNUSED_ATTR uint8_t seid,
+                               uint8_t seid,
                                const RawAddress& addr, uint8_t num_protect,
                                const uint8_t* p_protect_info,
                                uint8_t t_local_sep, uint8_t avdt_handle) {
@@ -620,7 +620,7 @@ void bta_av_co_audio_setconfig(tBTA_AV_HNDL hndl, const uint8_t* p_codec_info,
 
   std::string addrstr = addr.ToString();
   const char* bd_addr_str = addrstr.c_str();
-  APPL_TRACE_DEBUG("%s: Device [%s]", __func__, bd_addr_str);
+  APPL_TRACE_DEBUG("%s: Device [%s], seid = %d", __func__, bd_addr_str, seid);
   APPL_TRACE_IMP("%s: p_codec_info[%x:%x:%x:%x:%x:%x]", __func__,
                    p_codec_info[1], p_codec_info[2], p_codec_info[3],
                    p_codec_info[4], p_codec_info[5], p_codec_info[6]);
@@ -733,7 +733,7 @@ void bta_av_co_audio_setconfig(tBTA_AV_HNDL hndl, const uint8_t* p_codec_info,
   p_peer->reconfig_needed = reconfig_needed;
   APPL_TRACE_DEBUG("%s: accept reconf=%d", __func__, reconfig_needed);
   /* Call call-in accepting the configuration */
-  bta_av_ci_setconfig(hndl, A2DP_SUCCESS, A2DP_SUCCESS, 0, NULL,
+  bta_av_ci_setconfig(hndl, A2DP_SUCCESS, A2DP_SUCCESS, 0, &seid,
                       reconfig_needed, avdt_handle);
 }
 
@@ -1225,7 +1225,7 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
 static tBTA_AV_CO_SINK* bta_av_co_audio_codec_selected(
     A2dpCodecConfig& codec_config, tBTA_AV_CO_PEER* p_peer) {
   uint8_t new_codec_config[AVDT_CODEC_SIZE];
-  APPL_TRACE_DEBUG("%s", __func__);
+  APPL_TRACE_DEBUG("%s: num_sup_sinks: %d", __func__, p_peer->num_sup_sinks);
 
   // Find the peer sink for the codec
   tBTA_AV_CO_SINK* p_sink = NULL;
@@ -1311,7 +1311,7 @@ static bool bta_av_co_audio_update_selectable_codec(
     A2dpCodecConfig& codec_config, const tBTA_AV_CO_PEER* p_peer) {
   uint8_t new_codec_config[AVDT_CODEC_SIZE];
 
-  APPL_TRACE_DEBUG("%s", __func__);
+  APPL_TRACE_DEBUG("%s: num_sup_sinks: %d", __func__, p_peer->num_sup_sinks);
 
   // Find the peer sink for the codec
   const tBTA_AV_CO_SINK* p_sink = NULL;

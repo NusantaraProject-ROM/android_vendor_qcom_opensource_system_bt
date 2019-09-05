@@ -66,8 +66,11 @@ void bta_av_ci_src_data_ready(tBTA_AV_CHNL chnl) {
 void bta_av_ci_setconfig(tBTA_AV_HNDL hndl, uint8_t err_code, uint8_t category,
                          uint8_t num_seid, uint8_t* p_seid, bool recfg_needed,
                          uint8_t avdt_handle) {
+  APPL_TRACE_DEBUG("%s: num_seid: %d", __func__, num_seid);
   tBTA_AV_CI_SETCONFIG* p_buf =
       (tBTA_AV_CI_SETCONFIG*)osi_malloc(sizeof(tBTA_AV_CI_SETCONFIG));
+  uint8_t *p_local_seid = (uint8_t*)osi_malloc(sizeof(uint8_t));
+  *p_local_seid = *p_seid;
 
   p_buf->hdr.layer_specific = hndl;
   p_buf->hdr.event = (err_code == A2DP_SUCCESS) ? BTA_AV_CI_SETCONFIG_OK_EVT
@@ -77,13 +80,14 @@ void bta_av_ci_setconfig(tBTA_AV_HNDL hndl, uint8_t err_code, uint8_t category,
   p_buf->recfg_needed = recfg_needed;
   p_buf->num_seid = num_seid;
   p_buf->avdt_handle = avdt_handle;
+
   if (p_seid && num_seid) {
     p_buf->p_seid = (uint8_t*)(p_buf + 1);
     memcpy(p_buf->p_seid, p_seid, num_seid);
   } else {
-    p_buf->p_seid = NULL;
+    p_buf->p_seid = p_local_seid;
     p_buf->num_seid = 0;
+    APPL_TRACE_DEBUG("%s: p_buf->p_seid: %d,", __func__, *(p_buf->p_seid));
   }
-
   bta_sys_sendmsg(p_buf);
 }
