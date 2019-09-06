@@ -908,9 +908,9 @@ bool A2dpCodecConfigLdac::setCodecConfig(const uint8_t* p_peer_codec_info,
          sizeof(ota_codec_peer_capability_));
   memcpy(saved_ota_codec_peer_config, ota_codec_peer_config_,
          sizeof(ota_codec_peer_config_));
-  print_ldac_codec_config(saved_ota_codec_config);
-  print_ldac_codec_config(saved_ota_codec_peer_capability);
-  print_ldac_codec_config(saved_ota_codec_peer_config);
+  //print_ldac_codec_config(saved_ota_codec_config);
+  //print_ldac_codec_config(saved_ota_codec_peer_capability);
+  //print_ldac_codec_config(saved_ota_codec_peer_config);
 
   tA2DP_STATUS status =
       A2DP_ParseInfoLdac(&sink_info_cie, p_peer_codec_info, is_capability);

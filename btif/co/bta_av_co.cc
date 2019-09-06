@@ -1269,7 +1269,7 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_codec_selected(
   if (p_peer->acp == true && isDevUiReq != true  && p_peer->rcfg_done != true) {
     /* check if sample rate is non-zero (remote set-conf) and
      * cache peer config for possibility of reconfiguation for better config */
-    A2dpCodecConfig* current_codec_ = bta_av_get_a2dp_current_codec();
+    A2dpCodecConfig* current_codec_ = p_peer->codecs->getCurrentCodecConfig();
     if (current_codec_ != nullptr) {
       btav_a2dp_codec_config_t update_codec_config = current_codec_->getCodecConfig();
       /* check if sample rate is non-zero (remote set-conf) and
