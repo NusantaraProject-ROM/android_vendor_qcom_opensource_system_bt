@@ -3841,7 +3841,7 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
       case VS_QHCI_A2DP_SELECTED_CODEC:
         {
           uint8_t param[10],index=0;
-          APPL_TRACE_DEBUG("VS_QHCI_A2DP_SELECTED_CODEC successful");
+          APPL_TRACE_DEBUG("%s: VS_QHCI_A2DP_SELECTED_CODEC successful", __func__);
           param[index++] = VS_QHCI_A2DP_TRANSPORT_CONFIGURATION;
           param[index++] = 0;//slimbus
           param[index++] = offload_start.codec_type;//Define offload struct and copy reusable parameters
@@ -3854,7 +3854,7 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
           uint8_t param[20],index = 0;
           uint16_t streaming_hdl = offload_start.l2c_rcid;
           uint16_t hci_hdl = offload_start.acl_hdl;
-          APPL_TRACE_DEBUG("VS_QHCI_A2DP_TRANSPORT_CONFIGURATION successful");
+          APPL_TRACE_DEBUG("%s: VS_QHCI_A2DP_TRANSPORT_CONFIGURATION successful", __func__);
 
           param[index++] = VS_QHCI_WRITE_A2DP_MEDIA_CHANNEL_CFG;
           param[index++] = 0;
@@ -3871,7 +3871,7 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
       case VS_QHCI_WRITE_A2DP_MEDIA_CHANNEL_CFG:
         {
           uint8_t param[2];
-          APPL_TRACE_DEBUG("VS_QHCI_WRITE_A2DP_MEDIA_CHANNEL_CFG successful");
+          APPL_TRACE_DEBUG("%s: VS_QHCI_WRITE_A2DP_MEDIA_CHANNEL_CFG successful", __func__);
           APPL_TRACE_DEBUG("%s: Last cached VSC command: 0x0%x", __func__, last_sent_vsc_cmd);
           if (!btif_a2dp_src_vsc.vs_configs_exchanged &&
               btif_a2dp_src_vsc.tx_start_initiated)
@@ -3916,7 +3916,7 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
       case VS_QHCI_A2DP_WRITE_SCMS_T_CP:
         {
           uint8_t param[2];
-          APPL_TRACE_DEBUG("VS_QHCI_A2DP_WRITE_SCMS_T_CP successful");
+          APPL_TRACE_DEBUG("%s: VS_QHCI_A2DP_WRITE_SCMS_T_CP successful", __func__);
           APPL_TRACE_DEBUG("%s: Last cached VSC command: 0x0%x", __func__, last_sent_vsc_cmd);
           if (last_sent_vsc_cmd == VS_QHCI_START_A2DP_MEDIA) {
             APPL_TRACE_DEBUG("%s: START VSC already exchanged.", __func__);
@@ -3932,11 +3932,11 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
           break;
         }
       case VS_QHCI_START_A2DP_MEDIA:
-          APPL_TRACE_DEBUG("VS_QHCI_START_A2DP_MEDIA successful");
+          APPL_TRACE_DEBUG("%s: Multi VS_QHCI_START_A2DP_MEDIA successful", __func__);
           (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
           break;
       case VS_QHCI_STOP_A2DP_MEDIA:
-          APPL_TRACE_DEBUG("VS_QHCI_STOP_A2DP_MEDIA successful");
+          APPL_TRACE_DEBUG("%s: VS_QHCI_STOP_A2DP_MEDIA successful", __func__);
           (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_STOP_RSP_EVT, (tBTA_AV*)&status);
           if (btif_a2dp_src_vsc.start_reset) {
             bta_av_offload_req(offload_start.p_scb, NULL);
@@ -3944,6 +3944,8 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
           }
           break;
       case VS_QHCI_A2DP_OFFLOAD_START:
+          APPL_TRACE_DEBUG("%s: single VSC success: %d",__func__, param->p_param_buf[1]);
+          offload_start.p_scb->vendor_start = true;
           (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
           break;
       default:
@@ -3951,6 +3953,8 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
     }
   } else if ((status == QHCI_INVALID_VSC && sub_opcode == VS_QHCI_A2DP_OFFLOAD_START)
       || (status == QHCI_INVALID_VSC && last_sent_vsc_cmd == VS_QHCI_A2DP_OFFLOAD_START)) {
+    APPL_TRACE_DEBUG("%s: single VSC failed, sending multi VSC: %d",
+                             __func__, param->p_param_buf[1]);
     btif_a2dp_src_vsc.multi_vsc_support = true;
     bta_av_vendor_offload_start(offload_start.p_scb);
     last_sent_vsc_cmd = 0;
@@ -4086,7 +4090,7 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
       (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
       return;
     }
-    p_scb->vendor_start = true;
+
     uint8_t *p_param = param;
     int param_len = 0;
     *p_param++ = VS_QHCI_A2DP_OFFLOAD_START;
@@ -4169,12 +4173,12 @@ void bta_av_vendor_offload_stop(tBTA_AV_SCB* p_scb)
     }
   }
 
-  if(p_scb != NULL && !p_scb->vendor_start) {
-    APPL_TRACE_WARNING("VSC Start is not sent for this device");
-    return;
-  }
   if (!btif_a2dp_src_vsc.multi_vsc_support) {
     APPL_TRACE_DEBUG("bta_av_vendor_offload_stop: sending STOP");
+    if (p_scb != NULL && !p_scb->vendor_start) {
+      APPL_TRACE_WARNING("VSC Start is not sent for this device");
+      return;
+    }
     goto stop;
   } else {
     APPL_TRACE_DEBUG("bta_av_vendor_offload_stop, btif_a2dp_src_vsc.tx_started: %u,"

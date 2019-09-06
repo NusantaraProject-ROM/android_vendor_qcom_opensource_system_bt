@@ -6415,7 +6415,6 @@ void btif_av_set_offload_status() {
     BTIF_TRACE_IMP("restart with software session");
   }
   reconfig_a2dp = FALSE;
-  btif_media_send_reset_vendor_state();
 }
 
 void btif_av_set_reconfig_flag(tBTA_AV_HNDL bta_handle) {
