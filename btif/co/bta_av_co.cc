@@ -86,7 +86,7 @@ extern const btgatt_interface_t* btif_gatt_get_interface();
 
 bool isDevUiReq = false;
 btav_a2dp_codec_config_t saved_codec_user_config;
-
+std::string supported_codecs = "";
 /*****************************************************************************
  **  Constants
  *****************************************************************************/
@@ -537,12 +537,26 @@ tA2DP_STATUS bta_av_co_audio_getconfig(tBTA_AV_HNDL hndl, uint8_t* p_codec_info,
     }
   }
 
+  const char* remote_bdstr = p_peer->addr.ToString().c_str();
+  if (supported_codecs.empty()) {
+      supported_codecs.append(A2DP_CodecName(p_codec_info));
+      APPL_TRACE_DEBUG("%s: First codec entry %s",__func__,supported_codecs.c_str());
+  } else {
+      supported_codecs.append(",");
+      supported_codecs.append(A2DP_CodecName(p_codec_info));
+      APPL_TRACE_DEBUG("%s: Next codec entry %s",__func__,supported_codecs.c_str());
+  }
   // Check if this is the last SINK get capabilities or all supported codec
   // capabilities are retrieved.
   if ((p_peer->num_rx_sinks != p_peer->num_sinks) &&
       (p_peer->num_sup_sinks != BTA_AV_CO_NUM_ELEMENTS(p_peer->sinks))) {
     return A2DP_FAIL;
   }
+
+  //store peer supported codecs in bt_config.conf file
+  btif_config_set_str(remote_bdstr, BTIF_STORAGE_KEY_FOR_SUPPORTED_CODECS, supported_codecs.c_str());
+  supported_codecs.clear();
+
   APPL_TRACE_DEBUG("%s: last sink reached", __func__);
 #if (BT_IOT_LOGGING_ENABLED == TRUE)
   bta_av_co_store_peer_codectype(p_peer);
