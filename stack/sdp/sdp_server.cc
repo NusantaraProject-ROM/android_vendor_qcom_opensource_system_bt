@@ -212,6 +212,7 @@ int sdp_get_stored_avrc_tg_version(RawAddress addr)
     uint16_t avrcp_features = 0;
     SDP_TRACE_DEBUG("%s target BD Addr: %s",\
              __func__, addr.ToString().c_str());
+    bool feature = profile_feature_fetch(AVRCP_ID, AVRCP_COVERART_SUPPORT);
     if (btif_config_get_uint16(addr.ToString().c_str(), AV_REM_CTRL_VERSION_CONFIG_KEY,
                 (uint16_t*)&avrcp_version)) {
       SDP_TRACE_DEBUG("%s : Entry found in pairing database, remote version: 0x%x", __func__, avrcp_version);
@@ -221,7 +222,7 @@ int sdp_get_stored_avrc_tg_version(RawAddress addr)
         uint16_t dut_avrcp_version = get_dut_avrcp_version();
         uint16_t ver = (dut_avrcp_version > avrcp_version) ?
                            avrcp_version : dut_avrcp_version;
-        if (CA_AVRC_BIT)
+        if (CA_AVRC_BIT & feature)
           ver = AVRCP_MASK_CA_BIT | ver;
         if (BRW_AVRC_BIT)
           ver = AVRCP_MASK_BRW_BIT | ver;

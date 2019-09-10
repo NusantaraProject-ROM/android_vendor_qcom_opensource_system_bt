@@ -692,8 +692,8 @@ struct tBTA_AV_SCB {
   bool offload_started;
 //#endif
   bool vendor_start;
-  bool rc_conn;
   tBTA_AV_DATA *cache_setconfig;
+  int rc_ccb_alloc_handle;
 };
 
 #define BTA_AV_RC_ROLE_MASK 0x10

@@ -213,6 +213,7 @@ void bta_av_del_rc(tBTA_AV_RCB* p_rcb) {
                          p_rcb->shdl, p_scb->rc_handle, p_rcb->handle);
         if (p_scb->rc_handle == p_rcb->handle)
           p_scb->rc_handle = BTA_AV_RC_HANDLE_NONE;
+          p_scb->rc_ccb_alloc_handle = p_scb->rc_handle;
         /* just in case the RC timer is active
         if (bta_av_cb.features & BTA_AV_FEAT_RCCT && p_scb->chnl ==
         BTA_AV_CHNL_AUDIO) */
@@ -464,12 +465,16 @@ uint8_t bta_av_rc_create(tBTA_AV_CB* p_cb, uint8_t role, uint8_t shdl,
 #endif
     return BTA_AV_RC_HANDLE_NONE;
   }
-
+  if (rc_handle >= BTA_AV_NUM_RCB) {
+    APPL_TRACE_ERROR("bta_av_rc_create found invalid handle:%d", rc_handle);
+    return BTA_AV_RC_HANDLE_NONE;
+  }
   i = rc_handle;
   p_rcb = &p_cb->rcb[i];
-
+  //no need to over write rc hadle detail for duplicate handle
   if (p_rcb->handle != BTA_AV_RC_HANDLE_NONE) {
     APPL_TRACE_ERROR("bta_av_rc_create found duplicated handle:%d", rc_handle);
+    return BTA_AV_RC_HANDLE_NONE;
   }
 
   APPL_TRACE_WARNING("%s RC handle %d is connected", __func__, rc_handle);
@@ -480,7 +485,8 @@ uint8_t bta_av_rc_create(tBTA_AV_CB* p_cb, uint8_t role, uint8_t shdl,
   p_rcb->peer_features = 0;
   p_rcb->cover_art_psm = 0;
   p_rcb->is_browse_active = false;
-  if (lidx == (BTA_AV_NUM_LINKS + 1)) {
+  /* handle 0 is reserved for acceptor handle so no need to change acceptor handle */
+  if (role == AVCT_ACP && rc_handle == 0 && lidx == (BTA_AV_NUM_LINKS + 1)) {
     /* this LIDX is reserved for the AVRCP ACP connection */
     p_cb->rc_acp_handle = p_rcb->handle;
     p_cb->rc_acp_idx = (i + 1);
@@ -631,6 +637,7 @@ void bta_av_rc_opened(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
   uint8_t disc = 0;
 
   /* find the SCB & stop the timer */
+  APPL_TRACE_DEBUG("bta_av_rc_opened addr %s", p_data->rc_conn_chg.peer_addr.ToString().c_str());
   for (i = 0; i < BTA_AV_NUM_STRS; i++) {
     p_scb = p_cb->p_scb[i];
     if (p_scb && p_scb->peer_addr == p_data->rc_conn_chg.peer_addr) {
@@ -683,6 +690,7 @@ void bta_av_rc_opened(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
   p_cb->rcb[i].rc_opened = true;
   APPL_TRACE_ERROR("bta_av_rc_opened rcb[%d] shdl:%d lidx:%d/%d", i, shdl,
                    p_cb->rcb[i].lidx, p_cb->lcb[BTA_AV_NUM_LINKS].lidx);
+
   p_cb->rcb[i].status |= BTA_AV_RC_CONN_MASK;
 
   if (!shdl && 0 == p_cb->lcb[BTA_AV_NUM_LINKS].lidx) {
@@ -697,10 +705,6 @@ void bta_av_rc_opened(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
     APPL_TRACE_ERROR("rcb[%d].lidx=%d, lcb.conn_msk=x%x", i, p_cb->rcb[i].lidx,
                      p_lcb->conn_msk);
     disc = p_data->rc_conn_chg.handle | BTA_AV_CHNL_MSK;
-  } else if (shdl && shdl <= BTA_AV_NUM_LINKS &&
-      p_scb[shdl-1].peer_addr ==  p_data->rc_conn_chg.peer_addr) {
-    //Below line is to avoid RC create multiple time RC created first before av_sig_chng event
-    p_scb[shdl-1].rc_conn = true;
   }
 
   rc_open.peer_addr = p_data->rc_conn_chg.peer_addr;
@@ -1653,6 +1657,19 @@ static uint16_t bta_sink_time_out() {
   return BTA_AV_ACCEPT_SIGNALLING_TIMEOUT_MS;
 }
 
+/*function is to check if rc connection is already created or not*/
+static bool bta_av_map_scb_rc(RawAddress bd_addr, tBTA_AV_RCB* rcb) {
+  bool map = false;
+  int i;
+  for (i = 0; i < BTA_AV_NUM_STRS; i++) {
+    if (bd_addr == rcb[i].peer_addr) {
+      map = true;
+      break;
+    }
+  }
+  return map;
+}
+
 /*******************************************************************************
  *
  * Function         bta_av_sig_chg
@@ -1669,7 +1686,7 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
   uint8_t mask;
   uint16_t timeout = 0;
   tBTA_AV_LCB* p_lcb = NULL;
-
+  uint8_t handle;
   APPL_TRACE_IMP("%s:bta_av_sig_chg event: %d, conn_acp: %d", __func__, event,
                  p_data->hdr.offset);
   if (event == AVDT_CONNECT_IND_EVT) {
@@ -1719,10 +1736,12 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
           p_lcb = &p_cb->lcb[xx];
           p_lcb->lidx = xx + 1;
           /* start listening when the signal channel is open */
-          if (!p_cb->p_scb[xx]->rc_conn && p_cb->features & BTA_AV_FEAT_RCTG) {
-            bta_av_rc_create(p_cb, AVCT_ACP, 0, p_lcb->lidx);
+          if (!bta_av_map_scb_rc(p_data->str_msg.bd_addr, p_cb->rcb)) {
+            if ((handle = bta_av_rc_create(p_cb, AVCT_ACP, 0, p_lcb->lidx)) != 0 &&
+                 (handle != BTA_AV_RC_HANDLE_NONE)) {
+              p_cb->p_scb[xx]->rc_ccb_alloc_handle = handle;
+            }
           }
-          p_cb->p_scb[xx]->rc_conn = false;
           p_lcb->addr = p_data->str_msg.bd_addr;
           p_lcb->conn_msk = 0; /* clear the connect mask */
           /* this entry is not used yet. */
@@ -2192,7 +2211,6 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
     }
   }
 
-  APPL_TRACE_DEBUG("%s rc_handle %d", __func__, rc_handle);
   if (rc_handle == BTA_AV_RC_HANDLE_NONE)
   {
       if (AVRC_CheckIncomingConn(p_scb->peer_addr) == TRUE)
@@ -2248,6 +2266,11 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
             (peer_features & BTA_AV_FEAT_RCCT)))) {
         p_lcb = bta_av_find_lcb(p_scb->peer_addr, BTA_AV_LCB_FIND);
         if (p_lcb) {
+          if (p_scb->rc_ccb_alloc_handle != BTA_AV_RC_HANDLE_NONE) {
+            APPL_TRACE_DEBUG("closing previous allocating unnecessary ccb %d", p_scb->rc_ccb_alloc_handle);
+            AVRC_Close(p_scb->rc_ccb_alloc_handle);
+            p_scb->rc_ccb_alloc_handle = BTA_AV_RC_HANDLE_NONE;
+          }
           rc_handle = bta_av_rc_create(p_cb, AVCT_INT,
                                        (uint8_t)(p_scb->hdi + 1), p_lcb->lidx);
           if ((rc_handle != BTA_AV_RC_HANDLE_NONE) && (rc_handle < BTA_AV_NUM_RCB)) {
@@ -2287,6 +2310,11 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
     rc_feat.cover_art_psm = cover_art_psm;
     rc_feat.rc_handle = rc_handle;
     rc_feat.peer_features = peer_features;
+    /*Assuming here incoming RC is connected before timer expired
+      so previous allocated ccb is used*/
+    if (p_scb->rc_ccb_alloc_handle != BTA_AV_RC_HANDLE_NONE) {
+      p_scb->rc_ccb_alloc_handle = BTA_AV_RC_HANDLE_NONE;
+    }
     if (p_scb == NULL) {
       /*
        * In case scb is not created by the time we are done with SDP
@@ -2512,6 +2540,7 @@ void bta_av_rc_closed(tBTA_AV_DATA* p_data) {
           rc_close.peer_addr = p_scb->peer_addr;
           if (p_scb->rc_handle == p_rcb->handle)
             p_scb->rc_handle = BTA_AV_RC_HANDLE_NONE;
+            p_scb->rc_ccb_alloc_handle = p_scb->rc_handle;
           APPL_TRACE_DEBUG("shdl:%d, srch:%d", p_rcb->shdl, p_scb->rc_handle);
         } else {
           APPL_TRACE_DEBUG("%s: p_scb is NULL", __func__);

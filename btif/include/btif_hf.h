@@ -82,6 +82,9 @@ typedef struct _btif_hf_cb {
   bthf_call_state_t call_setup_state;
   bthf_audio_state_t audio_state;
   tBTA_SERVICE_ID service_id;
+#if (TWS_AG_ENABLED == TRUE)
+  uint8_t twsp_state;
+#endif
 } btif_hf_cb_t;
 
 extern btif_hf_cb_t btif_hf_cb[BTA_AG_MAX_NUM_CLIENTS];
