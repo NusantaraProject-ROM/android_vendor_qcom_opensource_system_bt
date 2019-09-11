@@ -885,7 +885,7 @@ static void bte_hf_evt(tBTA_AG_EVT event, tBTA_AG* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-static void btif_in_hf_generic_evt(uint16_t event, char* p_param) {
+void btif_in_hf_generic_evt(uint16_t event, char* p_param) {
   int idx = btif_hf_idx_by_bdaddr((RawAddress*)p_param);
 
   BTIF_TRACE_EVENT("%s: event=%d", __func__, event);
@@ -901,6 +901,13 @@ static void btif_in_hf_generic_evt(uint16_t event, char* p_param) {
                 __FUNCTION__, btif_hf_cb[idx].connected_bda.ToString().c_str());
       btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_CONNECTING;
       HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_CONNECTING,
+              &btif_hf_cb[idx].connected_bda);
+    } break;
+    case BTIF_HFP_CB_AUDIO_DISCONNECTED: {
+      BTIF_TRACE_DEBUG("%s: Moving the audio_state to DISCONNECTED for device %s",
+                __FUNCTION__, btif_hf_cb[idx].connected_bda.ToString().c_str());
+      btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_DISCONNECTED;
+      HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_DISCONNECTED,
               &btif_hf_cb[idx].connected_bda);
     } break;
     default: {
@@ -1161,16 +1168,17 @@ bt_status_t HeadsetInterface::ConnectAudio(RawAddress* bd_addr) {
 
 #if (TWS_AG_ENABLED == TRUE)
   if (btif_is_tws_plus_device(bd_addr) &&
-      btif_hf_cb[idx].twsp_state != TWSPLUS_EB_STATE_INEAR) {
+      !btif_hf_check_twsp_state_for_sco(idx)) {
     RawAddress peer_eb_addr;
     int peer_idx;
 
-    BTIF_TRACE_DEBUG("%s: Not create SCO since earbud is not in ear", __FUNCTION__);
+    BTIF_TRACE_DEBUG("%s: Not create SCO since earbud is not in ear",__FUNCTION__);
     btif_tws_plus_get_peer_eb_addr(bd_addr, &peer_eb_addr);
     peer_idx = btif_hf_idx_by_bdaddr(&peer_eb_addr);
 
     if (peer_idx != BTIF_HF_INVALID_IDX && IsSlcConnected(&peer_eb_addr) &&
-        btif_hf_cb[peer_idx].twsp_state == TWSPLUS_EB_STATE_INEAR) {
+        btif_hf_cb[peer_idx].twsp_state != TWSPLUS_EB_STATE_OUT_OF_EAR &&
+        btif_hf_cb[peer_idx].twsp_state != TWSPLUS_EB_STATE_INCASE) {
       BTIF_TRACE_DEBUG("%s: Create SCO with the other earbud in ear", __FUNCTION__);
       BTA_AgAudioOpen(btif_hf_cb[peer_idx].handle);
 
@@ -1729,7 +1737,7 @@ bt_status_t HeadsetInterface::PhoneStateChange(
        if (btif_hf_cb[idx].audio_state != BTHF_AUDIO_STATE_CONNECTED) {
 #if (TWS_AG_ENABLED == TRUE)
            if (btif_is_tws_plus_device(bd_addr) &&
-               btif_hf_cb[idx].twsp_state != TWSPLUS_EB_STATE_INEAR) {
+               !btif_hf_check_twsp_state_for_sco(idx)) {
                BTIF_TRACE_DEBUG("%s: Not create SCO since earbud is not in ear", __FUNCTION__);
            } else {
 #endif
@@ -1784,8 +1792,8 @@ bt_status_t HeadsetInterface::PhoneStateChange(
                 if (btif_hf_cb[idx].audio_state != BTHF_AUDIO_STATE_CONNECTED) {
 #if (TWS_AG_ENABLED == TRUE)
                   if (btif_is_tws_plus_device(bd_addr) &&
-                    btif_hf_cb[idx].twsp_state != TWSPLUS_EB_STATE_INEAR) {
-                    BTIF_TRACE_DEBUG("%s: Not create SCO since earbud is not in ear", __FUNCTION__);
+                      !btif_hf_check_twsp_state_for_sco(idx)) {
+                    BTIF_TRACE_DEBUG("%s: Not create SCO since earbud is not in ear",__FUNCTION__);
                   } else {
 #endif
                     ag_res.audio_handle = control_block.handle;
@@ -1891,7 +1899,7 @@ bt_status_t HeadsetInterface::PhoneStateChange(
         {
 #if (TWS_AG_ENABLED == TRUE)
           if (btif_is_tws_plus_device(bd_addr) &&
-            btif_hf_cb[idx].twsp_state != TWSPLUS_EB_STATE_INEAR) {
+              !btif_hf_check_twsp_state_for_sco(idx)) {
             BTIF_TRACE_DEBUG("%s: Not create SCO since earbud is not in ear", __FUNCTION__);
           } else {
 #endif
@@ -1920,7 +1928,7 @@ bt_status_t HeadsetInterface::PhoneStateChange(
             (btif_hf_cb[idx].audio_state != BTHF_AUDIO_STATE_CONNECTED)) {
 #if (TWS_AG_ENABLED == TRUE)
           if (btif_is_tws_plus_device(bd_addr) &&
-            btif_hf_cb[idx].twsp_state != TWSPLUS_EB_STATE_INEAR) {
+              !btif_hf_check_twsp_state_for_sco(idx)) {
             BTIF_TRACE_DEBUG("%s: Not create SCO since earbud is not in ear", __FUNCTION__);
           } else {
 #endif

@@ -136,8 +136,8 @@ enum {
   BTIF_DM_CB_LE_TEST_END, /* BLE Test mode end callback */
 
   BTIF_HFP_CB_START = BTIF_SIG_CB_START(BTIF_HFP),
-  BTIF_HFP_CB_AUDIO_CONNECTING, /* HF AUDIO connect has been sent to BTA
-                                   successfully */
+  BTIF_HFP_CB_AUDIO_CONNECTING, /* HF AUDIO connect has been sent to BTA successfully */
+  BTIF_HFP_CB_AUDIO_DISCONNECTED, /* HF AUDIO has been disconnected */
 
   BTIF_PAN_CB_START = BTIF_SIG_CB_START(BTIF_PAN),
   BTIF_PAN_CB_DISCONNECTING, /* PAN Disconnect has been sent to BTA successfully
