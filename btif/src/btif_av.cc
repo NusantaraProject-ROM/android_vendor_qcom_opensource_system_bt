@@ -1276,6 +1276,14 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
 #if (TWS_ENABLED == TRUE)
         BTIF_TRACE_DEBUG("is tws_device = %d",p_bta_data->open.tws_device);
         btif_av_cb[index].tws_device = p_bta_data->open.tws_device;
+        if (btif_av_cb[index].tws_device) {
+          int idx = btif_av_get_tws_pair_idx(index);
+          if (idx < btif_max_av_clients) {
+            btif_av_cb[index].aptx_mode = btif_av_cb[idx].aptx_mode;
+            BTIF_TRACE_DEBUG("Updating aptx mode to second connected earbud: %d",
+                          btif_av_cb[index].aptx_mode);
+          }
+        }
 #endif
         if (p_bta_data->open.edr & BTA_AV_EDR_3MBPS) {
           BTIF_TRACE_DEBUG("remote supports 3 mbps");
