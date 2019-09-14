@@ -39,8 +39,16 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <mutex>
+#include "bt_target.h"
 
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
 #include "audio_a2dp_hw/include/audio_a2dp_hw.h"
+#endif
+
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+#include "a2dp_hal_sim/audio_a2dp_hal.h"
+#endif
+
 #include "bt_common.h"
 #include "bt_types.h"
 #include "bt_utils.h"
@@ -142,10 +150,12 @@ static inline int create_server_socket(const char* name) {
   BTIF_TRACE_EVENT("create_server_socket %s", name);
 
   if (osi_socket_local_server_bind(s, name,
-#if defined(OS_GENERIC)
-                                   ANDROID_SOCKET_NAMESPACE_FILESYSTEM
-#else   // !defined(OS_GENERIC)
+#if defined(OFF_TARGET_TEST_ENABLED)
                                    ANDROID_SOCKET_NAMESPACE_ABSTRACT
+#else
+                                   ANDROID_SOCKET_NAMESPACE_FILESYSTEM
+//#else   // !defined(OS_GENERIC)
+//                                   ANDROID_SOCKET_NAMESPACE_ABSTRACT
 #endif  // defined(OS_GENERIC)
                                    ) < 0) {
     ret = (errno == EADDRINUSE ? -EADDRINUSE : -1);

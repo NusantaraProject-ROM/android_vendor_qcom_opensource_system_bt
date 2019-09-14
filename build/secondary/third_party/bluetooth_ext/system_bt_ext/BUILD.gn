@@ -36,6 +36,7 @@ static_library("system_bt_ext_btif") {
     "btif/src/btif_l2cap.cc",
     "btif/src/btif_rfcomm.cc",
     "btif/src/btif_vendor.cc",
+    "btif/src/btif_iot_config.cc",
     "btif/src/btif_vendor_socket.cc",
     "btif/src/btif_gap.cc",
     "btif/src/btif_gatt_qual.cc",
