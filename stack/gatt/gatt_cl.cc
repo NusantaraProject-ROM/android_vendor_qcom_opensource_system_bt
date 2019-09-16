@@ -302,7 +302,7 @@ bool gatt_check_write_long_terminate(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
 
   VLOG(1) << __func__;
   /* check the first write response status */
-  if (p_rsp_value != NULL) {
+  if ((p_rsp_value != NULL) && (p_attr != NULL)) {
     if (p_rsp_value->handle != p_attr->handle ||
         p_rsp_value->len != p_clcb->counter ||
         memcmp(p_rsp_value->value, p_attr->value + p_attr->offset,
@@ -317,6 +317,12 @@ bool gatt_check_write_long_terminate(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
       /* update write offset and check if end of attribute value */
       if ((p_attr->offset += p_rsp_value->len) >= p_attr->len) terminate = true;
     }
+  } else {
+    VLOG(1) << __func__ << " packet corrupted: cancel the prepare write";
+    p_clcb->status = GATT_ERROR;
+    flag = GATT_PREP_WRITE_CANCEL;
+    p_clcb->op_subtype = GATT_REQ_EXEC_WRITE;
+    terminate = true;
   }
   if (terminate && p_clcb->op_subtype != GATT_WRITE_PREPARE) {
     gatt_send_queue_write_cancel(tcb, p_clcb, flag);
