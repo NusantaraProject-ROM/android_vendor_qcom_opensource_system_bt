@@ -1073,15 +1073,19 @@ uint8_t btif_a2dp_audio_process_request(uint8_t cmd)
                 btif_dispatch_sm_event(BTIF_AV_START_STREAM_REQ_EVT, NULL, 0);
               }
               status = A2DP_CTRL_ACK_PENDING;
+            } else if (remote_start_idx < btif_max_av_clients &&
+              reset_remote_start && btif_av_current_device_is_tws()) {
+              uint8_t hdl = 0;
+              int pair_idx = remote_start_idx;
+              if (remote_start_flag) {
+                //Both the earbuds are remote started, fetch index pair to send offload req
+                pair_idx = btif_av_get_tws_pair_idx(latest_playing_idx);
+              }
+              hdl = btif_av_get_av_hdl_from_idx(pair_idx);
+              APPL_TRACE_DEBUG("Start VSC exchange for remote started index of TWS+ device");
+              btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, (char *)&hdl, 1);
+              status = A2DP_CTRL_ACK_PENDING;
             }
-            break;
-          } else if (remote_start_idx < btif_max_av_clients &&
-            reset_remote_start && btif_av_current_device_is_tws()) {
-            uint8_t hdl = 0;
-            hdl = btif_av_get_av_hdl_from_idx(remote_start_idx);
-            APPL_TRACE_DEBUG("Start VSC exchange for remote started index of TWS+ device");
-            btif_dispatch_sm_event(BTIF_AV_OFFLOAD_START_REQ_EVT, (char *)&hdl, 1);
-            status = A2DP_CTRL_ACK_PENDING;
 #endif
             break;
           }
