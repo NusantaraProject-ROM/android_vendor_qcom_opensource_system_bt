@@ -129,7 +129,6 @@ static void* listen_fn_(UNUSED_ATTR void* context) {
   fd_set save_sock_fds;
   int enable = 1;
   int fd_max = -1;
-  int client_socket = -1;
   struct timeval socket_timeout;
   int self_pipe_fds[2];
 
@@ -196,6 +195,7 @@ static void* listen_fn_(UNUSED_ATTR void* context) {
     }
   }
   for (;;) {
+  int client_socket = -1;
 
     sock_fds = save_sock_fds;
     if ((select(fd_max + 1, &sock_fds, NULL, NULL, NULL)) == -1) {
@@ -209,10 +209,6 @@ static void* listen_fn_(UNUSED_ATTR void* context) {
       struct sockaddr_un cliaddr;
       int length;
 
-      /* Close fd before server accept next client,to avoid RH leak error */
-      if (client_socket != -1) {
-        safe_close_(&client_socket);
-      }
       OSI_NO_INTR(client_socket = accept(listen_socket_local_, (struct sockaddr *)&cliaddr,
                   (socklen_t *)&length));
       if (client_socket == -1) {
