@@ -470,6 +470,7 @@ static void btif_initiate_av_open_timer_timeout(void* data) {
   RawAddress peer_addr;
   btif_av_connect_req_t connect_req;
   RawAddress *bd_add = (RawAddress *)data;
+  if (bd_add == nullptr) return;
   BTIF_TRACE_DEBUG("%s: bd_add: %s", __func__, bd_add->ToString().c_str());
 
   memset(&connect_req, 0, sizeof(btif_av_connect_req_t));
