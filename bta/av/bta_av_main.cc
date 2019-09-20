@@ -98,6 +98,7 @@
 #define BTA_AV_RS_TIME_VAL 1000
 #endif
 
+extern bool tws_state_supported;
 /* state machine states */
 enum { BTA_AV_INIT_ST, BTA_AV_OPEN_ST };
 
@@ -916,7 +917,8 @@ static void bta_av_api_to_ssm(tBTA_AV_DATA* p_data) {
             APPL_TRACE_DEBUG("%s:peer_addr: %s eb state: %d",__func__,
                 bta_av_cb.p_scb[xx]->peer_addr.ToString().c_str(),bta_av_cb.p_scb[xx]->eb_state);
 #if (TWS_STATE_ENABLED == TRUE)
-            if (event == BTA_AV_AP_START_EVT && bta_av_cb.p_scb[xx]->eb_state == TWSP_EB_STATE_OUT_OF_EAR) {
+            if (event == BTA_AV_AP_START_EVT && tws_state_supported &&
+              bta_av_cb.p_scb[xx]->eb_state == TWSP_EB_STATE_OUT_OF_EAR) {
               APPL_TRACE_DEBUG("%s:EB not in ear skip start",__func__);
               continue;
             }

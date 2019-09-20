@@ -1812,10 +1812,14 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
              */
             for (; idx < btif_max_av_clients; idx++)
 #if (TWS_ENABLED == TRUE)
-              if (btif_av_cb[idx].tws_device)
+              if (btif_av_cb[idx].tws_device) {
+                if (!tws_state_supported ||
+                  (tws_state_supported &&
+                  btif_av_cb[idx].eb_state == TWSP_STATE_IN_EAR))
                 btif_av_cb[idx].flags |= BTIF_AV_FLAG_PENDING_START;
-              else if (enable_multicast == true)
+              } else if (enable_multicast == true) {
                 btif_av_cb[idx].flags |= BTIF_AV_FLAG_PENDING_START;
+              }
 #else
               btif_av_cb[idx].flags |= BTIF_AV_FLAG_PENDING_START;
 #endif
