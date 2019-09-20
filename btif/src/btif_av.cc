@@ -183,6 +183,7 @@ typedef struct {
   bool offload_state;
 #if (TWS_STATE_ENABLED == TRUE)
   uint8_t eb_state;
+  bool tws_state_suspend;
 #endif
 #endif
   bool avdt_sync; /* for AVDT1.3 delay reporting */
@@ -907,6 +908,7 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       btif_av_cb[index].offload_state = false;
 #if (TWS_STATE_ENABLED == TRUE)
       btif_av_cb[index].eb_state = 0;
+      btif_av_cb[index].tws_state_suspend = false;
 #endif
 #endif
       btif_av_cb[index].aptx_mode = APTX_HQ;
@@ -2498,7 +2500,14 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
           "pending_cmd: %d, dual_handoff: %d,  fake_suspend_rsp: %d", __func__, index,
        p_av->suspend.status, p_av->suspend.initiator, btif_av_cb[index].flags, pending_cmd,
        btif_av_cb[index].dual_handoff, btif_av_cb[index].fake_suspend_rsp);
-
+#if (TWS_ENABLED == TRUE && TWS_STATE_ENABLED == TRUE)
+      if (tws_state_supported && btif_av_cb[index].tws_device &&
+        btif_av_cb[index].tws_state_suspend) {
+        BTIF_TRACE_EVENT("%s:Suspending out of ear EB",__func__);
+        btif_av_cb[index].flags |= BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING;
+        btif_av_cb[index].tws_state_suspend = false;
+      }
+#endif
       if (alarm_is_scheduled(btif_av_cb[index].suspend_rsp_track_timer)) {
         BTIF_TRACE_DEBUG("%s: BTA_AV_SUSPEND_EVT is received, clear suspend_rsp_track_timer",
                              __func__);
@@ -5785,6 +5794,12 @@ void btif_av_set_earbud_state(const RawAddress& address, uint8_t earbud_state) {
   if (index == btif_max_av_clients) {
     BTIF_TRACE_ERROR("%s: invalid index",__func__);
     return;
+  }
+  if (earbud_state == TWSP_STATE_OUT_OF_EAR &&
+    btif_av_cb[index].eb_state == 0 &&
+    btif_av_cb[index].state == BTIF_AV_STATE_STARTED) {
+    BTIF_TRACE_ERROR("%s:streaming started for reconn,suspending",__func__);
+    btif_av_cb[index].tws_state_suspend = true;
   }
   btif_av_cb[index].eb_state = earbud_state;
   BTA_AVSetEarbudState(earbud_state, btif_av_cb[index].bta_handle);

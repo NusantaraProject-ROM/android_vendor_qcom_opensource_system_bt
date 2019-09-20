@@ -1293,6 +1293,7 @@ void bta_av_cleanup(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
   p_scb->suspend_local_sent = FALSE;
 #if (TWS_STATE_ENABLED == TRUE)
   p_scb->start_pending = false;
+  p_scb->eb_state = TWSP_EB_STATE_UNKNOWN;
 #endif
   p_scb->current_codec = nullptr;
   p_scb->cong = false;
