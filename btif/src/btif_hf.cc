@@ -1130,19 +1130,22 @@ bt_status_t HeadsetInterface::ConnectAudio(RawAddress* bd_addr) {
     return BT_STATUS_NOT_READY;
   }
 
+  /* Check if SCO is already connecting/connected for the same device*/
+  if (btif_hf_cb[idx].audio_state == BTHF_AUDIO_STATE_CONNECTING ||
+     btif_hf_cb[idx].audio_state == BTHF_AUDIO_STATE_CONNECTED) {
+    BTIF_TRACE_WARNING("%s: Ignore SCO connection as audio_state for device %s: is %d",
+    __func__, btif_hf_cb[idx].connected_bda.ToString().c_str(),
+    btif_hf_cb[idx].audio_state);
+    return BT_STATUS_SUCCESS;
+  }
+
   // if SCO is setting up, don't allow SCO connection
   for (int i = 0; i < btif_max_hf_clients; i++) {
     if (btif_hf_cb[i].audio_state == BTHF_AUDIO_STATE_CONNECTING) {
-       if (*bd_addr == btif_hf_cb[i].connected_bda) {
-          BTIF_TRACE_WARNING("%s: SCO setting up with same active device %s: ",
-           __func__, btif_hf_cb[i].connected_bda.ToString().c_str());
-          return BT_STATUS_SUCCESS;
-       } else {
-          BTIF_TRACE_ERROR("%s: SCO setting up with %s, not allowing SCO connection with %s",
-           __func__, btif_hf_cb[i].connected_bda.ToString().c_str(),
-          bd_addr->ToString().c_str());
-          return BT_STATUS_FAIL;
-       }
+      BTIF_TRACE_ERROR("%s: SCO setting up with %s, not allowing SCO connection with %s",
+      __func__, btif_hf_cb[i].connected_bda.ToString().c_str(),
+      bd_addr->ToString().c_str());
+      return BT_STATUS_FAIL;
     }
   }
 
