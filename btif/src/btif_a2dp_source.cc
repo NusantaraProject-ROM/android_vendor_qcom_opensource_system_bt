@@ -485,8 +485,8 @@ static void btif_a2dp_source_command_ready(fixed_queue_t* queue,
       break;
   }
 
-  osi_free(p_msg);
   LOG_VERBOSE(LOG_TAG, "%s: %s DONE", __func__, dump_media_event(p_msg->event));
+  osi_free(p_msg);
 }
 
 bt_status_t btif_a2dp_source_setup_codec(tBTA_AV_HNDL hndl) {
@@ -501,7 +501,6 @@ bt_status_t btif_a2dp_source_setup_codec(tBTA_AV_HNDL hndl) {
 
     A2dpCodecConfig* current_codec = bta_av_get_a2dp_current_codec();
     btav_a2dp_codec_config_t codec_config;
-    APPL_TRACE_DEBUG("%s: codec_config.codec_type:%d", __func__, codec_config.codec_type);
 
     //get the current codec config, so that we can get the codec type.
     if (current_codec != nullptr) {
@@ -512,6 +511,7 @@ bt_status_t btif_a2dp_source_setup_codec(tBTA_AV_HNDL hndl) {
       return BT_STATUS_FAIL;
     }
 
+    APPL_TRACE_DEBUG("%s: codec_config.codec_type:%d", __func__, codec_config.codec_type);
     uint8_t p_codec_info[AVDT_CODEC_SIZE];
     memset(p_codec_info, 0, AVDT_CODEC_SIZE);
 
@@ -525,7 +525,7 @@ bt_status_t btif_a2dp_source_setup_codec(tBTA_AV_HNDL hndl) {
     //int index = 0;
     //index = HANDLE_TO_INDEX(hndl);
     RawAddress peer_bda;
-    btif_av_get_peer_addr(&peer_bda);
+    btif_av_get_active_peer_addr(&peer_bda);
 
     tBT_FLOW_SPEC flow_spec;
     memset(&flow_spec, 0x00, sizeof(flow_spec));
@@ -950,7 +950,7 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
   } else if (pending_cmd == A2DP_CTRL_CMD_START) {
     BTIF_TRACE_ERROR("Ack Pending Start while Disconnect in Progress");
     if (btif_a2dp_source_is_hal_v2_supported()) {
-      bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS);
+      bluetooth::audio::a2dp::ack_stream_started(A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS);
     } else {
       btif_a2dp_command_ack(A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS);
     }
@@ -973,6 +973,7 @@ static void btif_a2dp_source_alarm_cb(UNUSED_ATTR void* context) {
 
 static void btif_a2dp_source_audio_handle_timer(UNUSED_ATTR void* context) {
   uint64_t timestamp_us = time_get_os_boottime_us();
+  int curr_idx = btif_av_get_latest_device_idx_to_start();
   log_tstamps_us("A2DP Source tx timer", timestamp_us);
 
   if (alarm_is_scheduled(btif_a2dp_source_cb.media_alarm)) {
@@ -988,7 +989,11 @@ static void btif_a2dp_source_audio_handle_timer(UNUSED_ATTR void* context) {
           transmit_queue_length);
     }
     btif_a2dp_source_cb.encoder_interface->send_frames(timestamp_us);
-    bta_av_ci_src_data_ready(BTA_AV_CHNL_AUDIO);
+    if (btif_av_check_flag_remote_suspend(curr_idx) || btif_a2dp_source_cb.tx_flush) {
+      APPL_TRACE_ERROR("Don't signal data ready BTU task since remote suspended or tx_flush = %d", btif_a2dp_source_cb.tx_flush);
+    } else {
+      bta_av_ci_src_data_ready(BTA_AV_CHNL_AUDIO);
+    }
     update_scheduling_stats(&btif_a2dp_source_cb.stats.tx_queue_enqueue_stats,
                             timestamp_us,
                             btif_a2dp_source_cb.encoder_interval_ms * 1000);
@@ -1022,6 +1027,7 @@ static bool btif_a2dp_source_enqueue_callback(BT_HDR* p_buf, size_t frames_n,
                                               uint32_t bytes_read) {
   uint64_t now_us = time_get_os_boottime_us();
   btif_a2dp_control_log_bytes_read(bytes_read);
+  int curr_idx = btif_av_get_latest_device_idx_to_start();
 
   APPL_TRACE_DEBUG("%s: tx_flush: %d", __func__, btif_a2dp_source_cb.tx_flush);
 
@@ -1032,8 +1038,8 @@ static bool btif_a2dp_source_enqueue_callback(BT_HDR* p_buf, size_t frames_n,
   }
 
   /* Check if the transmission queue has been flushed */
-  if (btif_a2dp_source_cb.tx_flush) {
-    LOG_DEBUG(LOG_TAG, "%s: tx suspended, discarded frame", __func__);
+  if (btif_a2dp_source_cb.tx_flush || btif_av_check_flag_remote_suspend(curr_idx))  {
+    LOG_DEBUG(LOG_TAG, "%s: tx suspended %d or remote suspended, discarded frame", __func__, btif_a2dp_source_cb.tx_flush);
 
     btif_a2dp_source_cb.stats.tx_queue_total_flushed_messages +=
         fixed_queue_length(btif_a2dp_source_cb.tx_audio_queue);
@@ -1068,7 +1074,7 @@ static bool btif_a2dp_source_enqueue_callback(BT_HDR* p_buf, size_t frames_n,
     // Request RSSI and Failed Contact Counter for log purposes if we had to
     // flush buffers.
     RawAddress peer_bda;
-    btif_av_get_peer_addr(&peer_bda);
+    btif_av_get_active_peer_addr(&peer_bda);
     tBTM_STATUS status = BTM_ReadRSSI(peer_bda, btm_read_rssi_cb);
     if (status != BTM_CMD_STARTED) {
       LOG_DEBUG(LOG_TAG, "%s: Cannot read RSSI: status %d", __func__, status);
@@ -1571,15 +1577,9 @@ bool btif_a2dp_source_restart_session(const RawAddress& old_peer_address,
 
   btif_av_set_offload_status();
   // Start the session.
-  // If audio was streaming before, start audio streaming as well.
   btif_a2dp_source_start_session(new_peer_address);
-  // fetch the new session type again
-  session_type = bluetooth::audio::a2dp::get_session_type();
-  if (is_streaming &&
-      session_type == SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH) {
-    APPL_TRACE_EVENT("%s start audio as new session is SW and streaming", __func__);
-    btif_a2dp_source_start_audio_req();
-  }
+  // No need to start the audio here as on remote start ack
+  // it will start the audio
   return true;
 }
 
@@ -1754,6 +1754,8 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
             }
           } else {
             APPL_TRACE_DEBUG("%s: respond with success as already started",__func__);
+            if (!btif_av_is_split_a2dp_enabled() && !btif_a2dp_source_is_streaming())
+              start_audio = true;
             status = A2DP_CTRL_ACK_SUCCESS;
           }
 #if (TWS_ENABLED == TRUE)
@@ -1851,7 +1853,7 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
       break;
     }
     case A2DP_CTRL_CMD_SUSPEND: {
-
+      int curr_idx = btif_av_get_latest_device_idx_to_start();
       if (!bta_sys_is_register(BTA_ID_AV)) {
         APPL_TRACE_ERROR("AV is disabled, return disc in progress");
         status = A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS;
@@ -1900,6 +1902,10 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
        * audioflinger close the channel. This can happen if we are
        * remotely suspended, clear REMOTE SUSPEND flag.
        */
+      if (btif_av_check_flag_remote_suspend(curr_idx) && btif_a2dp_source_is_streaming()) {
+        APPL_TRACE_DEBUG("Suspend called when active dev remote suspended and media alarm active, stop timer");
+        btif_a2dp_source_stop_audio_req();
+      }
       btif_av_clear_remote_suspend_flag();
       status = A2DP_CTRL_ACK_SUCCESS;
       break;

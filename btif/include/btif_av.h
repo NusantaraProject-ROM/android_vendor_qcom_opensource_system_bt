@@ -294,11 +294,11 @@ bool btif_av_is_multicast_supported();
  *
  * Function         btif_av_get_peer_addr
  *
- * Description      Returns peer device address
+ * Description      Returns active peer device address
  *
  * Returns          peer address
  *******************************************************************************/
-void btif_av_get_peer_addr(RawAddress *peer_bda);
+void btif_av_get_active_peer_addr(RawAddress *peer_bda);
 
 /*******************************************************************************
  *

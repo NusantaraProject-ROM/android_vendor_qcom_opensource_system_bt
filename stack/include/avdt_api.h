@@ -1000,4 +1000,15 @@ extern uint8_t AVDT_SetTraceLevel(uint8_t new_level);
  *
  ******************************************************************************/
 extern void AVDT_AssociateScb(uint8_t handle, const RawAddress& bd_addr);
+
+/*******************************************************************************
+ *
+ * Function         AVDT_GetPeerSeid
+ *
+ * Description      Get the seid of associated peer sep.
+ *
+ * Returns          uint8_t
+ *
+ ******************************************************************************/
+extern uint8_t AVDT_GetPeerSeid(uint8_t handle);
 #endif /* AVDT_API_H */

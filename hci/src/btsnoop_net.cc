@@ -195,7 +195,7 @@ static void* listen_fn_(UNUSED_ATTR void* context) {
     }
   }
   for (;;) {
-    int client_socket = -1;
+  int client_socket = -1;
 
     sock_fds = save_sock_fds;
     if ((select(fd_max + 1, &sock_fds, NULL, NULL, NULL)) == -1) {

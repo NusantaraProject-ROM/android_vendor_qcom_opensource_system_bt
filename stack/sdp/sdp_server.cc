@@ -160,7 +160,7 @@ static bool is_pbap_adv_enabled();
 #define SDP_ENABLE_PTS_MAP  "vendor.bt.pts.map"
 #endif
 
-#define MAP_1_4 0x0103
+#define MAP_1_4 0x0104
 
 struct blacklist_entry
 {
@@ -1570,15 +1570,19 @@ void update_pce_entry_after_cancelling_bonding(RawAddress remote_addr) {
     APPL_TRACE_ERROR("%s unable to open PBAP PCE Conf file for read: error: (%s)",\
                                                       __func__, strerror(errno));
   } else {
+    int size_read = 0;
+    int entry_size = sizeof(dynamic_upgrade_entry);
     while (fread(&entry, sizeof(entry), 1, fp) != 0)
     {
+      size_read += sizeof(entry);
       APPL_TRACE_DEBUG("Entry: addr = %x:%x:%x, ver = 0x%x",\
               entry.addr[0], entry.addr[1], entry.addr[2], entry.ver);
       if(!memcmp(&remote_addr, entry.addr, 3))
       {
-        APPL_TRACE_DEBUG("remote bd address matched, rebonded = %c", entry.rebonded);
-        if (entry.rebonded == 'N') {
-            fseek(fp, -(sizeof(dynamic_upgrade_entry)), SEEK_CUR);
+        APPL_TRACE_DEBUG("remote bd address matched, rebonded = %c,"
+            " entry_size = %d, size_read = %d", entry.rebonded, entry_size, size_read);
+        if (entry.rebonded == 'N' && entry_size <= size_read) {
+            fseek(fp, -(entry_size), SEEK_CUR);
             entry.rebonded = 'Y';
             fwrite(&entry, sizeof(entry), 1, fp);
         }
@@ -1830,15 +1834,19 @@ void update_mce_entry_after_cancelling_bonding(RawAddress remote_addr) {
     APPL_TRACE_ERROR("%s unable to open MAP MCE Conf file for read: Reason: (%s)",\
                                                       __func__, strerror(errno));
   } else {
+    int size_read = 0;
+    int entry_size = sizeof(dynamic_upgrade_entry);
     while (fread(&entry, sizeof(entry), 1, fp) != 0)
     {
+      size_read += sizeof(entry);
       APPL_TRACE_DEBUG("Entry: addr = %x:%x:%x, ver = 0x%x",\
               entry.addr[0], entry.addr[1], entry.addr[2], entry.ver);
       if(!memcmp(&remote_addr, entry.addr, 3))
       {
-        APPL_TRACE_DEBUG("remote bd address matched, rebonded = %c", entry.rebonded);
-        if (entry.rebonded == 'N') {
-            fseek(fp, -(sizeof(dynamic_upgrade_entry)), SEEK_CUR);
+        APPL_TRACE_DEBUG("remote bd address matched, rebonded = %c,"
+            " entry_size = %d, size_read = %d", entry.rebonded, entry_size, size_read);
+        if (entry.rebonded == 'N' && entry_size <= size_read) {
+            fseek(fp, -(entry_size), SEEK_CUR);
             entry.rebonded = 'Y';
             fwrite(&entry, sizeof(entry), 1, fp);
         }

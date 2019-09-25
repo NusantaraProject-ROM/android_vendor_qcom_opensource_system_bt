@@ -474,7 +474,6 @@ uint8_t bta_av_rc_create(tBTA_AV_CB* p_cb, uint8_t role, uint8_t shdl,
   //no need to over write rc hadle detail for duplicate handle
   if (p_rcb->handle != BTA_AV_RC_HANDLE_NONE) {
     APPL_TRACE_ERROR("bta_av_rc_create found duplicated handle:%d", rc_handle);
-    return BTA_AV_RC_HANDLE_NONE;
   }
 
   APPL_TRACE_WARNING("%s RC handle %d is connected", __func__, rc_handle);
@@ -1736,7 +1735,8 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
           p_lcb = &p_cb->lcb[xx];
           p_lcb->lidx = xx + 1;
           /* start listening when the signal channel is open */
-          if (!bta_av_map_scb_rc(p_data->str_msg.bd_addr, p_cb->rcb)) {
+          if (p_cb->features & BTA_AV_FEAT_RCTG &&
+              !bta_av_map_scb_rc(p_data->str_msg.bd_addr, p_cb->rcb)) {
             if ((handle = bta_av_rc_create(p_cb, AVCT_ACP, 0, p_lcb->lidx)) != 0 &&
                  (handle != BTA_AV_RC_HANDLE_NONE)) {
               p_cb->p_scb[xx]->rc_ccb_alloc_handle = handle;
@@ -2213,7 +2213,7 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
 
   if (rc_handle == BTA_AV_RC_HANDLE_NONE)
   {
-      if (AVRC_CheckIncomingConn(p_scb->peer_addr) == TRUE)
+      if (p_scb != NULL && AVRC_CheckIncomingConn(p_scb->peer_addr) == TRUE)
       {
           bta_sys_start_timer(p_scb->avrc_ct_timer, AVRC_CONNECT_RETRY_DELAY_MS,
                                  BTA_AV_SDP_AVRC_DISC_EVT,p_scb->hndl);
@@ -2283,7 +2283,7 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
             rc_open.peer_addr = p_scb->peer_addr;
             rc_open.peer_features = 0;
             rc_open.status = BTA_AV_FAIL_RESOURCES;
-            (*p_cb->p_cback)(BTA_AV_RC_CLOSE_EVT, (tBTA_AV *) &rc_open);
+            (*p_cb->p_cback)(BTA_AV_RC_OPEN_EVT, (tBTA_AV *) &rc_open);
           }
         } else {
           APPL_TRACE_ERROR("can not find LCB!!");
@@ -2312,7 +2312,8 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
     rc_feat.peer_features = peer_features;
     /*Assuming here incoming RC is connected before timer expired
       so previous allocated ccb is used*/
-    if (p_scb->rc_ccb_alloc_handle != BTA_AV_RC_HANDLE_NONE) {
+    if (p_scb != NULL &&
+      p_scb->rc_ccb_alloc_handle != BTA_AV_RC_HANDLE_NONE) {
       p_scb->rc_ccb_alloc_handle = BTA_AV_RC_HANDLE_NONE;
     }
     if (p_scb == NULL) {

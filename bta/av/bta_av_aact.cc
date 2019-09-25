@@ -483,6 +483,8 @@ static bool bta_av_next_getcap(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   else if (uuid_int == UUID_SERVCLASS_AUDIO_SINK)
     sep_requested = AVDT_TSEP_SRC;
 
+  APPL_TRACE_DEBUG("%s: sep_info_idx: %d num_seps = %d", __func__,
+                              p_scb->sep_info_idx, p_scb->num_seps);
   for (i = p_scb->sep_info_idx; i < p_scb->num_seps; i++) {
     /* steam not in use, is a sink, and is the right media type (audio/video) */
     if ((p_scb->sep_info[i].in_use == false) &&
@@ -501,14 +503,12 @@ static bool bta_av_next_getcap(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
       }
       if ((*p_req)(p_scb->peer_addr,
                      p_scb->sep_info[i].seid,
-                     p_scb->p_cap, bta_av_dt_cback[p_scb->hdi]) == AVDT_SUCCESS)
-      {
-          sent_cmd = TRUE;
-          break;
-      }
-      else
-          APPL_TRACE_ERROR("bta_av_next_getcap command could not be sent because of resource constraint");
-
+                     p_scb->p_cap, bta_av_dt_cback[p_scb->hdi]) == AVDT_SUCCESS) {
+        sent_cmd = TRUE;
+        break;
+      } else
+        APPL_TRACE_ERROR("%s: command could not be sent because of resource constraint",
+                         __func__);
     }
   }
 
@@ -1957,9 +1957,10 @@ void bta_av_disc_results(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   /* our uuid in case we initiate connection */
   uint16_t uuid_int = p_scb->uuid_int;
 
-  APPL_TRACE_DEBUG("%s: initiator UUID 0x%x", __func__, uuid_int);
   /* store number of stream endpoints returned */
   p_scb->num_seps = p_data->str_msg.msg.discover_cfm.num_seps;
+  APPL_TRACE_DEBUG("%s: initiator UUID 0x%x, num_seps = %d",
+                 __func__, uuid_int, p_scb->num_seps);
 
   for (i = 0; i < p_scb->num_seps; i++) {
     /* steam not in use, is a sink, and is audio */
@@ -2012,14 +2013,6 @@ void bta_av_disc_res_as_acp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
 
   /* store number of stream endpoints returned */
   p_scb->num_seps = p_data->str_msg.msg.discover_cfm.num_seps;
-
-  if (p_scb->cache_setconfig) {
-    APPL_TRACE_DEBUG("%s: Got discover_res as ok from remote.", __func__);
-    memset(p_scb->cache_setconfig, 0, sizeof(tBTA_AV_DATA));
-    osi_free(p_scb->cache_setconfig);
-    p_scb->cache_setconfig = NULL;
-  }
-
   for (i = 0; i < p_scb->num_seps; i++) {
     /* steam is a sink, and is audio */
     if ((p_scb->sep_info[i].tsep == AVDT_TSEP_SNK) &&
@@ -2031,6 +2024,7 @@ void bta_av_disc_res_as_acp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
 
   APPL_TRACE_DEBUG("%s: peer_addr: %s, num_seps = %d, num_snks = %d",
           __func__, p_scb->peer_addr.ToString().c_str(), p_scb->num_seps, num_snks);
+
   p_scb->p_cos->disc_res(p_scb->hndl, p_scb->num_seps, num_snks, 0,
                          p_scb->peer_addr, UUID_SERVCLASS_AUDIO_SOURCE);
   p_scb->num_disc_snks = num_snks;
@@ -2038,13 +2032,23 @@ void bta_av_disc_res_as_acp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
 
   /* if we got any */
   if (p_scb->num_seps > 0) {
+    if (p_scb->cache_setconfig) {
+      APPL_TRACE_DEBUG("%s: Got discover_res as ok from remote.", __func__);
+      memset(p_scb->cache_setconfig, 0, sizeof(tBTA_AV_DATA));
+      osi_free(p_scb->cache_setconfig);
+      p_scb->cache_setconfig = NULL;
+    }
     /* initialize index into discovery results */
     p_scb->sep_info_idx = 0;
 
     /* get the capabilities of the first available stream */
     bta_av_next_getcap(p_scb, p_data);
   }
-  /* else we got discover response but with no streams; we're done */
+  /* else we got discover response but with no streams,
+     so, we will send the STR_DISC_FAIL event which has been handled
+     through the API bta_av_disc_fail_as_acp, where it would initiate
+     get_caps for the SEP on which remote does set_cofig, so that connection
+     won't drop. */
   else {
     APPL_TRACE_ERROR("%s: BTA_AV_STR_DISC_FAIL_EVT: peer_addr=%s", __func__,
                      p_scb->peer_addr.ToString().c_str());
@@ -3352,8 +3356,23 @@ void bta_av_suspend_cfm(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
  *
  ******************************************************************************/
 void bta_av_rcfg_str_ok(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
+  uint8_t avdt_handle = 0;
   p_scb->l2c_cid = AVDT_GetL2CapChannel(p_scb->avdt_handle);
   APPL_TRACE_DEBUG("%s: l2c_cid: %d", __func__, p_scb->l2c_cid);
+
+  if (p_data != NULL)
+    avdt_handle = p_data->str_msg.handle;
+
+  uint8_t peer_seid = AVDT_GetPeerSeid(avdt_handle);
+  uint8_t rcfg_seid = p_scb->sep_info[p_scb->rcfg_idx].seid;
+  APPL_TRACE_WARNING("%s: avdt_handle: %d, peer_seid: %d, rcfg_seid: %d, rcfg_idx: %d",
+       __func__, avdt_handle, peer_seid, rcfg_seid, p_scb->rcfg_idx);
+  if (peer_seid != 0 && rcfg_seid != 0 && peer_seid != rcfg_seid) {
+    APPL_TRACE_WARNING("%s: rcfg_idx is changed, reconfig again", __func__);
+    p_scb->state = BTA_AV_RCFG_SST;
+    AVDT_CloseReq(avdt_handle);
+    return;
+  }
 
   if (p_data != NULL) {
     // p_data could be NULL if the reconfig was triggered by the local device
@@ -3826,7 +3845,7 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
       case VS_QHCI_A2DP_SELECTED_CODEC:
         {
           uint8_t param[10],index=0;
-          APPL_TRACE_DEBUG("VS_QHCI_A2DP_SELECTED_CODEC successful");
+          APPL_TRACE_DEBUG("%s: VS_QHCI_A2DP_SELECTED_CODEC successful", __func__);
           param[index++] = VS_QHCI_A2DP_TRANSPORT_CONFIGURATION;
           param[index++] = 0;//slimbus
           param[index++] = offload_start.codec_type;//Define offload struct and copy reusable parameters
@@ -3839,7 +3858,7 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
           uint8_t param[20],index = 0;
           uint16_t streaming_hdl = offload_start.l2c_rcid;
           uint16_t hci_hdl = offload_start.acl_hdl;
-          APPL_TRACE_DEBUG("VS_QHCI_A2DP_TRANSPORT_CONFIGURATION successful");
+          APPL_TRACE_DEBUG("%s: VS_QHCI_A2DP_TRANSPORT_CONFIGURATION successful", __func__);
 
           param[index++] = VS_QHCI_WRITE_A2DP_MEDIA_CHANNEL_CFG;
           param[index++] = 0;
@@ -3856,7 +3875,7 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
       case VS_QHCI_WRITE_A2DP_MEDIA_CHANNEL_CFG:
         {
           uint8_t param[2];
-          APPL_TRACE_DEBUG("VS_QHCI_WRITE_A2DP_MEDIA_CHANNEL_CFG successful");
+          APPL_TRACE_DEBUG("%s: VS_QHCI_WRITE_A2DP_MEDIA_CHANNEL_CFG successful", __func__);
           APPL_TRACE_DEBUG("%s: Last cached VSC command: 0x0%x", __func__, last_sent_vsc_cmd);
           if (!btif_a2dp_src_vsc.vs_configs_exchanged &&
               btif_a2dp_src_vsc.tx_start_initiated)
@@ -3901,7 +3920,7 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
       case VS_QHCI_A2DP_WRITE_SCMS_T_CP:
         {
           uint8_t param[2];
-          APPL_TRACE_DEBUG("VS_QHCI_A2DP_WRITE_SCMS_T_CP successful");
+          APPL_TRACE_DEBUG("%s: VS_QHCI_A2DP_WRITE_SCMS_T_CP successful", __func__);
           APPL_TRACE_DEBUG("%s: Last cached VSC command: 0x0%x", __func__, last_sent_vsc_cmd);
           if (last_sent_vsc_cmd == VS_QHCI_START_A2DP_MEDIA) {
             APPL_TRACE_DEBUG("%s: START VSC already exchanged.", __func__);
@@ -3917,11 +3936,11 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
           break;
         }
       case VS_QHCI_START_A2DP_MEDIA:
-          APPL_TRACE_DEBUG("VS_QHCI_START_A2DP_MEDIA successful");
+          APPL_TRACE_DEBUG("%s: Multi VS_QHCI_START_A2DP_MEDIA successful", __func__);
           (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
           break;
       case VS_QHCI_STOP_A2DP_MEDIA:
-          APPL_TRACE_DEBUG("VS_QHCI_STOP_A2DP_MEDIA successful");
+          APPL_TRACE_DEBUG("%s: VS_QHCI_STOP_A2DP_MEDIA successful", __func__);
           (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_STOP_RSP_EVT, (tBTA_AV*)&status);
           if (btif_a2dp_src_vsc.start_reset) {
             bta_av_offload_req(offload_start.p_scb, NULL);
@@ -3929,6 +3948,8 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
           }
           break;
       case VS_QHCI_A2DP_OFFLOAD_START:
+          APPL_TRACE_DEBUG("%s: single VSC success: %d",__func__, param->p_param_buf[1]);
+          offload_start.p_scb->vendor_start = true;
           (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
           break;
       default:
@@ -3936,6 +3957,8 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
     }
   } else if ((status == QHCI_INVALID_VSC && sub_opcode == VS_QHCI_A2DP_OFFLOAD_START)
       || (status == QHCI_INVALID_VSC && last_sent_vsc_cmd == VS_QHCI_A2DP_OFFLOAD_START)) {
+    APPL_TRACE_DEBUG("%s: single VSC failed, sending multi VSC: %d",
+                             __func__, param->p_param_buf[1]);
     btif_a2dp_src_vsc.multi_vsc_support = true;
     bta_av_vendor_offload_start(offload_start.p_scb);
     last_sent_vsc_cmd = 0;
@@ -4071,7 +4094,7 @@ void bta_av_vendor_offload_start(tBTA_AV_SCB* p_scb)
       (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
       return;
     }
-    p_scb->vendor_start = true;
+
     uint8_t *p_param = param;
     int param_len = 0;
     *p_param++ = VS_QHCI_A2DP_OFFLOAD_START;
@@ -4154,12 +4177,12 @@ void bta_av_vendor_offload_stop(tBTA_AV_SCB* p_scb)
     }
   }
 
-  if(p_scb != NULL && !p_scb->vendor_start) {
-    APPL_TRACE_WARNING("VSC Start is not sent for this device");
-    return;
-  }
   if (!btif_a2dp_src_vsc.multi_vsc_support) {
     APPL_TRACE_DEBUG("bta_av_vendor_offload_stop: sending STOP");
+    if (p_scb != NULL && !p_scb->vendor_start) {
+      APPL_TRACE_WARNING("VSC Start is not sent for this device");
+      return;
+    }
     goto stop;
   } else {
     APPL_TRACE_DEBUG("bta_av_vendor_offload_stop, btif_a2dp_src_vsc.tx_started: %u,"
@@ -4566,25 +4589,28 @@ void bta_av_disc_fail_as_acp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   uint8_t num = p_data->ci_setconfig.num_seid + 1;
   uint8_t avdt_handle = p_data->ci_setconfig.avdt_handle;
   uint8_t* p_seid = p_data->ci_setconfig.p_seid;
-  int i;
   uint8_t local_sep;
+  APPL_TRACE_DEBUG("%s: num_seid: %d, p_seid: %d", __func__,
+                                p_data->ci_setconfig.num_seid, *p_seid);
 
   /* we like this codec_type. find the sep_idx */
   local_sep = bta_av_get_scb_sep_type(p_scb, avdt_handle);
-  APPL_TRACE_DEBUG("%s: sep_idx: %d cur_psc_mask:0x%x, num: %d", __func__,
-                   p_scb->sep_idx, p_scb->cur_psc_mask, num);
   if (local_sep == AVDT_TSEP_SRC)
     p_scb->p_cos->disc_res(p_scb->hndl, num, num, 0, p_scb->peer_addr,
                            UUID_SERVCLASS_AUDIO_SOURCE);
 
-  for (i = 1; i < num; i++) {
-    APPL_TRACE_DEBUG("%s: sep_info[%d] SEID: %d", __func__, i, p_seid[i - 1]);
-    /* initialize the sep_info[] to get capabilities */
-    p_scb->sep_info[i].in_use = false;
-    p_scb->sep_info[i].tsep = AVDT_TSEP_SNK;
-    p_scb->sep_info[i].media_type = p_scb->media_type;
-    p_scb->sep_info[i].seid = p_seid[i - 1];
-  }
+  APPL_TRACE_DEBUG("%s: peer sep_id[%d]", __func__, *p_seid);
+  /* initialize the sep_info[] to get capabilities */
+  p_scb->sep_info[0].in_use = false;
+  p_scb->sep_info[0].tsep = AVDT_TSEP_SNK;
+  p_scb->sep_info[0].media_type = p_scb->media_type;
+  p_scb->sep_info[0].seid = *p_seid;
+
+  //We know here that we need to do get_caps for only
+  //one SEP for which remote does set_config.
+  //so, num_seps is '1' and sep_info_idx would be '0'
+  p_scb->num_seps = 1;
+  p_scb->sep_info_idx = 0;
 
   /* only in case of local sep as SRC we need to look for other SEPs, In case
    * of SINK we don't */

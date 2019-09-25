@@ -193,13 +193,13 @@ static future_t* init(void) {
     file_source = "Empty";
   }
 
-  if (!file_source.empty())
-    config_set_string(config, INFO_SECTION, FILE_SOURCE, file_source.c_str());
-
   if (!config) {
     LOG_ERROR(LOG_TAG, "%s unable to allocate a config object.", __func__);
     goto error;
   }
+
+  if (!file_source.empty())
+    config_set_string(config, INFO_SECTION, FILE_SOURCE, file_source.c_str());
 
   btif_config_remove_unpaired(config);
 
@@ -557,9 +557,12 @@ static void btif_config_write(UNUSED_ATTR uint16_t event,
   std::unique_lock<std::recursive_mutex> lock(config_lock);
   rename(CONFIG_FILE_PATH, CONFIG_BACKUP_PATH);
   config_t* config_paired = config_new_clone(config);
-  btif_config_remove_unpaired(config_paired);
-  config_save(config_paired, CONFIG_FILE_PATH);
-  config_free(config_paired);
+
+  if (config_paired != NULL) {
+    btif_config_remove_unpaired(config_paired);
+    config_save(config_paired, CONFIG_FILE_PATH);
+    config_free(config_paired);
+  }
 }
 
 static void btif_config_remove_unpaired(config_t* conf) {

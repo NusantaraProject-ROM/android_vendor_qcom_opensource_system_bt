@@ -199,8 +199,9 @@ static alarm_t* alarm_new_internal(const char* name, bool is_periodic) {
 void alarm_free(alarm_t* alarm) {
   if (!alarm) return;
 
-  alarm_cancel(alarm);
-
+  if (alarm_is_scheduled(alarm)) {
+    alarm_cancel(alarm);
+  }
   osi_free((void*)alarm->stats.name);
   alarm->closure.~CancelableClosureInStruct();
   osi_free(alarm);

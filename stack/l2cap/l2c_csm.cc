@@ -67,7 +67,7 @@ static const char* l2c_csm_get_event_name(uint16_t event);
  *
  ******************************************************************************/
 void l2c_csm_execute(tL2C_CCB* p_ccb, uint16_t event, void* p_data) {
-  if (!l2cu_is_ccb_active(p_ccb)) {
+  if ((!l2cu_is_ccb_active(p_ccb)) || (p_ccb->p_lcb == NULL)) {
     L2CAP_TRACE_WARNING("%s CCB not in use, event (%d) cannot be processed",
                         __func__, event);
     return;
@@ -251,12 +251,19 @@ static void l2c_csm_closed(tL2C_CCB* p_ccb, uint16_t event, void* p_data) {
 
       if (p_ccb->p_lcb->transport == BT_TRANSPORT_LE) {
         p_ccb->chnl_state = CST_TERM_W4_SEC_COMP;
-        tL2CAP_LE_RESULT_CODE result = l2ble_sec_access_req(
-            p_ccb->p_lcb->remote_bd_addr, p_ccb->p_rcb->psm, false,
-            &l2c_link_sec_comp2, p_ccb);
+        tL2CAP_LE_RESULT_CODE result;
+        if (l2cb.cert_failure) {
+          result = l2cb.cert_failure;
+          L2CAP_TRACE_ERROR("%s PTS FAILURE MODE IN EFFECT (CASE %d) ", __func__,
+            result);
+        } else {
+          result = l2ble_sec_access_req(p_ccb->p_lcb->remote_bd_addr,
+            p_ccb->p_rcb->psm, false, &l2c_link_sec_comp2, p_ccb);
+        }
 
         switch (result) {
           case L2CAP_LE_RESULT_INSUFFICIENT_AUTHENTICATION:
+          case L2CAP_LE_RESULT_INSUFFICIENT_AUTHORIZATION:
           case L2CAP_LE_RESULT_INSUFFICIENT_ENCRYP_KEY_SIZE:
           case L2CAP_LE_RESULT_INSUFFICIENT_ENCRYP:
             l2cu_reject_ble_connection(p_ccb->p_lcb, p_ccb->remote_id, result);
@@ -330,8 +337,7 @@ static void l2c_csm_orig_w4_sec_comp(tL2C_CCB* p_ccb, uint16_t event,
 
   L2CAP_TRACE_EVENT(
       "%s: %sL2CAP - LCID: 0x%04x  st: ORIG_W4_SEC_COMP  evt: %s", __func__,
-      ((p_ccb->p_lcb) && (p_ccb->p_lcb->transport == BT_TRANSPORT_LE)) ? "LE "
-                                                                       : "",
+      ((p_ccb->p_lcb->transport == BT_TRANSPORT_LE)) ? "LE ": "",
       p_ccb->local_cid, l2c_csm_get_event_name(event));
 
 #if (L2CAP_UCD_INCLUDED == TRUE)

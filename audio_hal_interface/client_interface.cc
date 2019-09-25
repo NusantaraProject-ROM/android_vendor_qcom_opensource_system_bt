@@ -39,7 +39,7 @@ using vendor::qti::hardware::bluetooth_audio::V2_0::
 using DataMQ = ::android::hardware::MessageQueue<
     uint8_t, ::android::hardware::kSynchronizedReadWrite>;
 
-static constexpr int kDefaultDataReadTimeoutMs = 10;      // 10 ms
+static constexpr int kDefaultDataReadTimeoutMs = 3;      // 3 ms
 static constexpr int kDefaultDataReadPollIntervalMs = 1;  // non-blocking poll
 
 std::ostream& operator<<(std::ostream& os, const BluetoothAudioCtrlAck& ack) {

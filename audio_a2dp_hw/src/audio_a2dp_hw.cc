@@ -1506,6 +1506,7 @@ static uint32_t out_get_latency(const struct audio_stream_out* stream) {
   src_latency = (latency_us / 1000);
   /* get initial sink latency if update_initial_sink_latency is true */
   if (update_initial_sink_latency) {
+    std::lock_guard<std::recursive_mutex> lock(*out->common.mutex);
     sink_latency = a2dp_get_sink_latency(&out->common);
     if (sink_latency <= 0)
       out->common.sink_latency = A2DP_DEFAULT_SINK_LATENCY;
@@ -1536,9 +1537,9 @@ static int out_get_presentation_position(const struct audio_stream_out* stream,
   if (stream == NULL || frames == NULL || timestamp == NULL) return -EINVAL;
 
   int ret = -EWOULDBLOCK;
-  std::lock_guard<std::recursive_mutex> lock(*out->common.mutex);
   uint64_t latency_frames =
       (uint64_t)out_get_latency(stream) * out->common.cfg.rate / 1000;
+  std::lock_guard<std::recursive_mutex> lock(*out->common.mutex);
   if (out->frames_presented >= latency_frames) {
     *frames = out->frames_presented - latency_frames;
     clock_gettime(CLOCK_MONOTONIC,
@@ -1555,9 +1556,9 @@ static int out_get_render_position(const struct audio_stream_out* stream,
   FNLOG();
   if (stream == NULL || dsp_frames == NULL) return -EINVAL;
 
-  std::lock_guard<std::recursive_mutex> lock(*out->common.mutex);
   uint64_t latency_frames =
       (uint64_t)out_get_latency(stream) * out->common.cfg.rate / 1000;
+  std::lock_guard<std::recursive_mutex> lock(*out->common.mutex);
   if (out->frames_rendered >= latency_frames) {
     *dsp_frames = (uint32_t)(out->frames_rendered - latency_frames);
   } else {

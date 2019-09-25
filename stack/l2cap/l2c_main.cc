@@ -38,6 +38,7 @@
 #include "l2c_api.h"
 #include "l2c_int.h"
 #include "l2cdefs.h"
+#include "stack_config.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 
@@ -988,6 +989,13 @@ void l2c_init(void) {
   CHECK(l2cb.rcv_pending_q != NULL);
 
   l2cb.receive_hold_timer = alarm_new("l2c.receive_hold_timer");
+
+  l2cb.cert_failure =
+    stack_config_get_interface()->get_pts_l2cap_le_insuff_enc_result();
+  if (l2cb.cert_failure) {
+    L2CAP_TRACE_ERROR("%s PTS FAILURE MODE IN EFFECT (CASE %d) ", __func__,
+      l2cb.cert_failure);
+  }
 }
 
 void l2c_free(void) {
