@@ -1933,7 +1933,7 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
               if(!btif_av_cb[index].remote_started) {
                 BTIF_TRACE_DEBUG("%s: honor remote start on index %d",__func__, index);
                 btif_av_cb[index].remote_started = true;
-                btif_a2dp_honor_remote_start(btif_av_cb[index].remote_start_alarm, index);
+                btif_a2dp_honor_remote_start(&btif_av_cb[index].remote_start_alarm, index);
               }
             }
           }
