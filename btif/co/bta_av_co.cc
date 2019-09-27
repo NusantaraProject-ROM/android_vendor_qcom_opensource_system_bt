@@ -634,7 +634,7 @@ void bta_av_co_audio_setconfig(tBTA_AV_HNDL hndl, const uint8_t* p_codec_info,
   if (p_peer == NULL) {
     APPL_TRACE_ERROR("%s: could not find peer entry", __func__);
     /* Call call-in rejecting the configuration */
-    bta_av_ci_setconfig(hndl, A2DP_BUSY, AVDT_ASC_CODEC, 0, NULL, false,
+    bta_av_ci_setconfig(hndl, A2DP_BUSY, AVDT_ASC_CODEC, 0, &seid, false,
                         avdt_handle);
     return;
   }
@@ -715,7 +715,7 @@ void bta_av_co_audio_setconfig(tBTA_AV_HNDL hndl, const uint8_t* p_codec_info,
   if (status != A2DP_SUCCESS) {
     APPL_TRACE_ERROR("%s: reject s=%d c=%d", __func__, status, category);
     /* Call call-in rejecting the configuration */
-    bta_av_ci_setconfig(hndl, status, category, 0, NULL, false, avdt_handle);
+    bta_av_ci_setconfig(hndl, status, category, 0, &seid, false, avdt_handle);
     return;
   }
   property_get("persist.vendor.bt.a2dp.ldac_96k_support", value, "false");
