@@ -1940,8 +1940,11 @@ uint16_t bta_get_dut_avrcp_version() {
     } else if (!strncmp(AVRCP_1_5_STRING, avrcp_version,
                         sizeof(AVRCP_1_5_STRING))) {
       profile_version = AVRC_REV_1_5;
-    } else {
+    } else if (!strncmp(AVRCP_1_4_STRING, avrcp_version,
+                         sizeof(AVRCP_1_4_STRING))) {
       profile_version = AVRC_REV_1_4;
+    } else {
+      profile_version = AVRC_REV_1_3;
     }
     APPL_TRACE_DEBUG(" %s AVRCP version used for sdp: \"%s\"",
              __func__,avrcp_version);
