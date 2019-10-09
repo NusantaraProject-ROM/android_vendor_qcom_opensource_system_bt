@@ -322,6 +322,7 @@ bool btif_av_current_device_is_tws(void);
 bool btif_av_is_idx_tws_device(int index);
 int btif_av_get_tws_pair_idx(int index);
 bool btif_av_is_tws_enable_monocfg(void);
+bool btif_av_is_tws_pair_remote_started(int index);
 #else
 #define btif_av_is_tws_device_playing() 0
 #define btif_av_is_tws_suspend_triggered() 0
@@ -331,6 +332,7 @@ bool btif_av_is_tws_enable_monocfg(void);
 #define btif_av_is_idx_tws_device() 0
 #define btif_av_get_tws_pair_idx() 0
 #define btif_av_is_tws_enable_monocfg() 0
+#define btif_av_is_tws_pair_remote_started() 0
 #endif
 #if (TWS_ENABLED == TRUE)
 #if (TWS_STATE_ENABLED == TRUE)
@@ -1887,7 +1889,8 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
           if (enable_multicast
 #if (TWS_ENABLED == TRUE)
               || ((btif_av_cb[index].tws_device == true)
-              &&  (btif_av_is_tws_device_playing(index) == true))
+              &&  ((btif_av_is_tws_device_playing(index) == true) &&
+                    btif_av_is_tws_pair_remote_started(index) == false) )
 #endif
           ) {
             /* Stack will start the playback on newly connected
@@ -6045,6 +6048,20 @@ bool btif_av_is_tws_device_playing(int index) {
     if (i != index && state == BTIF_AV_STATE_STARTED) {
       if (btif_av_cb[i].tws_device) {
         BTIF_TRACE_EVENT("btif_av_is_tws_device_playing on index = %d",i);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+bool btif_av_is_tws_pair_remote_started(int index) {
+  int i;
+  btif_sm_state_t state = BTIF_AV_STATE_IDLE;
+  for (i = 0; i < btif_max_av_clients; i++) {
+    state = btif_sm_get_state(btif_av_cb[i].sm_handle);
+    if (i != index && state == BTIF_AV_STATE_STARTED) {
+      if (btif_av_cb[i].tws_device && btif_av_cb[i].remote_started) {
+        BTIF_TRACE_EVENT("%s: on index = %d",__func__,i);
         return true;
       }
     }

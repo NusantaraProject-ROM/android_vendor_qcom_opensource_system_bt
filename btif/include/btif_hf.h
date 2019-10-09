@@ -96,6 +96,7 @@ bool btif_hf_is_call_vr_idle(void);
 bt_status_t btif_hf_execute_service(bool b_enable);
 bt_status_t btif_hf_check_if_sco_connected();
 bool is_connected(RawAddress* bd_addr);
+void btif_in_hf_generic_evt(uint16_t event, char* p_param);
 
 
 }  // namespace headset
