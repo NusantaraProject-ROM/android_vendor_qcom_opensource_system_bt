@@ -265,6 +265,26 @@ bool bta_av_co_set_active_peer(const RawAddress& peer_address) {
     } else if (p_peer_tmp->addr == peer_address) {
       p_peer_tmp->is_active_peer = true;
       status = true;
+
+      if (p_peer_tmp->rcfg_pend_active) {
+        APPL_TRACE_DEBUG("%s: set active peer, trigger reconfig again", __func__);
+        const tBTA_AV_CO_SINK* p_sink = bta_av_co_audio_set_codec(p_peer_tmp);
+        if (p_sink != NULL) {
+          uint8_t num_protect = 0;
+#if (BTA_AV_CO_CP_SCMS_T == TRUE)
+          if (p_peer_tmp->cp_active) num_protect = AVDT_CP_INFO_LEN;
+#endif
+          if (p_peer_tmp->reconfig_needed) {
+            APPL_TRACE_DEBUG("%s: call BTA_AvReconfig(x%x)", __func__, p_peer_tmp->handle);
+            btif_av_set_reconfig_flag(p_peer_tmp->handle);
+            BTA_AvReconfig(p_peer_tmp->handle, true, p_sink->sep_info_idx, p_peer_tmp->codec_config,
+                            num_protect, bta_av_co_cp_scmst);
+            p_peer_tmp->rcfg_done = true;
+            p_peer_tmp->reconfig_needed = false;
+          }
+        }
+        p_peer_tmp->rcfg_pend_active = false;
+      }
     } else {
       p_peer_tmp->is_active_peer = false;
     }
@@ -348,6 +368,7 @@ void bta_av_co_audio_disc_res(tBTA_AV_HNDL hndl, uint8_t num_seps,
   p_peer->num_sup_sinks = 0;
   p_peer->rcfg_pend_getcap = false;
   p_peer->getcap_pending = false;
+  p_peer->rcfg_pend_active = false;
   if (uuid_local == UUID_SERVCLASS_AUDIO_SINK)
     p_peer->uuid_to_connect = UUID_SERVCLASS_AUDIO_SOURCE;
   else if (uuid_local == UUID_SERVCLASS_AUDIO_SOURCE)
@@ -1256,10 +1277,18 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
           APPL_TRACE_DEBUG("%s: current_peer_codec_index: %d, isIncoming: %d",
                               __func__, current_peer_codec_index, p_peer->isIncoming);
           if (current_peer_codec_index != p_peer->codecIndextoCompare) {
-            p_peer->reconfig_needed = true;
-            p_peer->isIncoming = false;
-            APPL_TRACE_DEBUG("%s: incoming codec Idx mismatched with outgoing codec Idx: %d",
-                                 __func__, p_peer->reconfig_needed);
+            if (p_peer->is_active_peer) {
+              p_peer->reconfig_needed = true;
+              p_peer->isIncoming = false;
+              p_peer->rcfg_pend_active = false;
+              APPL_TRACE_DEBUG("%s: incoming codec Idx mismatched with outgoing codec Idx: %d",
+                                   __func__, p_peer->reconfig_needed);
+            } else {
+              p_peer->rcfg_pend_active = true;
+              APPL_TRACE_DEBUG("%s: bta av stream of peer is not opened: %d, pending reconfig",
+                                   __func__, p_peer->rcfg_pend_active);
+              break;
+            }
           }
         }
         // NOTE: Conditionally dispatch the event to make sure a callback with
