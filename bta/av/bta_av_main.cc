@@ -98,6 +98,7 @@
 #define BTA_AV_RS_TIME_VAL 1000
 #endif
 
+extern bool tws_state_supported;
 /* state machine states */
 enum { BTA_AV_INIT_ST, BTA_AV_OPEN_ST };
 
@@ -916,7 +917,8 @@ static void bta_av_api_to_ssm(tBTA_AV_DATA* p_data) {
             APPL_TRACE_DEBUG("%s:peer_addr: %s eb state: %d",__func__,
                 bta_av_cb.p_scb[xx]->peer_addr.ToString().c_str(),bta_av_cb.p_scb[xx]->eb_state);
 #if (TWS_STATE_ENABLED == TRUE)
-            if (event == BTA_AV_AP_START_EVT && bta_av_cb.p_scb[xx]->eb_state == TWSP_EB_STATE_OUT_OF_EAR) {
+            if (event == BTA_AV_AP_START_EVT && tws_state_supported &&
+              bta_av_cb.p_scb[xx]->eb_state == TWSP_EB_STATE_OUT_OF_EAR) {
               APPL_TRACE_DEBUG("%s:EB not in ear skip start",__func__);
               continue;
             }
@@ -961,7 +963,15 @@ static void bta_av_api_set_tws_earbud_state(tBTA_AV_DATA * p_data)
     APPL_TRACE_ERROR("bta_av_api_set_tws_earbud_state: scb not found");
     return;
   }
+  uint8_t previous_state = p_scb->eb_state;
   p_scb->eb_state = p_data->tws_set_earbud_state.eb_state;
+  if (previous_state == TWSP_EB_STATE_UNKNOWN &&
+    p_scb->eb_state == TWSP_EB_STATE_OUT_OF_EAR &&
+    p_scb->started) {
+    bta_av_ssm_execute(p_scb, BTA_AV_AP_STOP_EVT, p_data);
+    return;
+  }
+
   for (int i = 0; i < BTA_AV_NUM_STRS; i++) {
     tBTA_AV_SCB *p_scbi;
     p_scbi = bta_av_cb.p_scb[i];
@@ -1102,8 +1112,13 @@ bool bta_av_chk_start(tBTA_AV_SCB* p_scb) {
         if (p_scbi && p_scbi->chnl == BTA_AV_CHNL_AUDIO && p_scbi->co_started) {
           if (is_multicast_enabled == TRUE
 #if (TWS_ENABLED == TRUE)
-              || (p_scb->tws_device && p_scbi->tws_device && tws_pair_found &&
+              || ((p_scb->tws_device && p_scbi->tws_device && tws_pair_found &&
                  p_scbi->peer_addr == tws_pair_addr)
+#if (TWS_STATE_ENABLED == TRUE)
+              &&(!tws_state_supported || (tws_state_supported &&
+              p_scb->eb_state == TWSP_EB_STATE_IN_EAR))
+#endif
+            )
 #endif
             )
             start = true;

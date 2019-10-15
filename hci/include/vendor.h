@@ -139,7 +139,7 @@ enum host_crash_reason_e  {
   REASON_CLOSE_RCVD_DURING_INIT = 0x04,                //CLOSE RECEIVED FROM STACK DURING SOC INIT
   REASON_ERROR_READING_DATA_FROM_UART = 0x05,          //ERROR READING DATA FROM UART
   REASON_WRITE_FAIL_SPCL_BUFF_CRASH_SOC = 0x06,        //FAILED TO WRITE SPECIAL BYTES TO CRASH SOC
-  REASON_RX_THREAD_STRUCK = 0x07,                      //RX THREAD STRUCK
+  REASON_RX_THREAD_STUCK = 0x07,                       //RX THREAD STUCK
   REASON_SSR_CMD_TIMEDOUT = 0x10,                      //SSR DUE TO CMD TIMED OUT
   REASON_SSR_SPURIOUS_WAKEUP = 0x11,                   //SSR DUE TO SPURIOUS WAKE UP
   REASON_SSR_INVALID_BYTES_RCVD = 0x12,                //INVALID HCI CMD TYPE RECEIVED
@@ -166,7 +166,7 @@ static primary_reason primary_crash_reason [] = {
 { REASON_CLOSE_RCVD_DURING_INIT               , "Close received from stack during SOC init"},
 { REASON_ERROR_READING_DATA_FROM_UART         , "Error reading data from UART"},
 { REASON_WRITE_FAIL_SPCL_BUFF_CRASH_SOC       , "Failed to write special bytes to crash SOC"},
-{ REASON_RX_THREAD_STRUCK                     , "Rx Thread Struck"},
+{ REASON_RX_THREAD_STUCK                      , "Rx Thread Stuck"},
 { REASON_SSR_CMD_TIMEDOUT                     , "SSR due to command timed out"},
 { REASON_SSR_SPURIOUS_WAKEUP                  , "SSR due to spurious wakeup"},
 { REASON_SSR_INVALID_BYTES_RCVD               , "Invalid HCI cmd type received"},

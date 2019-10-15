@@ -232,7 +232,7 @@ void btif_a2dp_source_update_metrics(void);
 // This function will start a 3 second timer. If the a2dp streaming is
 // started within this time, then the timer will be cancelled. Else-If
 // timer expires, avdpt suspend will be issued to the remote
-void btif_a2dp_source_on_remote_start(struct alarm_t *remote_start_alarm, int index);
+void btif_a2dp_source_on_remote_start(struct alarm_t **remote_start_alarm, int index);
 
 void btif_trigger_unblock_audio_start_recovery_timer(void);
 

@@ -1619,7 +1619,7 @@ bt_status_t HeadsetInterface::ClccResponse(int index, bthf_call_direction_t dir,
         snprintf(&ag_res.str[res_strlen], rem_bytes - 4, ",\"%s\"", dialnum);
         std::stringstream remaining_string;
         remaining_string << "," << type;
-        strlcat(&ag_res.str[res_strlen], remaining_string.str().c_str(), sizeof(ag_res.str));
+        strlcat(ag_res.str, remaining_string.str().c_str(), sizeof(ag_res.str));
         BTIF_TRACE_EVENT("clcc_response: The CLCC response is, ag_res.str: %s", ag_res.str);
       }
     }

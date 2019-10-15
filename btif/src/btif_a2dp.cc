@@ -393,7 +393,7 @@ void btif_a2dp_on_offload_started(tBTA_AV_STATUS status) {
   }
 }
 
-void btif_a2dp_honor_remote_start(struct alarm_t *remote_start_alarm, int index) {
+void btif_a2dp_honor_remote_start(struct alarm_t **remote_start_alarm, int index) {
   APPL_TRACE_WARNING("%s",__func__);
   btif_a2dp_source_on_remote_start(remote_start_alarm, index);
 }
