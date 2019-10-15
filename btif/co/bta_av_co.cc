@@ -153,6 +153,7 @@ static bool bta_av_co_set_codec_ota_config(tBTA_AV_CO_PEER* p_peer,
                                            bool* p_restart_output);
 static bool bta_av_co_audio_update_selectable_codec(
     A2dpCodecConfig& codec_config, const tBTA_AV_CO_PEER* p_peer);
+static void bta_av_co_free_peer(tBTA_AV_CO_PEER* p_peer);
 
 /* externs */
 extern int btif_max_av_clients;
@@ -803,13 +804,52 @@ void bta_av_co_audio_close(tBTA_AV_HNDL hndl) {
   p_peer = bta_av_co_get_peer(hndl);
   if (p_peer && (index < BTA_AV_CO_NUM_ELEMENTS(bta_av_co_cb.peers))) {
     /* Mark the peer closed and clean the peer info */
-    memset(p_peer, 0, sizeof(*p_peer));
+    bta_av_co_free_peer(p_peer);
     APPL_TRACE_DEBUG("%s call bta_av_co_peer_init", __func__);
     bta_av_co_peer_init(bta_av_co_cb.default_codec_priorities, index);
   } else {
     APPL_TRACE_ERROR("%s: could not find peer entry", __func__);
   }
 }
+
+/*******************************************************************************
+ **
+ ** Function         bta_av_co_free_peer
+ **
+ ** Description      This function free up and clears peer data when the audio
+ **                  stream connection is closed.
+ **
+ **
+ ** Returns          void
+ **
+ ******************************************************************************/
+void bta_av_co_free_peer(tBTA_AV_CO_PEER* p_peer) {
+  memset(&p_peer->addr, 0, sizeof(RawAddress));
+  memset(p_peer->sinks, 0, sizeof(p_peer->sinks));
+  memset(p_peer->srcs, 0, sizeof(p_peer->srcs));
+  p_peer->num_sinks = 0;
+  p_peer->num_srcs = 0;
+  p_peer->num_seps = 0;
+  p_peer->num_rx_sinks = 0;
+  p_peer->num_rx_srcs = 0;
+  p_peer->num_sup_sinks = 0;
+  p_peer->num_sup_srcs = 0;
+  memset(p_peer->codec_config, 0, sizeof(p_peer->codec_config));
+  p_peer->cp_active = 0;
+  p_peer->acp = 0;
+  p_peer->reconfig_needed = 0;
+  p_peer->rcfg_done = 0;
+  p_peer->opened = 0;
+  p_peer->mtu = 0;
+  p_peer->uuid_to_connect = 0;
+  p_peer->handle = 0;
+  p_peer->is_active_peer = 0;
+  p_peer->rcfg_pend_getcap = 0;
+  p_peer->isIncoming = 0;
+  p_peer->codecIndextoCompare = (btav_a2dp_codec_index_t)0;
+  p_peer->getcap_pending = 0;
+}
+
 
 /*******************************************************************************
  **
@@ -1926,7 +1966,7 @@ void bta_av_co_peer_init(
   }
 
   p_peer = &bta_av_co_cb.peers[index];
-  if (p_peer != NULL)
+  if (p_peer != NULL &&  p_peer->codecs == NULL)
     p_peer->codecs = new A2dpCodecs(codec_priorities);
 
   if (p_peer->codecs != nullptr)
