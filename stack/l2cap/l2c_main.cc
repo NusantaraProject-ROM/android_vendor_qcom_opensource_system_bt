@@ -821,11 +821,20 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
 
         if ((info_type == L2CAP_EXTENDED_FEATURES_INFO_TYPE) &&
             (result == L2CAP_INFO_RESP_RESULT_SUCCESS)) {
-          if (p + 4 > p_next_cmd) {
+          // Spec mandates 4 byte in Ext info rsp
+          // But some devices like WS5008, etc send only 2 bytes(excludes unused/reserved 2 bytes)
+          // hence process ext info rsp if it have minimum 2 bytes to have better IOT experience.
+          L2CAP_TRACE_WARNING("L2CAP - L2CAP_CMD_INFO_RSP p= %p , p_next_cmd: %p", p, p_next_cmd);
+          if (p + 2 > p_next_cmd) {
             android_errorWriteLog(0x534e4554, "74202041");
+            L2CAP_TRACE_WARNING("L2CAP - wrong info rsp parameters, disconnect ACL");
+            btm_sec_disconnect(p_lcb->handle, HCI_ERR_ILLEGAL_PARAMETER_FMT);
             return;
+          } else if (p + 2 == p_next_cmd) {
+            STREAM_TO_UINT16(p_lcb->peer_ext_fea, p);
+          } else {
+            STREAM_TO_UINT32(p_lcb->peer_ext_fea, p);
           }
-          STREAM_TO_UINT32(p_lcb->peer_ext_fea, p);
 
 #if (L2CAP_NUM_FIXED_CHNLS > 0)
           if (p_lcb->peer_ext_fea & L2CAP_EXTFEA_FIXED_CHNLS) {
