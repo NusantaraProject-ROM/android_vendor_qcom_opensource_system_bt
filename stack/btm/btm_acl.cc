@@ -959,6 +959,12 @@ void btm_use_preferred_conn_params(const RawAddress& bda) {
   tL2C_LCB* p_lcb = l2cu_find_lcb_by_bd_addr(bda, BT_TRANSPORT_LE);
   tBTM_SEC_DEV_REC* p_dev_rec = btm_find_or_alloc_dev(bda);
 
+  if (p_lcb == NULL || p_dev_rec == NULL) {
+    BTM_TRACE_ERROR("%s: p_lcb or p_dev_rec not found for remote device: %s", __func__,
+                        bda.ToString().c_str());
+    return;
+  }
+
   /* If there are any preferred connection parameters, set them now */
   if ((p_dev_rec->conn_params.min_conn_int >= BTM_BLE_CONN_INT_MIN) &&
       (p_dev_rec->conn_params.min_conn_int <= BTM_BLE_CONN_INT_MAX) &&
