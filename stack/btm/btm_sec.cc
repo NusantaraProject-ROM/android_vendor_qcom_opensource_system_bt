@@ -4725,6 +4725,10 @@ void btm_sec_disconnected(uint16_t handle, uint8_t reason) {
 
   p_dev_rec->rs_disc_pending = BTM_SEC_RS_NOT_PENDING; /* reset flag */
 
+#if (defined(BTM_SAFE_REATTEMPT_ROLE_SWITCH) && BTM_SAFE_REATTEMPT_ROLE_SWITCH == TRUE)
+  p_dev_rec->switch_role_attempts = 0;
+#endif
+
 #if (BTM_DISC_DURING_RS == TRUE)
   LOG_INFO(LOG_TAG, "%s clearing pending flag handle:%d reason:%d", __func__,
            handle, reason);
