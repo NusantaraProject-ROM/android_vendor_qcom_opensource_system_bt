@@ -1630,11 +1630,12 @@ void bta_av_setconfig_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
             bta_av_next_getcap(p_scb, p_data);
         }
     } else {
-        if (local_sep == AVDT_TSEP_SRC)
+        if (local_sep == AVDT_TSEP_SRC) {
           if (p_scb->uuid_int == 0) p_scb->uuid_int = UUID_SERVCLASS_AUDIO_SOURCE/*p_scb->open_api.uuid*/;
             /* we do not know the peer device and it is using non-SBC codec
              * we need to know all the SEPs on SNK */
           bta_av_discover_req(p_scb, NULL);
+        }
     }
   }
 }
