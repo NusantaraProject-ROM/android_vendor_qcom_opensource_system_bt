@@ -393,6 +393,10 @@ void btif_a2dp_source_on_remote_start(struct alarm_t **remote_start_alarm, int i
   // initiate remote start timer for index basis
   int *arg = NULL;
   arg = (int *) osi_malloc(sizeof(int));
+  if (remote_start_alarm == NULL) {
+    LOG_ERROR(LOG_TAG,"%s:remote start alarm is NULL",__func__);
+    return;
+  }
   *remote_start_alarm = alarm_new("btif.remote_start_task");
   if (!remote_start_alarm || !arg) {
     LOG_ERROR(LOG_TAG,"%s:unable to allocate media alarm",__func__);

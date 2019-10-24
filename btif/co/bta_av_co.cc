@@ -537,7 +537,8 @@ tA2DP_STATUS bta_av_co_audio_getconfig(tBTA_AV_HNDL hndl, uint8_t* p_codec_info,
     }
   }
 
-  const char* remote_bdstr = p_peer->addr.ToString().c_str();
+  std::string remote_bd_addr_str = p_peer->addr.ToString();
+  const char* remote_bdstr  = remote_bd_addr_str.c_str();
   if (supported_codecs.empty()) {
       supported_codecs.append(A2DP_CodecName(p_codec_info));
       APPL_TRACE_DEBUG("%s: First codec entry %s",__func__,supported_codecs.c_str());

@@ -296,10 +296,11 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   i = (avdt_scb_to_hdl(p_scb) - 1);
 
   if (p_ccb != NULL) {
-    const char* bdstr = p_ccb->peer_addr.ToString().c_str();
+    std::string bdaddr_str = p_ccb->peer_addr.ToString();
+    const char* bd_addrstr  = bdaddr_str.c_str();
     char value[PROPERTY_VALUE_MAX];
     int size = sizeof(value);
-    if (btif_config_get_str(bdstr, BTIF_STORAGE_KEY_FOR_SUPPORTED_CODECS, value, &size)) {
+    if (btif_config_get_str(bd_addrstr, BTIF_STORAGE_KEY_FOR_SUPPORTED_CODECS, value, &size)) {
       APPL_TRACE_DEBUG("cached remote supported codec -> %s", value);
       codecs_cached = true;
       char *tok = NULL;

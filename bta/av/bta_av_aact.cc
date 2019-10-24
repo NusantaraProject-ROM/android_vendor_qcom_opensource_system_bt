@@ -1543,7 +1543,8 @@ void bta_av_setconfig_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   uint8_t local_sep;
   uint8_t* p_seid = p_data->ci_setconfig.p_seid;
   int i;
-  const char* bdstr = p_scb->peer_addr.ToString().c_str();
+  std::string bd_addr_str = p_scb->peer_addr.ToString();
+  const char* bdstr  = bd_addr_str.c_str();
   char value[PROPERTY_VALUE_MAX];
   int size = sizeof(value);
   int codec_count = 0;
@@ -1590,11 +1591,12 @@ void bta_av_setconfig_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
 
     if (btif_config_get_str(bdstr, BTIF_STORAGE_KEY_FOR_SUPPORTED_CODECS, value, &size)) {
       APPL_TRACE_DEBUG("%s: cached remote supported codec -> %s", __func__, value);
-      char *tok = NULL;
-      tok = strtok(value, ",");
-      while (tok != NULL)
+      char *token = NULL;
+      char *tmp_token = NULL;
+      token = strtok_r((char*)value, ",", &tmp_token);
+      while (token != NULL)
       {
-        tok = strtok(NULL, ",");
+        token = strtok_r(NULL, ",", &tmp_token);
         codec_count++;
       }
     } else {
