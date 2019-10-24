@@ -75,6 +75,7 @@ uint32_t multiprecision_most_signbits(uint32_t* a, uint32_t keyLength) {
           multiprecision_dword_bits(a[aMostSignDWORDs - 1]));
 }
 
+__attribute__((no_sanitize("integer")))
 uint32_t multiprecision_add(uint32_t* c, uint32_t* a, uint32_t* b,
                             uint32_t keyLength) {
   uint32_t carrier;
@@ -93,6 +94,7 @@ uint32_t multiprecision_add(uint32_t* c, uint32_t* a, uint32_t* b,
 }
 
 // c=a-b
+__attribute__((no_sanitize("integer")))
 uint32_t multiprecision_sub(uint32_t* c, uint32_t* a, uint32_t* b,
                             uint32_t keyLength) {
   uint32_t borrow;
@@ -222,6 +224,7 @@ uint32_t multiprecision_lshift(uint32_t* c, uint32_t* a, uint32_t keyLength) {
 }
 
 // c=a*b; c must have a buffer of 2*Key_LENGTH_uint32_tS, c != a != b
+__attribute__((no_sanitize("integer")))
 void multiprecision_mult(uint32_t* c, uint32_t* a, uint32_t* b,
                          uint32_t keyLength) {
   uint32_t W;
@@ -321,6 +324,7 @@ void multiprecision_fast_mod(uint32_t* c, uint32_t* a) {
   }
 }
 
+__attribute__((no_sanitize("integer")))
 void multiprecision_fast_mod_P256(uint32_t* c, uint32_t* a) {
   uint32_t A;
   uint32_t B;

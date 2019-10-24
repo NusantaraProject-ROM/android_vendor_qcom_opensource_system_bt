@@ -1591,6 +1591,21 @@ bool btif_a2dp_source_end_session(const RawAddress& peer_address) {
         system_bt_osi::DISCONNECT_REASON_UNKNOWN, 0);
   }
 
+  BTIF_TRACE_DEBUG("%s: tx_flush: %d",__func__, btif_a2dp_source_cb.tx_flush);
+  /* ensure tx frames are immediately flushed */
+  if (btif_a2dp_source_cb.tx_flush == false)
+    btif_a2dp_source_cb.tx_flush = true;
+
+  /* request to stop media task */
+  if (!btif_a2dp_source_is_hal_v2_enabled() ||
+       (btif_a2dp_source_is_hal_v2_enabled() &&
+       bluetooth::audio::a2dp::get_session_type() ==
+       SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH)) {
+    btif_a2dp_source_audio_tx_flush_req();
+    BTIF_TRACE_DEBUG("%s: stop audio as it is SW session",__func__);
+    btif_a2dp_source_stop_audio_req();
+  }
+
   if (btif_a2dp_source_is_hal_v2_enabled()) {
     bluetooth::audio::a2dp::end_session();
   }

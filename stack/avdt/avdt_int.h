@@ -665,6 +665,7 @@ extern void avdt_scb_clr_vars(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data);
 
 /* msg function declarations */
 extern bool avdt_msg_send(tAVDT_CCB* p_ccb, BT_HDR* p_msg);
+extern bool avdt_ccb_check_peer_eligible_for_aac_codec(tAVDT_CCB* p_ccb);
 extern void avdt_msg_send_cmd(tAVDT_CCB* p_ccb, void* p_scb, uint8_t sig_id,
                               tAVDT_MSG* p_params);
 extern void avdt_msg_send_rsp(tAVDT_CCB* p_ccb, uint8_t sig_id,

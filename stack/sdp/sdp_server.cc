@@ -190,8 +190,11 @@ uint16_t get_dut_avrcp_version() {
     } else if (!strncmp(AVRCP_1_5_STRING, avrcp_version,
                         sizeof(AVRCP_1_5_STRING))) {
       profile_version = AVRC_REV_1_5;
-    } else {
+    } else if (!strncmp(AVRCP_1_4_STRING, avrcp_version,
+                        sizeof(AVRCP_1_4_STRING))) {
       profile_version = AVRC_REV_1_4;
+    } else {
+      profile_version = AVRC_REV_1_3;
     }
     return profile_version;
 }

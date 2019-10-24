@@ -1662,13 +1662,21 @@ static void btif_dm_search_services_evt(uint16_t event, char* p_param) {
           (pairing_cb.state == BT_BOND_STATE_BONDING) &&
           ((p_data->disc_res.bd_addr == pairing_cb.bd_addr) ||
           (p_data->disc_res.bd_addr == pairing_cb.static_bdaddr.address)) &&
-          (pairing_cb.sdp_attempts > 0) &&
-          (pairing_cb.sdp_attempts < BTIF_DM_MAX_SDP_ATTEMPTS_AFTER_PAIRING)) {
-        BTIF_TRACE_WARNING("%s:SDP failed after bonding re-attempting",
+          (pairing_cb.sdp_attempts > 0)) {
+        if (pairing_cb.sdp_attempts < BTIF_DM_MAX_SDP_ATTEMPTS_AFTER_PAIRING) {
+          BTIF_TRACE_WARNING("%s:SDP failed after bonding re-attempting",
                            __func__);
-        pairing_cb.sdp_attempts++;
-        btif_dm_get_remote_services_by_transport(&bd_addr, BT_TRANSPORT_BR_EDR);
-        return;
+          pairing_cb.sdp_attempts++;
+          btif_dm_get_remote_services_by_transport(&bd_addr, BT_TRANSPORT_BR_EDR);
+          return;
+        } else {
+          BTIF_TRACE_WARNING(
+            "%s: SDP reached to maximum attempts, sending bond fail to upper layers",
+            __func__);
+          pairing_cb.sdp_attempts = 0;
+          bond_state_changed(BT_STATUS_FAIL, pairing_cb.bd_addr, BT_BOND_STATE_NONE);
+          return;
+        }
       }
       prop[0].type = BT_PROPERTY_UUIDS;
       prop[0].len = 0;

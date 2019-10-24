@@ -404,6 +404,13 @@ class HearingAidImpl : public HearingAid {
       hearingDevice->connection_update_status = AWAITING;
     }
 
+    tACL_CONN* p_acl = btm_bda_to_acl(address, BT_TRANSPORT_LE);
+    if (p_acl != nullptr && controller_get_interface()->supports_ble_2m_phy() &&
+        HCI_LE_2M_PHY_SUPPORTED(p_acl->peer_le_features)) {
+      LOG(INFO) << address << " set preferred PHY to 2M";
+      BTM_BleSetPhy(address, PHY_LE_2M, PHY_LE_2M, 0);
+    }
+
     // Set data length
     // TODO(jpawlowski: for 16khz only 87 is required, optimize
     BTM_SetBleDataLength(address, 167);
@@ -1159,6 +1166,7 @@ class HearingAidImpl : public HearingAid {
 
     if (left == nullptr && right == nullptr) {
       HearingAidAudioSource::Stop();
+      audio_running = false;
       encoder_state_release();
       current_volume = VOLUME_UNKNOWN;
       return;

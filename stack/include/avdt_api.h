@@ -52,6 +52,7 @@
 #define AVDT_CODEC_SIZE 45
 #define AV_REM_CTRL_FEATURES_CONFIG_KEY "AvrcpFeatures"
 #define AV_REM_CTRL_VERSION_CONFIG_KEY "AvrcpCtVersion"
+#define BTIF_STORAGE_KEY_FOR_SUPPORTED_CODECS "Codecs"
 /* API function return value result codes. */
 #define AVDT_SUCCESS 0      /* Function successful */
 #define AVDT_BAD_PARAMS 1   /* Invalid parameters */
