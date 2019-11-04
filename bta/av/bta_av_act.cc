@@ -2063,8 +2063,8 @@ tBTA_AV_FEAT bta_av_check_peer_features(uint16_t service_uuid) {
           if (categories & AVRC_SUPF_CT_BROWSE)
             peer_features |= (BTA_AV_FEAT_BROWSE);
           uint16_t dut_avrcp_version = bta_get_dut_avrcp_version();
-          if ((categories & AVRC_SUPF_CT_COVER_ART_GET_IMAGE) &&
-              (categories & AVRC_SUPF_CT_COVER_ART_GET_THUMBNAIL)
+          if (((categories & AVRC_SUPF_CT_COVER_ART_GET_IMAGE) ||
+              (categories & AVRC_SUPF_CT_COVER_ART_GET_THUMBNAIL))
               && (dut_avrcp_version == AVRC_REV_1_6))
           {
               peer_features |= (BTA_AV_FEAT_CA);
