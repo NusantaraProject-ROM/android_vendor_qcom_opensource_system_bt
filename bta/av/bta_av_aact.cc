@@ -1566,9 +1566,9 @@ void bta_av_setconfig_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
                                                       &av_sink_codec_info, p_scb->peer_addr);
   }
 
-  p_scb->cache_setconfig = (tBTA_AV_DATA *)osi_malloc(sizeof(tBTA_AV_DATA));
-  memset(p_scb->cache_setconfig, 0, sizeof(tBTA_AV_DATA));
-  memcpy(p_scb->cache_setconfig, p_data, sizeof(tBTA_AV_DATA));
+  p_scb->cache_setconfig = (tBTA_AV_CI_SETCONFIG *)osi_malloc(sizeof(tBTA_AV_CI_SETCONFIG));
+  memset(p_scb->cache_setconfig, 0, sizeof(tBTA_AV_CI_SETCONFIG));
+  memcpy(p_scb->cache_setconfig, p_data, sizeof(tBTA_AV_CI_SETCONFIG));
 
   AVDT_ConfigRsp(p_scb->avdt_handle, p_scb->avdt_label,
                  p_data->ci_setconfig.err_code, p_data->ci_setconfig.category);
@@ -2084,7 +2084,7 @@ void bta_av_disc_res_as_acp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   if (p_scb->num_seps > 0) {
     if (p_scb->cache_setconfig) {
       APPL_TRACE_DEBUG("%s: Got discover_res as ok from remote.", __func__);
-      memset(p_scb->cache_setconfig, 0, sizeof(tBTA_AV_DATA));
+      memset(p_scb->cache_setconfig, 0, sizeof(tBTA_AV_CI_SETCONFIG));
       osi_free(p_scb->cache_setconfig);
       p_scb->cache_setconfig = NULL;
     }
@@ -4638,8 +4638,8 @@ void bta_av_disc_fail_as_acp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   if (p_scb->cache_setconfig) {
     APPL_TRACE_DEBUG("%s: Need to reuse the cached set_config, to do get_caps"
                       " for the same SEP", __func__);
-    memcpy(p_data, p_scb->cache_setconfig, sizeof(tBTA_AV_DATA));
-    memset(p_scb->cache_setconfig, 0, sizeof(tBTA_AV_DATA));
+    memcpy(p_data, p_scb->cache_setconfig, sizeof(tBTA_AV_CI_SETCONFIG));
+    memset(p_scb->cache_setconfig, 0, sizeof(tBTA_AV_CI_SETCONFIG));
     osi_free(p_scb->cache_setconfig);
     p_scb->cache_setconfig = NULL;
   }
