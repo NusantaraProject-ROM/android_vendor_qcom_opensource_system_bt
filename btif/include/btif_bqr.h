@@ -224,6 +224,9 @@ class BqrVseSubEvt {
   uint32_t buffer_underflow_bytes_ = 0;
   // Local wall clock timestamp of receiving BQR VSE sub-event
   std::tm tm_timestamp_ = {};
+
+ private:
+  bool IsEvtToBeParsed(uint8_t quality_report_id);
 };
 
 // Get a string representation of the Quality Report ID.

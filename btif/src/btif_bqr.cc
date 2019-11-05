@@ -35,7 +35,32 @@ using std::chrono::system_clock;
 static std::unique_ptr<LeakyBondedQueue<BqrVseSubEvt>> kpBqrEventQueue(
     new LeakyBondedQueue<BqrVseSubEvt>(kBqrEventQueueSize));
 
+bool BqrVseSubEvt::IsEvtToBeParsed(uint8_t quality_report_id) {
+  switch (quality_report_id) {
+    case QUALITY_REPORT_ID_MONITOR_MODE:
+    case QUALITY_REPORT_ID_APPROACH_LSTO:
+    case QUALITY_REPORT_ID_A2DP_AUDIO_CHOPPY:
+    case QUALITY_REPORT_ID_SCO_VOICE_CHOPPY:
+    case QUALITY_REPORT_ID_CONNECT_FAIL:
+      return true;
+    default:
+      return false;
+  }
+}
+
 bool BqrVseSubEvt::ParseBqrEvt(uint8_t length, uint8_t* p_param_buf) {
+  if (length < 1) {
+    LOG(FATAL) << __func__ << ": BQR event doesn't contain report id";
+    return false;
+  }
+
+  STREAM_TO_UINT8(quality_report_id_, p_param_buf);
+
+  if (!IsEvtToBeParsed(quality_report_id_)) {
+    LOG(WARNING) << __func__ << ": not need to parse report(" << loghex(quality_report_id_) << ")";
+    return false;
+  }
+
   if (length < kBqrParamTotalLen) {
     LOG(FATAL) << __func__
                << ": Parameter total length: " << std::to_string(length)
@@ -44,7 +69,6 @@ bool BqrVseSubEvt::ParseBqrEvt(uint8_t length, uint8_t* p_param_buf) {
     return false;
   }
 
-  STREAM_TO_UINT8(quality_report_id_, p_param_buf);
   STREAM_TO_UINT8(packet_types_, p_param_buf);
   STREAM_TO_UINT16(connection_handle_, p_param_buf);
   STREAM_TO_UINT8(connection_role_, p_param_buf);
