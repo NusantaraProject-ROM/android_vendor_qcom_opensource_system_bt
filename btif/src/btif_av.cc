@@ -1713,9 +1713,13 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
   RawAddress * bt_addr = NULL;
   tBTA_AV* p_av = (tBTA_AV*)p_data;
 
-  BTIF_TRACE_IMP("%s event:%s flags %x peer_sep %x and index %x reconfig_event: %d",
+  BTIF_TRACE_IMP("%s: event:%s flags %x peer_sep %x and index %x reconfig_event: %d",
      __func__, dump_av_sm_event_name((btif_av_sm_event_t)event),
      btif_av_cb[index].flags, btif_av_cb[index].peer_sep, index, btif_av_cb[index].reconfig_event);
+  if (event == BTA_AV_RC_OPEN_EVT) {
+    BTIF_TRACE_DEBUG("%s: Remote_add: %s", __func__,
+        ((tBTA_AV*)p_data)->rc_open.peer_addr.ToString().c_str());
+  }
 
   if ((event == BTA_AV_REMOTE_CMD_EVT) &&
       (p_av->remote_cmd.rc_id == BTA_AV_RC_PLAY)) {
@@ -3534,10 +3538,10 @@ static int btif_get_conn_state_of_device(RawAddress address) {
   for (i = 0; i < btif_max_av_clients; i++) {
     if (address == btif_av_cb[i].peer_bda) {
       state = btif_sm_get_state(btif_av_cb[i].sm_handle);
-      //BTIF_TRACE_EVENT("BD Found: %02X %02X %02X %02X %02X %02X :state: %s",
-         // address[5], address[4], address[3],
-         // address[2], address[1], address[0],
-         // dump_av_sm_state_name((btif_av_state_t)state));
+      BTIF_TRACE_EVENT("%s: index = %d, BD Found: %s, state: %s",
+           __func__, i, btif_av_cb[i].peer_bda.ToString().c_str(),
+           dump_av_sm_state_name((btif_av_state_t)state));
+      return state;
     }
   }
   return state;
@@ -3587,6 +3591,8 @@ static int btif_av_get_valid_idx_for_rc_events(RawAddress bd_addr, int rc_handle
 static void btif_av_check_rc_connection_priority(void *p_data) {
   RawAddress peer_bda;
 
+  BTIF_TRACE_DEBUG("%s: %s:", __func__,
+                 ((tBTA_AV*)p_data)->rc_open.peer_addr.ToString().c_str());
   /*Check if it is for same AV device*/
   if (btif_av_is_device_connected(((tBTA_AV*)p_data)->rc_open.peer_addr)) {
     /*AV is connected */
@@ -3594,7 +3600,6 @@ static void btif_av_check_rc_connection_priority(void *p_data) {
     btif_rc_handler(BTA_AV_RC_OPEN_EVT, (tBTA_AV*)p_data);
     return;
   }
-  BTIF_TRACE_DEBUG("btif_av_check_rc_connection_priority");
   peer_bda = ((tBTA_AV*)p_data)->rc_open.peer_addr;
 
   if (idle_rc_event != 0) {
