@@ -238,6 +238,9 @@ static void btsock_l2cap_free_l(l2cap_socket* sock) {
 
   while (packet_get_head_l(sock, &buf, NULL)) osi_free(buf);
 
+  APPL_TRACE_DEBUG("%s: fixed_chan=%d, channel=%d is_le_soc=%d handle=%d sock_id:%d is_server=%d",
+                     __func__, sock->fixed_chan, sock->channel, sock->is_le_coc, sock->handle,
+                     sock->id, sock->server);
   // lower-level close() should be idempotent... so let's call it and see...
   if (sock->is_le_coc) {
     // Only call if we are non server connections
@@ -246,6 +249,11 @@ static void btsock_l2cap_free_l(l2cap_socket* sock) {
     }
     if ((sock->channel >= 0) && (sock->server == true)) {
       BTA_JvFreeChannel(sock->channel, BTA_JV_CONN_TYPE_L2CAP_LE);
+      if (!sock->fixed_chan) {
+        APPL_TRACE_DEBUG("%s stopping L2CAP server channel %d", __func__,
+                         sock->channel);
+        BTA_JvL2capStopServer(sock->channel, sock->id);
+      }
     }
   } else {
     // Only call if we are non server connections
