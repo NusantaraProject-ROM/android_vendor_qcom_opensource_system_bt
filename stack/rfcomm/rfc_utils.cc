@@ -124,12 +124,7 @@ bool rfc_check_fcs(uint16_t len, uint8_t* p, uint8_t received_fcs) {
   if (fcs == 0xCF) {
     status = true;
   } else {
-#ifdef BLUEDROID_DEBUG
-    RFCOMM_TRACE_ERROR("%s: fcs failed send SOC debug command", __func__);
-    BTM_VendorSpecificCommand(HCI_CONTROLLER_DEBUG_INFO_OCF, 0, NULL, NULL);
-#else
     RFCOMM_TRACE_ERROR("%s: fcs failed", __func__);
-#endif
   }
   return status;
 }
