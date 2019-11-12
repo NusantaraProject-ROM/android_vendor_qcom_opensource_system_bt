@@ -4216,9 +4216,10 @@ void bta_av_vendor_offload_stop(tBTA_AV_SCB* p_scb)
 {
   uint8_t param[2];
   unsigned char status = 0;
-  APPL_TRACE_DEBUG("%s: handle: 0x%x, peer_add: %s, vendor_start: %d",
-            __func__, p_scb->hndl, p_scb->peer_addr.ToString().c_str(), p_scb->vendor_start);
-
+  if (p_scb != NULL) {
+    APPL_TRACE_DEBUG("%s: handle: 0x%x, peer_add: %s, vendor_start: %d",
+              __func__, p_scb->hndl, p_scb->peer_addr.ToString().c_str(), p_scb->vendor_start);
+  }
   if (p_scb == NULL) {
     APPL_TRACE_DEBUG("stop called from upper layer");
   }else if (p_scb->tws_device) {
