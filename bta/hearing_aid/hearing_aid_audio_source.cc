@@ -334,6 +334,7 @@ bool hearing_aid_on_suspend_req() {
         FROM_HERE, base::Bind(&HearingAidAudioReceiver::OnAudioSuspend,
                                   base::Unretained(localAudioReceiver),
                                   base::Passed(std::move(do_suspend_promise))));
+    return true;
   } else {
     LOG(ERROR) << __func__
                << ": HEARING_AID_CTRL_CMD_SUSPEND: audio receiver not started";
@@ -378,9 +379,9 @@ void HearingAidAudioSource::Initialize() {
       .on_suspend_ = hearing_aid_on_suspend_req,
   };
 
-  audio_timer = alarm_new("hearing_aid_data_timer");
-  if (!audio_timer) {
-    LOG(WARNING) << __func__ << ": unable to create alarm.";
+  audio_timer = alarm_new_periodic("hearing_aid_data_timer");
+  if (audio_timer == nullptr) {
+    LOG(ERROR) << "unable to allocate hearing_aid_data_timer" <<  __func__;
     return;
   }
   if ((get_worker_thread() == NULL) || !bluetooth::audio::hearing_aid::init(stream_cb, get_worker_thread())) {
