@@ -1074,7 +1074,11 @@ void bta_ag_setcodec(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
   }
 
   if ((p_scb->peer_codecs & codec_type) || (codec_type == BTA_AG_CODEC_NONE) ||
-      (codec_type == BTA_AG_CODEC_CVSD)) {
+      (codec_type == BTA_AG_CODEC_CVSD)
+#if (SWB_ENABLED == TRUE)
+      || (codec_type == BTA_AG_SCO_SWB_SETTINGS_Q0)
+#endif
+    ) {
     p_scb->sco_codec = codec_type;
     p_scb->codec_updated = true;
     val.num = codec_type;
