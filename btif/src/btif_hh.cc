@@ -573,6 +573,8 @@ bt_status_t btif_hh_virtual_unplug(const RawAddress* bd_addr) {
                      bd_addr->ToString().c_str(), btif_hh_cb.status);
     if ((btif_hh_cb.pending_conn_address == *bd_addr) &&
        (btif_hh_cb.status == BTIF_HH_DEV_CONNECTING)) {
+          HAL_CBACK(bt_hh_callbacks, connection_state_cb,
+              &btif_hh_cb.pending_conn_address, BTHH_CONN_STATE_DISCONNECTED);
           btif_hh_cb.status = (BTIF_HH_STATUS)BTIF_HH_DEV_DISCONNECTED;
           btif_hh_cb.pending_conn_address = RawAddress::kEmpty;
     }
