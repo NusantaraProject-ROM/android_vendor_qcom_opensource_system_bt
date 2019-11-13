@@ -28,8 +28,8 @@ btifCommonIncludes = [
     "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/bta/include",
     "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include",
     "vendor/qcom/opensource/commonsys-intf/bluetooth/include",
-    "system/security/keystore/include",
-    "hardware/interfaces/keymaster/4.0/support/include",
+    //"system/security/keystore/include",
+    //"hardware/interfaces/keymaster/4.0/support/include",
     "system/bt/include",
 ]
 
@@ -70,7 +70,7 @@ cc_library_static {
         "src/btif_hf_client.cc",
         "src/btif_hh.cc",
         "src/btif_hd.cc",
-        "src/btif_keystore.cc",
+        //"src/btif_keystore.cc",
         "src/btif_mce.cc",
         "src/btif_pan.cc",
         "src/btif_profile_queue.cc",
@@ -110,12 +110,12 @@ cc_library_static {
         "libutils",
 //        "libdl",
         "libcrypto",
-        "android.hardware.keymaster@4.0",
-        "android.hardware.keymaster@3.0",
-        "libkeymaster4support",
-        "libkeystore_aidl",
-        "libkeystore_binder",
-        "libkeystore_parcelables",
+        //"android.hardware.keymaster@4.0",
+        //"android.hardware.keymaster@3.0",
+        //"libkeymaster4support",
+        //"libkeystore_aidl",
+        //"libkeystore_binder",
+        //"libkeystore_parcelables",
     ],
     whole_static_libs: [
         "libbt-audio-hal-interface-qti",
@@ -139,7 +139,7 @@ cc_test {
     include_dirs: btifCommonIncludes,
     srcs: [
         "test/btif_storage_test.cc",
-        "test/btif_keystore_test.cc"
+        //"test/btif_keystore_test.cc"
     ],
     header_libs: ["libbluetooth_headers"],
     shared_libs: [
@@ -147,13 +147,13 @@ cc_test {
         "libcutils",
         "libutils",
         "libcrypto",
-        "android.hardware.keymaster@4.0",
-        "android.hardware.keymaster@3.0",
-        "libkeymaster4support",
-        "libkeystore_aidl",
-        "libkeystore_binder",
-        "libkeystore_parcelables",
-        "libbinder",
+        //"android.hardware.keymaster@4.0",
+        //"android.hardware.keymaster@3.0",
+        //"libkeymaster4support",
+        //"libkeystore_aidl",
+        //"libkeystore_binder",
+        //"libkeystore_parcelables",
+        //"libbinder",
     ],
     static_libs: [
         "libbtcore_qti",

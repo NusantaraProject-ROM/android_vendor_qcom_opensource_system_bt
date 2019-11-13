@@ -38,7 +38,7 @@
 #include "btif_api.h"
 #include "btif_common.h"
 #include "btif_config_transcode.h"
-#include "btif_keystore.h"
+//#include "btif_keystore.h"
 #include "btif_util.h"
 #include "common/address_obfuscator.h"
 #include "osi/include/alarm.h"
@@ -58,15 +58,15 @@
 #define DISABLED "disabled"
 static const char* TIME_STRING_FORMAT = "%Y-%m-%d %H:%M:%S";
 
-constexpr int kBufferSize = 400 * 10;  // initial file is ~400B
+// constexpr int kBufferSize = 400 * 10;  // initial file is ~400B
 
-static bool use_key_attestation() {
+/*static bool use_key_attestation() {
   return getuid() == AID_BLUETOOTH && is_single_user_mode();
-}
+}*/
 
 #define BT_CONFIG_METRICS_SECTION "Metrics"
 #define BT_CONFIG_METRICS_SALT_256BIT "Salt256Bit"
-using bluetooth::BtifKeystore;
+// using bluetooth::BtifKeystore;
 using bluetooth::common::AddressObfuscator;
 
 // TODO(armansito): Find a better way than searching by a hardcoded path.
@@ -93,9 +93,10 @@ static void btif_config_remove_restricted(config_t* config);
 static config_t* btif_config_open(const char* filename, const char* checksum_filename);
 
 // Key attestation
-static std::string hash_file(const char* filename);
-static std::string read_checksum_file(const char* filename);
-static void write_checksum_file(const char* filename, const std::string& hash);
+// static std::string hash_file(const char* filename);
+// static std::string read_checksum_file(const char* filename);
+// static void write_checksum_file(const char* filename, const std::string&
+// hash);
 
 static enum ConfigSource {
   NOT_LOADED,
@@ -179,7 +180,7 @@ static void read_or_set_metrics_salt() {
 static std::recursive_mutex config_lock;  // protects operations on |config|.
 static alarm_t* config_timer;
 
-static BtifKeystore btif_keystore(new keystore::KeystoreClientImpl);
+// static BtifKeystore btif_keystore(new keystore::KeystoreClientImpl);
 
 // Module lifecycle functions
 
@@ -275,7 +276,7 @@ error:
 
 static config_t* btif_config_open(const char* filename, const char* checksum_filename) {
 
-  // START KEY ATTESTATION
+  /*// START KEY ATTESTATION
   // Get hash of current file
   std::string current_hash = hash_file(filename);
   // Get stored hash
@@ -291,7 +292,7 @@ static config_t* btif_config_open(const char* filename, const char* checksum_fil
   if (current_hash != stored_hash) {
     return NULL;
   }
-  // END KEY ATTESTATION
+  // END KEY ATTESTATION*/
 
   config_t* config = config_new(filename);
   if (!config) return NULL;
@@ -584,11 +585,11 @@ bool btif_config_clear(void) {
   bool ret = config_save(config, CONFIG_FILE_PATH);
   btif_config_source = RESET;
 
-  // Save encrypted hash
+  /*// Save encrypted hash
   std::string current_hash = hash_file(CONFIG_FILE_PATH);
   if (!current_hash.empty()) {
     write_checksum_file(CONFIG_FILE_CHECKSUM_PATH, current_hash);
-  }
+  }*/
 
   return ret;
 }
@@ -615,11 +616,11 @@ static void btif_config_write(UNUSED_ATTR uint16_t event,
     config_save(config_paired, CONFIG_FILE_PATH);
     config_free(config_paired);
   }
-  // Save hash
+  /*// Save hash
   std::string current_hash = hash_file(CONFIG_FILE_PATH);
   if (!current_hash.empty()) {
     write_checksum_file(CONFIG_FILE_CHECKSUM_PATH, current_hash);
-  }
+  }*/
 }
 
 static void btif_config_remove_unpaired(config_t* conf) {
@@ -712,12 +713,12 @@ static bool is_factory_reset(void) {
 static void delete_config_files(void) {
   remove(CONFIG_FILE_PATH);
   remove(CONFIG_BACKUP_PATH);
-  remove(CONFIG_FILE_CHECKSUM_PATH);
-  remove(CONFIG_BACKUP_CHECKSUM_PATH);
+  // remove(CONFIG_FILE_CHECKSUM_PATH);
+  // remove(CONFIG_BACKUP_CHECKSUM_PATH);
   osi_property_set("persist.bluetooth.factoryreset", "false");
 }
 
-static std::string hash_file(const char* filename) {
+/*static std::string hash_file(const char* filename) {
   if (!use_key_attestation()) {
     LOG(INFO) << __func__ << ": Disabled for multi-user";
     return DISABLED;
@@ -774,4 +775,4 @@ static void write_checksum_file(const char* checksum_filename,
       << __func__ << ": Failed encrypting checksum";
   CHECK(checksum_save(encrypted_checksum, checksum_filename))
       << __func__ << ": Failed to save checksum!";
-}
+}*/
