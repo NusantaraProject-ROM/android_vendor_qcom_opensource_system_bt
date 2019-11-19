@@ -1259,7 +1259,7 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
         APPL_TRACE_DEBUG("%s: AAC codec is added in sink capability", __func__);
         p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
       } else {
-        APPL_TRACE_DEBUG("%s: Do not add ACC codec in sink capability", __func__);
+        APPL_TRACE_DEBUG("%s: Do not add AAC codec in sink capability", __func__);
       }
     } else {
       APPL_TRACE_DEBUG("%s: non-AAC codec has been selected.", __func__);
