@@ -18,8 +18,6 @@ static_library("device") {
   sources = [
     "src/controller.cc",
     "src/esco_parameters.cc",
-    "src/interop.cc",
-    "src/profile_config.cc",
   ]
 
   include_dirs = [
@@ -28,32 +26,16 @@ static_library("device") {
     "//hci/include",
     "//include",
     "//stack/include",
+    "//stock_bt/device/include",
+    "//internal_include",
+    "//bta/ag",
+    "//bta/include",
+    "//bta/sys",
+    "//third_party/bluetooth_ext/system_bt_ext",
+    "//third_party/bluetooth_ext/system_bt_ext/btconfigstore",
   ]
 
   deps = [
     "//third_party/libchrome:base",
-  ]
-}
-
-executable("net_test_device") {
-  testonly = true
-  sources = [
-    "//osi/test/AllocationTestHarness.cc",
-  ]
-
-  include_dirs = [ "//" ]
-
-  deps = [
-    "//device",
-    "//btcore",
-    "//osi",
-    "//third_party/googletest:gtest_main",
-    "//third_party/libchrome:base",
-  ]
-
-  libs = [
-    "-lpthread",
-    "-lrt",
-    "-ldl",
   ]
 }

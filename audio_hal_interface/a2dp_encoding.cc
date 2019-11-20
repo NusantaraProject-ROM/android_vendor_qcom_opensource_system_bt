@@ -962,21 +962,29 @@ bool a2dp_get_selected_hal_codec_config(CodecConfiguration* codec_config) {
   else if (A2DP_MEDIA_CT_AAC == codec_type) {
     bool is_AAC_frame_ctrl_stack_enable =
                     controller_get_interface()->supports_aac_frame_ctl();
+    uint32_t codec_based_bit_rate = 0;
+    uint32_t mtu_based_bit_rate = 0;
     LOG(INFO) << __func__ << "Stack AAC frame control enabled"
                           << is_AAC_frame_ctrl_stack_enable;
+    tA2DP_AAC_CIE aac_cie;
+    if(!A2DP_GetAacCIE(p_codec_info, &aac_cie)) {
+      LOG(ERROR) << __func__ << ": Unable to get AAC CIE";
+      return false;
+    }
+    codec_based_bit_rate = aac_cie.bitRate;
+
     if (is_AAC_frame_ctrl_stack_enable) {
       int sample_rate = A2DP_GetTrackSampleRate(p_codec_info);
+      mtu_based_bit_rate = (peer_param.peer_mtu - AAC_LATM_HEADER)
+                                          * (8 * sample_rate / AAC_SAMPLE_SIZE);
       LOG(INFO) << __func__ << "sample_rate " << sample_rate;
       LOG(INFO) << __func__ << " peer_mtu " << peer_param.peer_mtu;
-      codec_config->encodedAudioBitrate = (peer_param.peer_mtu - AAC_LATM_HEADER)
-                                          * (8 * sample_rate / AAC_SAMPLE_SIZE);
+      LOG(INFO) << __func__ << " codec_bit_rate " << codec_based_bit_rate
+                << " MTU bitrate " << mtu_based_bit_rate;
+      codec_config->encodedAudioBitrate = (codec_based_bit_rate < mtu_based_bit_rate) ?
+                                           codec_based_bit_rate:mtu_based_bit_rate;
     } else {
-      tA2DP_AAC_CIE aac_cie;
-      if(!A2DP_GetAacCIE(p_codec_info, &aac_cie)) {
-        LOG(ERROR) << __func__ << ": Unable to get AAC CIE";
-        return false;
-      }
-      codec_config->encodedAudioBitrate = aac_cie.bitRate;
+      codec_config->encodedAudioBitrate = codec_based_bit_rate;
     }
   }
   LOG(INFO) << __func__ << ": CodecConfiguration=" << toString(*codec_config);

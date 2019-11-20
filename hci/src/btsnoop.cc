@@ -74,7 +74,11 @@
 #define BTSNOOP_MODE_MEDIAPKTSFILTERED "mediapktsfiltered"
 
 #define BTSNOOP_PATH_PROPERTY "persist.bluetooth.btsnooppath"
-#define DEFAULT_BTSNOOP_PATH "/data/misc/bluetooth/logs/btsnoop_hci.log"
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
+  #define DEFAULT_BTSNOOP_PATH "/data/misc/bluetooth/logs/btsnoop_hci.log"
+#else
+  #define DEFAULT_BTSNOOP_PATH "btsnoop_hci.log"
+#endif  //OFF_TARGET_TEST_ENABLED
 #define BTSNOOP_MAX_PACKETS_PROPERTY "persist.bluetooth.btsnoopsize"
 
 typedef enum {
@@ -332,7 +336,11 @@ static void whitelist_l2c_channel(uint16_t conn_handle, uint16_t local_cid,
   LOG(INFO) << __func__
             << ": Whitelisting l2cap channel. conn_handle=" << conn_handle
             << " cid=" << local_cid << ":" << remote_cid;
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
   std::lock_guard lock(filter_list_mutex);
+#else
+  std::lock_guard<std::mutex> lock(filter_list_mutex);
+#endif  //OFF_TARGET_TEST_ENABLED
 
   // This will create the entry if there is no associated filter with the
   // connection.
@@ -343,7 +351,11 @@ static void whitelist_rfc_dlci(uint16_t local_cid, uint8_t dlci) {
   LOG(INFO) << __func__
             << ": Whitelisting rfcomm channel. L2CAP CID=" << local_cid
             << " DLCI=" << dlci;
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
   std::lock_guard lock(filter_list_mutex);
+#else
+  std::lock_guard<std::mutex> lock(filter_list_mutex);
+#endif
 
   tL2C_CCB* p_ccb = l2cu_find_ccb_by_cid(nullptr, local_cid);
   if(p_ccb) {
@@ -357,7 +369,11 @@ static void add_rfc_l2c_channel(uint16_t conn_handle, uint16_t local_cid,
             << ": rfcomm data going over l2cap channel. conn_handle="
             << conn_handle << " cid=" << local_cid << ":"
             << remote_cid;
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
   std::lock_guard lock(filter_list_mutex);
+#else
+  std::lock_guard<std::mutex> lock(filter_list_mutex);
+#endif
 
   filter_list[conn_handle].setRfcCid(local_cid, remote_cid);
   local_cid_to_acl.insert({local_cid, conn_handle});
@@ -369,7 +385,11 @@ static void clear_l2cap_whitelist(uint16_t conn_handle, uint16_t local_cid,
             << ": Clearing whitelist from l2cap channel. conn_handle="
             << conn_handle << " cid=" << local_cid << ":" << remote_cid;
 
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
   std::lock_guard lock(filter_list_mutex);
+#else
+  std::lock_guard<std::mutex> lock(filter_list_mutex);
+#endif
   filter_list[conn_handle].removeL2cCid(local_cid, remote_cid);
 }
 
@@ -493,7 +513,11 @@ static bool should_filter_log(bool is_received, uint8_t* packet) {
       HCID_GET_HANDLE((((uint16_t)packet[ACL_CHANNEL_OFFSET + 1]) << 8) +
                       packet[ACL_CHANNEL_OFFSET]);
 
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
   std::lock_guard lock(filter_list_mutex);
+#else
+  std::lock_guard<std::mutex> lock(filter_list_mutex);
+#endif
   auto& filters = filter_list[acl_handle];
   uint16_t l2c_channel =
       (packet[L2C_CHANNEL_OFFSET + 1] << 8) + packet[L2C_CHANNEL_OFFSET];

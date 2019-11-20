@@ -4,7 +4,8 @@ cc_library_static {
     name: "libbtcore_qti",
     defaults: ["fluoride_defaults_qti"],
     local_include_dirs: ["include"],
-    include_dirs: ["vendor/qcom/opensource/commonsys/system/bt"],
+    include_dirs: ["vendor/qcom/opensource/commonsys/system/bt",
+                   "vendor/qcom/opensource/commonsys/system/bt/stack/include"],
     srcs: [
         "src/device_class.cc",
         "src/hal_util.cc",

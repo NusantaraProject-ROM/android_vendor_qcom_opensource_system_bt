@@ -99,6 +99,20 @@ static void background_connection_remove(const RawAddress& address) {
 
 static void background_connections_clear() { background_connections.clear(); }
 
+static RawAddress get_bg_conn_pending_bdaddr() {
+  for (auto& map_el : background_connections) {
+    BackgroundConnection* connection = &map_el.second;
+    if (connection->pending_removal) continue;
+    const bool connected =
+        BTM_IsAclConnectionUp(connection->address, BT_TRANSPORT_LE);
+    if (!connected) {
+      return connection->address;
+    }
+  }
+  return RawAddress::kEmpty;
+}
+
+
 static bool background_connections_pending() {
   for (auto& map_el : background_connections) {
     BackgroundConnection* connection = &map_el.second;
@@ -191,8 +205,7 @@ bool BTM_BackgroundConnectAddressKnown(const RawAddress& address) {
     return true;
 
   // bonded device with identity address known
-  if (p_dev_rec->ble.identity_addr != address &&
-      !p_dev_rec->ble.identity_addr.IsEmpty()) {
+  if (!p_dev_rec->ble.identity_addr.IsEmpty()) {
     VLOG(2) << "bonded device with identity address known";
     return true;
   }
@@ -221,8 +234,7 @@ bool btm_add_dev_to_controller(bool to_add, const RawAddress& bd_addr) {
 
   if (p_dev_rec != NULL && p_dev_rec->device_type & BT_DEVICE_TYPE_BLE) {
     if (to_add) {
-      if (p_dev_rec->ble.identity_addr != bd_addr &&
-          !p_dev_rec->ble.identity_addr.IsEmpty()) {
+      if (!p_dev_rec->ble.identity_addr.IsEmpty()) {
         background_connection_add(p_dev_rec->ble.identity_addr_type,
                                   p_dev_rec->ble.identity_addr);
       } else {
@@ -236,8 +248,7 @@ bool btm_add_dev_to_controller(bool to_add, const RawAddress& bd_addr) {
 
       p_dev_rec->ble.in_controller_list |= BTM_WHITE_LIST_BIT;
     } else {
-      if (!p_dev_rec->ble.identity_addr.IsEmpty() &&
-          p_dev_rec->ble.identity_addr != bd_addr) {
+      if (!p_dev_rec->ble.identity_addr.IsEmpty()) {
         background_connection_remove(p_dev_rec->ble.identity_addr);
       } else {
         background_connection_remove(bd_addr);
@@ -383,8 +394,14 @@ bool btm_ble_start_auto_conn() {
     return false;
   }
 
+  RawAddress rem_bd_addr = get_bg_conn_pending_bdaddr();
+  tL2C_LCB* p_lcb = l2cu_find_lcb_by_bd_addr(rem_bd_addr, BT_TRANSPORT_LE);
+
   if (btm_ble_get_conn_st() != BLE_CONN_IDLE ||
-      !background_connections_pending() || !l2cu_can_allocate_lcb()) {
+      !background_connections_pending() ||
+      (!p_lcb && !l2cu_can_allocate_lcb())) {
+    LOG(INFO) << "Already connection initiated (or) No Pending connections"
+      "(or) Resources of lcb are exhausted";
     return false;
   }
 

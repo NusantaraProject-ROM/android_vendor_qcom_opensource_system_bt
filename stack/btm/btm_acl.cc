@@ -596,8 +596,9 @@ bool IsHighQualityCodecSelected(const RawAddress& remote_bd_addr) {
     //get the current codec config, so that we can get the codec type.
     BTM_TRACE_DEBUG("%s: codec_config.codec_type:%d", __func__, codec_config.codec_type);
     if ((codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC) ||
-        (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD)) {
-      BTM_TRACE_DEBUG("%s: LDAC or APTX-HD codec selcted:", __func__);
+        (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD) ||
+        (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)) {
+      BTM_TRACE_DEBUG("%s: LDAC or APTX-HD or APTX-AD codec selcted:", __func__);
       return true;
     } else {
       return false;

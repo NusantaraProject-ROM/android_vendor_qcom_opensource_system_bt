@@ -86,7 +86,7 @@ extern const btgatt_interface_t* btif_gatt_get_interface();
 
 bool isDevUiReq = false;
 btav_a2dp_codec_config_t saved_codec_user_config;
-
+std::string supported_codecs = "";
 /*****************************************************************************
  **  Constants
  *****************************************************************************/
@@ -153,6 +153,7 @@ static bool bta_av_co_set_codec_ota_config(tBTA_AV_CO_PEER* p_peer,
                                            bool* p_restart_output);
 static bool bta_av_co_audio_update_selectable_codec(
     A2dpCodecConfig& codec_config, const tBTA_AV_CO_PEER* p_peer);
+static void bta_av_co_free_peer(tBTA_AV_CO_PEER* p_peer);
 
 /* externs */
 extern int btif_max_av_clients;
@@ -264,6 +265,26 @@ bool bta_av_co_set_active_peer(const RawAddress& peer_address) {
     } else if (p_peer_tmp->addr == peer_address) {
       p_peer_tmp->is_active_peer = true;
       status = true;
+
+      if (p_peer_tmp->rcfg_pend_active) {
+        APPL_TRACE_DEBUG("%s: set active peer, trigger reconfig again", __func__);
+        const tBTA_AV_CO_SINK* p_sink = bta_av_co_audio_set_codec(p_peer_tmp);
+        if (p_sink != NULL) {
+          uint8_t num_protect = 0;
+#if (BTA_AV_CO_CP_SCMS_T == TRUE)
+          if (p_peer_tmp->cp_active) num_protect = AVDT_CP_INFO_LEN;
+#endif
+          if (p_peer_tmp->reconfig_needed) {
+            APPL_TRACE_DEBUG("%s: call BTA_AvReconfig(x%x)", __func__, p_peer_tmp->handle);
+            btif_av_set_reconfig_flag(p_peer_tmp->handle);
+            BTA_AvReconfig(p_peer_tmp->handle, true, p_sink->sep_info_idx, p_peer_tmp->codec_config,
+                            num_protect, bta_av_co_cp_scmst);
+            p_peer_tmp->rcfg_done = true;
+            p_peer_tmp->reconfig_needed = false;
+          }
+        }
+        p_peer_tmp->rcfg_pend_active = false;
+      }
     } else {
       p_peer_tmp->is_active_peer = false;
     }
@@ -347,6 +368,7 @@ void bta_av_co_audio_disc_res(tBTA_AV_HNDL hndl, uint8_t num_seps,
   p_peer->num_sup_sinks = 0;
   p_peer->rcfg_pend_getcap = false;
   p_peer->getcap_pending = false;
+  p_peer->rcfg_pend_active = false;
   if (uuid_local == UUID_SERVCLASS_AUDIO_SINK)
     p_peer->uuid_to_connect = UUID_SERVCLASS_AUDIO_SOURCE;
   else if (uuid_local == UUID_SERVCLASS_AUDIO_SOURCE)
@@ -537,12 +559,27 @@ tA2DP_STATUS bta_av_co_audio_getconfig(tBTA_AV_HNDL hndl, uint8_t* p_codec_info,
     }
   }
 
+  std::string remote_bd_addr_str = p_peer->addr.ToString();
+  const char* remote_bdstr  = remote_bd_addr_str.c_str();
+  if (supported_codecs.empty()) {
+      supported_codecs.append(A2DP_CodecName(p_codec_info));
+      APPL_TRACE_DEBUG("%s: First codec entry %s",__func__,supported_codecs.c_str());
+  } else {
+      supported_codecs.append(",");
+      supported_codecs.append(A2DP_CodecName(p_codec_info));
+      APPL_TRACE_DEBUG("%s: Next codec entry %s",__func__,supported_codecs.c_str());
+  }
   // Check if this is the last SINK get capabilities or all supported codec
   // capabilities are retrieved.
   if ((p_peer->num_rx_sinks != p_peer->num_sinks) &&
       (p_peer->num_sup_sinks != BTA_AV_CO_NUM_ELEMENTS(p_peer->sinks))) {
     return A2DP_FAIL;
   }
+
+  //store peer supported codecs in bt_config.conf file
+  btif_config_set_str(remote_bdstr, BTIF_STORAGE_KEY_FOR_SUPPORTED_CODECS, supported_codecs.c_str());
+  supported_codecs.clear();
+
   APPL_TRACE_DEBUG("%s: last sink reached", __func__);
 #if (BT_IOT_LOGGING_ENABLED == TRUE)
   bta_av_co_store_peer_codectype(p_peer);
@@ -788,13 +825,52 @@ void bta_av_co_audio_close(tBTA_AV_HNDL hndl) {
   p_peer = bta_av_co_get_peer(hndl);
   if (p_peer && (index < BTA_AV_CO_NUM_ELEMENTS(bta_av_co_cb.peers))) {
     /* Mark the peer closed and clean the peer info */
-    memset(p_peer, 0, sizeof(*p_peer));
+    bta_av_co_free_peer(p_peer);
     APPL_TRACE_DEBUG("%s call bta_av_co_peer_init", __func__);
     bta_av_co_peer_init(bta_av_co_cb.default_codec_priorities, index);
   } else {
     APPL_TRACE_ERROR("%s: could not find peer entry", __func__);
   }
 }
+
+/*******************************************************************************
+ **
+ ** Function         bta_av_co_free_peer
+ **
+ ** Description      This function free up and clears peer data when the audio
+ **                  stream connection is closed.
+ **
+ **
+ ** Returns          void
+ **
+ ******************************************************************************/
+void bta_av_co_free_peer(tBTA_AV_CO_PEER* p_peer) {
+  memset(&p_peer->addr, 0, sizeof(RawAddress));
+  memset(p_peer->sinks, 0, sizeof(p_peer->sinks));
+  memset(p_peer->srcs, 0, sizeof(p_peer->srcs));
+  p_peer->num_sinks = 0;
+  p_peer->num_srcs = 0;
+  p_peer->num_seps = 0;
+  p_peer->num_rx_sinks = 0;
+  p_peer->num_rx_srcs = 0;
+  p_peer->num_sup_sinks = 0;
+  p_peer->num_sup_srcs = 0;
+  memset(p_peer->codec_config, 0, sizeof(p_peer->codec_config));
+  p_peer->cp_active = 0;
+  p_peer->acp = 0;
+  p_peer->reconfig_needed = 0;
+  p_peer->rcfg_done = 0;
+  p_peer->opened = 0;
+  p_peer->mtu = 0;
+  p_peer->uuid_to_connect = 0;
+  p_peer->handle = 0;
+  p_peer->is_active_peer = 0;
+  p_peer->rcfg_pend_getcap = 0;
+  p_peer->isIncoming = 0;
+  p_peer->codecIndextoCompare = (btav_a2dp_codec_index_t)0;
+  p_peer->getcap_pending = 0;
+}
+
 
 /*******************************************************************************
  **
@@ -1201,10 +1277,18 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
           APPL_TRACE_DEBUG("%s: current_peer_codec_index: %d, isIncoming: %d",
                               __func__, current_peer_codec_index, p_peer->isIncoming);
           if (current_peer_codec_index != p_peer->codecIndextoCompare) {
-            p_peer->reconfig_needed = true;
-            p_peer->isIncoming = false;
-            APPL_TRACE_DEBUG("%s: incoming codec Idx mismatched with outgoing codec Idx: %d",
-                                 __func__, p_peer->reconfig_needed);
+            if (p_peer->is_active_peer) {
+              p_peer->reconfig_needed = true;
+              p_peer->isIncoming = false;
+              p_peer->rcfg_pend_active = false;
+              APPL_TRACE_DEBUG("%s: incoming codec Idx mismatched with outgoing codec Idx: %d",
+                                   __func__, p_peer->reconfig_needed);
+            } else {
+              p_peer->rcfg_pend_active = true;
+              APPL_TRACE_DEBUG("%s: bta av stream of peer is not opened: %d, pending reconfig",
+                                   __func__, p_peer->rcfg_pend_active);
+              break;
+            }
           }
         }
         // NOTE: Conditionally dispatch the event to make sure a callback with
@@ -1911,7 +1995,7 @@ void bta_av_co_peer_init(
   }
 
   p_peer = &bta_av_co_cb.peers[index];
-  if (p_peer != NULL)
+  if (p_peer != NULL &&  p_peer->codecs == NULL)
     p_peer->codecs = new A2dpCodecs(codec_priorities);
 
   if (p_peer->codecs != nullptr)

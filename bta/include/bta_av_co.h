@@ -64,6 +64,7 @@ typedef struct {
   bool isIncoming;                       /* to know whether it is incmoming connection */
   btav_a2dp_codec_index_t codecIndextoCompare; /* save codec index when incoming setconfig done */
   bool getcap_pending;   /* Get_caps for all remote SEPS done or not*/
+  bool rcfg_pend_active; /* if reconfig is pending for peer device is active or not */
 } tBTA_AV_CO_PEER;
 
 typedef struct {

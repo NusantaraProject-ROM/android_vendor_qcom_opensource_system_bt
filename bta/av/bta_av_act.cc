@@ -1940,8 +1940,11 @@ uint16_t bta_get_dut_avrcp_version() {
     } else if (!strncmp(AVRCP_1_5_STRING, avrcp_version,
                         sizeof(AVRCP_1_5_STRING))) {
       profile_version = AVRC_REV_1_5;
-    } else {
+    } else if (!strncmp(AVRCP_1_4_STRING, avrcp_version,
+                         sizeof(AVRCP_1_4_STRING))) {
       profile_version = AVRC_REV_1_4;
+    } else {
+      profile_version = AVRC_REV_1_3;
     }
     APPL_TRACE_DEBUG(" %s AVRCP version used for sdp: \"%s\"",
              __func__,avrcp_version);
@@ -2060,8 +2063,8 @@ tBTA_AV_FEAT bta_av_check_peer_features(uint16_t service_uuid) {
           if (categories & AVRC_SUPF_CT_BROWSE)
             peer_features |= (BTA_AV_FEAT_BROWSE);
           uint16_t dut_avrcp_version = bta_get_dut_avrcp_version();
-          if ((categories & AVRC_SUPF_CT_COVER_ART_GET_IMAGE) &&
-              (categories & AVRC_SUPF_CT_COVER_ART_GET_THUMBNAIL)
+          if (((categories & AVRC_SUPF_CT_COVER_ART_GET_IMAGE) ||
+              (categories & AVRC_SUPF_CT_COVER_ART_GET_THUMBNAIL))
               && (dut_avrcp_version == AVRC_REV_1_6))
           {
               peer_features |= (BTA_AV_FEAT_CA);
@@ -2554,7 +2557,9 @@ void bta_av_rc_closed(tBTA_AV_DATA* p_data) {
       if (p_cb->disc && ((p_cb->disc & (~BTA_AV_CHNL_MSK)) == p_rcb->handle)) {
         APPL_TRACE_WARNING("%s: clear RC discovery in avrcp close disc: x%x",
                    __func__, p_cb->disc );
+        SDP_CancelServiceSearch(p_cb->p_disc_db);
         p_cb->disc = 0;
+        osi_free_and_reset((void **)&p_cb->p_disc_db);
       }
 
       if ((p_rcb->status & BTA_AV_RC_ROLE_MASK) == BTA_AV_RC_ROLE_INT) {

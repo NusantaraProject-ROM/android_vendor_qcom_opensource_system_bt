@@ -796,6 +796,22 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       break;
 
 #if (SWB_ENABLED == TRUE)
+    case BTA_AG_AT_QAC_EVT:
+      BTIF_TRACE_DEBUG("QAC-EVT: AG Bitmap of peer-codecs %d", p_data->val.num);
+      /* If the peer supports SWB and the BTIF preferred codec is also SWB,
+      then we should set the BTA AG Codec to SWB. This would trigger a +QCS
+      to SWB at the time of SCO connection establishment */
+      if (p_data->val.num == BTA_AG_SCO_SWB_SETTINGS_Q0) {
+        BTIF_TRACE_EVENT("%s: btif_hf override-Preferred Codec to SWB",
+                         __func__);
+        BTA_AgSetCodec(btif_hf_cb[idx].handle, BTA_AG_SCO_SWB_SETTINGS_Q0);
+      } else {
+        BTIF_TRACE_EVENT("%s btif_hf override-Preferred Codec to MSBC",
+                         __func__);
+        BTA_AgSetCodec(btif_hf_cb[idx].handle, BTA_AG_CODEC_MSBC);
+      }
+      break;
+
     case BTA_AG_AT_QCS_EVT:
       BTIF_TRACE_DEBUG("%s: AG final selected SWB codec is 0x%02x 0=Q0 4=Q1 6=Q3 7=Q4",
                        __func__, p_data->val.num);
@@ -895,13 +911,19 @@ void btif_in_hf_generic_evt(uint16_t event, char* p_param) {
     return;
   }
 
+  BTIF_TRACE_DEBUG("%s: audio state = %d for device: %s", __func__,
+       btif_hf_cb[idx].audio_state, btif_hf_cb[idx].connected_bda.ToString().c_str());
   switch (event) {
     case BTIF_HFP_CB_AUDIO_CONNECTING: {
-      BTIF_TRACE_DEBUG("%s: Moving the audio_state to CONNECTING for device %s",
-                __FUNCTION__, btif_hf_cb[idx].connected_bda.ToString().c_str());
-      btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_CONNECTING;
-      HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_CONNECTING,
-              &btif_hf_cb[idx].connected_bda);
+      if (btif_hf_cb[idx].audio_state != BTHF_AUDIO_STATE_CONNECTED) {
+        BTIF_TRACE_DEBUG("%s: Moving the audio_state to CONNECTING for device %s",
+                  __FUNCTION__, btif_hf_cb[idx].connected_bda.ToString().c_str());
+        btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_CONNECTING;
+        HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_CONNECTING,
+                &btif_hf_cb[idx].connected_bda);
+      } else {
+        BTIF_TRACE_WARNING("%s :unexpected audio state", __func__);
+      }
     } break;
     case BTIF_HFP_CB_AUDIO_DISCONNECTED: {
       BTIF_TRACE_DEBUG("%s: Moving the audio_state to DISCONNECTED for device %s",
@@ -1742,9 +1764,6 @@ bt_status_t HeadsetInterface::PhoneStateChange(
            } else {
 #endif
                ag_res.audio_handle = control_block.handle;
-               BTIF_TRACE_DEBUG("%s: Moving the audio_state to CONNECTING for device %s",
-                      __FUNCTION__, bd_addr->ToString().c_str());
-               btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_CONNECTING;
                btif_transfer_context(btif_in_hf_generic_evt, BTIF_HFP_CB_AUDIO_CONNECTING,
                                  (char*)(&btif_hf_cb[idx].connected_bda), sizeof(RawAddress), NULL);
 #if (TWS_AG_ENABLED == TRUE)
@@ -1797,9 +1816,6 @@ bt_status_t HeadsetInterface::PhoneStateChange(
                   } else {
 #endif
                     ag_res.audio_handle = control_block.handle;
-                    BTIF_TRACE_DEBUG("%s: Moving the audio_state to CONNECTING for device %s",
-                           __FUNCTION__, bd_addr->ToString().c_str());
-                    control_block.audio_state = BTHF_AUDIO_STATE_CONNECTING;
                     btif_transfer_context(btif_in_hf_generic_evt, BTIF_HFP_CB_AUDIO_CONNECTING,
                                  (char*)(&btif_hf_cb[idx].connected_bda), sizeof(RawAddress), NULL);
 #if (TWS_AG_ENABLED == TRUE)
@@ -1905,9 +1921,6 @@ bt_status_t HeadsetInterface::PhoneStateChange(
 #endif
             ag_res.audio_handle = control_block.handle;
 
-            BTIF_TRACE_DEBUG("%s: Moving the audio_state to CONNECTING for device %s",
-                       __FUNCTION__, bd_addr->ToString().c_str());
-            control_block.audio_state = BTHF_AUDIO_STATE_CONNECTING;
             btif_transfer_context(btif_in_hf_generic_evt, BTIF_HFP_CB_AUDIO_CONNECTING,
                                   (char*)(&btif_hf_cb[idx].connected_bda), sizeof(RawAddress), NULL);
 #if (TWS_AG_ENABLED == TRUE)
@@ -1934,9 +1947,6 @@ bt_status_t HeadsetInterface::PhoneStateChange(
 #endif
             ag_res.audio_handle = control_block.handle;
 
-            BTIF_TRACE_DEBUG("%s: Moving the audio_state to CONNECTING for device %s",
-                        __FUNCTION__, bd_addr->ToString().c_str());
-            control_block.audio_state = BTHF_AUDIO_STATE_CONNECTING;
             btif_transfer_context(btif_in_hf_generic_evt, BTIF_HFP_CB_AUDIO_CONNECTING,
                                   (char*)(&btif_hf_cb[idx].connected_bda), sizeof(RawAddress), NULL);
 #if (TWS_AG_ENABLED == TRUE)

@@ -1890,7 +1890,6 @@ static uint8_t opcode_from_pdu(uint8_t pdu) {
     case AVRC_PDU_GET_FOLDER_ITEMS:
     case AVRC_PDU_CHANGE_PATH:
     case AVRC_PDU_GET_ITEM_ATTRIBUTES:
-    case AVRC_PDU_ADD_TO_NOW_PLAYING:
     case AVRC_PDU_SEARCH:
     case AVRC_PDU_GET_TOTAL_NUM_OF_ITEMS:
     case AVRC_PDU_GENERAL_REJECT:

@@ -725,6 +725,7 @@ void bta_hh_co_set_rpt_rsp(uint8_t dev_handle, uint8_t status) {
       return;
   }
 
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
   memset(&ev, 0, sizeof(ev));
   ev.type = UHID_SET_REPORT_REPLY;
   /* get the report id from queue_start pointer */
@@ -733,6 +734,7 @@ void bta_hh_co_set_rpt_rsp(uint8_t dev_handle, uint8_t status) {
                      ev.u.set_report_reply.id);
   ev.u.set_report_reply.err = status;
   uhid_write(p_dev->fd, &ev);
+#endif //OFF_TARGET_TEST_ENABLED
 }
 
 /*******************************************************************************
@@ -775,6 +777,7 @@ void bta_hh_co_get_rpt_rsp(uint8_t dev_handle, uint8_t status, uint8_t* p_rpt,
       return;
   }
 
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
   memset(&ev, 0, sizeof(ev));
   ev.type = UHID_GET_REPORT_REPLY;
   ev.u.get_report_reply.err = status;
@@ -791,6 +794,7 @@ void bta_hh_co_get_rpt_rsp(uint8_t dev_handle, uint8_t status, uint8_t* p_rpt,
     memcpy(ev.u.get_report_reply.data, p_rpt + BT_HID_RPT_OFFSET, len);
   }
   uhid_write(p_dev->fd, &ev);
+#endif
 }
 
 #if (BTA_HH_LE_INCLUDED == TRUE)

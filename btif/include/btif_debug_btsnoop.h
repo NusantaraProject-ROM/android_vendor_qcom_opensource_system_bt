@@ -33,7 +33,7 @@ typedef struct btsnooz_preamble_t {
 typedef struct btsnooz_header_t {
   uint16_t length;
   uint16_t packet_length;
-  uint64_t delta_time_ms;
+  uint32_t delta_time_ms;
   uint8_t type;
 } __attribute__((__packed__)) btsnooz_header_t;
 

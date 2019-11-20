@@ -92,8 +92,14 @@ bool l2c_link_hci_conn_req(const RawAddress& bd_addr) {
       }
     }
 
-    if (no_links)
-      p_lcb->link_role = L2CAP_DESIRED_LINK_ROLE;
+    if (no_links) {
+      if (BTM_SecIsTwsPlusDev(bd_addr)) {
+        p_lcb->link_role = HCI_ROLE_MASTER;
+        L2CAP_TRACE_WARNING ("l2c_link_hci_conn_req:Tws device:link_role= %d",p_lcb->link_role);
+      } else {
+        p_lcb->link_role = L2CAP_DESIRED_LINK_ROLE;
+      }
+    }
 
     if ((p_lcb->link_role == BTM_ROLE_MASTER)&&(interop_match_addr_or_name(INTEROP_DISABLE_ROLE_SWITCH, &bd_addr))) {
       p_lcb->link_role = BTM_ROLE_SLAVE;
@@ -118,15 +124,18 @@ bool l2c_link_hci_conn_req(const RawAddress& bd_addr) {
       (p_lcb->link_state == LST_CONNECT_HOLDING)) {
     /* Connection collision. Accept the connection anyways. */
 
-    if (!btm_dev_support_switch(bd_addr))
+    if (!btm_dev_support_switch(bd_addr)) {
       p_lcb->link_role = HCI_ROLE_SLAVE;
-    else
+    } else if (BTM_SecIsTwsPlusDev(bd_addr)) {
+      p_lcb->link_role = HCI_ROLE_MASTER;
+    } else {
       p_lcb->link_role = l2cu_get_conn_role(p_lcb);
+    }
 
     if ((p_lcb->link_role == BTM_ROLE_MASTER)&&(interop_match_addr_or_name(INTEROP_DISABLE_ROLE_SWITCH, &bd_addr))) {
       p_lcb->link_role = BTM_ROLE_SLAVE;
-      L2CAP_TRACE_WARNING ("l2c_link_hci_conn_req:set link_role= %d",p_lcb->link_role);
     }
+    L2CAP_TRACE_WARNING ("l2c_link_hci_conn_req:set link_role= %d",p_lcb->link_role);
     btsnd_hcic_accept_conn(bd_addr, p_lcb->link_role);
 
     p_lcb->link_state = LST_CONNECTING;

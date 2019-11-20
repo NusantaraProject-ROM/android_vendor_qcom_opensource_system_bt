@@ -50,6 +50,7 @@ static size_t btsnoop_calculate_packet_length(uint16_t type,
                                               const uint8_t* data,
                                               size_t length);
 
+__attribute__((no_sanitize("integer")))
 static void btsnoop_cb(const uint16_t type, const uint8_t* data,
                        const size_t length, const uint64_t timestamp_us) {
   btsnooz_header_t header;

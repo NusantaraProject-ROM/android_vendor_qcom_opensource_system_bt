@@ -136,6 +136,12 @@ void send_soc_log_command(bool value) {
 
 static bool is_soc_logging_enabled() {
   char btsnoop_enabled[PROPERTY_VALUE_MAX] = {0};
+  char donglemode_prop[PROPERTY_VALUE_MAX] = "false";
+
+  if(osi_property_get("persist.bluetooth.donglemode", donglemode_prop, "false") &&
+      !strcmp(donglemode_prop, "true")) {
+    return false;
+  }
   osi_property_get(BTSNOOP_ENABLE_PROPERTY, btsnoop_enabled, "false");
   return strncmp(btsnoop_enabled, "true", 4) == 0;
 }
@@ -245,7 +251,11 @@ static future_t* start_up(void) {
   }
 
   if (soc_type == BT_SOC_TYPE_SMD || soc_type == BT_SOC_TYPE_CHEROKEE) {
-    btm_enable_soc_iot_info_report(is_iot_info_report_enabled());
+    char donglemode_prop[PROPERTY_VALUE_MAX] = "false";
+    if(osi_property_get("persist.bluetooth.donglemode", donglemode_prop, "false") &&
+        !strcmp(donglemode_prop, "false")) {
+      btm_enable_soc_iot_info_report(is_iot_info_report_enabled());
+    }
   }
 
   // Read the local version info off the controller next, including
@@ -310,9 +320,14 @@ static future_t* start_up(void) {
     page_number++;
   }
 
-  // read BLE offload features support from controller
-  response = AWAIT_COMMAND(packet_factory->make_ble_read_offload_features_support());
-  packet_parser->parse_ble_read_offload_features_response(response, &ble_offload_features_supported);
+  char donglemode_prop[PROPERTY_VALUE_MAX] = "false";
+  if(osi_property_get("persist.bluetooth.donglemode", donglemode_prop, "false") &&
+      !strcmp(donglemode_prop, "false")) {
+    // read BLE offload features support from controller
+    response = AWAIT_COMMAND(packet_factory->make_ble_read_offload_features_support());
+    packet_parser->parse_ble_read_offload_features_response(response, &ble_offload_features_supported);
+  }
+
 #if (SC_MODE_INCLUDED == TRUE)
   if(ble_offload_features_supported) {
     secure_connections_supported =

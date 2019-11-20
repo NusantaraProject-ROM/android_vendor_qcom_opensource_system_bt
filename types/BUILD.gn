@@ -21,39 +21,15 @@ static_library("types") {
 
   sources = [
     "raw_address.cc",
+    "bluetooth/uuid.cc",
   ]
 
   include_dirs = [
     "//",
+    "bluetooth",
   ]
 
   deps = [
-    "//third_party/libchrome:base",
-  ]
-}
-
-executable("types_unittests") {
-  testonly = true
-  sources = [
-    "test/raw_address_unittest.cc",
-  ]
-
-  include_dirs = [
-    "//",
-  ]
-
-  libs = [
-     "-ldl",
-     "-lpthread",
-     "-lresolv",
-     "-lrt",
-     "-lz",
-     "-latomic",
-  ]
-
-  deps = [
-    "//types",
-    "//third_party/googletest:gmock_main",
     "//third_party/libchrome:base",
   ]
 }

@@ -143,9 +143,12 @@ static void read_or_set_metrics_salt() {
   }
   if (!AddressObfuscator::IsSaltValid(metrics_salt)) {
     LOG(INFO) << __func__ << ": Metrics salt is not invalid, creating new one";
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
+    //TODO need to resolve below dependency
     if (RAND_bytes(metrics_salt.data(), metrics_salt.size()) != 1) {
       LOG(FATAL) << __func__ << "Failed to generate salt for metrics";
     }
+#endif
     if (!btif_config_set_bin(BT_CONFIG_METRICS_SECTION,
                              BT_CONFIG_METRICS_SALT_256BIT, metrics_salt.data(),
                              metrics_salt.size())) {
@@ -584,7 +587,8 @@ static void btif_config_remove_unpaired(config_t* conf) {
           !config_has_key(conf, section, "LE_KEY_LCSRK") &&
           !config_has_key(conf, section, "AvrcpCtVersion") &&
           !config_has_key(conf, section, "AvrcpFeatures") &&
-          !config_has_key(conf, section, "TwsPlusPeerAddr")) {
+          !config_has_key(conf, section, "TwsPlusPeerAddr") &&
+          !config_has_key(conf, section, "Codecs")) {
         snode = config_section_next(snode);
         config_remove_section(conf, section);
         continue;

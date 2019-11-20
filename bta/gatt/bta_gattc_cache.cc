@@ -57,6 +57,11 @@ using gatt::IncludedService;
 using gatt::Service;
 using gatt::StoredAttribute;
 
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+constexpr static std::pair<uint16_t, uint16_t> EXPLORE_END =
+        std::make_pair(0xFFFF, 0xFFFF);
+#endif
+
 static void bta_gattc_cache_write(const RawAddress& server_bda,
                                   const std::vector<StoredAttribute>& attr);
 static tGATT_STATUS bta_gattc_sdp_service_disc(uint16_t conn_id,
@@ -200,7 +205,12 @@ void bta_gattc_start_disc_char_dscp(uint16_t conn_id,
 
   std::pair<uint16_t, uint16_t> range =
       p_srvc_cb->pending_discovery.NextDescriptorRangeToExplore();
-  if (range == DatabaseBuilder::EXPLORE_END) {
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
+  if (range == DatabaseBuilder::EXPLORE_END)
+#else
+  if (range == EXPLORE_END)
+#endif
+  {
     goto descriptor_discovery_done;
   }
 
