@@ -826,6 +826,8 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       /* If the peer supports SWB and the BTIF preferred codec is also SWB,
       then we should set the BTA AG Codec to SWB. This would trigger a +QCS
       to SWB at the time of SCO connection establishment */
+      if (!get_swb_codec_status()) break;
+
       if (p_data->val.num == BTA_AG_SCO_SWB_SETTINGS_Q0) {
         BTIF_TRACE_EVENT("%s: btif_hf override-Preferred Codec to SWB",
                          __func__);
