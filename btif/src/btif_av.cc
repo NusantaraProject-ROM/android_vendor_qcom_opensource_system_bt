@@ -4341,17 +4341,22 @@ static bt_status_t connect_int(RawAddress* bd_addr, uint16_t uuid) {
     btif_queue_advance_by_uuid(uuid, bd_addr);
     return BT_STATUS_SUCCESS;
   }
-  for (i = 0; i < btif_max_av_clients;) {
+  for (i = 0; i < btif_max_av_clients; i++) {
     if (btif_av_get_valid_idx(i)) {
       if (*bd_addr == btif_av_cb[i].peer_bda) {
         BTIF_TRACE_ERROR("Attempting connection for non idle device.. back off ");
         btif_queue_advance_by_uuid(uuid, bd_addr);
         return BT_STATUS_SUCCESS;
       }
-      i++;
-    } else
-      break;
+    }
   }
+  for (i = 0; i < btif_max_av_clients; i++) {
+    if (!btif_av_get_valid_idx(i)) {
+      BTIF_TRACE_DEBUG("%s: index %d is idle", __func__, i);
+      break;
+    }
+  }
+
   if (i == btif_max_av_clients) {
     uint8_t rc_handle;
 
