@@ -1650,7 +1650,8 @@ void btif_storage_add_hearing_aid(const HearingDevice& dev_info) {
       FROM_HERE,
       Bind(
           [](const HearingDevice& dev_info) {
-            const char* bdstr = dev_info.address.ToString().c_str();
+            std::string addrstr = dev_info.address.ToString();
+            const char *bdstr = addrstr.c_str();
             VLOG(2) << "saving hearing aid device: " << bdstr;
             btif_config_set_int(bdstr, HEARING_AID_SERVICE_CHANGED_CCC_HANDLE,
                                 dev_info.service_changed_ccc_handle);
@@ -1787,7 +1788,9 @@ void btif_storage_load_bonded_hearing_aids() {
 
 /** Deletes the bonded hearing aid device info from NVRAM */
 void btif_storage_remove_hearing_aid(const RawAddress& address) {
-  const char* addrstr = address.ToString().c_str();
+  std::string bdstr = address.ToString();
+  const char *addrstr = bdstr.c_str();
+
   btif_config_remove(addrstr, HEARING_AID_READ_PSM_HANDLE);
   btif_config_remove(addrstr, HEARING_AID_CAPABILITIES);
   btif_config_remove(addrstr, HEARING_AID_CODECS);
@@ -1806,7 +1809,8 @@ void btif_storage_remove_hearing_aid(const RawAddress& address) {
 /** Set/Unset the hearing aid device HEARING_AID_IS_WHITE_LISTED flag. */
 void btif_storage_set_hearing_aid_white_list(const RawAddress& address,
                                              bool add_to_whitelist) {
-  const char* bdstr = address.ToString().c_str();
+  std::string addrstr = address.ToString();
+  const char *bdstr = addrstr.c_str();
   btif_config_set_int(bdstr, HEARING_AID_IS_WHITE_LISTED, add_to_whitelist);
   btif_config_save();
 }
@@ -1815,7 +1819,8 @@ void btif_storage_set_hearing_aid_white_list(const RawAddress& address,
 bool btif_storage_get_hearing_aid_prop(
     const RawAddress& address, uint8_t* capabilities, uint64_t* hi_sync_id,
     uint16_t* render_delay, uint16_t* preparation_delay, uint16_t* codecs) {
-  const char* addrstr = address.ToString().c_str();
+  std::string bdstr = address.ToString();
+  const char *addrstr = bdstr.c_str();
 
   int value;
   if (btif_config_get_int(addrstr, HEARING_AID_CAPABILITIES, &value)) {
