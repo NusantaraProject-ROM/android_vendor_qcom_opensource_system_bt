@@ -3728,6 +3728,7 @@ static char* btif_get_default_local_name() {
   return btif_default_local_name;
 }
 
+__attribute__((no_sanitize("integer")))
 static void btif_stats_add_bond_event(const RawAddress& bd_addr,
                                       bt_bond_function_t function,
                                       bt_bond_state_t state) {

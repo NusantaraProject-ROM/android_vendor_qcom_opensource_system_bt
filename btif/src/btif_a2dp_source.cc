@@ -157,7 +157,6 @@ extern int btif_max_av_clients;
 extern int btif_get_is_remote_started_idx();
 extern bool audio_start_awaited;
 extern void btif_av_reset_reconfig_flag();
-extern bool reconfig_a2dp;
 extern bool btif_av_is_remote_started_set(int index);
 extern tBTA_AV_HNDL btif_av_get_av_hdl_from_idx(int idx);
 extern bool enc_update_in_progress;
@@ -1606,16 +1605,14 @@ bool btif_a2dp_source_end_session(const RawAddress& peer_address) {
         system_bt_osi::DISCONNECT_REASON_UNKNOWN, 0);
   }
 
-  BTIF_TRACE_DEBUG("%s: tx_flush: %d",__func__, btif_a2dp_source_cb.tx_flush);
-  /* ensure tx frames are immediately flushed */
-  if (btif_a2dp_source_cb.tx_flush == false)
-    btif_a2dp_source_cb.tx_flush = true;
-
   /* request to stop media task */
   if (!btif_a2dp_source_is_hal_v2_enabled() ||
        (btif_a2dp_source_is_hal_v2_enabled() &&
        bluetooth::audio::a2dp::get_session_type() ==
        SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH)) {
+    if (btif_a2dp_source_cb.tx_flush == false)
+      btif_a2dp_source_cb.tx_flush = true;
+
     btif_a2dp_source_audio_tx_flush_req();
     BTIF_TRACE_DEBUG("%s: stop audio as it is SW session",__func__);
     btif_a2dp_source_stop_audio_req();
@@ -1789,6 +1786,9 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
               /*Return pending and ack when start stream cfm received from remote*/
               status = A2DP_CTRL_ACK_PENDING;
             }
+          } else if (reconfig_a2dp) {
+            APPL_TRACE_DEBUG("%s: wait for reconfig to complete ",__func__);
+            status = A2DP_CTRL_ACK_LONG_WAIT_ERR;
           } else {
             APPL_TRACE_DEBUG("%s: respond with success as already started",__func__);
             if (!btif_av_is_split_a2dp_enabled() && !btif_a2dp_source_is_streaming())

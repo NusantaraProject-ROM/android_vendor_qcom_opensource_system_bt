@@ -796,6 +796,22 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       break;
 
 #if (SWB_ENABLED == TRUE)
+    case BTA_AG_AT_QAC_EVT:
+      BTIF_TRACE_DEBUG("QAC-EVT: AG Bitmap of peer-codecs %d", p_data->val.num);
+      /* If the peer supports SWB and the BTIF preferred codec is also SWB,
+      then we should set the BTA AG Codec to SWB. This would trigger a +QCS
+      to SWB at the time of SCO connection establishment */
+      if (p_data->val.num == BTA_AG_SCO_SWB_SETTINGS_Q0) {
+        BTIF_TRACE_EVENT("%s: btif_hf override-Preferred Codec to SWB",
+                         __func__);
+        BTA_AgSetCodec(btif_hf_cb[idx].handle, BTA_AG_SCO_SWB_SETTINGS_Q0);
+      } else {
+        BTIF_TRACE_EVENT("%s btif_hf override-Preferred Codec to MSBC",
+                         __func__);
+        BTA_AgSetCodec(btif_hf_cb[idx].handle, BTA_AG_CODEC_MSBC);
+      }
+      break;
+
     case BTA_AG_AT_QCS_EVT:
       BTIF_TRACE_DEBUG("%s: AG final selected SWB codec is 0x%02x 0=Q0 4=Q1 6=Q3 7=Q4",
                        __func__, p_data->val.num);

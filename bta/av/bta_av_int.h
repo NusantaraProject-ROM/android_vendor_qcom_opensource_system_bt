@@ -692,7 +692,7 @@ struct tBTA_AV_SCB {
   bool offload_started;
 //#endif
   bool vendor_start;
-  tBTA_AV_DATA *cache_setconfig;
+  tBTA_AV_CI_SETCONFIG *cache_setconfig;
   int rc_ccb_alloc_handle;
 };
 

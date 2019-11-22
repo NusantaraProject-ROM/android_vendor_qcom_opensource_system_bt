@@ -2942,6 +2942,7 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
       /* 1. SetActive Device -> Null */
       if (*bt_addr == RawAddress::kEmpty)
       {
+        int streaming_index = INVALID_INDEX;
         for(int i = 0; i < btif_max_av_clients; i++)
         {
           if (btif_av_cb[i].current_playing == TRUE)
@@ -2953,12 +2954,20 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
             btif_av_get_addr_by_index(previous_active_index))) {
             BTIF_TRACE_IMP("Device -> Null, btif_a2dp_source_end_session failed");
           }
-          if (previous_active_index < btif_max_av_clients &&
-            btif_av_get_latest_stream_device_idx() == previous_active_index) {
-            BTIF_TRACE_IMP("Send suspend to previous active streaming device & stop media alarm");
-            btif_sm_dispatch(btif_av_cb[previous_active_index].sm_handle,
+          streaming_index =  btif_av_get_latest_stream_device_idx();
+          if (previous_active_index < btif_max_av_clients) {
+            if (streaming_index == previous_active_index) {
+              BTIF_TRACE_IMP("Send suspend to previous active streaming device & stop media alarm");
+              btif_sm_dispatch(btif_av_cb[previous_active_index].sm_handle,
                              BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL);
-            btif_a2dp_source_stop_audio_req();
+              btif_a2dp_source_stop_audio_req();
+            } else if (streaming_index < btif_max_av_clients &&
+                    streaming_index == btif_av_get_tws_pair_idx(previous_active_index)) {
+               BTIF_TRACE_IMP("Send suspend to streaming device which is pair of previously active device");
+               btif_sm_dispatch(btif_av_cb[streaming_index].sm_handle,
+                              BTIF_AV_SUSPEND_STREAM_REQ_EVT, NULL);
+               btif_a2dp_source_stop_audio_req();
+            }
           }
           btif_av_signal_session_ready();
         }
@@ -3872,6 +3881,20 @@ void btif_av_event_deep_copy(uint16_t event, char* p_dest, char* p_src) {
          BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event, sizeof(uint8_t));
          maybe_non_aligned_memcpy(av_dest_offload_start_or_stop_rsp,
                                      av_src_offload_start_or_stop_rsp, sizeof(uint8_t));
+         break;
+      }
+
+      case BTA_AV_RC_COLL_DETECTED_EVT: //26
+      {
+         tBTA_AV_RC_COLL_DETECTED* av_src_av_rc_collision_detect =
+                                                 (tBTA_AV_RC_COLL_DETECTED*)p_src;
+         tBTA_AV_RC_COLL_DETECTED* av_dest_av_rc_collision_detect =
+                                                 (tBTA_AV_RC_COLL_DETECTED*)p_dest;
+         BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event,
+                                      sizeof(*av_src_av_rc_collision_detect));
+         maybe_non_aligned_memcpy(av_dest_av_rc_collision_detect,
+                                  av_src_av_rc_collision_detect,
+                                  sizeof(*av_src_av_rc_collision_detect));
          break;
       }
 
@@ -5876,9 +5899,10 @@ bool btif_av_is_multicast_supported() {
 }
 
 bool btif_av_check_flag_remote_suspend(int index) {
-  BTIF_TRACE_ERROR("%s(): index = %d",__func__, index);
-  if (index >= btif_max_av_clients || index < 0)
+  if (index >= btif_max_av_clients || index < 0) {
+    BTIF_TRACE_ERROR("%s(): Invalid index = %d",__func__, index);
     return false;
+  }
   if (btif_av_cb[index].flags & BTIF_AV_FLAG_REMOTE_SUSPEND) {
     BTIF_TRACE_DEBUG("remote suspend flag set on index = %d",index);
     return true;
