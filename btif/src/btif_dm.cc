@@ -389,7 +389,6 @@ static void btif_dm_sdp_delay_timer_cback(void* data) {
   btif_dm_cancel_discovery();
 
   /* Trigger SDP on the device */
-  pairing_cb.sdp_attempts = 1;
   btif_dm_get_remote_services_by_transport((RawAddress*)data, BT_TRANSPORT_BR_EDR);
 }
 
@@ -1315,6 +1314,8 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
     if (check_cod_hid(&bd_addr)) {
       BTIF_TRACE_DEBUG("%s: btif_dm_sdp_delay_timer started",__func__);
       btif_dm_sdp_delay_timer(&bd_addr);
+      pairing_cb.sdp_attempts = 1;
+      bond_state_changed(BT_STATUS_SUCCESS, bd_addr, BT_BOND_STATE_BONDED);
     } else {
       status = BT_STATUS_SUCCESS;
       state = BT_BOND_STATE_BONDED;
