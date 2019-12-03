@@ -895,7 +895,7 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
   switch (event) {
     case BTIF_SM_ENTER_EVT:
       /* clear the peer_bda */
-      BTIF_TRACE_EVENT("IDLE state for index: %d", index);
+      BTIF_TRACE_EVENT("%s: IDLE state for index: %d", __func__, index);
       memset(&btif_av_cb[index].peer_bda, 0, sizeof(RawAddress)); //TODO
       btif_av_cb[index].flags = 0;
       btif_av_cb[index].edr_3mbps = false;
@@ -910,7 +910,7 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       btif_av_cb[index].is_suspend_for_remote_start = false;
       btif_av_cb[index].retry_rc_connect = false;
 #if (TWS_ENABLED == TRUE)
-      BTIF_TRACE_EVENT("reset tws_device flag in IDLE state");
+      BTIF_TRACE_EVENT("%s: reset tws_device flag in IDLE state", __func__);
       btif_av_cb[index].tws_device = false;
       btif_av_cb[index].offload_state = false;
 #if (TWS_STATE_ENABLED == TRUE)
@@ -947,18 +947,17 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
         }
       }
       if (other_device_connected == false) {
-        BTIF_TRACE_EVENT("reset A2dp states in IDLE ");
+        BTIF_TRACE_EVENT("%s: reset A2dp states in IDLE ", __func__);
         bta_av_co_init(btif_av_cb[index].codec_priorities, offload_enabled_codecs_config_);
         btif_a2dp_on_idle();
       } else {
         //There is another AV connection, update current playin
-        BTIF_TRACE_EVENT("idle state for index %d init_co", index);
+        BTIF_TRACE_EVENT("%s: idle state for index %d init_co", __func__, index);
         bta_av_co_peer_init(btif_av_cb[index].codec_priorities, index);
       }
-      if (!btif_a2dp_source_is_hal_v2_supported() &&
-          !btif_av_is_playing_on_other_idx(index) &&
+      if (!btif_av_is_local_started_on_other_idx(index) &&
            btif_av_is_split_a2dp_enabled()) {
-        BTIF_TRACE_EVENT("reset Vendor flag A2DP state is IDLE");
+        BTIF_TRACE_EVENT("%s: reset Vendor flag A2DP state is IDLE", __func__);
         reconfig_a2dp = FALSE;
         btif_media_send_reset_vendor_state();
       }
