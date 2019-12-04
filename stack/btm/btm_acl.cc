@@ -1681,7 +1681,9 @@ void btm_acl_role_changed(uint8_t hci_status, const RawAddress* bd_addr,
   tBTM_ROLE_SWITCH_CMPL* p_data = &btm_cb.devcb.switch_role_ref_data;
   tBTM_SEC_DEV_REC* p_dev_rec;
 
-  BTM_TRACE_WARNING ("btm_acl_role_changed: New role: %d", new_role);
+  BTM_TRACE_WARNING("%s: peer %s hci_status:0x%x new_role:%d", __func__,
+                    (p_bda != nullptr) ?
+                      p_bda->ToString().c_str() : "nullptr", hci_status, new_role);
   /* Ignore any stray events */
   if (p == NULL) {
     /* it could be a failure */
@@ -1689,9 +1691,6 @@ void btm_acl_role_changed(uint8_t hci_status, const RawAddress* bd_addr,
       btm_acl_report_role_change(hci_status, bd_addr);
     return;
   }
-
-  BTM_TRACE_WARNING ("btm_acl_role_changed: BDA: %02x-%02x-%02x-%02x-%02x-%02x",
-        p_bda[0], p_bda[1], p_bda[2], p_bda[3], p_bda[4], p_bda[5]);
 
   p_data->hci_status = hci_status;
 
