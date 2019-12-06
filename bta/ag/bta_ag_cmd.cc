@@ -1726,8 +1726,8 @@ void bta_ag_hfp_result(tBTA_AG_SCB* p_scb, tBTA_AG_API_RESULT* p_result) {
          /* Ensure that call active indicator is sent prior to SCO connection
             request by adding some delay. Some remotes are very strict in the
             order of call indicator and SCO connection request. */
-         APPL_TRACE_IMP("%s: sleeping 20msec before opening sco", __func__);
-         usleep(20*1000);
+         APPL_TRACE_IMP("%s: sleeping 200msec before opening sco", __func__);
+         usleep(200*1000);
       }
 
       if (!(p_scb->features & BTA_AG_FEAT_NOSCO)) {
