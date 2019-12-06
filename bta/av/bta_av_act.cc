@@ -80,6 +80,7 @@
 #include "device/include/device_iot_config.h"
 #include "controller.h"
 #include "btif/include/btif_av.h"
+#include "stack/sdp/sdpint.h"
 
 #if (BTA_AR_INCLUDED == TRUE)
 #include "bta_ar_api.h"
@@ -1016,11 +1017,14 @@ tBTA_AV_EVT bta_av_proc_meta_cmd(tAVRC_RESPONSE* p_rc_rsp,
                 BTIF_TRACE_ERROR("Blacklist for AVRCP1.5 = %d", is_dev_avrcpv_blacklisted);
             }
 
-            char avrcp_version[PROPERTY_VALUE_MAX] = {0};
-            osi_property_get(AVRCP_VERSION_PROPERTY, avrcp_version, AVRCP_1_4_STRING);
-            BTIF_TRACE_DEBUG(LOG_TAG, "AVRCP version used for sdp: \"%s\"", avrcp_version);
+            uint16_t profile_version = sdp_get_stored_avrc_tg_version(addr);
+            uint16_t version = (AVRCP_VERSION_BIT_MASK & profile_version);
+            bool is_browse_bit_set =
+                    ((AVRCP_MASK_BRW_BIT & profile_version) == AVRCP_MASK_BRW_BIT);
+            BTIF_TRACE_DEBUG(LOG_TAG, "AVRCP version used for SDP 0x%x,browse supported %d",
+                    version, is_browse_bit_set);
 
-            if ((!strncmp(AVRCP_1_3_STRING, avrcp_version, sizeof(AVRCP_1_3_STRING))) ||
+            if ((version <= AVRC_REV_1_3) || (!is_browse_bit_set) ||
                     (is_dev_avrcpv_blacklisted == TRUE))
             {
                 for (i = 0; i <= p_bta_av_cfg->num_evt_ids; ++i)
