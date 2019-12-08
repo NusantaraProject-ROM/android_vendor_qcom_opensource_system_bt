@@ -460,6 +460,23 @@ extern void BTM_ReadDevInfo(const RawAddress& remote_bda,
 
 /*******************************************************************************
  *
+ * Function         BTM_ReadDevScanInfo
+ *
+ * Description      This function is called to read the device/address type
+ *                  of BD address.
+ *
+ * Parameter        remote_bda: remote device address
+ *                  p_dev_type: output parameter to read the device type.
+ *                  p_addr_type: output parameter to read the address type.
+ *
+ ******************************************************************************/
+extern void BTM_ReadDevScanInfo(const RawAddress& remote_bda,
+                            tBT_DEVICE_TYPE* p_dev_type,
+                            tBLE_ADDR_TYPE* p_addr_type);
+
+
+/*******************************************************************************
+ *
  * Function         BTM_ReadConnectedTransportAddress
  *
  * Description      This function is called to read the paired device/address
