@@ -666,9 +666,18 @@ void BTM_LE_PF_set(tBTM_BLE_PF_FILT_INDEX filt_index,
     switch (cmd.type) {
       case BTM_BLE_PF_ADDR_FILTER: {
         tBLE_BD_ADDR target_addr;
+        tBT_DEVICE_TYPE dev_type;
+
         target_addr.bda = cmd.address;
         target_addr.type = cmd.addr_type;
 
+        /* cmd.addr_type value always coming as 2 (default value).
+         * Due to that addr_type is not taking consider if the remote device
+         * address is Static RANDOM addr_type (1). So here we are reading
+         * proper addr_type from ReadDevInfo. If the device addr_type is not
+         * in the inquiry database or in the bonded list then default addr_type
+         * PUBLIC will be set.*/
+        BTM_ReadDevInfo(target_addr.bda, &dev_type, &target_addr.type);
         BTM_LE_PF_addr_filter(action, filt_index, target_addr,
                               base::DoNothing());
         break;

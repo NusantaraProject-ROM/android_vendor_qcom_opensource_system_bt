@@ -555,7 +555,7 @@ bt_status_t btif_hh_virtual_unplug(const RawAddress* bd_addr) {
   p_dev = btif_hh_find_dev_by_bda(*bd_addr);
   if ((p_dev != NULL) && (p_dev->dev_status == BTHH_CONN_STATE_CONNECTED) &&
       (p_dev->attr_mask & HID_VIRTUAL_CABLE)) {
-    BTIF_TRACE_DEBUG("%s Sending BTA_HH_CTRL_VIRTUAL_CABLE_UNPLUG", __func__);
+    BTIF_TRACE_DEBUG("%s: Sending BTA_HH_CTRL_VIRTUAL_CABLE_UNPLUG for: %s", __func__, bd_str);
     /* start the timer */
     btif_hh_start_vup_timer(bd_addr);
     p_dev->local_vup = true;
@@ -563,7 +563,8 @@ bt_status_t btif_hh_virtual_unplug(const RawAddress* bd_addr) {
     return BT_STATUS_SUCCESS;
   } else if ((p_dev != NULL) &&
              (p_dev->dev_status == BTHH_CONN_STATE_CONNECTED)) {
-    BTIF_TRACE_ERROR("%s: Virtual unplug not suported, disconnecting device");
+    BTIF_TRACE_ERROR("%s: Virtual unplug not suported, disconnecting device: %s",
+                     __func__, bd_str);
     p_dev->local_vup = true;
     BTA_HhClose(p_dev->dev_handle);
     return BT_STATUS_SUCCESS;
@@ -572,6 +573,8 @@ bt_status_t btif_hh_virtual_unplug(const RawAddress* bd_addr) {
                      bd_addr->ToString().c_str(), btif_hh_cb.status);
     if ((btif_hh_cb.pending_conn_address == *bd_addr) &&
        (btif_hh_cb.status == BTIF_HH_DEV_CONNECTING)) {
+          HAL_CBACK(bt_hh_callbacks, connection_state_cb,
+              &btif_hh_cb.pending_conn_address, BTHH_CONN_STATE_DISCONNECTED);
           btif_hh_cb.status = (BTIF_HH_STATUS)BTIF_HH_DEV_DISCONNECTED;
           btif_hh_cb.pending_conn_address = RawAddress::kEmpty;
     }
