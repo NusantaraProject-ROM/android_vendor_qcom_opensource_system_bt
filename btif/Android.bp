@@ -105,8 +105,6 @@ cc_library_static {
         "com.qualcomm.qti.bluetooth_audio@1.0",
         "vendor.qti.hardware.bluetooth_audio@2.0",
         "libhidlbase",
-        "libhidltransport",
-        "libhwbinder",
         "libutils",
 //        "libdl",
         "libcrypto",
