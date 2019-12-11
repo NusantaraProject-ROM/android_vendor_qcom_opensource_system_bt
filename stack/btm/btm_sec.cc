@@ -5460,7 +5460,7 @@ extern tBTM_STATUS btm_sec_execute_procedure(tBTM_SEC_DEV_REC* p_dev_rec) {
        !((p_dev_rec->dev_class[1] & BTM_COD_MAJOR_CLASS_MASK) ==
          BTM_COD_MAJOR_PERIPHERAL)) {
 
-     BTM_TRACE_DEBUG("%s: Pairing SDP in progress, __func__");
+     BTM_TRACE_DEBUG("%s: Pairing SDP in progress", __func__);
      if ((!p_dev_rec->is_originator &&
           (p_dev_rec->security_required & BTM_SEC_IN_ENCRYPT)) ||
          (!p_dev_rec->is_originator &&
