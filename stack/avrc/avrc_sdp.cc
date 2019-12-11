@@ -110,7 +110,8 @@ uint16_t AVRC_FindService(uint16_t service_uuid, const RawAddress& bd_addr,
                           tAVRC_FIND_CBACK* p_cback) {
   bool result = true;
 
-  AVRC_TRACE_API("%s uuid: %x", __func__, service_uuid);
+  AVRC_TRACE_API("%s: uuid: %x, bd_addr: %s", __func__, service_uuid,
+                               bd_addr.ToString().c_str());
   if ((service_uuid != UUID_SERVCLASS_AV_REM_CTRL_TARGET &&
        service_uuid != UUID_SERVCLASS_AV_REMOTE_CONTROL) ||
       p_db == NULL || p_db->p_db == NULL || p_cback == NULL)
@@ -130,6 +131,7 @@ uint16_t AVRC_FindService(uint16_t service_uuid, const RawAddress& bd_addr,
   Uuid uuid_list = Uuid::From16Bit(service_uuid);
   result = SDP_InitDiscoveryDb(p_db->p_db, p_db->db_len, 1, &uuid_list,
                                p_db->num_attr, p_db->p_attrs);
+  AVRC_TRACE_DEBUG("%s: result: %d", __func__, result);
 
   if (result == true) {
     /* store service_uuid and discovery db pointer */
