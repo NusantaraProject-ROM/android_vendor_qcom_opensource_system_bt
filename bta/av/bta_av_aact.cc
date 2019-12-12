@@ -3638,6 +3638,11 @@ void bta_av_rcfg_cfm(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     if ((err_code != AVDT_ERR_TIMEOUT) || disable_avdtp_reconfigure) {
       p_scb->recfg_sup = false;
     }
+
+    if (p_scb->started) {
+      APPL_TRACE_WARNING("%s: set p_scb->started to false", __func__);
+      p_scb->started = false;
+    }
     /* started flag is false when reconfigure command is sent */
     /* drop the buffers queued in L2CAP */
     L2CA_FlushChannel(p_scb->l2c_cid, L2CAP_FLUSH_CHANS_ALL);
