@@ -265,8 +265,9 @@ static int uhid_read_event(btif_hh_device_t* p_dev) {
           " report id = %d",
           ev.u.set_report.rtype, ev.u.set_report.size, ev.u.set_report.id);
       if (p_dev->set_rpt_id_queue) {
-        void* set_rpt_id = (void*)&ev.u.set_report.id;
-        fixed_queue_enqueue(p_dev->set_rpt_id_queue, set_rpt_id);
+        uint32_t* set_rpt_id = (uint32_t *)osi_malloc(sizeof(uint32_t));
+        *set_rpt_id  = ev.u.set_report.id;
+        fixed_queue_enqueue(p_dev->set_rpt_id_queue, (void *)set_rpt_id);
       }
       if (ev.u.set_report.rtype == UHID_FEATURE_REPORT)
         btif_hh_setreport(p_dev, BTHH_FEATURE_REPORT, ev.u.set_report.size,
@@ -289,8 +290,9 @@ static int uhid_read_event(btif_hh_device_t* p_dev) {
       APPL_TRACE_DEBUG("UHID_GET_REPORT: Report type = %d",
                        ev.u.get_report.rtype);
       if (p_dev->get_rpt_id_queue) {
-        void* get_rpt_id = (void*)&ev.u.get_report.id;
-        fixed_queue_enqueue(p_dev->get_rpt_id_queue, get_rpt_id);
+        uint32_t* get_rpt_id = (uint32_t*)osi_malloc(sizeof(uint32_t));
+        *get_rpt_id = ev.u.get_report.id;
+        fixed_queue_enqueue(p_dev->get_rpt_id_queue, (void *)get_rpt_id);
       }
       if (ev.u.get_report.rtype == UHID_FEATURE_REPORT)
         btif_hh_getreport(p_dev, BTHH_FEATURE_REPORT, ev.u.get_report.rnum, 0);
@@ -547,8 +549,10 @@ void bta_hh_co_close(uint8_t dev_handle, uint8_t app_id) {
   for (i = 0; i < BTIF_HH_MAX_HID; i++) {
     p_dev = &btif_hh_cb.devices[i];
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(3, 18, 00))
+    fixed_queue_flush(p_dev->set_rpt_id_queue, osi_free);
     fixed_queue_free(p_dev->set_rpt_id_queue, NULL);
     p_dev->set_rpt_id_queue = NULL;
+    fixed_queue_flush(p_dev->get_rpt_id_queue, osi_free);
     fixed_queue_free(p_dev->get_rpt_id_queue, NULL);
     p_dev->get_rpt_id_queue = NULL;
 #endif  //  (LINUX_VERSION_CODE > KERNEL_VERSION(3,18,00))
@@ -735,6 +739,7 @@ void bta_hh_co_set_rpt_rsp(uint8_t dev_handle, uint8_t status) {
   ev.u.set_report_reply.err = status;
   uhid_write(p_dev->fd, &ev);
 #endif //OFF_TARGET_TEST_ENABLED
+  osi_free(set_rpt_id);
 }
 
 /*******************************************************************************
@@ -795,6 +800,7 @@ void bta_hh_co_get_rpt_rsp(uint8_t dev_handle, uint8_t status, uint8_t* p_rpt,
   }
   uhid_write(p_dev->fd, &ev);
 #endif
+  osi_free(get_rpt_id);
 }
 
 #if (BTA_HH_LE_INCLUDED == TRUE)
