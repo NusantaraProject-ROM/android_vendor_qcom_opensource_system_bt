@@ -1067,6 +1067,13 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           }
 #endif
           break;
+        case BTA_AG_SCO_OPEN_E:
+          // send SCO close event to btif to ensure proper cleanup
+          bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
+          APPL_TRACE_WARNING(
+              "%s: BTA_AG_SCO_SHUTDOWN_ST: Ignoring event %s[%d]", __func__,
+              bta_ag_sco_evt_str(event), event);
+          break;
 
         default:
           APPL_TRACE_WARNING(
