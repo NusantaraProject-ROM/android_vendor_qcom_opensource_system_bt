@@ -1264,16 +1264,16 @@ void bta_gattc_process_indicate(uint16_t conn_id, tGATTC_OPTYPE op,
 
   notify.handle = handle;
 
+  /* if service change indication/notification, don't forward to application */
+  if (bta_gattc_process_srvc_chg_ind(conn_id, p_clrcb, p_srcb, p_clcb, &notify,
+                                     &p_data->att_value))
+    return;
+
   /* Not a service change indication, check for an unallocated HID conn */
   if (bta_hh_le_is_hh_gatt_if(gatt_if) && !p_clcb) {
     APPL_TRACE_ERROR("%s, ignore HID ind/notificiation", __func__);
     return;
   }
-
-  /* if service change indication/notification, don't forward to application */
-  if (bta_gattc_process_srvc_chg_ind(conn_id, p_clrcb, p_srcb, p_clcb, &notify,
-                                     &p_data->att_value))
-    return;
 
   /* if app registered for the notification */
   if (bta_gattc_check_notif_registry(p_clrcb, p_srcb, &notify)) {
