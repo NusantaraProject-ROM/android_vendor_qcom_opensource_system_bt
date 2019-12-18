@@ -5454,10 +5454,13 @@ extern tBTM_STATUS btm_sec_execute_procedure(tBTM_SEC_DEV_REC* p_dev_rec) {
     }
   }
 
-
+  /* synchronize pairing SDP and all profile connections except HID profile*/
   if ((p_dev_rec->sec_flags & BTM_SEC_PAIRING_IN_PROGRESS) &&
-       (p_dev_rec->hci_handle != BTM_SEC_INVALID_HANDLE)) {
+       (p_dev_rec->hci_handle != BTM_SEC_INVALID_HANDLE) &&
+       !((p_dev_rec->dev_class[1] & BTM_COD_MAJOR_CLASS_MASK) ==
+         BTM_COD_MAJOR_PERIPHERAL)) {
 
+     BTM_TRACE_DEBUG("%s: Pairing SDP in progress", __func__);
      if ((!p_dev_rec->is_originator &&
           (p_dev_rec->security_required & BTM_SEC_IN_ENCRYPT)) ||
          (!p_dev_rec->is_originator &&

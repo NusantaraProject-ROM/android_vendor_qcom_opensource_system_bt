@@ -895,7 +895,7 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
   switch (event) {
     case BTIF_SM_ENTER_EVT:
       /* clear the peer_bda */
-      BTIF_TRACE_EVENT("IDLE state for index: %d", index);
+      BTIF_TRACE_EVENT("%s: IDLE state for index: %d", __func__, index);
       memset(&btif_av_cb[index].peer_bda, 0, sizeof(RawAddress)); //TODO
       btif_av_cb[index].flags = 0;
       btif_av_cb[index].edr_3mbps = false;
@@ -910,7 +910,7 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       btif_av_cb[index].is_suspend_for_remote_start = false;
       btif_av_cb[index].retry_rc_connect = false;
 #if (TWS_ENABLED == TRUE)
-      BTIF_TRACE_EVENT("reset tws_device flag in IDLE state");
+      BTIF_TRACE_EVENT("%s: reset tws_device flag in IDLE state", __func__);
       btif_av_cb[index].tws_device = false;
       btif_av_cb[index].offload_state = false;
 #if (TWS_STATE_ENABLED == TRUE)
@@ -947,18 +947,17 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
         }
       }
       if (other_device_connected == false) {
-        BTIF_TRACE_EVENT("reset A2dp states in IDLE ");
+        BTIF_TRACE_EVENT("%s: reset A2dp states in IDLE ", __func__);
         bta_av_co_init(btif_av_cb[index].codec_priorities, offload_enabled_codecs_config_);
         btif_a2dp_on_idle();
       } else {
         //There is another AV connection, update current playin
-        BTIF_TRACE_EVENT("idle state for index %d init_co", index);
+        BTIF_TRACE_EVENT("%s: idle state for index %d init_co", __func__, index);
         bta_av_co_peer_init(btif_av_cb[index].codec_priorities, index);
       }
-      if (!btif_a2dp_source_is_hal_v2_supported() &&
-          !btif_av_is_playing_on_other_idx(index) &&
+      if (!btif_av_is_local_started_on_other_idx(index) &&
            btif_av_is_split_a2dp_enabled()) {
-        BTIF_TRACE_EVENT("reset Vendor flag A2DP state is IDLE");
+        BTIF_TRACE_EVENT("%s: reset Vendor flag A2DP state is IDLE", __func__);
         reconfig_a2dp = FALSE;
         btif_media_send_reset_vendor_state();
       }
@@ -1713,9 +1712,13 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
   RawAddress * bt_addr = NULL;
   tBTA_AV* p_av = (tBTA_AV*)p_data;
 
-  BTIF_TRACE_IMP("%s event:%s flags %x peer_sep %x and index %x reconfig_event: %d",
+  BTIF_TRACE_IMP("%s: event:%s flags %x peer_sep %x and index %x reconfig_event: %d",
      __func__, dump_av_sm_event_name((btif_av_sm_event_t)event),
      btif_av_cb[index].flags, btif_av_cb[index].peer_sep, index, btif_av_cb[index].reconfig_event);
+  if (event == BTA_AV_RC_OPEN_EVT) {
+    BTIF_TRACE_DEBUG("%s: Remote_add: %s", __func__,
+        ((tBTA_AV*)p_data)->rc_open.peer_addr.ToString().c_str());
+  }
 
   if ((event == BTA_AV_REMOTE_CMD_EVT) &&
       (p_av->remote_cmd.rc_id == BTA_AV_RC_PLAY)) {
@@ -3534,10 +3537,10 @@ static int btif_get_conn_state_of_device(RawAddress address) {
   for (i = 0; i < btif_max_av_clients; i++) {
     if (address == btif_av_cb[i].peer_bda) {
       state = btif_sm_get_state(btif_av_cb[i].sm_handle);
-      //BTIF_TRACE_EVENT("BD Found: %02X %02X %02X %02X %02X %02X :state: %s",
-         // address[5], address[4], address[3],
-         // address[2], address[1], address[0],
-         // dump_av_sm_state_name((btif_av_state_t)state));
+      BTIF_TRACE_EVENT("%s: index = %d, BD Found: %s, state: %s",
+           __func__, i, btif_av_cb[i].peer_bda.ToString().c_str(),
+           dump_av_sm_state_name((btif_av_state_t)state));
+      return state;
     }
   }
   return state;
@@ -3587,6 +3590,8 @@ static int btif_av_get_valid_idx_for_rc_events(RawAddress bd_addr, int rc_handle
 static void btif_av_check_rc_connection_priority(void *p_data) {
   RawAddress peer_bda;
 
+  BTIF_TRACE_DEBUG("%s: %s:", __func__,
+                 ((tBTA_AV*)p_data)->rc_open.peer_addr.ToString().c_str());
   /*Check if it is for same AV device*/
   if (btif_av_is_device_connected(((tBTA_AV*)p_data)->rc_open.peer_addr)) {
     /*AV is connected */
@@ -3594,7 +3599,6 @@ static void btif_av_check_rc_connection_priority(void *p_data) {
     btif_rc_handler(BTA_AV_RC_OPEN_EVT, (tBTA_AV*)p_data);
     return;
   }
-  BTIF_TRACE_DEBUG("btif_av_check_rc_connection_priority");
   peer_bda = ((tBTA_AV*)p_data)->rc_open.peer_addr;
 
   if (idle_rc_event != 0) {
@@ -4341,17 +4345,22 @@ static bt_status_t connect_int(RawAddress* bd_addr, uint16_t uuid) {
     btif_queue_advance_by_uuid(uuid, bd_addr);
     return BT_STATUS_SUCCESS;
   }
-  for (i = 0; i < btif_max_av_clients;) {
+  for (i = 0; i < btif_max_av_clients; i++) {
     if (btif_av_get_valid_idx(i)) {
       if (*bd_addr == btif_av_cb[i].peer_bda) {
         BTIF_TRACE_ERROR("Attempting connection for non idle device.. back off ");
         btif_queue_advance_by_uuid(uuid, bd_addr);
         return BT_STATUS_SUCCESS;
       }
-      i++;
-    } else
-      break;
+    }
   }
+  for (i = 0; i < btif_max_av_clients; i++) {
+    if (!btif_av_get_valid_idx(i)) {
+      BTIF_TRACE_DEBUG("%s: index %d is idle", __func__, i);
+      break;
+    }
+  }
+
   if (i == btif_max_av_clients) {
     uint8_t rc_handle;
 

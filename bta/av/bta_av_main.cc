@@ -702,7 +702,7 @@ static void bta_av_api_register(tBTA_AV_DATA* p_data) {
         }
         /* start listening when A2DP is registered */
         if (bta_av_cb.features & BTA_AV_FEAT_RCTG)
-          bta_av_rc_create(&bta_av_cb, AVCT_ACP, p_scb->hdi, BTA_AV_NUM_LINKS + 1);
+          bta_av_rc_create(&bta_av_cb, AVCT_ACP, p_scb->hdi, BTA_AV_NUM_LINKS + 1, NULL);
 
         /* if the AV and AVK are both supported, it cannot support the CT role
          */
@@ -720,7 +720,7 @@ static void bta_av_api_register(tBTA_AV_DATA* p_data) {
                 BTA_ID_AV);
 #endif
 #endif
-            bta_av_rc_create(&bta_av_cb, AVCT_ACP, 0, BTA_AV_NUM_LINKS + 1);
+            bta_av_rc_create(&bta_av_cb, AVCT_ACP, 0, BTA_AV_NUM_LINKS + 1, NULL);
           }
 #if (BTA_AR_INCLUDED == TRUE)
           /* create an SDP record as AVRC CT. We create 1.3 for SOURCE
