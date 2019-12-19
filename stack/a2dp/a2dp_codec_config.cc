@@ -632,6 +632,10 @@ A2dpCodecs::~A2dpCodecs() {
 bool A2dpCodecs::init(bool isMulticastEnabled) {
   LOG_DEBUG(LOG_TAG, "%s", __func__);
   std::lock_guard<std::recursive_mutex> lock(codec_mutex_);
+  ordered_source_codecs_.clear();
+  ordered_sink_codecs_.clear();
+  indexed_codecs_.clear();
+  disabled_codecs_.clear();
   for (int i = BTAV_A2DP_CODEC_INDEX_MIN; i < BTAV_A2DP_CODEC_INDEX_MAX; i++) {
     btav_a2dp_codec_index_t codec_index =
         static_cast<btav_a2dp_codec_index_t>(i);
