@@ -347,6 +347,7 @@ static void bta_av_rc_ctrl_cback(uint8_t handle, uint8_t event,
         (tBTA_AV_RC_CONN_CHG*)osi_malloc(sizeof(tBTA_AV_RC_CONN_CHG));
     p_msg->hdr.event = msg_event;
     p_msg->handle = handle;
+    p_msg->status = result;
     if (peer_addr) p_msg->peer_addr = *peer_addr;
     bta_sys_sendmsg(p_msg);
   }
@@ -425,7 +426,7 @@ static void bta_av_rc_msg_cback(uint8_t handle, uint8_t label, uint8_t opcode,
  *
  ******************************************************************************/
 uint8_t bta_av_rc_create(tBTA_AV_CB* p_cb, uint8_t role, uint8_t shdl,
-                         uint8_t lidx) {
+                         uint8_t lidx, RawAddress *addr) {
   tAVRC_CONN_CB ccb;
   RawAddress bda = RawAddress::kAny;
   uint8_t status = BTA_AV_RC_ROLE_ACP;
@@ -443,6 +444,8 @@ uint8_t bta_av_rc_create(tBTA_AV_CB* p_cb, uint8_t role, uint8_t shdl,
 #endif
   } else {
     p_rcb = bta_av_get_rcb_by_shdl(shdl);
+    if (addr)
+    bda = *addr;
     if (p_rcb != NULL) {
       APPL_TRACE_ERROR("bta_av_rc_create ACP handle exist for shdl:%d", shdl);
       return p_rcb->handle;
@@ -484,6 +487,7 @@ uint8_t bta_av_rc_create(tBTA_AV_CB* p_cb, uint8_t role, uint8_t shdl,
   p_rcb->peer_features = 0;
   p_rcb->cover_art_psm = 0;
   p_rcb->is_browse_active = false;
+  p_rcb->peer_addr = bda;
   /* handle 0 is reserved for acceptor handle so no need to change acceptor handle */
   if (role == AVCT_ACP && rc_handle == 0 && lidx == (BTA_AV_NUM_LINKS + 1)) {
     /* this LIDX is reserved for the AVRCP ACP connection */
@@ -1444,8 +1448,8 @@ void bta_av_conn_chg(tBTA_AV_DATA* p_data) {
         bta_av_cb.audio_open_cnt++;
       }
 
-      APPL_TRACE_DEBUG("%s: rc_acp_handle:%d rc_acp_idx:%d", p_cb->rc_acp_handle,
-                       __func__, p_cb->rc_acp_idx);
+      APPL_TRACE_DEBUG("%s: rc_acp_handle:%d rc_acp_idx:%d", __func__, p_cb->rc_acp_handle,
+                       p_cb->rc_acp_idx);
       /* check if the AVRCP ACP channel is already connected */
       if (p_lcb && p_cb->rc_acp_handle != BTA_AV_RC_HANDLE_NONE &&
           p_cb->rc_acp_idx) {
@@ -1550,7 +1554,7 @@ void bta_av_conn_chg(tBTA_AV_DATA* p_data) {
     /* if the AVRCP is no longer listening, create the listening channel */
     if (bta_av_cb.rc_acp_handle == BTA_AV_RC_HANDLE_NONE &&
         bta_av_cb.features & BTA_AV_FEAT_RCTG)
-      bta_av_rc_create(&bta_av_cb, AVCT_ACP, 0, BTA_AV_NUM_LINKS + 1);
+      bta_av_rc_create(&bta_av_cb, AVCT_ACP, 0, BTA_AV_NUM_LINKS + 1, NULL);
   }
 
   APPL_TRACE_DEBUG(
@@ -1651,16 +1655,17 @@ static uint16_t bta_sink_time_out() {
 }
 
 /*function is to check if rc connection is already created or not*/
-static bool bta_av_map_scb_rc(RawAddress bd_addr, tBTA_AV_RCB* rcb) {
-  bool map = false;
+static tBTA_AV_RCB* bta_av_map_scb_rc(RawAddress bd_addr, tBTA_AV_RCB* rcb) {
+  tBTA_AV_RCB *tmp_rcb = NULL;
   int i;
   for (i = 0; i < BTA_AV_NUM_STRS; i++) {
     if (bd_addr == rcb[i].peer_addr) {
-      map = true;
+      tmp_rcb = rcb;
+      APPL_TRACE_DEBUG("bta_av_map_scb_rc index %d,",i);
       break;
     }
   }
-  return map;
+  return tmp_rcb;
 }
 
 /*******************************************************************************
@@ -1680,8 +1685,9 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
   uint16_t timeout = 0;
   tBTA_AV_LCB* p_lcb = NULL;
   uint8_t handle;
-  APPL_TRACE_IMP("%s: event: %d, conn_acp: %d", __func__, event,
-                 p_data->hdr.offset);
+  tBTA_AV_RCB *tmp_rcb = NULL;
+  APPL_TRACE_IMP("%s:event: %d, conn_acp: %d addr %s", __func__, event,
+                 p_data->hdr.offset, p_data->str_msg.bd_addr.ToString().c_str());
   if (event == AVDT_CONNECT_IND_EVT) {
     p_lcb = bta_av_find_lcb(p_data->str_msg.bd_addr, BTA_AV_LCB_FIND);
     if (!p_lcb) {
@@ -1730,9 +1736,9 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
           p_lcb = &p_cb->lcb[xx];
           p_lcb->lidx = xx + 1;
           /* start listening when the signal channel is open */
-          if (p_cb->features & BTA_AV_FEAT_RCTG &&
-              !bta_av_map_scb_rc(p_data->str_msg.bd_addr, p_cb->rcb)) {
-            if ((handle = bta_av_rc_create(p_cb, AVCT_ACP, 0, p_lcb->lidx)) != 0 &&
+          if ((p_cb->features & BTA_AV_FEAT_RCTG) &&
+              (bta_av_map_scb_rc(p_data->str_msg.bd_addr, p_cb->rcb) == NULL)) {
+            if ((handle = bta_av_rc_create(p_cb, AVCT_ACP, 0, p_lcb->lidx, &p_data->str_msg.bd_addr)) != 0 &&
                  (handle != BTA_AV_RC_HANDLE_NONE)) {
               p_cb->p_scb[xx]->rc_ccb_alloc_handle = handle;
             }
@@ -1826,6 +1832,16 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
                              p_cb->p_scb[xx]->peer_addr.ToString().c_str());
           bta_av_ssm_execute(p_cb->p_scb[xx], BTA_AV_AVDT_DISCONNECT_EVT, NULL);
         }
+      }
+    }
+    if (((tmp_rcb = bta_av_map_scb_rc(p_data->str_msg.bd_addr, p_cb->rcb))
+         != NULL) && tmp_rcb->handle != BTA_AV_RC_HANDLE_NONE) {
+      //get rcb as per bd address to initiate cleanup
+      APPL_TRACE_IMP("%s:bta_av_sig_chg event: closing unmaped RC handle %d",
+        __func__, tmp_rcb->handle)
+      if (tmp_rcb->handle) {
+        // rc handle 0 is reserved for acceptor, need to cleanup from old path
+        AVRC_Close(tmp_rcb->handle);
       }
     }
   }
@@ -2270,7 +2286,7 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
             p_scb->rc_ccb_alloc_handle = BTA_AV_RC_HANDLE_NONE;
           }
           rc_handle = bta_av_rc_create(p_cb, AVCT_INT,
-                                       (uint8_t)(p_scb->hdi + 1), p_lcb->lidx);
+                                       (uint8_t)(p_scb->hdi + 1), p_lcb->lidx, NULL);
           if ((rc_handle != BTA_AV_RC_HANDLE_NONE) && (rc_handle < BTA_AV_NUM_RCB)) {
             p_cb->rcb[rc_handle].peer_features = peer_features;
             p_cb->rcb[rc_handle].cover_art_psm = cover_art_psm;
@@ -2568,6 +2584,7 @@ void bta_av_rc_closed(tBTA_AV_DATA* p_data) {
         p_rcb->handle = BTA_AV_RC_HANDLE_NONE;
         p_rcb->status = 0;
         p_rcb->is_browse_active = false;
+        p_rcb->peer_addr = RawAddress::kEmpty;
       } else {
         /* AVCT CCB is still there. dealloc */
         bta_av_del_rc(p_rcb);
@@ -2584,6 +2601,8 @@ void bta_av_rc_closed(tBTA_AV_DATA* p_data) {
       /* at least one channel is still connected */
       conn = true;
     }
+    APPL_TRACE_DEBUG("bta_av_rc_closed rcb[%d] rc_handle:%d, status=0x%x", i,
+                     p_rcb->handle, p_rcb->status);
   }
 
   if (!conn) {
@@ -2605,7 +2624,10 @@ void bta_av_rc_closed(tBTA_AV_DATA* p_data) {
   waiting to close browsing connection*/
   if (!browse_support && (bta_av_cb.rc_acp_handle == BTA_AV_RC_HANDLE_NONE) &&
      (bta_av_cb.features & BTA_AV_FEAT_RCTG))
-      bta_av_rc_create(&bta_av_cb, AVCT_ACP, 0, BTA_AV_NUM_LINKS + 1);
+      bta_av_rc_create(&bta_av_cb, AVCT_ACP, 0, BTA_AV_NUM_LINKS + 1, NULL);
+  else if (p_msg->status) {
+      bta_av_rc_create(&bta_av_cb, AVCT_ACP, 0, BTA_AV_NUM_LINKS + 1, &p_msg->peer_addr);
+  }
 }
 
 /*******************************************************************************
@@ -2663,7 +2685,7 @@ void bta_av_rc_browse_closed(tBTA_AV_DATA* p_data) {
     p_rcb->handle = BTA_AV_RC_HANDLE_NONE;
     if (p_rcb->browse_open && (bta_av_cb.rc_acp_handle ==
         BTA_AV_RC_HANDLE_NONE) && (bta_av_cb.features & BTA_AV_FEAT_RCTG))
-      bta_av_rc_create(&bta_av_cb, AVCT_ACP, 0, BTA_AV_NUM_LINKS + 1);
+      bta_av_rc_create(&bta_av_cb, AVCT_ACP, 0, BTA_AV_NUM_LINKS + 1, NULL);
   }
   p_rcb->browse_open = false;
   tBTA_AV bta_av_data;
