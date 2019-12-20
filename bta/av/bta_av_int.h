@@ -119,6 +119,7 @@ enum {
   BTA_AV_ACP_CONNECT_EVT,
   BTA_AV_API_OFFLOAD_START_EVT,
   BTA_AV_API_OFFLOAD_START_RSP_EVT,
+  BTA_AV_RECONFIG_FAIL_EVT,
 
   /* these events are handled outside of the state machine */
   BTA_AV_API_ENABLE_EVT,
