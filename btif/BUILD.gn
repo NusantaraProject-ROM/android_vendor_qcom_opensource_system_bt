@@ -92,7 +92,7 @@ static_library("btif") {
     "//stack/btm",
     "//stack/include",
     "//third_party/tinyxml2",
-    "//include",
+    "//third_party/bt/include",
     "//udrv/include",
     "//utils/include",
     "//vnd/include",
@@ -106,6 +106,7 @@ static_library("btif") {
     "//third_party/system/core/include",
     "//third_party/bluetooth_ext/system_bt_ext",
     "//third_party/libchrome/base",
+    "//third_party/bluetooth-commonsys-intf/include",
   ]
 
   deps = [
@@ -113,5 +114,6 @@ static_library("btif") {
     "//third_party/bluetooth_ext/system_bt_ext:system_bt_ext_btif",
     "//common:common",
     "//osi:osi",
+    "//third_party/bluetooth-internal/test/offtarget/stack/a2dp_hal_sim:a2dp_hal_sim",
   ]
 }

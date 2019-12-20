@@ -24,7 +24,7 @@ static_library("device") {
     "//",
     "//btcore/include",
     "//hci/include",
-    "//include",
+    "//third_party/bt/include",
     "//stack/include",
     "//stock_bt/device/include",
     "//internal_include",
@@ -33,6 +33,8 @@ static_library("device") {
     "//bta/sys",
     "//third_party/bluetooth_ext/system_bt_ext",
     "//third_party/bluetooth_ext/system_bt_ext/btconfigstore",
+    "//third_party/bluetooth-commonsys-intf/include",
+    "//third_party/system/core/include",
   ]
 
   deps = [

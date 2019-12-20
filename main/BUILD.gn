@@ -45,7 +45,7 @@ shared_library("bluetooth") {
     "//bta/sys",
     "//bta/dm",
     "//btcore/include",
-    "//include",
+    "//third_party/bt/include",
     "//stack/include",
     "//stack/l2cap",
     "//stack/a2dp",
@@ -66,6 +66,8 @@ shared_library("bluetooth") {
     "//internal_include",
     "//third_party/bluetooth_ext/vhal/include",
     "//third_party/bluetooth_ext/system_bt_ext",
+    "//third_party/bluetooth-commonsys-intf/include",
+    "//third_party/system/core/include",
   ]
 
   deps = [

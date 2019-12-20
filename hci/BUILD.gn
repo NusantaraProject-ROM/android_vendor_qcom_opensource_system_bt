@@ -31,13 +31,14 @@ static_library("hci") {
   include_dirs = [
     "include",
     "//",
-    "//include",
+    "//third_party/bt/include",
     "//bta/include",
     "//btcore/include",
     "//stack/include",
     "//internal_include",
     "//utils/include",
     "//device/include",
+    "//third_party/bluetooth-commonsys-intf/include",
   ]
 
   deps = [

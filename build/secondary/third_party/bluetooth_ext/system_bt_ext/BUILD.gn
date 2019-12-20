@@ -26,6 +26,8 @@ static_library("system_bt_ext_bta") {
     "//stack/l2cap",
     "//third_party/libchrome",
     "//third_party/googletest/googletest/include",
+    "//third_party/bluetooth-commonsys-intf/include",
+    "//third_party/system/core/include",
   ]
 }
 
@@ -48,7 +50,7 @@ static_library("system_bt_ext_btif") {
     "device/include",
     "bta/include",
     "btif/include",
-    "//include",
+    "//third_party/bt/include",
     "//third_party/bluetooth_ext/vhal/include",
     "//",
     "//btcore/include",
@@ -62,6 +64,7 @@ static_library("system_bt_ext_btif") {
     "//utils/include",
     "//stack/l2cap",
     "//third_party/system/core/include",
+    "//third_party/bluetooth-commonsys-intf/include",
   ]
   deps = [
     "//third_party/libchrome:base",
@@ -131,7 +134,7 @@ static_library("system_bt_ext_stack") {
     "//btcore/include",
     "//btif/include",
     "//hci/include",
-    "//include",
+    "//third_party/bt/include",
     "//internal_include",
     "//udrv/include",
     "//bta/include",
@@ -140,6 +143,8 @@ static_library("system_bt_ext_stack") {
     "//stack/include",
     "//stack/btm",
     "//third_party/bluetooth_ext/system_bt_ext/device/include",
+    "//third_party/bluetooth-commonsys-intf/include",
+    "//third_party/system/core/include",
   ]
   deps = [
     "//third_party/libchrome:base",

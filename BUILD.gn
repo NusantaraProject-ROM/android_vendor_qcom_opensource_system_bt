@@ -24,6 +24,6 @@
 group("bluetooth") {
   deps = [
     "//main:bluetooth",
-    "//service:offtarget_test",
+    "//third_party/bluetooth-internal/test/offtarget/stack:offtarget_test",
   ]
 }

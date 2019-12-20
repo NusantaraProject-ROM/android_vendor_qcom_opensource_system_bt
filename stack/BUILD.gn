@@ -163,7 +163,7 @@ static_library("stack") {
     "//vnd/ble",
     "//btif/include",
     "//hci/include",
-    "//include",
+    "//third_party/bt/include",
     "//udrv/include",
     "//rpc/include",
     "//hcis",
@@ -179,6 +179,7 @@ static_library("stack") {
     "//third_party/bluetooth_ext/system_bt_ext/stack/btm",
     "//third_party/bluetooth_ext/system_bt_ext/stack/include",
     "//third_party/bluetooth_ext/vhal/include",
+    "//third_party/bluetooth-commonsys-intf/include",
     "//service",
   ]
 
