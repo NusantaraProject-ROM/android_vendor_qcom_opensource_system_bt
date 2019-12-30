@@ -1867,6 +1867,10 @@ static tBTA_JV_PCB* bta_jv_add_rfc_port(tBTA_JV_RFC_CB* p_cb,
         APPL_TRACE_DEBUG(
             "bta_jv_add_rfc_port: p_pcb->handle:0x%x, curr_sess:%d",
             p_pcb->handle, p_cb->curr_sess);
+      } else {
+        APPL_TRACE_ERROR(
+            "bta_jv_add_rfc_port, RFCOMM_CreateConnection failed");
+        return NULL;
       }
     } else {
       APPL_TRACE_ERROR(
