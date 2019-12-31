@@ -1858,6 +1858,8 @@ bt_status_t HeadsetInterface::PhoneStateChange(
           if (is_active_device(*bd_addr) &&
               (btif_hf_features & BTA_AG_FEAT_INBAND)) {
             ag_res.audio_handle = control_block.handle;
+            btif_transfer_context(btif_in_hf_generic_evt, BTIF_HFP_CB_AUDIO_CONNECTING,
+                     (char*)(&btif_hf_cb[idx].connected_bda), sizeof(RawAddress), NULL);
           }
         }
         if (number) {
