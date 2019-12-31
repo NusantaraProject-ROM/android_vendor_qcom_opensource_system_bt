@@ -752,8 +752,21 @@ bool a2dp_get_selected_hal_codec_config(CodecConfiguration* codec_config) {
                    << current_codec.channel_mode;
         return false;
       }
-      // TODO(cheneyni): refine to support VBR.
-      aac_config.variableBitRateEnabled = AacVariableBitRate::DISABLED;
+      uint8_t vbr_enabled =
+              a2dp_offload.codec_info[1] & A2DP_AAC_VARIABLE_BIT_RATE_MASK;
+      switch (vbr_enabled) {
+        case A2DP_AAC_VARIABLE_BIT_RATE_ENABLED:
+          LOG(INFO) << __func__ << " Enabled AAC VBR =" << +vbr_enabled;
+          aac_config.variableBitRateEnabled = AacVariableBitRate::ENABLED;
+          break;
+        case A2DP_AAC_VARIABLE_BIT_RATE_DISABLED:
+          LOG(INFO) << __func__ << " Disabled AAC VBR =" << +vbr_enabled;
+          aac_config.variableBitRateEnabled = AacVariableBitRate::DISABLED;
+          break;
+        default:
+          LOG(ERROR) << __func__ << ": Unknown AAC VBR=" << +vbr_enabled;
+          return false;
+      }
       aac_config.bitsPerSample =
           a2dp_codec_to_hal_bits_per_sample(current_codec);
       if (aac_config.bitsPerSample == BitsPerSample::BITS_UNKNOWN) {
