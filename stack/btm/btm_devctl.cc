@@ -973,6 +973,61 @@ void btm_enable_soc_iot_info_report(bool enable) {
 }
 
 /*******************************************************************************
+ **
+ ** Function       btm_enable_link_lpa_enh_pwr_ctrl_cmpl
+ **
+ ** Description    btm_enable_link_lpa_enh_pwr_ctrl VSC complete event handler
+ **
+ ** Returns        void
+ **
+ ******************************************************************************/
+static void btm_enable_link_lpa_enh_pwr_ctrl_cmpl(tBTM_VSC_CMPL *param)
+{
+  uint8_t *p = param->p_param_buf, status;
+  uint16_t evt_len = param->param_len;
+
+  /* Check status of command complete event */
+  CHECK(evt_len > 0);
+  status = *p;
+
+  if (evt_len == HCI_VS_ENABLE_LPA_CONTROL_RES_PARAM_LEN) {
+    BTM_TRACE_DEBUG("%s: opcode:%x, subopcode:%x, status:%d, handle: %04x", __func__,
+            param->opcode, *(p+1), *p, *(uint16_t *)(p+2));
+  } else {
+    BTM_TRACE_DEBUG("%s: opcode:%x, status:%d", __func__, param->opcode, status);
+    if (status == HCI_ERR_ILLEGAL_COMMAND) {
+      BTM_TRACE_DEBUG("controller not support the feature");
+    }
+  }
+}
+
+/*******************************************************************************
+ **
+ ** Function        btm_enable_link_lpa_enh_pwr_ctrl
+ **
+ ** Description     enable/disable lpa enhanced power control
+ **                 on completion btm_enable_link_lpa_enh_pwr_ctrl_cmpl callback
+ **                 would be called
+ **
+ ** Returns         void
+ **
+ ******************************************************************************/
+void btm_enable_link_lpa_enh_pwr_ctrl(uint16_t hci_handle, bool enable)
+{
+  uint8_t param[3] = {0};
+  uint8_t *p_param = param;
+
+  BTM_TRACE_DEBUG("%s, hci_handle=%d, enable=%d", __func__, hci_handle, enable);
+
+  UINT8_TO_STREAM(p_param, HCI_VS_ENABLE_LPA_CONTROL_FOR_CONN_HANDLE);
+  UINT16_TO_STREAM(p_param, hci_handle);
+  UINT8_TO_STREAM(p_param, enable ? 1 : 0);
+
+  BTM_VendorSpecificCommand(HCI_VS_LINK_POWER_CTRL_REQ_OPCODE,
+      (p_param - param), param, btm_enable_link_lpa_enh_pwr_ctrl_cmpl);
+}
+
+/*******************************************************************************
  *
  * Function         BTM_WritePageTimeout
  *
