@@ -110,3 +110,5 @@ const controller_t* controller_get_test_interface(
     const hci_t* hci_interface,
     const hci_packet_factory_t* packet_factory_interface,
     const hci_packet_parser_t* packet_parser_interface);
+
+bool is_soc_lpa_enh_pwr_enabled();

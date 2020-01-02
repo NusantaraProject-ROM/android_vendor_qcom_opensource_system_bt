@@ -229,6 +229,17 @@ extern void BTM_VendorSpecificCommand(uint16_t opcode, uint8_t param_len,
 void btm_enable_soc_iot_info_report(bool enable);
 
 /*******************************************************************************
+**
+** Function         btm_enable_link_lpa_enh_pwr_ctrl
+**
+** Description      enable/disable lpa enhanced power control
+**
+** Returns          void
+**
+*******************************************************************************/
+void btm_enable_link_lpa_enh_pwr_ctrl(uint16_t hci_handle, bool enable);
+
+/*******************************************************************************
  *
  * Function         BTM_AllocateSCN
  *
