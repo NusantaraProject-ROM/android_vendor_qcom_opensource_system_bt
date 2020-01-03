@@ -1315,7 +1315,7 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
                                   NULL, p_auth_cmpl->dev_type);
     pairing_cb.timeout_retries = 0;
 
-    if (!(pairing_cb.is_local_initiated ) && check_cod_hid(&bd_addr)) {
+    if (check_cod_hid(&bd_addr)) {
       BTIF_TRACE_DEBUG("%s: btif_dm_sdp_delay_timer started",__func__);
       btif_dm_sdp_delay_timer(&bd_addr);
     } else {
