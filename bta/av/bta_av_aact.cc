@@ -133,6 +133,7 @@ void bta_av_vendor_offload_check_stop_start(tBTA_AV_SCB* p_scb);
 void update_sub_band_info(uint8_t **param, int *param_len, uint8_t id, uint16_t data);
 void update_sub_band_info(uint8_t **param, int *param_len, uint8_t id, uint8_t *data, uint8_t size);
 void enc_mode_change_callback(tBTM_VSC_CMPL *param);
+tBTA_AV_HNDL offload_pending_handle = BTA_AV_HNDL_MSK;
 
 /* state machine states */
 enum {
@@ -4016,7 +4017,20 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
           break;
       case VS_QHCI_A2DP_OFFLOAD_START:
           APPL_TRACE_DEBUG("%s: single VSC success: %d",__func__, param->p_param_buf[1]);
-          (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
+          tBTA_AV bta_av_data;
+          tBTA_AV_OFFLOAD_RSP offload_rsp;
+          if (offload_pending_handle != BTA_AV_HNDL_MSK) {
+            offload_rsp.hndl = offload_pending_handle;
+            offload_pending_handle = BTA_AV_HNDL_MSK;
+            APPL_TRACE_DEBUG("%s:resetting offload_pending_handle",__func__);
+          } else {
+            offload_rsp.hndl = offload_start.p_scb->hndl;
+          }
+          offload_rsp.status = status;
+          //bta_av_data.start.hndl = offload_start.p_scb->hndl;
+          bta_av_data.offload_rsp = offload_rsp;
+          offload_start.p_scb->vendor_start = true;
+          (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, &bta_av_data);
           break;
       default:
       break;
@@ -4030,8 +4044,24 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
     last_sent_vsc_cmd = 0;
   } else {
     APPL_TRACE_DEBUG("Offload failed for subopcode= %d",param->p_param_buf[1]);
-    if (param->opcode != VS_QHCI_STOP_A2DP_MEDIA)
-      (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
+    if (param->opcode != VS_QHCI_STOP_A2DP_MEDIA) {
+      if (!btif_a2dp_src_vsc.multi_vsc_support) {
+        tBTA_AV bta_av_data;
+        tBTA_AV_OFFLOAD_RSP offload_rsp;
+        if (offload_pending_handle != BTA_AV_HNDL_MSK) {
+          offload_rsp.hndl = offload_pending_handle;
+          offload_pending_handle = BTA_AV_HNDL_MSK;
+          APPL_TRACE_DEBUG("%s:resetting offload_pending_handle",__func__);
+        } else {
+          offload_rsp.hndl = offload_start.p_scb->hndl;
+        }
+        offload_rsp.status = status;
+        bta_av_data.offload_rsp = offload_rsp;
+        (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, &bta_av_data);
+      } else {
+        (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, (tBTA_AV*)&status);
+      }
+    }
   }
 }
 
@@ -4497,7 +4527,7 @@ void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
                                          tws_pair_addr) == true) {
               APPL_TRACE_DEBUG("%s:TWS pair found",__func__);
               if (tws_pair_addr == p_scb->peer_addr &&
-                !p_scbi->offload_supported && p_scbi->eb_state == TWSP_EB_STATE_IN_EAR) {
+                !p_scbi->offload_supported) {
                 APPL_TRACE_DEBUG("%s:VSC is not exchanged for second earbud",__func__);
                 offload_start.stream_start = false;
               }
@@ -4526,8 +4556,11 @@ void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
         }
       }
     }
-    else
+    else {
       p_scb->offload_started = false;
+      offload_pending_handle = p_scb->hndl;
+      APPL_TRACE_DEBUG("%s:setting offload_pending_handle = %d", __func__,offload_pending_handle);
+    }
     offload_start.ttp = 150;
     memset(offload_start.codec_info, 0 , AVDT_CODEC_SIZE);
     memcpy(offload_start.codec_info, p_scb->cfg.codec_info,
