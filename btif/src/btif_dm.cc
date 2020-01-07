@@ -1171,17 +1171,6 @@ static void btif_dm_ssp_cfm_req_evt(tBTA_DM_SP_CFM_REQ* p_ssp_cfm_req) {
           "%s: User consent needed for incoming pairing request. loc_io_caps: "
           "%d, rmt_io_caps: %d",
           __func__, p_ssp_cfm_req->loc_io_caps, p_ssp_cfm_req->rmt_io_caps);
-      /* Errata:4348
-       * Pairing confirmation for JustWorks needed if:
-       * 1. Outgoing (non-temporary) pairing is detected AND
-       * 2. local IO capabilities are DisplayYesNo AND
-       * 3. remote IO capbiltiies are NoInputNoOutput
-      */
-      } else if (!is_incoming && pairing_cb.bond_type != BOND_TYPE_TEMPORARY &&
-                (p_ssp_cfm_req->loc_io_caps == HCI_IO_CAP_DISPLAY_YESNO) &&
-                (p_ssp_cfm_req->rmt_io_caps == HCI_IO_CAP_NO_IO)) {
-        BTIF_TRACE_EVENT("%s: Show pairing pop up for outgoing pairing when loc_io_caps: %d,"
-             "rmt_io_caps: %d", __FUNCTION__, p_ssp_cfm_req->loc_io_caps, p_ssp_cfm_req->rmt_io_caps);
       } else {
       BTIF_TRACE_EVENT("%s: Auto-accept JustWorks pairing", __func__);
       btif_dm_ssp_reply(&bd_addr, BT_SSP_VARIANT_CONSENT, true, 0);
