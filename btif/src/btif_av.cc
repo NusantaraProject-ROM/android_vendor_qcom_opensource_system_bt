@@ -1955,7 +1955,7 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
                 BTIF_TRACE_DEBUG("%s: clear remote suspend flag on remote start",
                 __func__);
                 btif_av_cb[index].flags &= ~BTIF_AV_FLAG_REMOTE_SUSPEND;
-            } else {
+            } else if (p_av->start.status == BTA_AV_SUCCESS) {
               BTIF_TRACE_DEBUG("%s: honor remote start on index %d",__func__, index);
               /*avoiding same index timer running*/
               if(!btif_av_cb[index].remote_started) {
