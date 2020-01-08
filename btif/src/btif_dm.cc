@@ -1697,6 +1697,7 @@ static void btif_dm_search_services_evt(uint16_t event, char* p_param) {
         LOG_INFO(LOG_TAG, "%s: SDP search done for %s", __func__,
                  bd_addr.ToString().c_str());
         pairing_cb.sdp_attempts = 0;
+        BTA_DmResetPairingflag(bd_addr);
 
         if((is_tws_plus_device = btif_is_tws_plus_device(&bd_addr))) {
             if(twsplus_enabled == true) {
