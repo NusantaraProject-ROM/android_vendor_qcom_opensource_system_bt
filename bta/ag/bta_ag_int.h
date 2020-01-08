@@ -377,7 +377,6 @@ typedef struct {
   tBTA_AG_SCO_CB twsp_sec_sco;      /*peer Sco detail*/
   tBTA_AG_SCB* main_sm_scb;         /*SCB attached with main sco sm for TWS+*/
   tBTA_AG_SCB* sec_sm_scb;          /*SCB attached with secondary sm for TWS+*/
-  tBTA_AG_SCB* main_sm_legacy_scb;  /*SCB attached with main sm for legacy dev*/
 #endif
 } tBTA_AG_CB;
 
@@ -500,8 +499,6 @@ extern bool bta_ag_remove_sco(tBTA_AG_SCB* p_scb, bool only_active);
 extern void bta_ag_send_result(tBTA_AG_SCB* p_scb, size_t code,
                                const char* p_arg, int16_t int_arg);
 extern void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event);
-#if (BTA_AG_SCO_DEBUG == TRUE)
-extern char* bta_ag_sco_state_str(uint8_t state);
-extern char* bta_ag_sco_evt_str(uint8_t event);
-#endif
+extern const char* bta_ag_sco_evt_str(uint8_t event);
+extern const char* bta_ag_sco_state_str(uint8_t state);
 #endif /* BTA_AG_INT_H */

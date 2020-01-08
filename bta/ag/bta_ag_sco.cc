@@ -82,10 +82,6 @@
 
 #include <btcommon_interface_defs.h>
 
-#ifndef BTA_AG_SCO_DEBUG
-#define BTA_AG_SCO_DEBUG FALSE
-#endif
-
 bool sco_init_rmt_xfer = false;
 
 /* Codec negotiation timeout */
@@ -96,9 +92,6 @@ bool sco_init_rmt_xfer = false;
 #ifndef BTA_AG_XSCO_COLLISION_TIMEOUT_MS
 #define BTA_AG_XSCO_COLLISION_TIMEOUT_MS (2 * 1000) /* 2 seconds */
 #endif
-
-const char* bta_ag_sco_evt_str(uint8_t event);
-const char* bta_ag_sco_state_str(uint8_t state);
 
 static bool sco_allowed = true;
 static RawAddress active_device_addr;
@@ -992,6 +985,26 @@ void bta_ag_codec_negotiate(tBTA_AG_SCB* p_scb) {
   }
 }
 
+bool bta_ag_is_other_legacy_device_connected(tBTA_AG_SCB* p_curr_scb) {
+  tBTA_AG_SCB* p_scb = &bta_ag_cb.scb[0];
+  int i;
+
+  for (i = 0; i < BTA_AG_MAX_NUM_CLIENTS; i++, p_scb++) {
+    if (p_scb->in_use && p_scb != p_curr_scb &&
+#if (TWS_AG_ENABLED == TRUE)
+        !is_twsp_device(p_scb->peer_addr) &&  /*ignore tws scb*/
+#endif
+        p_scb->state == BTA_AG_OPEN_ST) {
+      return true;
+    }
+  }
+
+  /* no other scb found */
+  APPL_TRACE_DEBUG("%s: No other legacy device connected", __func__);
+  return false;
+}
+
+
 /*******************************************************************************
  *
  * Function         bta_ag_sco_event
@@ -1004,11 +1017,12 @@ void bta_ag_codec_negotiate(tBTA_AG_SCB* p_scb) {
  ******************************************************************************/
 void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
   tBTA_AG_SCO_CB* p_sco = &bta_ag_cb.sco;
+  uint8_t in_state;
 #if (BTM_SCO_HCI_INCLUDED == TRUE)
   BT_HDR* p_buf;
 #endif
 
-  APPL_TRACE_EVENT("%s: index=0x%04x, device=%s, state=%s[%d], event=%s[%d]",
+  APPL_TRACE_IMP("%s: index=0x%04x, device=%s, state=%s[%d], event=%s[%d]",
                    __func__, p_scb->sco_idx,
                    p_scb->peer_addr.ToString().c_str(),
                    bta_ag_sco_state_str(p_sco->state), p_sco->state,
@@ -1031,6 +1045,7 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
   }
 #endif
   APPL_TRACE_DEBUG("%s: p_scb: %x\n", __func__, p_scb);
+  in_state = p_sco->state;
 
   switch (p_sco->state) {
     case BTA_AG_SCO_SHUTDOWN_ST:
@@ -1039,8 +1054,6 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
 #if (TWS_AG_ENABLED == TRUE)
           if (is_twsp_device(p_scb->peer_addr)) {
               bta_ag_cb.main_sm_scb = p_scb;
-          } else {
-              bta_ag_cb.main_sm_legacy_scb = p_scb;
           }
 #endif
           /* create sco listen connection */
@@ -1085,7 +1098,6 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
 #endif
             bta_ag_create_sco(p_scb, false);
 #if (TWS_AG_ENABLED == TRUE)
-            bta_ag_cb.main_sm_legacy_scb = p_scb;
         }
 #endif
          break;
@@ -1111,26 +1123,21 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           /* remove listening connection */
           bta_ag_remove_sco(p_scb, false);
 
-          if (p_scb == p_sco->p_curr_scb) p_sco->p_curr_scb = NULL;
-
-#if (TWS_AG_ENABLED == TRUE)
-          if (p_scb == bta_ag_cb.main_sm_legacy_scb) {
-              bta_ag_cb.main_sm_legacy_scb = NULL;
-          }
-#endif
 
           /* If last SCO instance then finish shutting down */
           if (!bta_ag_other_scb_open(p_scb)) {
             p_sco->state = BTA_AG_SCO_SHUTDOWN_ST;
-            APPL_TRACE_DEBUG("sco sm moved to shutdown state");
+          } else /* Other instance is still listening */
+          {
+            p_sco->state = BTA_AG_SCO_LISTEN_ST;
           }
 #if (TWS_AG_ENABLED == TRUE)
           if (is_twsp_device(p_scb->peer_addr)) {
               if (p_scb == p_sco->p_curr_scb) {
                   if (p_scb == bta_ag_cb.main_sm_scb) {
-                      if (bta_ag_cb.main_sm_legacy_scb == NULL) {
+                      if(bta_ag_is_other_legacy_device_connected(p_scb) != true) {
                           p_sco->state = BTA_AG_SCO_SHUTDOWN_ST;
-                          APPL_TRACE_DEBUG("%s: moved to shutdown st",__func__);
+                          APPL_TRACE_WARNING("%s: moved to shutdown st",__func__);
                       } else {
                           //If there is Legacy Connection
                           //Keep it back in LISTEN_ST
@@ -1143,6 +1150,10 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
               }
           }
 #endif
+          if (p_scb == p_sco->p_curr_scb) {
+            p_sco->p_curr_scb = NULL;
+          }
+
           break;
 
         case BTA_AG_SCO_CLOSE_E:
@@ -1188,7 +1199,6 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
              /* create sco listen connection (Additional channel) */
              bta_ag_create_sco(p_scb, false);
 #if (TWS_AG_ENABLED == TRUE)
-             bta_ag_cb.main_sm_legacy_scb = p_scb;
           }
 #endif
           break;
@@ -1221,12 +1231,6 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           /* remove listening connection */
           bta_ag_remove_sco(p_scb, false);
 
-
-#if (TWS_AG_ENABLED == TRUE)
-          if (p_scb == bta_ag_cb.main_sm_legacy_scb) {
-              bta_ag_cb.main_sm_legacy_scb = NULL;
-          }
-#endif
           /* If last SCO instance then finish shutting down */
           if (!bta_ag_other_scb_open(p_scb)) {
             p_sco->state = BTA_AG_SCO_SHUTDOWN_ST;
@@ -1238,7 +1242,7 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           if (is_twsp_device(p_scb->peer_addr)) {
              if (p_scb == p_sco->p_curr_scb) {
                  if (p_scb == bta_ag_cb.main_sm_scb) {
-                     if (bta_ag_cb.main_sm_legacy_scb == NULL) {
+                     if(bta_ag_is_other_legacy_device_connected(p_scb) != true) {
                          p_sco->state = BTA_AG_SCO_SHUTDOWN_ST;
                      } else {
                          //keep main SM back in LISTEN
@@ -1324,7 +1328,6 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
 #endif
                  bta_ag_create_sco(p_scb, false);
 #if (TWS_AG_ENABLED == TRUE)
-                 bta_ag_cb.main_sm_legacy_scb = p_scb;
               }
 #endif
           }
@@ -1368,18 +1371,12 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           /* remove listening connection */
           bta_ag_remove_sco(p_scb, FALSE);
 
-          if (p_scb == p_sco->p_curr_scb) {
-            p_sco->p_curr_scb = NULL;
-          }
-
-#if (TWS_AG_ENABLED == TRUE)
-          if (p_scb == bta_ag_cb.main_sm_legacy_scb){
-              bta_ag_cb.main_sm_legacy_scb = NULL;
-          }
-#endif
           /* If last SCO instance then finish shutting down */
           if (!bta_ag_other_scb_open(p_scb)) {
             p_sco->state = BTA_AG_SCO_SHUTDOWN_ST;
+          } else /* Other instance is still listening */
+          {
+            p_sco->state = BTA_AG_SCO_LISTEN_ST;
           }
 #if (TWS_AG_ENABLED == TRUE)
           if (is_twsp_device(p_scb->peer_addr)) {
@@ -1387,7 +1384,7 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
               * operate independently*/
              if (p_scb == p_sco->p_curr_scb) {
                  if (bta_ag_cb.main_sm_scb == p_scb) {
-                     if (bta_ag_cb.main_sm_legacy_scb == NULL) {
+                     if(bta_ag_is_other_legacy_device_connected(p_scb) != true) {
                          p_sco->state = BTA_AG_SCO_SHUTDOWN_ST;
                      } else {
                          p_sco->state = BTA_AG_SCO_LISTEN_ST;
@@ -1399,6 +1396,10 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
              }
           }
 #endif
+          if (p_scb == p_sco->p_curr_scb) {
+            p_sco->p_curr_scb = NULL;
+          }
+
           break;
 
         case BTA_AG_SCO_CONN_OPEN_E:
@@ -1461,25 +1462,18 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           /* remove listening connection */
           bta_ag_remove_sco(p_scb, FALSE);
 
-          if (p_scb == p_sco->p_curr_scb) {
-            p_sco->p_curr_scb = NULL;
-          }
-
-#if (TWS_AG_ENABLED == TRUE)
-          if (p_scb == bta_ag_cb.main_sm_legacy_scb) {
-             bta_ag_cb.main_sm_legacy_scb = NULL;
-          }
-#endif
-
           /* If last SCO instance then finish shutting down */
           if (!bta_ag_other_scb_open(p_scb)) {
             p_sco->state = BTA_AG_SCO_SHUTDOWN_ST;
+          } else /* Other instance is still listening */
+          {
+            p_sco->state = BTA_AG_SCO_LISTEN_ST;
           }
 #if (TWS_AG_ENABLED == TRUE)
           if (is_twsp_device(p_scb->peer_addr)) {
              if (p_scb == p_sco->p_curr_scb) {
                  if (p_scb == bta_ag_cb.main_sm_scb) {
-                     if (bta_ag_cb.main_sm_legacy_scb == NULL) {
+                     if(bta_ag_is_other_legacy_device_connected(p_scb) != true) {
                          p_sco->state = BTA_AG_SCO_SHUTDOWN_ST;
                      } else {
                          p_sco->state = BTA_AG_SCO_LISTEN_ST;
@@ -1494,6 +1488,10 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
              p_sco->state = BTA_AG_SCO_SHUTDOWN_ST;
           }
 #endif
+
+          if (p_scb == p_sco->p_curr_scb) {
+            p_sco->p_curr_scb = NULL;
+          }
           break;
 
         case BTA_AG_SCO_CONN_OPEN_E:
@@ -1578,7 +1576,6 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
 #endif
                  bta_ag_create_sco(p_scb, false);
 #if (TWS_AG_ENABLED == TRUE)
-                 bta_ag_cb.main_sm_legacy_scb = p_scb;
           }
 #endif
           }
@@ -1616,7 +1613,7 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
                           bta_ag_cb.main_sm_scb = NULL;
                       }
 
-                      if (bta_ag_cb.main_sm_legacy_scb == NULL) {
+                      if(bta_ag_is_other_legacy_device_connected(p_scb) != true) {
                           p_sco->state = BTA_AG_SCO_SHUTDOWN_ST;
                       } else {
                           p_sco->state = BTA_AG_SCO_LISTEN_ST;
@@ -1645,6 +1642,10 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
 #if (TWS_AG_ENABLED == TRUE)
           }
 #endif
+
+            if (p_scb == p_sco->p_curr_scb) {
+              p_sco->p_curr_scb = NULL;
+            }
           }
           break;
 
@@ -1684,7 +1685,6 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
 #endif
                   bta_ag_create_sco(p_scb, false);
 #if (TWS_AG_ENABLED == TRUE)
-                  bta_ag_cb.main_sm_legacy_scb = p_scb;
               }
 #endif
           } break;
@@ -1704,7 +1704,7 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
 #if (TWS_AG_ENABLED == TRUE)
           if (is_twsp_device(p_scb->peer_addr)) {
               if (p_scb == p_sco->p_curr_scb) {
-                  if (bta_ag_cb.main_sm_legacy_scb == NULL) {
+                  if(bta_ag_is_other_legacy_device_connected(p_scb) != true) {
                       p_sco->state = BTA_AG_SCO_SHUTTING_ST;
                   }
               } else {
@@ -1725,6 +1725,10 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
 #if (TWS_AG_ENABLED == TRUE)
           }
 #endif
+
+          if (p_scb == p_sco->p_curr_scb) {
+            p_sco->p_curr_scb = NULL;
+          }
           break;
 
         case BTA_AG_SCO_CONN_CLOSE_E:
@@ -1868,7 +1872,7 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
         case BTA_AG_SCO_CONN_CLOSE_E:
 #if (TWS_AG_ENABLED == TRUE)
           if (is_twsp_device(p_scb->peer_addr) ) {
-              if (bta_ag_cb.main_sm_legacy_scb == NULL) {
+              if(bta_ag_is_other_legacy_device_connected(p_scb) != true) {
                   p_sco->state = BTA_AG_SCO_SHUTDOWN_ST;
               } else {
                  p_sco->state = BTA_AG_SCO_LISTEN_ST;
@@ -1923,7 +1927,6 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
 #endif
                   bta_ag_create_sco(p_scb, false);
 #if (TWS_AG_ENABLED == TRUE)
-                  bta_ag_cb.main_sm_legacy_scb = p_scb;
               }
 #endif
           }
@@ -1935,7 +1938,7 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
              /* if the current device is TWS move it to SHUTDOWN as sms
               * operate independently*/
              if (p_scb == p_sco->p_curr_scb) {
-                 if (bta_ag_cb.main_sm_legacy_scb == NULL) {
+                 if(bta_ag_is_other_legacy_device_connected(p_scb) != true) {
                      p_sco->state = BTA_AG_SCO_SHUTDOWN_ST;
                  } else {
                      p_sco->state = BTA_AG_SCO_LISTEN_ST;
@@ -1960,9 +1963,6 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
             p_sco->p_curr_scb = NULL;
           }
 #if (TWS_AG_ENABLED == TRUE)
-          if (p_scb == bta_ag_cb.main_sm_legacy_scb) {
-              bta_ag_cb.main_sm_legacy_scb = NULL;
-          }
           }
 #endif
           break;
@@ -1978,14 +1978,10 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
     default:
       break;
   }
-#if (BTA_AG_SCO_DEBUG == TRUE)
-  if (p_sco->state != in_state) {
-         APPL_TRACE_IMP("BTA AG SCO State Change: [%s] -> [%s] after Event [%s]",
+  APPL_TRACE_IMP("BTA AG SCO State Change: [%s] -> [%s] after Event [%s]",
                            bta_ag_sco_state_str(in_state),
                            bta_ag_sco_state_str(p_sco->state),
                            bta_ag_sco_evt_str(event));
-  }
-#endif
 }
 
 /*******************************************************************************
