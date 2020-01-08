@@ -88,6 +88,7 @@
 #include "stack/sdp/sdpint.h"
 #include "btif_bat.h"
 #include "btif_tws_plus.h"
+#include "btif/include/btif_config.h"
 #define RC_INVALID_TRACK_ID (0xFFFFFFFFFFFFFFFFULL)
 
 /*****************************************************************************
@@ -279,6 +280,7 @@ typedef struct {
   alarm_t* rc_play_status_timer;
   bool rc_features_processed;
   uint64_t rc_playing_uid;
+  bool rc_only_peer_device;
   bool rc_procedure_complete;
   bool rc_play_processed;
   bool rc_ignore_play_released;
@@ -445,6 +447,7 @@ static void btif_rc_upstreams_rsp_evt(uint16_t event,
 
 static void rc_start_play_status_timer(btif_rc_device_cb_t* p_dev);
 static bool absolute_volume_disabled(void);
+static bool is_peer_avrcp_only_device(RawAddress bd_addr);
 static bt_status_t set_volume(uint8_t volume, RawAddress*bd_addr);
 /*****************************************************************************
  *  Static variables
@@ -517,23 +520,7 @@ static btif_rc_device_cb_t* get_connected_device_from_index(int index) {
   }
   return (&btif_rc_cb.rc_multi_cb[index]);
 }
-/*
-static btif_rc_device_cb_t* get_connected_device() {
-  BTIF_TRACE_DEBUG("%s", __func__);
-  int index;
-  if (btif_rc_cb.rc_multi_cb == NULL) {
-    BTIF_TRACE_ERROR("%s: RC multicb is NULL", __func__);
-    return NULL;
-  }
-  for (index = 0; index < btif_max_rc_clients; index++) {
-    if (btif_rc_cb.rc_multi_cb[index].rc_state ==
-        BTRC_CONNECTION_STATE_CONNECTED) {
-      return (&btif_rc_cb.rc_multi_cb[index]);
-    }
-  }
-  return NULL;
-}
-*/
+
 static int get_num_connected_devices() {
   int connected_devices = 0;
 
@@ -916,6 +903,7 @@ void handle_rc_connect(tBTA_AV_RC_OPEN* p_rc_open) {
 #if (TWS_ENABLED == TRUE)
   p_dev->rc_initial_volume = MAX_VOLUME;
 #endif
+  p_dev->rc_only_peer_device = is_peer_avrcp_only_device(p_dev->rc_addr);
   p_dev->rc_connected = true;
   p_dev->rc_handle = p_rc_open->rc_handle;
   p_dev->rc_state = BTRC_CONNECTION_STATE_CONNECTED;
@@ -1172,9 +1160,10 @@ skip:
                    p_remote_cmd->rc_id);
 
   /* If AVRC is open and peer sends PLAY but there is no AVDT, then we queue-up
-   * this PLAY */
-  if ((p_remote_cmd->rc_id == BTA_AV_RC_PLAY) && (!btif_av_is_device_connected(p_dev->rc_addr))) {
-    APPL_TRACE_WARNING("%s: AVDT not open, queuing the PLAY command",
+   * this PLAY for A2DP Supported devices */
+  if ((p_remote_cmd->rc_id == BTA_AV_RC_PLAY) && (!btif_av_is_device_connected(p_dev->rc_addr))
+      && (p_dev->rc_only_peer_device == false)) {
+    APPL_TRACE_WARNING("%s: AVDT not open, queuing PLAY command for A2DP Supported devices",
                        __func__);
     p_dev->rc_pending_play = true;
     return;
@@ -1189,13 +1178,13 @@ skip:
   }
 
   if ((p_remote_cmd->rc_id == BTA_AV_RC_STOP) &&
-      (!btif_av_stream_started_ready())) {
-    APPL_TRACE_WARNING("%s: Stream suspended, ignore STOP cmd", __func__);
+      (!btif_av_stream_started_ready()) && (p_dev->rc_only_peer_device == false)) {
+    APPL_TRACE_WARNING("%s: Stream suspended, ignore STOP cmd for A2DP devices", __func__);
     return;
   }
 
-  if (!btif_av_is_connected()) {
-    APPL_TRACE_WARNING("%s: AVDT not open, discarding pass-through command: %d",
+  if (!btif_av_is_connected() && (p_dev->rc_only_peer_device == false)) {
+    APPL_TRACE_WARNING("%s: AVDT not open, discard PT command for A2DP supported devices: %d",
                         __func__, p_remote_cmd->rc_id);
     return;
   }
@@ -2542,21 +2531,6 @@ static bt_status_t init(btrc_callbacks_t* callbacks, int max_connections) {
   return result;
 }
 
-/*static bt_status_t init(btrc_callbacks_t* callbacks) {
-  int max_connections = 1;
-  char prop_connected_devices[PROPERTY_VALUE_MAX];
-  property_get("persist.bluetooth.maxconnectedaudiodevices", prop_connected_devices, "1");
-  BTIF_TRACE_DEBUG("%s: max_connections from apps = %d", __func__, atoi(prop_connected_devices));
-  if (atoi(prop_connected_devices) > 1)
-    max_connections = 2;
-  else
-    max_connections = atoi(prop_connected_devices);
-  BTIF_TRACE_DEBUG("%s: max_connections changed to = %d", __func__, max_connections);
-  bt_status_t ret = init(callbacks, max_connections);
-  return ret;
-}*/
-
-
 /*******************************************************************************
  *
  * Function         init_ctrl
@@ -3229,26 +3203,6 @@ static bt_status_t register_notification_rsp(
   }
   return BT_STATUS_SUCCESS;
 }
-
-/*static bt_status_t register_notification_rsp(
-    btrc_event_id_t event_id, btrc_notification_type_t type,
-    btrc_register_notification_t* p_param) {
-  RawAddress *addr = NULL;
-  btif_rc_device_cb_t *p_dev = NULL;
-  if (get_num_connected_devices() > 0)
-    p_dev = get_connected_device();
-  else
-    return BT_STATUS_UNHANDLED;
-
-  if(p_dev != NULL && (p_dev->rc_connected == TRUE))
-    addr = &p_dev->rc_addr;
-  else
-    return BT_STATUS_UNHANDLED;
-
-  return register_notification_rsp(event_id, type, p_param, addr);
-}
-*/
-
 
 /***************************************************************************
  *
@@ -3989,24 +3943,6 @@ static bt_status_t set_volume(uint8_t volume, RawAddress*bd_addr) {
   }
   return (bt_status_t)status;
 }
-
-/*static bt_status_t set_volume(uint8_t volume) {
-  RawAddress *addr = NULL;
-  btif_rc_device_cb_t *p_dev = NULL;
-
-  if (get_num_connected_devices() > 0)
-    p_dev = get_connected_device();
-  else
-    return BT_STATUS_UNHANDLED;
-
-  if(p_dev != NULL && (p_dev->rc_connected == TRUE))
-    addr = &p_dev->rc_addr;
-  else
-    return BT_STATUS_UNHANDLED;
-
-  return set_volume(volume, addr);
-}*/
-
 
 /***************************************************************************
  *
@@ -7061,6 +6997,18 @@ static void sleep_ms(period_ms_t timeout_ms) {
   delay.tv_nsec = 1000 * 1000 * (timeout_ms % 1000);
 
   OSI_NO_INTR(nanosleep(&delay, &delay));
+}
+
+static bool is_peer_avrcp_only_device(RawAddress bd_addr) {
+  uint16_t version = 0;
+  if (bd_addr == RawAddress::kEmpty)
+    return false;
+  bool a2dp_supported = btif_config_get_uint16(bd_addr.ToString().c_str(),
+                             AVDTP_VERSION_CONFIG_KEY, (uint16_t*)&version);
+  bool avrcp_supported = btif_config_get_uint16(bd_addr.ToString().c_str(),
+                             AV_REM_CTRL_VERSION_CONFIG_KEY, (uint16_t*)&version);
+  BTIF_TRACE_WARNING("peer supports a2dp: %d, avrcp: %d", a2dp_supported, avrcp_supported);
+  return (!a2dp_supported && avrcp_supported);
 }
 
 static bool absolute_volume_disabled() {
