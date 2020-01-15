@@ -771,10 +771,7 @@ static void process_service_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
           if (!strncmp("false", a2dp_role, 5)) {
             profile_version = sdp_get_stored_avrc_tg_version(p_ccb->device_address);
             uint16_t ver = (AVRCP_VERSION_BIT_MASK & profile_version);
-            is_avrcp_browse_bit_set = ((AVRCP_MASK_BRW_BIT & profile_version) == AVRCP_MASK_BRW_BIT);
-            is_avrcp_cover_bit_set = ((AVRCP_MASK_CA_BIT & profile_version) == AVRCP_MASK_CA_BIT);
-            if (ver >= AVRC_REV_1_4 &&
-                (is_avrcp_browse_bit_set | is_avrcp_cover_bit_set)) {
+            if (ver >= AVRC_REV_1_4) {
               p_attr->value_ptr[PROFILE_VERSION_POSITION] = (uint8_t)(ver & 0x00ff);
               SDP_TRACE_DEBUG("%s :Showing AVRCP version in SDP = 0x%x", __func__,
                                p_attr->value_ptr[PROFILE_VERSION_POSITION]);
@@ -1095,10 +1092,7 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
             if (!strncmp("false", a2dp_role, 5)) {
               profile_version = sdp_get_stored_avrc_tg_version(p_ccb->device_address);
               uint16_t ver = (AVRCP_VERSION_BIT_MASK & profile_version);
-              is_avrcp_browse_bit_set = ((AVRCP_MASK_BRW_BIT & profile_version) == AVRCP_MASK_BRW_BIT);
-              is_avrcp_cover_bit_set = ((AVRCP_MASK_CA_BIT & profile_version) == AVRCP_MASK_CA_BIT);
-              if (ver >= AVRC_REV_1_4 &&
-                  (is_avrcp_browse_bit_set | is_avrcp_cover_bit_set)) {
+              if (ver >= AVRC_REV_1_4) {
                 p_attr->value_ptr[PROFILE_VERSION_POSITION] = (uint8_t)(ver & 0x00ff);
                 SDP_TRACE_DEBUG("%s : Showing AVRCP version in SDP = 0x%x", __func__,
                                  p_attr->value_ptr[PROFILE_VERSION_POSITION]);
