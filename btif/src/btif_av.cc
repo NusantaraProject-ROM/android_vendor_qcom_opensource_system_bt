@@ -4156,8 +4156,8 @@ bt_status_t btif_av_init(int service_id) {
  ******************************************************************************/
 static bt_status_t init_src(
     btav_source_callbacks_t* callbacks,
-    std::vector<btav_a2dp_codec_config_t> codec_priorities,
-    std::vector<btav_a2dp_codec_config_t> offload_enabled_codecs,
+    const std::vector<btav_a2dp_codec_config_t> &codec_priorities,
+    const std::vector<btav_a2dp_codec_config_t> &offload_enabled_codecs,
     int max_a2dp_connections, int a2dp_multicast_state) {
   bt_status_t status = BT_STATUS_FAIL;
   BTIF_TRACE_EVENT("%s() with max conn = %d", __func__, max_a2dp_connections);
@@ -4205,8 +4205,8 @@ static bt_status_t init_src(
 static bt_status_t init_src(
     btav_source_callbacks_t* callbacks,
     int max_connected_audio_devices,
-    std::vector<btav_a2dp_codec_config_t> codec_priorities,
-    std::vector<btav_a2dp_codec_config_t> offload_enabled_codecs) {
+    const std::vector<btav_a2dp_codec_config_t> &codec_priorities,
+    const std::vector<btav_a2dp_codec_config_t> &offload_enabled_codecs) {
   int a2dp_multicast_state = controller_get_interface()->is_multicast_enabled();
   if(max_connected_audio_devices > BTIF_AV_NUM_CB) {
     BTIF_TRACE_ERROR("%s: App setting maximum allowable connections(%d) \
