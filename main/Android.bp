@@ -6,6 +6,7 @@ cc_library_shared {
     defaults: ["fluoride_defaults_qti"],
     header_libs: ["libbluetooth_headers"],
     export_header_lib_headers: ["libbluetooth_headers"],
+    system_ext_specific: true,
     srcs: [
         // platform specific
         "bte_conf.cc",
