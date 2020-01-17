@@ -4104,6 +4104,14 @@ void btm_sec_auth_complete(uint16_t handle, uint8_t status) {
                                              p_dev_rec->sec_bd_name, status);
   }
 
+  /*as p_auth_complete_callback may remove p_dev_rec from list, so we
+   * need find it again */
+  p_dev_rec = btm_find_dev_by_handle (handle);
+  if (p_dev_rec == NULL) {
+    BTM_TRACE_ERROR("%s p_dev_rec have been removed, return", __func__);
+    return;
+  }
+
   p_dev_rec->sec_state = BTM_SEC_STATE_IDLE;
 
   /* If this is a bonding procedure can disconnect the link now */
@@ -4568,6 +4576,14 @@ void btm_sec_connected(const RawAddress& bda, uint16_t handle, uint8_t status,
                                                p_dev_rec->dev_class,
                                                p_dev_rec->sec_bd_name, status);
       }
+    }
+
+    /*as p_auth_complete_callback may remove p_dev_rec from list, so we
+     * need find it again */
+    p_dev_rec = btm_find_dev(bda);
+    if (p_dev_rec == NULL) {
+      BTM_TRACE_ERROR("%s p_dev_rec have been removed, return", __func__);
+      return;
     }
 
     if (status == HCI_ERR_CONNECTION_TOUT ||
