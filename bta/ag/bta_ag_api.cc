@@ -302,3 +302,14 @@ void BTA_AgSetActiveDevice(const RawAddress& active_device_addr) {
 void BTA_AgSetMaxHfClients(uint8_t value) {
   bta_ag_cb.max_hf_clients = value;
 }
+
+bool BTA_AgInbandEnabled(uint16_t handle) {
+  tBTA_AG_SCB* p_scb;
+
+  p_scb = bta_ag_scb_by_idx(handle);
+  if (p_scb != NULL) {
+    return bta_ag_inband_enabled(p_scb);
+  }
+
+  return false;
+}
