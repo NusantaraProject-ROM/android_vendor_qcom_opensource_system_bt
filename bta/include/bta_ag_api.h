@@ -601,4 +601,6 @@ void BTA_AgSetActiveDevice(const RawAddress& active_device_addr);
 
 void BTA_AgSetMaxHfClients(uint8_t value);
 
+bool BTA_AgInbandEnabled(uint16_t handle);
+
 #endif /* BTA_AG_API_H */
