@@ -26,7 +26,6 @@ cc_library_static {
         "vendor.qti.hardware.bluetooth_audio@2.0",
         "libfmq",
         "libhidlbase",
-        "libhidltransport",
     ],
     static_libs: [
         "libosi_qti",
