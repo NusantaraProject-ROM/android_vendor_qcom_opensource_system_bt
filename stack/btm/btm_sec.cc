@@ -5887,8 +5887,11 @@ static void btm_sec_change_pairing_state(tBTM_PAIRING_STATE new_state) {
         p_dev_rec->sec_flags |= BTM_SEC_PAIRING_IN_PROGRESS;
       }
     }
-    alarm_set_on_mloop(btm_cb.pairing_timer, BTM_SEC_TIMEOUT_VALUE * 1000,
-                       btm_sec_pairing_timeout, NULL);
+    /* Avoid reset timer for same state */
+    if (new_state != old_state) {
+      alarm_set_on_mloop(btm_cb.pairing_timer, BTM_SEC_TIMEOUT_VALUE * 1000,
+                         btm_sec_pairing_timeout, NULL);
+    }
   }
 }
 
