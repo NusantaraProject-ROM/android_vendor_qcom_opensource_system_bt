@@ -40,6 +40,14 @@ cc_library_static {
         "vendor/qcom/opensource/commonsys-intf/bluetooth/include",
         "system/libhwbinder/include",
     ],
+
+    arch: {
+        arm: {
+            cflags: [
+                "-DARCH_ARM_32"
+            ],
+       },
+   },
 }
 
 // HCI unit tests for target

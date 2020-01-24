@@ -59,7 +59,6 @@ static std::mutex bthci_mutex;
 
 android::sp<IBluetoothHci> btHci;
 
-const bool IsLazyHalSupported(property_get_bool("ro.vendor.bt.enablelazyhal", false));
 
 class BluetoothHciCallbacks : public IBluetoothHciCallbacks {
  public:
@@ -112,6 +111,27 @@ class BluetoothHciCallbacks : public IBluetoothHciCallbacks {
   const allocator_t* buffer_allocator;
 };
 
+#ifdef ARCH_ARM_32
+bool IsLazyHalSupported()
+{
+  char device[PROPERTY_VALUE_MAX] = {'\0'};
+  bool isLazyHalEnabled = false;
+
+  /* MSM8937 target supports both lazy and non lazy hal
+   * which is differentiated by a property.
+   */
+  LOG_DEBUG(LOG_TAG, "%s: reading lazy hal properties", __func__);
+  property_get("ro.board.platform", device, "");
+  if (!strcmp(device, "bengal"))
+    isLazyHalEnabled = true;
+  else if (!strcmp(device, "msm8937"))
+    isLazyHalEnabled = property_get_bool("ro.vendor.bt.enablelazyhal", false);
+
+  LOG_DEBUG(LOG_TAG, "%s: isLazyHalEnabled: %d", __func__, isLazyHalEnabled);
+  return isLazyHalEnabled;
+}
+#endif
+
 void hci_initialize() {
   LOG_INFO(LOG_TAG, "%s", __func__);
 
@@ -127,10 +147,6 @@ void hci_initialize() {
     auto hidl_daemon_status = btHci->initialize(callbacks);
     if(!hidl_daemon_status.isOk()) {
       LOG_ERROR(LOG_TAG, "%s: HIDL daemon is dead", __func__);
-
-      if (IsLazyHalSupported)
-        IPCThreadState::self()->flushCommands();
-
       btHci = nullptr;
     }
   }
@@ -142,11 +158,16 @@ void hci_close() {
   std::lock_guard<std::mutex> lock(bthci_mutex);
   if (btHci != nullptr) {
     auto hidl_daemon_status = btHci->close();
-    if(!hidl_daemon_status.isOk())
+    if(!hidl_daemon_status.isOk()) {
       LOG_ERROR(LOG_TAG, "%s: HIDL daemon is dead", __func__);
-
-    if (IsLazyHalSupported)
-      IPCThreadState::self()->flushCommands();
+    } else {
+#ifdef ARCH_ARM_32
+       if (IsLazyHalSupported()) {
+         LOG_DEBUG(LOG_TAG, "%s: decrementing HIDL usage counter", __func__);
+         IPCThreadState::self()->flushCommands();
+      }
+#endif
+    }
 
     btHci = nullptr;
   }
