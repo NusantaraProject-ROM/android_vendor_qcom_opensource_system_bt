@@ -91,6 +91,7 @@ static bt_status_t btSock_start_l2cap_server_l(l2cap_socket* sock);
 static std::mutex state_lock;
 
 l2cap_socket* socks = NULL;
+static uint32_t last_sock_id = 0;
 static uid_set_t* uid_set = NULL;
 static int pth = -1;
 
@@ -322,7 +323,7 @@ static l2cap_socket* btsock_l2cap_alloc_l(const char* name,
   sock->next = socks;
   sock->prev = NULL;
   if (socks) socks->prev = sock;
-  sock->id = (socks ? socks->id : 0) + 1;
+  sock->id = last_sock_id + 1;
   socks = sock;
   /* paranoia cap on: verify no ID duplicates due to overflow and fix as needed
    */
@@ -338,6 +339,7 @@ static l2cap_socket* btsock_l2cap_alloc_l(const char* name,
     if (!++sock->id) /* no zero IDs allowed */
       sock->id++;
   }
+  last_sock_id = sock->id;
   APPL_TRACE_DEBUG("SOCK_LIST: alloc(id = %d)", sock->id);
   return sock;
 
