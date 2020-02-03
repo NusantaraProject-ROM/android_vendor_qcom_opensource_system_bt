@@ -221,6 +221,10 @@ typedef enum {
   // Set a very low initial sniff subrating for HID devices that do not
   // set their own sniff interval.
   INTEROP_HID_HOST_LIMIT_SNIFF_INTERVAL,
+
+  // Disable LPA enhanced power control
+  INTEROP_DISABLE_LPA_ENHANCED_POWER_CONTROL,
+
   END_OF_INTEROP_LIST
 } interop_feature_t;
 

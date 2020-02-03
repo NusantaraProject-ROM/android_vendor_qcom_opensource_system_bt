@@ -295,6 +295,11 @@ void btm_acl_created(const RawAddress& bda, DEV_CLASS dc, BD_NAME bdn,
             interop_match_addr_or_name(INTEROP_ENABLE_PL10_ADAPTIVE_CONTROL, &bda)) {
           btm_enable_link_PL10_adaptive_ctrl(hci_handle, true);
         }
+
+        if (soc_type == BT_SOC_TYPE_HASTINGS && is_soc_lpa_enh_pwr_enabled() &&
+            interop_match_addr_or_name(INTEROP_DISABLE_LPA_ENHANCED_POWER_CONTROL, &bda)) {
+            btm_enable_link_lpa_enh_pwr_ctrl(hci_handle, false);
+        }
       }
       p_dev_rec = btm_find_dev_by_handle(hci_handle);
 
@@ -958,6 +963,12 @@ void BTM_SetDefaultLinkPolicy(uint16_t settings) {
 void btm_use_preferred_conn_params(const RawAddress& bda) {
   tL2C_LCB* p_lcb = l2cu_find_lcb_by_bd_addr(bda, BT_TRANSPORT_LE);
   tBTM_SEC_DEV_REC* p_dev_rec = btm_find_or_alloc_dev(bda);
+
+  if (p_lcb == NULL || p_dev_rec == NULL) {
+    BTM_TRACE_ERROR("%s: p_lcb or p_dev_rec not found for remote device: %s", __func__,
+                        bda.ToString().c_str());
+    return;
+  }
 
   /* If there are any preferred connection parameters, set them now */
   if ((p_dev_rec->conn_params.min_conn_int >= BTM_BLE_CONN_INT_MIN) &&

@@ -146,8 +146,11 @@ void btm_update_scanner_filter_policy(tBTM_BLE_SFP scan_policy) {
   std::vector<uint16_t> scan_window = {BTM_BLE_GAP_DISC_SCAN_WIN, BTM_BLE_GAP_DISC_SCAN_WIN};
   uint8_t i=0;
 
-  uint8_t scan_phy = SCAN_PHY_LE_1M;
-  if (controller_get_interface()->supports_ble_coded_phy()) scan_phy |= SCAN_PHY_LE_CODED;
+  uint8_t scan_phy = p_inq->scan_phy;
+  if (!scan_phy) {
+    scan_phy = SCAN_PHY_LE_1M;
+    if (controller_get_interface()->supports_ble_coded_phy()) scan_phy |= SCAN_PHY_LE_CODED;
+  }
 
   int phy_cnt = std::bitset<std::numeric_limits<uint8_t>::digits>(scan_phy).count();
   if(!p_inq->scan_interval.empty() && !p_inq->scan_window.empty()) {

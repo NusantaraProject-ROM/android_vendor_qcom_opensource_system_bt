@@ -201,21 +201,17 @@ tBTM_STATUS BTM_SetPowerMode(uint8_t pm_id, const RawAddress& remote_bda,
   if (((pm_id != BTM_PM_SET_ONLY_ID) &&
        (btm_cb.pm_reg_db[pm_id].mask & BTM_PM_REG_SET)) ||
       ((pm_id == BTM_PM_SET_ONLY_ID) &&
-       (btm_cb.pm_pend_link != MAX_L2CAP_LINKS))) {
-#if (BTM_PM_DEBUG == TRUE)
+       (btm_cb.pm_pend_link != MAX_L2CAP_LINKS || p_cb->state == BTM_PM_STS_PENDING))) {
     BTM_TRACE_DEBUG("BTM_SetPowerMode: Saving cmd acl_ind %d temp_pm_id %d",
                     acl_ind, temp_pm_id);
-#endif  // BTM_PM_DEBUG
     /* Make sure mask is set to BTM_PM_REG_SET */
     btm_cb.pm_reg_db[temp_pm_id].mask |= BTM_PM_REG_SET;
     memcpy((&p_cb->req_mode[temp_pm_id]), p_mode, sizeof(tBTM_PM_PWR_MD));
     p_cb->chg_ind = true;
   }
 
-#if (BTM_PM_DEBUG == TRUE)
   BTM_TRACE_DEBUG("btm_pm state:0x%x, pm_pend_link: %d", p_cb->state,
                   btm_cb.pm_pend_link);
-#endif  // BTM_PM_DEBUG
   /* if mode == hold or pending, return */
   if ((p_cb->state == BTM_PM_STS_HOLD) || (p_cb->state == BTM_PM_STS_PENDING) ||
       (btm_cb.pm_pend_link != MAX_L2CAP_LINKS)) /* command pending */

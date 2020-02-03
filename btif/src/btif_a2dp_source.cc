@@ -387,7 +387,7 @@ static void btif_a2dp_source_remote_start_timeout(UNUSED_ATTR void* context) {
   APPL_TRACE_DEBUG("%s: Suspend stream request to Av index %d", __func__, *arg);
   if (btif_a2dp_source_cb.remote_start_alarm != NULL &&
       index == btif_a2dp_source_cb.last_remote_started_index) {
-    alarm_free(btif_a2dp_source_cb.remote_start_alarm);
+    btif_av_clear_remote_start_timer(btif_a2dp_source_cb.last_remote_started_index);
     btif_a2dp_source_cb.remote_start_alarm = NULL;
     btif_a2dp_source_cb.last_remote_started_index = -1;
     btif_a2dp_source_cb.last_started_index_pointer = NULL;
@@ -1547,6 +1547,11 @@ bool btif_a2dp_source_start_session(const RawAddress& peer_address) {
 
   if (btif_a2dp_source_is_hal_v2_enabled()) {
     bluetooth::audio::a2dp::start_session();
+    if (bluetooth::audio::a2dp::get_session_type() ==
+       SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH) {
+      APPL_TRACE_EVENT("%s Freeing queue from previous session", __func__);
+      fixed_queue_flush(btif_a2dp_source_cb.tx_audio_queue, osi_free);
+    }
   }
   btif_a2dp_update_sink_latency_change();
   return true;
