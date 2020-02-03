@@ -1466,8 +1466,7 @@ bool BTM_IsAclConnectionUp(const RawAddress& remote_bda,
                            tBT_TRANSPORT transport) {
   tACL_CONN* p;
 
-  VLOG(2) << __func__ << " RemBdAddr: " << remote_bda;
-
+  BTM_TRACE_DEBUG("%s: RemBdAddr: %s", __func__, remote_bda.ToString().c_str());
   p = btm_bda_to_acl(remote_bda, transport);
   if (p != (tACL_CONN*)NULL) {
     return (true);

@@ -2230,6 +2230,8 @@ void bta_av_set_use_rc(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
  ******************************************************************************/
 void bta_av_cco_close(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
   uint16_t mtu;
+  APPL_TRACE_DEBUG("%s: peer_addr: %s", __func__,
+                     p_scb->peer_addr.ToString().c_str());
 
   mtu = bta_av_chk_mtu(p_scb, BTA_AV_MAX_A2DP_MTU);
 
@@ -3507,7 +3509,9 @@ void bta_av_rcfg_failed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
                    p_scb->num_recfg, bta_av_cb.conn_lcb,
                    p_scb->peer_addr.ToString().c_str());
 
-  if (p_scb->num_recfg > BTA_AV_RECONFIG_RETRY) {
+  if ((p_scb->num_recfg > BTA_AV_RECONFIG_RETRY) ||
+      (!BTM_IsAclConnectionUp(p_scb->peer_addr, BT_TRANSPORT_BR_EDR))) {
+    APPL_TRACE_DEBUG("%s: Either reconfig retry exceeded, or ACL down", __func__);
     bta_av_cco_close(p_scb, p_data);
     /* report failure */
     tBTA_AV_RECONFIG reconfig;
