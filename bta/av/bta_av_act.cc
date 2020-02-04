@@ -1403,9 +1403,7 @@ void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started) {
 
   if (started) {
     /* Let L2CAP know this channel is processed with high priority */
-    if (!btif_av_is_split_a2dp_enabled()) {
-      L2CA_SetAclPriority(p_scb->peer_addr, L2CAP_PRIORITY_HIGH);
-    }
+    L2CA_SetAclPriority(p_scb->peer_addr, L2CAP_PRIORITY_HIGH);
     (*p_streams) |= started_msk;
   } else {
     (*p_streams) &= ~started_msk;
@@ -1435,8 +1433,7 @@ void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started) {
                      bta_av_cb.video_streams);
     if (no_streams) {
       /* Let L2CAP know this channel is processed with low priority */
-      if (!btif_av_is_split_a2dp_enabled())
-        L2CA_SetAclPriority(p_scb->peer_addr, L2CAP_PRIORITY_NORMAL);
+      L2CA_SetAclPriority(p_scb->peer_addr, L2CAP_PRIORITY_NORMAL);
     }
   }
 }
