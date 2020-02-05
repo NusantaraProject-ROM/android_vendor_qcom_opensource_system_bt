@@ -1401,10 +1401,7 @@ typedef struct {
 #define HCI_SIMPLE_PAIRING_SUPPORTED(x) ((x)[6] & 0x08)
 #define HCI_ENCAP_PDU_SUPPORTED(x) ((x)[6] & 0x10)
 #define HCI_ERROR_DATA_SUPPORTED(x) ((x)[6] & 0x20)
-/* This feature is causing frequent link drops when doing call switch with
- * certain av/hfp headsets */
-// TODO: move the disabling somewhere else
-#define HCI_NON_FLUSHABLE_PB_SUPPORTED(x) (0)  //((x)[6] & 0x40)
+#define HCI_NON_FLUSHABLE_PB_SUPPORTED(x) ((x)[6] & 0x40)
 #define HCI_LINK_SUP_TO_EVT_SUPPORTED(x) ((x)[7] & 0x01)
 #define HCI_INQ_RESP_TX_SUPPORTED(x) ((x)[7] & 0x02)
 #define HCI_LMP_EXTENDED_SUPPORTED(x) ((x)[7] & 0x80)
