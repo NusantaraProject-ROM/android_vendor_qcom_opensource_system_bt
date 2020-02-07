@@ -4919,11 +4919,12 @@ bool btif_av_stream_ready(void) {
  ******************************************************************************/
 void  btif_av_clear_remote_start_timer(int index) {
   BTIF_TRACE_DEBUG("%s: index: %d", __func__, index);
-  if(index < btif_max_av_clients && index >= 0) {
-    btif_av_cb[index].remote_started = false;
-    if(btif_av_cb[index].remote_start_alarm != NULL)
+  if (index < btif_max_av_clients && index >= 0) {
+    if (btif_av_cb[index].remote_start_alarm != NULL &&
+             btif_av_cb[index].remote_started)
       alarm_free(btif_av_cb[index].remote_start_alarm);
-    btif_av_cb[index].remote_start_alarm = NULL;
+      btif_av_cb[index].remote_started = false;
+      btif_av_cb[index].remote_start_alarm = NULL;
   }
 }
 
