@@ -43,7 +43,9 @@
 #include "l2cdefs.h"
 #include "osi/include/osi.h"
 #include "device/include/device_iot_config.h"
+#include "btif/include/btif_av.h"
 
+extern bool btif_av_is_split_a2dp_enabled(void);
 static bool l2c_link_send_to_lower(tL2C_LCB* p_lcb, BT_HDR* p_buf,
                                    tL2C_TX_COMPLETE_CB_INFO* p_cbi);
 
@@ -745,8 +747,8 @@ void l2c_link_adjust_allocation(void) {
   uint16_t hi_quota, low_quota;
   uint16_t num_lowpri_links = 0;
   uint16_t num_hipri_links = 0;
-  uint16_t controller_xmit_quota = l2cb.num_lm_acl_bufs;
-  uint16_t high_pri_link_quota = L2CAP_HIGH_PRI_MIN_XMIT_QUOTA_A;
+  uint16_t controller_xmit_quota;
+  uint16_t high_pri_link_quota = controller_xmit_quota = l2cb.num_lm_acl_bufs;
   bool is_share_buffer =
       (l2cb.num_lm_ble_bufs == L2C_DEF_NUM_BLE_BUF_SHARED) ? true : false;
 
@@ -766,6 +768,10 @@ void l2c_link_adjust_allocation(void) {
       else
         num_lowpri_links++;
     }
+  }
+
+  if ((l2cb.num_links_active > 1) ||(btif_av_is_split_a2dp_enabled())) {
+    high_pri_link_quota = L2CAP_HIGH_PRI_MIN_XMIT_QUOTA_A;
   }
 
   /* now adjust high priority link quota */
