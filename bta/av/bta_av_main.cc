@@ -792,6 +792,7 @@ static void bta_av_ci_data(tBTA_AV_DATA* p_data) {
   tBTA_AV_SCB* p_scb;
   int i;
   uint8_t chnl = (uint8_t)p_data->hdr.layer_specific;
+  APPL_TRACE_DEBUG("%s: chnl: 0x%x", __func__, chnl);
 
   for (i = 0; i < btif_max_av_clients; i++) {
     p_scb = bta_av_cb.p_scb[i];
@@ -800,6 +801,8 @@ static void bta_av_ci_data(tBTA_AV_DATA* p_data) {
      * in Dual Handoff mode, get SCB where START is done.
      */
     if (p_scb && (p_scb->chnl == chnl) && (p_scb->started)) {
+      APPL_TRACE_DEBUG("%s: p_scb->chnl: 0x%x, started: %d, hdi: %d",
+                        __func__, p_scb->chnl, p_scb->started, p_scb->hdi);
       if (p_scb->hdi == btif_get_is_remote_started_idx()) {
           APPL_TRACE_WARNING("%s: Not to send data to remote Started index %d",
             __func__, p_scb->hdi);
@@ -1565,15 +1568,15 @@ bool bta_av_hdl_event(BT_HDR* p_msg) {
     return true; /* to free p_msg */
   }
   if (p_msg->event >= BTA_AV_FIRST_NSM_EVT) {
-    APPL_TRACE_VERBOSE("%s: AV nsm event=0x%x(%s)", __func__, p_msg->event,
-                       bta_av_evt_code(p_msg->event));
+    APPL_TRACE_VERBOSE("%s: AV nsm event=0x%x(%s) on handle = 0x%x", __func__,
+          p_msg->event, bta_av_evt_code(p_msg->event), p_msg->layer_specific);
     /* non state machine events */
     (*bta_av_nsm_act[p_msg->event - BTA_AV_FIRST_NSM_EVT])(
         (tBTA_AV_DATA*)p_msg);
   } else if (p_msg->event >= BTA_AV_FIRST_SM_EVT &&
              p_msg->event <= BTA_AV_LAST_SM_EVT) {
-    APPL_TRACE_VERBOSE("%s: AV sm event=0x%x(%s)", __func__, p_msg->event,
-                       bta_av_evt_code(p_msg->event));
+    APPL_TRACE_VERBOSE("%s: AV sm event=0x%x(%s) on handle = 0x%x", __func__,
+         p_msg->event, bta_av_evt_code(p_msg->event), p_msg->layer_specific);
     /* state machine events */
     bta_av_sm_execute(&bta_av_cb, p_msg->event, (tBTA_AV_DATA*)p_msg);
   } else {
