@@ -3566,7 +3566,9 @@ int btif_av_get_latest_stream_device_idx() {
  ******************************************************************************/
 int btif_get_is_remote_started_idx() {
   int index = btif_a2dp_source_last_remote_start_index();
-  if ((index != -1) && !btif_av_cb[index].remote_started)
+  BTIF_TRACE_DEBUG("%s: last remote started index: %d", __func__, index);
+  if ((index == -1) ||
+      ((index != -1) && !btif_av_cb[index].remote_started))
     index = btif_max_av_clients;
   return index;
 }
