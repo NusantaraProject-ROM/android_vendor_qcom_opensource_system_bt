@@ -708,7 +708,8 @@ void bta_ag_sm_execute(tBTA_AG_SCB* p_scb, uint16_t event,
       bta_ag_state_str(p_scb->state), p_scb->state, bta_ag_evt_str(event),
       event);
 
-  if (p_data != NULL) {
+  if (p_data != NULL &&
+        event == BTA_AG_API_RESULT_EVT) {
     APPL_TRACE_EVENT("result=%s(0x%02x)",
       bta_ag_res_str(p_data->api_result.result), p_data->api_result.result);
   }
