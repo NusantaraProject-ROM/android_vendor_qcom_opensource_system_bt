@@ -41,6 +41,7 @@ bool BqrVseSubEvt::IsEvtToBeParsed(uint8_t quality_report_id) {
     case QUALITY_REPORT_ID_APPROACH_LSTO:
     case QUALITY_REPORT_ID_A2DP_AUDIO_CHOPPY:
     case QUALITY_REPORT_ID_SCO_VOICE_CHOPPY:
+    case QUALITY_REPORT_ID_ROOT_INFLAMMATION:
     case QUALITY_REPORT_ID_CONNECT_FAIL:
       return true;
     default:
@@ -60,7 +61,9 @@ bool BqrVseSubEvt::ParseBqrEvt(uint8_t length, uint8_t* p_param_buf) {
     LOG(WARNING) << __func__ << ": not need to parse report(" << loghex(quality_report_id_) << ")";
     return false;
   }
-
+  if (quality_report_id_ == QUALITY_REPORT_ID_ROOT_INFLAMMATION) {
+    return true;
+  }
   if (length < kBqrParamTotalLen) {
     LOG(FATAL) << __func__
                << ": Parameter total length: " << std::to_string(length)
@@ -201,7 +204,16 @@ void AddBqrEventToQueue(uint8_t length, uint8_t* p_stream) {
     LOG(WARNING) << __func__ << ": Fail to parse BQR sub event.";
     return;
   }
-
+  if (p_bqr_event->quality_report_id_ == QUALITY_REPORT_ID_ROOT_INFLAMMATION) {
+    uint8_t error_code,vendor_error_code;
+    STREAM_SKIP_UINT8(p_stream);
+    STREAM_TO_UINT8(error_code, p_stream);
+    STREAM_TO_UINT8(vendor_error_code, p_stream);
+    LOG(ERROR) << __func__ << " : BQR Root inflammation Reported, error code = "
+               << loghex(error_code) << " and vendor specific error code = "
+               << loghex(vendor_error_code);
+    return;
+  }
   LOG(WARNING) << *p_bqr_event;
 
   if (length >= kBqrParamTotalLen + BD_ADDR_LEN) {

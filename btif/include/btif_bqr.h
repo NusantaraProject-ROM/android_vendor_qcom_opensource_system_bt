@@ -58,11 +58,12 @@ static constexpr uint32_t kQualityEventMaskMonitorMode = 0x00000001;
 static constexpr uint32_t kQualityEventMaskApproachLsto = 0x00000002;
 static constexpr uint32_t kQualityEventMaskA2dpAudioChoppy = 0x00000004;
 static constexpr uint32_t kQualityEventMaskScoVoiceChoppy = 0x00000008;
+static constexpr uint32_t kQualityEventMaskRootInflammation = 0x00000010;
 static constexpr uint32_t kQualityEventMaskConnectFail = 0x80000000;
 static constexpr uint32_t kQualityEventMaskAll =
     kQualityEventMaskMonitorMode | kQualityEventMaskApproachLsto |
     kQualityEventMaskA2dpAudioChoppy | kQualityEventMaskScoVoiceChoppy |
-    kQualityEventMaskConnectFail;
+    kQualityEventMaskRootInflammation | kQualityEventMaskConnectFail;
 // Define the minimum time interval (in ms) of quality event reporting for the
 // selected quality event(s). Controller Firmware should not report the next
 // event within the defined time interval.
@@ -108,6 +109,7 @@ enum BqrQualityReportId : uint8_t {
   QUALITY_REPORT_ID_APPROACH_LSTO = 0x02,
   QUALITY_REPORT_ID_A2DP_AUDIO_CHOPPY = 0x03,
   QUALITY_REPORT_ID_SCO_VOICE_CHOPPY = 0x04,
+  QUALITY_REPORT_ID_ROOT_INFLAMMATION = 0x05,
   //Vendor Specific Report IDs from 0x20
   QUALITY_REPORT_ID_CONNECT_FAIL = 0x20,
 };
