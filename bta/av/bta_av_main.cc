@@ -1564,7 +1564,7 @@ void bta_av_sm_execute(tBTA_AV_CB* p_cb, uint16_t event, tBTA_AV_DATA* p_data) {
  *
  ******************************************************************************/
 bool bta_av_hdl_event(BT_HDR* p_msg) {
-  if (p_msg->event > BTA_AV_LAST_EVT) {
+  if (p_msg->event >= BTA_AV_LAST_EVT) {
     return true; /* to free p_msg */
   }
   if (p_msg->event >= BTA_AV_FIRST_NSM_EVT) {
