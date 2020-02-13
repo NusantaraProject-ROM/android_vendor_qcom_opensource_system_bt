@@ -1472,6 +1472,8 @@ void bta_av_conn_chg(tBTA_AV_DATA* p_data) {
   mask = BTA_AV_HNDL_TO_MSK(index);
   p_lcb = bta_av_find_lcb(p_data->conn_chg.peer_addr, BTA_AV_LCB_FIND);
   conn_msk = 1 << (index + 1);
+  APPL_TRACE_DEBUG("%s: conn_msk: %x is_up: %d, index: %d, mask: %x",
+       __func__, conn_msk, p_data->conn_chg.is_up, index, mask);
   if (p_data->conn_chg.is_up) {
     /* set the conned mask for this channel */
     if (p_scb) {

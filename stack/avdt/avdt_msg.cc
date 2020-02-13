@@ -532,10 +532,11 @@ static uint8_t avdt_msg_prs_cfg(tAVDT_CFG* p_cfg, uint8_t* p, uint16_t len,
   uint8_t protect_offset = 0;
 
   if (!p_cfg) {
-    AVDT_TRACE_ERROR("not expecting this cfg");
+    AVDT_TRACE_ERROR("%s: not expecting this cfg", __func__);
     return AVDT_ERR_BAD_STATE;
   }
 
+  AVDT_TRACE_DEBUG("%s: len: %d, sig_id: %d", __func__, len, sig_id);
   p_cfg->psc_mask = 0;
   p_cfg->num_codec = 0;
   p_cfg->num_protect = 0;
@@ -546,12 +547,15 @@ static uint8_t avdt_msg_prs_cfg(tAVDT_CFG* p_cfg, uint8_t* p, uint16_t len,
     /* verify overall length */
     if ((p_end - p) < AVDT_LEN_CFG_MIN) {
       err = AVDT_ERR_PAYLOAD;
+      AVDT_TRACE_DEBUG("%s: err: %d", __func__, err);
       break;
     }
 
     /* get and verify info elem id, length */
     elem = *p++;
     elem_len = *p++;
+    AVDT_TRACE_DEBUG("%s: elem: %d elem_len: %d",
+                         __func__, elem, elem_len);
 
     if ((elem == 0) || (elem > AVDT_CAT_MAX_CUR)) {
       /* this may not be really bad.
@@ -583,8 +587,7 @@ static uint8_t avdt_msg_prs_cfg(tAVDT_CFG* p_cfg, uint8_t* p, uint16_t len,
 
     /* add element to psc mask, but mask out codec or protect */
     p_cfg->psc_mask |= (1 << elem);
-    AVDT_TRACE_DEBUG("elem=%d elem_len: %d psc_mask=0x%x", elem, elem_len,
-                     p_cfg->psc_mask);
+    AVDT_TRACE_DEBUG("%s: psc_mask: 0x%x", __func__, p_cfg->psc_mask);
 
     /* parse individual information elements with additional parameters */
     switch (elem) {
@@ -921,8 +924,11 @@ static uint8_t avdt_msg_prs_discover_rsp(tAVDT_MSG* p_msg, uint8_t* p,
  ******************************************************************************/
 static uint8_t avdt_msg_prs_svccap(tAVDT_MSG* p_msg, uint8_t* p, uint16_t len) {
   /* parse parameters */
+
+  AVDT_TRACE_DEBUG("%s: len: %d", __func__, len);
   uint8_t err = avdt_msg_prs_cfg(p_msg->svccap.p_cfg, p, len,
                                  &p_msg->hdr.err_param, AVDT_SIG_GETCAP);
+  AVDT_TRACE_DEBUG("%s: err: %d", __func__, err);
   if (p_msg->svccap.p_cfg) {
     p_msg->svccap.p_cfg->psc_mask &= AVDT_LEG_PSC;
   }
@@ -1197,6 +1203,7 @@ BT_HDR* avdt_msg_asmbl(tAVDT_CCB* p_ccb, BT_HDR* p_buf) {
   p = (uint8_t*)(p_buf + 1) + p_buf->offset;
   AVDT_MSG_PRS_PKT_TYPE(p, pkt_type);
 
+  AVDT_TRACE_DEBUG("%s: len: %d, pkt_type: %d", __func__, p_buf->len, pkt_type);
   /* quick sanity check on length */
   if (p_buf->len < avdt_msg_pkt_type_len[pkt_type]) {
     osi_free(p_buf);
@@ -1324,6 +1331,7 @@ void avdt_msg_send_cmd(tAVDT_CCB* p_ccb, void* p_scb, uint8_t sig_id,
 
   /* set len */
   p_buf->len = (uint16_t)(p - p_start);
+  AVDT_TRACE_DEBUG("%s: len: %d, sig_id: %d", __func__, p_buf->len, sig_id);
 
   /* now store scb hdls, if any, in buf */
   if (p_scb != NULL) {
@@ -1513,6 +1521,7 @@ void avdt_msg_ind(tAVDT_CCB* p_ccb, BT_HDR* p_buf) {
    */
   p_buf = avdt_msg_asmbl(p_ccb, p_buf);
   if (p_buf == NULL) {
+    AVDT_TRACE_ERROR("%s: p_buf is null, return", __func__);
     return;
   }
 
@@ -1521,7 +1530,8 @@ void avdt_msg_ind(tAVDT_CCB* p_ccb, BT_HDR* p_buf) {
   /* parse the message header */
   AVDT_MSG_PRS_HDR(p, label, pkt_type, msg_type);
 
-  AVDT_TRACE_DEBUG("msg_type=%d, sig=%d", msg_type, sig);
+  AVDT_TRACE_DEBUG("%s: msg_type=%d, sig=%d, offset: %d", __func__,
+                                  msg_type, sig, p_buf->offset);
   /* set up label and ccb_idx in message hdr */
   msg.hdr.label = label;
   msg.hdr.ccb_idx = avdt_ccb_to_idx(p_ccb);
@@ -1541,8 +1551,7 @@ void avdt_msg_ind(tAVDT_CCB* p_ccb, BT_HDR* p_buf) {
       msg.hdr.err_code = AVDT_ERR_NSC;
       msg.hdr.err_param = 0;
     }
-  } else /* not a general reject */
-  {
+  } else {/* not a general reject */
     /* get and verify signal */
     AVDT_MSG_PRS_SIG(p, sig);
     msg.hdr.sig_id = sig;
@@ -1569,7 +1578,7 @@ void avdt_msg_ind(tAVDT_CCB* p_ccb, BT_HDR* p_buf) {
       msg.discover_rsp.num_seps = p_ccb->proc_param;
     } else if ((msg_type == AVDT_MSG_TYPE_RSP) &&
                ((sig == AVDT_SIG_GETCAP) || (sig == AVDT_SIG_GET_ALLCAP))) {
-      /* parse discover rsp message to struct supplied by app */
+      /* parse get_cap rsp message to struct supplied by app */
       msg.svccap.p_cfg = (tAVDT_CFG*)p_ccb->p_proc_data;
     } else if ((msg_type == AVDT_MSG_TYPE_RSP) && (sig == AVDT_SIG_GETCONFIG)) {
       /* parse get config rsp message to struct allocated locally */
