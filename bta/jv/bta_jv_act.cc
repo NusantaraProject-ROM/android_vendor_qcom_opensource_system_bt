@@ -377,6 +377,8 @@ tBTA_JV_STATUS bta_jv_free_l2c_cb(tBTA_JV_L2C_CB* p_cb) {
   p_cb->cong = false;
   bta_jv_free_sec_id(&p_cb->sec_id);
   p_cb->p_cback = NULL;
+  p_cb->handle = 0;
+  p_cb->l2cap_socket_id = 0;
   return status;
 }
 
@@ -1283,7 +1285,7 @@ void bta_jv_l2cap_stop_server(tBTA_JV_MSG* p_data) {
   tBTA_JV_API_L2CAP_SERVER* ls = &(p_data->l2cap_server);
   tBTA_JV_L2CAP_CBACK* p_cback;
   for (int i = 0; i < BTA_JV_MAX_L2C_CONN; i++) {
-    if (bta_jv_cb.l2c_cb[i].psm == ls->local_psm) {
+    if (bta_jv_cb.l2c_cb[i].l2cap_socket_id == ls->l2cap_socket_id)  {
       p_cb = &bta_jv_cb.l2c_cb[i];
       p_cback = p_cb->p_cback;
       uint32_t l2cap_socket_id = p_cb->l2cap_socket_id;
