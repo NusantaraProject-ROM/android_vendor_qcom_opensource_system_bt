@@ -58,9 +58,10 @@ source_set("service") {
     "//third_party/bt/include",
     "//internal_include",
     "//stack/include",
-    "common", #service/common
+    "common",
     "//third_party/modp_b64/modp64",
     "//third_party/bluetooth_ext/vhal/include/hardware",
+    "//third_party/bluetooth-internal/test/offtarget/stack",
   ]
 
   deps = [
