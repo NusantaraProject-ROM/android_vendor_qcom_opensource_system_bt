@@ -1014,7 +1014,7 @@ static void btm_enable_link_lpa_enh_pwr_ctrl_cmpl(tBTM_VSC_CMPL *param)
  ******************************************************************************/
 void btm_enable_link_lpa_enh_pwr_ctrl(uint16_t hci_handle, bool enable)
 {
-  uint8_t param[3] = {0};
+  uint8_t param[4] = {0};
   uint8_t *p_param = param;
 
   BTM_TRACE_DEBUG("%s, hci_handle=%d, enable=%d", __func__, hci_handle, enable);
