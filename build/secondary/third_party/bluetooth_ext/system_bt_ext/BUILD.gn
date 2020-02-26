@@ -108,6 +108,7 @@ static_library("system_bt_ext_osi") {
     "//utils/include",
     "//third_party/system/core/include",
     "//third_party/system/core/include/cutils",
+    "//third_party/libchrome",
     ]
 
   deps = [

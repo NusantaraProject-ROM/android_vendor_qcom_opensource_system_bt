@@ -30,15 +30,35 @@ extern bool bt_logger_enabled;
 
 /* syslog didn't work well here since we would be redefining LOG_DEBUG. */
 #include <stdio.h>
+#include <base/logging.h>
+#include <string.h>
 
-#define LOGWRAPPER(tag, fmt, args...) \
-  fprintf(stderr, "%s: " fmt "\n", tag, ##args)
+#define MAX_LOG_LEN 256
 
-#define LOG_VERBOSE(...) LOGWRAPPER(__VA_ARGS__)
-#define LOG_DEBUG(...) LOGWRAPPER(__VA_ARGS__)
-#define LOG_INFO(...) LOGWRAPPER(__VA_ARGS__)
-#define LOG_WARN(...) LOGWRAPPER(__VA_ARGS__)
-#define LOG_ERROR(...) LOGWRAPPER(__VA_ARGS__)
+#define LOG_INFO(tag, fmt, args...)                            \
+  do {                                                         \
+    char str[MAX_LOG_LEN];                                     \
+    snprintf(str, MAX_LOG_LEN, "%s: " fmt "\n", tag, ##args);  \
+    LOG(INFO) << str;                                          \
+  } while(0)
+
+#define LOG_DEBUG(...)   LOG_INFO(__VA_ARGS__)
+// libchrome's VERBOSE doesn't work
+#define LOG_VERBOSE(...) LOG_INFO(__VA_ARGS__)
+
+#define LOG_WARN(tag, fmt, args...)                            \
+  do {                                                         \
+    char str[MAX_LOG_LEN];                                     \
+    snprintf(str, MAX_LOG_LEN, "%s: " fmt "\n", tag, ##args);  \
+    LOG(WARNING) << str;                                       \
+  } while(0)
+
+#define LOG_ERROR(tag, fmt, args...)                           \
+  do {                                                         \
+    char str[MAX_LOG_LEN];                                     \
+    snprintf(str, MAX_LOG_LEN, "%s: " fmt "\n", tag, ##args);  \
+    LOG(ERROR) << str;                                         \
+  } while(0)
 
 #define LOG_EVENT_INT(...)
 
