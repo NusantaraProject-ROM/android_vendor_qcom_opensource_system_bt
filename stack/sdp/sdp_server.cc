@@ -237,9 +237,33 @@ int sdp_get_stored_avrc_tg_version(RawAddress addr)
         return AVRC_REV_1_3;
       }
     } else {
-      SDP_TRACE_DEBUG("%s: failed to fetch version from pairing database, returning AVRC_1_3", __func__);
-      return AVRC_REV_1_3;
+      FILE *fp;
+      struct blacklist_entry data;
+      bool is_present = false;
+      fp = fopen(AVRC_PEER_VERSION_CONF_FILE, "rb");
+      if (!fp) {
+        SDP_TRACE_ERROR("%s unable to open AVRC Conf file for read: error: (%s)",\
+                                                 __func__, strerror(errno));
+      } else {
+        while (fread(&data, sizeof(data), 1, fp) != 0) {
+          if (!memcmp(&addr, data.addr, 3)) {
+            is_present = true;
+            break;
+          }
+        }
+        fclose(fp);
+        if (is_present) {
+          if (data.ver >= AVRC_REV_1_4)
+            data.ver |= AVRCP_MASK_BRW_BIT;
+          if (data.ver >= AVRC_REV_1_6)
+            data.ver |= AVRCP_MASK_CA_BIT;
+          SDP_TRACE_DEBUG("%s: return AVRC version : 0x%x", __func__, data.ver);
+          return data.ver;
+        }
+      }
     }
+    SDP_TRACE_DEBUG("%s: failed to fetch version from pairing database, returning AVRC_1_3", __func__);
+    return AVRC_REV_1_3;
 }
 
 /****************************************************************************
