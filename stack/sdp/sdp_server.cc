@@ -70,6 +70,7 @@
 #define PROFILE_VERSION_POSITION 7
 #define SDP_PROFILE_DESC_LENGTH 8
 #define AVRCP_SUPPORTED_FEATURES_POSITION 1
+#define AVRCP_PLAYER_APP_SETTINGS_SUPPORT_BITMASK 0x10
 #define AVRCP_BROWSE_SUPPORT_BITMASK 0x40
 #define AVRCP_MULTI_PLAYER_SUPPORT_BITMASK 0x80
 #define AVRCP_CA_SUPPORT_BITMASK 0x01
@@ -302,12 +303,31 @@ bool sdp_reset_avrcp_browsing_bit (tSDP_ATTRIBUTE attr, tSDP_ATTRIBUTE *p_attr,
             p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION] &= ~AVRCP_BROWSE_SUPPORT_BITMASK;
             p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION] &=
                     ~AVRCP_MULTI_PLAYER_SUPPORT_BITMASK;
+            p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION] &=
+                    ~AVRCP_PLAYER_APP_SETTINGS_SUPPORT_BITMASK;
             return TRUE;
         }
         version = sdp_get_stored_avrc_tg_version (remote_address);
         browsing_supported = ((AVRCP_MASK_BRW_BIT & version) == AVRCP_MASK_BRW_BIT);
         version = (AVRCP_VERSION_BIT_MASK & version);
         SDP_TRACE_ERROR("Stored AVRC TG version: 0x%x", version);
+
+        if ((version < AVRC_REV_1_4) || (interop_match_addr_or_name(
+                INTEROP_DISABLE_PLAYER_APPLICATION_SETTING_CMDS, &remote_address)))
+        {
+            p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION] &=
+                    ~AVRCP_PLAYER_APP_SETTINGS_SUPPORT_BITMASK;
+        } else {
+            p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION] |=
+                    AVRCP_PLAYER_APP_SETTINGS_SUPPORT_BITMASK;
+        }
+
+#if (defined(AVRC_QTI_V1_3_OPTIONAL_FEAT) && AVRC_QTI_V1_3_OPTIONAL_FEAT == TRUE)
+#else
+        p_attr->value_ptr[AVRCP_SUPPORTED_FEATURES_POSITION] &=
+                ~AVRCP_PLAYER_APP_SETTINGS_SUPPORT_BITMASK;
+#endif
+
         if (version < AVRC_REV_1_4 || !browsing_supported)
         {
             SDP_TRACE_ERROR("Reset Browse feature bitmask");

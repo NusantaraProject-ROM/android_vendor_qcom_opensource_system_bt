@@ -1636,7 +1636,7 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
 #endif
           /* If SCO was active on this scb, close it */
           if (p_scb == p_sco->p_curr_scb) {
-            if (sco_disc_init) {
+            if (sco_disc_init && p_scb->svc_conn) {
                 p_sco->state = BTA_AG_SCO_SHUTTING_ST;
             } else {
                 if (!bta_ag_other_scb_open(p_scb)) {

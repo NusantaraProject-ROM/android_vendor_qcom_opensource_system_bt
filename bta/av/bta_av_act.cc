@@ -1017,6 +1017,9 @@ tBTA_AV_EVT bta_av_proc_meta_cmd(tAVRC_RESPONSE* p_rc_rsp,
                 BTIF_TRACE_ERROR("Blacklist for AVRCP1.5 = %d", is_dev_avrcpv_blacklisted);
             }
 
+            bool is_blacklisted_player_app_settings = interop_match_addr_or_name(
+                    INTEROP_DISABLE_PLAYER_APPLICATION_SETTING_CMDS, &addr);
+            BTIF_TRACE_ERROR("BL for player app setting = %d", is_blacklisted_player_app_settings);
             uint16_t profile_version = sdp_get_stored_avrc_tg_version(addr);
             uint16_t version = (AVRCP_VERSION_BIT_MASK & profile_version);
             bool is_browse_bit_set =
@@ -1024,21 +1027,67 @@ tBTA_AV_EVT bta_av_proc_meta_cmd(tAVRC_RESPONSE* p_rc_rsp,
             BTIF_TRACE_DEBUG(LOG_TAG, "AVRCP version used for SDP 0x%x,browse supported %d",
                     version, is_browse_bit_set);
 
-            if ((version <= AVRC_REV_1_3) || (!is_browse_bit_set) ||
+            if ((version < AVRC_REV_1_4) || (!is_browse_bit_set) ||
                     (is_dev_avrcpv_blacklisted == TRUE))
             {
-                for (i = 0; i <= p_bta_av_cfg->num_evt_ids; ++i)
+                for (i = 0; i < p_bta_av_cfg->num_evt_ids; ++i)
                 {
-                   if (p_bta_av_cfg->p_meta_evt_ids[i] == AVRC_EVT_AVAL_PLAYERS_CHANGE)
-                      break;
+                   if (version < AVRC_REV_1_4 || is_dev_avrcpv_blacklisted == TRUE) {
+                     if (p_bta_av_cfg->p_meta_evt_ids[i] == AVRC_EVT_AVAL_PLAYERS_CHANGE)
+                       break;
+                   } else {
+                     if (p_bta_av_cfg->p_meta_evt_ids[i] == AVRC_EVT_NOW_PLAYING_CHANGE)
+                       break;
+                   }
                 }
-                p_rc_rsp->get_caps.count = i;
-                memcpy(p_rc_rsp->get_caps.param.event_id, p_bta_av_cfg->p_meta_evt_ids, i);
+                int evt_count = i;
+                APPL_TRACE_WARNING("event count: 0x%x", evt_count);
+                if ((version < AVRC_REV_1_4) || is_dev_avrcpv_blacklisted == TRUE)
+                {
+#if (defined(AVRC_QTI_V1_3_OPTIONAL_FEAT) && AVRC_QTI_V1_3_OPTIONAL_FEAT == TRUE)
+                  evt_count = i - 1;
+#endif
+                  p_rc_rsp->get_caps.count = evt_count;
+                  memcpy(p_rc_rsp->get_caps.param.event_id, p_bta_av_cfg->p_meta_evt_ids,
+                         evt_count);
+                } else {
+                    if (is_blacklisted_player_app_settings) {
+#if (defined(AVRC_QTI_V1_3_OPTIONAL_FEAT) && AVRC_QTI_V1_3_OPTIONAL_FEAT == TRUE)
+                      int i, j;
+                      for (i = 0, j = 0; i < evt_count; ++i)
+                        if (p_bta_av_cfg->p_meta_evt_ids[i] != AVRC_EVT_APP_SETTING_CHANGE)
+                          p_rc_rsp->get_caps.param.event_id[j++] = p_bta_av_cfg->p_meta_evt_ids[i];
+                      p_rc_rsp->get_caps.count = j;
+#else
+                      p_rc_rsp->get_caps.count = evt_count;
+                      memcpy(p_rc_rsp->get_caps.param.event_id, p_bta_av_cfg->p_meta_evt_ids,
+                             evt_count);
+#endif
+                    } else {
+                      p_rc_rsp->get_caps.count = evt_count;
+                      memcpy(p_rc_rsp->get_caps.param.event_id, p_bta_av_cfg->p_meta_evt_ids,
+                             evt_count);
+                    }
+                }
             }
             else
             {
-                memcpy(p_rc_rsp->get_caps.param.event_id, p_bta_av_cfg->p_meta_evt_ids,
-                       p_bta_av_cfg->num_evt_ids);
+                if (is_blacklisted_player_app_settings)
+                {
+#if (defined(AVRC_QTI_V1_3_OPTIONAL_FEAT) && AVRC_QTI_V1_3_OPTIONAL_FEAT == TRUE)
+                    int i, j;
+                    for (i = 0, j = 0; i < p_bta_av_cfg->num_evt_ids; ++i)
+                      if (p_bta_av_cfg->p_meta_evt_ids[i] != AVRC_EVT_APP_SETTING_CHANGE)
+                        p_rc_rsp->get_caps.param.event_id[j++] = p_bta_av_cfg->p_meta_evt_ids[i];
+                    p_rc_rsp->get_caps.count = j;
+#else
+                    memcpy(p_rc_rsp->get_caps.param.event_id, p_bta_av_cfg->p_meta_evt_ids,
+                           p_bta_av_cfg->num_evt_ids);
+#endif
+                } else {
+                    memcpy(p_rc_rsp->get_caps.param.event_id, p_bta_av_cfg->p_meta_evt_ids,
+                           p_bta_av_cfg->num_evt_ids);
+                }
             }
           } else {
             APPL_TRACE_DEBUG("Invalid capability ID: 0x%x", u8);
@@ -2069,11 +2118,11 @@ tBTA_AV_FEAT bta_av_check_peer_features(uint16_t service_uuid) {
 
       if (peer_rc_version >= AVRC_REV_1_3)
         peer_features |= (BTA_AV_FEAT_VENDOR | BTA_AV_FEAT_METADATA);
+
+      if (peer_rc_version >= AVRC_REV_1_4) {
 #if (defined(AVRC_QTI_V1_3_OPTIONAL_FEAT) && AVRC_QTI_V1_3_OPTIONAL_FEAT == TRUE)
         peer_features |= (BTA_AV_FEAT_APP_SETTING);
 #endif
-
-      if (peer_rc_version >= AVRC_REV_1_4) {
         /* get supported categories */
         p_attr = SDP_FindAttributeInRec(p_rec, ATTR_ID_SUPPORTED_FEATURES);
         if (p_attr != NULL) {
