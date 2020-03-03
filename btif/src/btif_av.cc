@@ -3050,6 +3050,7 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
       if (index == btif_max_av_clients) {
         //Device is disconnected before setting it as active device
         BTIF_TRACE_IMP("%s:Invalid index to set active device",__func__);
+        btif_av_signal_session_ready();
         break;
       }
 
@@ -3081,6 +3082,8 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
       if (btif_av_cb[index].current_playing == TRUE)
       {
         BTIF_TRACE_IMP("Trigger handoff for same device %d discard it", index);
+        if (btif_av_current_device_is_tws() && btif_av_cb[index].tws_device)
+          btif_av_signal_session_ready();
         break;
       }
 
@@ -3090,9 +3093,7 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
       if (btif_av_cb[index].tws_device &&
         btif_av_is_tws_device_playing(index)) {
         btif_av_cb[index].current_playing = TRUE;
-        //for(int i = 0; i< btif_max_av_clients; i++) {
-        //  if (i != index) btif_av_cb[i].current_playing = FALSE;
-        //}
+        btif_av_signal_session_ready();
         BTIF_TRACE_DEBUG("TWSP device, do not trigger handoff");
         return;
       }
