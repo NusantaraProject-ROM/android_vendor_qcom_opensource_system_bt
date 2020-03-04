@@ -4323,6 +4323,12 @@ void btm_sec_encrypt_change(uint16_t handle, uint8_t status,
       (btm_cb.p_collided_dev_rec == p_dev_rec))  {
       BTM_TRACE_DEBUG("incoming encryption succeded, cancel collision timer");
       alarm_cancel(btm_cb.sec_collision_timer);
+  /*  host waiting for authentication complete event, but received encryption complete.
+      FW won't send authentication complete ,when remote encryption succedded
+      hence continue from here to trigger further security procedure */
+  } else if ((status == HCI_SUCCESS) &&
+             (p_dev_rec->sec_state == BTM_SEC_STATE_AUTHENTICATING)) {
+      BTM_TRACE_DEBUG("incoming encryption succeded, cont security procedure");
   /* If this encryption was started by peer do not need to do anything */
   } else if (p_dev_rec->sec_state != BTM_SEC_STATE_ENCRYPTING) {
     if (BTM_SEC_STATE_DELAY_FOR_ENC == p_dev_rec->sec_state) {
