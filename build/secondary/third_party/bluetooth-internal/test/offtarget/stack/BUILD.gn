@@ -31,6 +31,7 @@ source_set("service") {
     "common/bluetooth/scan_settings.cc",
     "common/bluetooth/service.cc",
     "common/bluetooth/util/atomic_string.cc",
+    "common/bluetooth/periodic_adv_parameters.cc",
     "gatt_client.cc",
     "gatt_server.cc",
     "gatt_server_old.cc",
