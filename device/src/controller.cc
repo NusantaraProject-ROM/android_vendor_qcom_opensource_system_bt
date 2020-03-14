@@ -156,6 +156,9 @@ bool is_soc_lpa_enh_pwr_enabled() {
 static future_t* start_up(void) {
   BT_HDR* response;
 
+  //initialize number_of_scrambling_supported_freqs to 0 during start_up
+  number_of_scrambling_supported_freqs = 0;
+
   load_bt_configstore_lib();
   if (bt_configstore_intf != NULL) {
      std::vector<vendor_property_t> vPropList;

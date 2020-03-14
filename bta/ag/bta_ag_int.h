@@ -494,7 +494,7 @@ extern void bta_clear_active_device();
 extern void bta_ag_api_set_active_device(tBTA_AG_DATA* p_data);
 extern void bta_ag_handle_collision(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data);
 
-extern void bta_ag_create_sco(tBTA_AG_SCB* p_scb, bool is_orig);
+extern bool bta_ag_create_sco(tBTA_AG_SCB* p_scb, bool is_orig);
 extern bool bta_ag_remove_sco(tBTA_AG_SCB* p_scb, bool only_active);
 extern void bta_ag_send_result(tBTA_AG_SCB* p_scb, size_t code,
                                const char* p_arg, int16_t int_arg);

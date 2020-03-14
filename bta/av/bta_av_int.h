@@ -154,6 +154,7 @@ enum {
   BTA_AV_SET_EARBUD_ROLE_EVT, /* Set TWS earbud role */
   BTA_AV_SET_TWS_DEVICE_EVT, /* Update TWS state */
 #endif
+  BTA_AV_LAST_EVT,
 };
 
 /* MultiBrowse specific connection events */
@@ -177,12 +178,6 @@ enum {
 /* API events passed to both SSMs (by bta_av_api_to_ssm) */
 #define BTA_AV_FIRST_A2S_API_EVT BTA_AV_API_START_EVT
 #define BTA_AV_FIRST_A2S_SSM_EVT BTA_AV_AP_START_EVT
-
-#if (TWS_ENABLED == TRUE)
-#define BTA_AV_LAST_EVT BTA_AV_SET_TWS_DEVICE_EVT
-#else
-#define BTA_AV_LAST_EVT BTA_AV_RC_COLLISSION_DETECTED_EVT
-#endif
 
 /* Info ID from updating aptX Adaptive Encoder mode */
 #define BTA_AV_ENCODER_MODE_CHANGE_ID 5

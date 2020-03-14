@@ -387,7 +387,7 @@ static void btif_a2dp_source_remote_start_timeout(UNUSED_ATTR void* context) {
   APPL_TRACE_DEBUG("%s: Suspend stream request to Av index %d", __func__, *arg);
   if (btif_a2dp_source_cb.remote_start_alarm != NULL &&
       index == btif_a2dp_source_cb.last_remote_started_index) {
-    btif_av_clear_remote_start_timer(btif_a2dp_source_cb.last_remote_started_index);
+    alarm_free(btif_a2dp_source_cb.remote_start_alarm);
     btif_a2dp_source_cb.remote_start_alarm = NULL;
     btif_a2dp_source_cb.last_remote_started_index = -1;
     btif_a2dp_source_cb.last_started_index_pointer = NULL;
