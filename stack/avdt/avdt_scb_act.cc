@@ -137,6 +137,7 @@ void avdt_scb_hdl_close_cmd(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
  *
  ******************************************************************************/
 void avdt_scb_hdl_close_rsp(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
+  AVDT_TRACE_WARNING("%s: err_code: %x", __func__, p_data->msg.hdr.err_code);
   p_scb->close_code = p_data->msg.hdr.err_code;
 }
 
@@ -840,6 +841,9 @@ void avdt_scb_hdl_tc_close(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
   uint8_t event;
   tAVDT_CCB* p_ccb = p_scb->p_ccb;
   RawAddress remote_addr = p_ccb->peer_addr;
+
+  AVDT_TRACE_DEBUG(" %s: role: %x, remove: %d, close_code: %x",
+                 __func__, p_scb->role, p_scb->remove, p_scb->close_code);
 
   /* set up hdr */
   avdt_ctrl.hdr.err_code = p_scb->close_code;
@@ -1593,6 +1597,7 @@ void avdt_scb_rej_not_in_use(UNUSED_ATTR tAVDT_SCB* p_scb,
  *
  ******************************************************************************/
 void avdt_scb_set_remove(tAVDT_SCB* p_scb, UNUSED_ATTR tAVDT_SCB_EVT* p_data) {
+  AVDT_TRACE_DEBUG("%s: ", __func__);
   p_scb->remove = true;
 }
 
@@ -1718,9 +1723,10 @@ void avdt_scb_transport_channel_timer(tAVDT_SCB* p_scb,
  *
  ******************************************************************************/
 void avdt_scb_clr_vars(tAVDT_SCB* p_scb, UNUSED_ATTR tAVDT_SCB_EVT* p_data) {
-  AVDT_TRACE_DEBUG("%s:", __func__);
+  AVDT_TRACE_DEBUG("%s: Initializes certain SCB variables", __func__);
   avdt_set_scbs_free(p_scb);
   p_scb->in_use = false;
+  p_scb->p_ccb->p_proc_data = NULL;
   p_scb->p_ccb = NULL;
   p_scb->peer_seid = 0;
 }

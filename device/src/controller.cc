@@ -149,6 +149,10 @@ static bool is_soc_logging_enabled() {
 bool is_soc_lpa_enh_pwr_enabled() {
   char lpa_enh_pwr_enabled[PROPERTY_VALUE_MAX] = {0};
 
+  if (soc_type != BT_SOC_TYPE_HASTINGS &&
+       soc_type != BT_SOC_TYPE_CHEROKEE) {
+    return false;
+  }
   osi_property_get("persist.vendor.btstack.enable.lpa", lpa_enh_pwr_enabled, "false");
   return strncmp(lpa_enh_pwr_enabled, "true", 4) == 0;
 }
@@ -268,7 +272,7 @@ static future_t* start_up(void) {
     }
   }
 
-  if (soc_type == BT_SOC_TYPE_HASTINGS && is_soc_lpa_enh_pwr_enabled()) {
+  if (is_soc_lpa_enh_pwr_enabled()) {
     btm_enable_link_lpa_enh_pwr_ctrl((uint16_t)HCI_INVALID_HANDLE, true);
   }
 
