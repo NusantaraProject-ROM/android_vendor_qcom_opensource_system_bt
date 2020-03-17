@@ -290,8 +290,6 @@ bool tws_state_supported = false;
     btif_rc_handler(e, d);         \
   } break;
 
-void btif_av_flow_spec_cmd(int index, int bitrate);
-
 int64_t average_delay;
 static int64_t delay_record[DELAY_RECORD_COUNT] = {0}; /* store latest packets delay */
 static int delay_record_idx = 0;
@@ -2426,7 +2424,6 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       if(codec_cfg_change) {
         btif_av_cb[index].reconfig_pending = true;
       }
-      btif_av_flow_spec_cmd(index, reconfig_a2dp_param_val);
       if ((btif_av_cb[index].flags & BTIF_AV_FLAG_LOCAL_SUSPEND_PENDING) && codec_cfg_change) {
         btif_av_cache_src_codec_config(BTIF_AV_SOURCE_CONFIG_REQ_EVT, p_data, index);
       } else {
@@ -6217,20 +6214,6 @@ void btif_av_reinit_audio_interface() {
     btif_a2dp_audio_interface_init();
     btif_a2dp_audio_if_init = true;
   }
-}
-
-void btif_av_flow_spec_cmd(int index, int bitrate) {
-  tBT_FLOW_SPEC flow_spec;
-  memset(&flow_spec, 0x00, sizeof(flow_spec));
-  flow_spec.flow_direction = 0x00;     /* flow direction - out going */
-  flow_spec.service_type = 0x02;       /* Guaranteed */
-  flow_spec.token_rate = 0x00;         /* bytes/second - no token rate is specified*/
-  flow_spec.token_bucket_size = 0x00;  /* bytes - no token bucket is needed*/
-  flow_spec.latency = 0xFFFFFFFF;      /* microseconds - default value */
-  flow_spec.peak_bandwidth = bitrate/8;/*bytes per second */
-  //Sending Flow_spec has been taken care whenever event:BTIF_AV_START_STREAM_REQ_EVT comes.
-  //BTM_FlowSpec (btif_av_cb[index].peer_bda, &flow_spec, NULL);
-  APPL_TRACE_DEBUG("%s peak_bandwidth %d",__func__, flow_spec.peak_bandwidth);
 }
 
 #if (TWS_ENABLED == TRUE)

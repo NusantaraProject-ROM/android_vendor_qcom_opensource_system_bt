@@ -397,43 +397,6 @@ static void notify_start_failed(tBTA_AV_SCB* p_scb) {
   (*bta_av_cb.p_cback)(BTA_AV_START_EVT, &bta_av_data);
 }
 
-static void bta_av_update_flow_spec(tBTA_AV_SCB* p_scb) {
-
-  const char *codec_name;
-  uint8_t *p_codec_info = (uint8_t*) p_scb->cfg.codec_info;
-
-  tBT_FLOW_SPEC flow_spec;
-  memset(&flow_spec, 0x00, sizeof(flow_spec));
-
-  flow_spec.flow_direction = 0x00;     /* flow direction - out going */
-  flow_spec.service_type = 0x02;       /* Guaranteed */
-  flow_spec.token_rate = 0x00;         /* bytes/second - no token rate is specified*/
-  flow_spec.token_bucket_size = 0x00;  /* bytes - no token bucket is needed*/
-  flow_spec.latency = 0xFFFFFFFF;      /* microseconds - default value */
-
-  codec_name = A2DP_CodecName(p_codec_info);
-  if (strcmp(codec_name,"SBC") == 0) {
-    flow_spec.peak_bandwidth = (345*1000)/8; /* bytes/second */
-
-  } else if (strcmp(codec_name,"aptX") == 0)  {
-    flow_spec.peak_bandwidth = (380*1000)/8; /* bytes/second */
-
-  } else if (strcmp(codec_name,"aptX-HD") == 0) {
-    flow_spec.peak_bandwidth = (660*1000)/8; /* bytes/second */
-
-  } else if (strcmp(codec_name,"LDAC") == 0) {
-    /* For ABR mode default peak bandwidth is 0 */
-    flow_spec.peak_bandwidth = 0; /* bytes/second */
-
-  } else if (strcmp(codec_name,"AAC") == 0) {
-    flow_spec.peak_bandwidth = (320*1000)/8; /* bytes/second */
-  }
-  APPL_TRACE_DEBUG("codec_name %s peak_bandwidth %d",codec_name,
-                                flow_spec.peak_bandwidth);
-  //Sending Flow_spec has been taken care whenever event:BTIF_AV_START_STREAM_REQ_EVT comes.
-  //BTM_FlowSpec (p_scb->peer_addr, &flow_spec, NULL);
-}
-
 /*******************************************************************************
  *
  * Function         bta_av_st_rc_timer
@@ -1753,8 +1716,6 @@ void bta_av_str_opened(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   }
 //  p_scb->channel_mode = 0;//TODO fetch the valuse from core stack
 #endif
-
-  bta_av_update_flow_spec(p_scb);
 
   {
     /* TODO check if other audio channel is open.
@@ -3496,7 +3457,6 @@ void bta_av_rcfg_str_ok(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     bta_av_data.reconfig = reconfig;
     (*bta_av_cb.p_cback)(BTA_AV_RECONFIG_EVT, &bta_av_data);
   }
-  bta_av_update_flow_spec(p_scb);
 }
 
 /*******************************************************************************
