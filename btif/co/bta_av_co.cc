@@ -82,6 +82,7 @@
 #include "stack/include/a2dp_vendor_ldac_constants.h"
 #define MAX_2MBPS_AVDTP_MTU 663
 #define A2DP_LDAC_CODEC_BEST_SAMPLE_RATE 96000
+#define A2DP_AAC_BOSE_VENDOR_ID 0x009E
 extern const btgatt_interface_t* btif_gatt_get_interface();
 
 bool isDevUiReq = false;
@@ -1167,7 +1168,11 @@ static bool bta_av_co_check_peer_eligible_for_aac_codec(
     APPL_TRACE_DEBUG("%s: vendor: 0x%04x product: 0x%04x version: 0x%04x", __func__, vendor, product, version);
     vndr_prdt_ver_present = true;
   }
-  if (vndr_prdt_ver_present && interop_database_match_version(INTEROP_ENABLE_AAC_CODEC, version) &&
+  if (vndr_prdt_ver_present && (vendor == A2DP_AAC_BOSE_VENDOR_ID)) {
+    APPL_TRACE_DEBUG("%s: vendor id info matches ", __func__);
+    vndr_prdt_ver_present = false;
+    aac_support = true;
+  } else if (vndr_prdt_ver_present && interop_database_match_version(INTEROP_ENABLE_AAC_CODEC, version) &&
       interop_match_vendor_product_ids(INTEROP_ENABLE_AAC_CODEC, vendor, product)) {
     APPL_TRACE_DEBUG("%s: vendor id, product id and version info matching with conf file", __func__);
     vndr_prdt_ver_present = false;
