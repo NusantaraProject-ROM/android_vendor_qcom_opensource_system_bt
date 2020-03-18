@@ -2900,7 +2900,7 @@ void bta_av_data_path(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
     p_buf = (BT_HDR*)p_scb->p_cos->data(p_scb->cfg.codec_info, &timestamp);
 
     if (p_buf) {
-      APPL_TRACE_DEBUG("%s: p_buf is valid: %d", __func__);
+      APPL_TRACE_DEBUG("%s: p_buf is valid: ", __func__);
       /* use the offset area for the time stamp */
       *(uint32_t*)(p_buf + 1) = timestamp;
 
@@ -2936,7 +2936,7 @@ void bta_av_data_path(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
 
       uint8_t* data_begin = (uint8_t*)(p_buf + 1) + p_buf->offset;
       uint8_t* data_end = (uint8_t*)(p_buf + 1) + p_buf->offset + p_buf->len;
-      while (extra_fragments_n-- > 0) {
+      while ((extra_fragments_n != 0) && (extra_fragments_n-- > 0)) {
         data_begin += p_scb->stream_mtu;
         size_t fragment_len = data_end - data_begin;
         if (fragment_len > p_scb->stream_mtu) fragment_len = p_scb->stream_mtu;
