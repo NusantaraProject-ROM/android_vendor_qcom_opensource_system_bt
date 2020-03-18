@@ -473,6 +473,11 @@ static std::string obfuscate_address(const RawAddress& address) {
       address);
 }
 
+static int get_metric_id(const RawAddress& address) {
+  LOG_ERROR(LOG_TAG, "%s: not implemented", __func__);
+  return 0;
+}
+
 EXPORT_SYMBOL bt_interface_t bluetoothInterface = {
     sizeof(bluetoothInterface),
     init,
@@ -509,4 +514,5 @@ EXPORT_SYMBOL bt_interface_t bluetoothInterface = {
     interop_database_add,
     get_avrcp_service,
     obfuscate_address,
+    get_metric_id,
 };
