@@ -225,6 +225,9 @@ typedef enum {
   // Disable LPA enhanced power control
   INTEROP_DISABLE_LPA_ENHANCED_POWER_CONTROL,
 
+  // Disable refresh_accept_signalling_timer
+  INTEROP_DISABLE_REFRESH_ACCPET_SIG_TIMER,
+
   END_OF_INTEROP_LIST
 } interop_feature_t;
 

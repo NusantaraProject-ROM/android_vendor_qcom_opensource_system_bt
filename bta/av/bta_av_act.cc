@@ -2939,11 +2939,20 @@ static void bta_av_browsing_channel_open_retry(uint8_t handle) {
  ******************************************************************************/
 void bta_av_refresh_accept_signalling_timer(const RawAddress &remote_bdaddr) {
   tBTA_AV_SCB* p_scb = NULL;
+
   p_scb = bta_av_addr_to_scb(remote_bdaddr);
   if (p_scb == NULL) {
     APPL_TRACE_IMP("%s: p_scb is null, return", __func__);
     return;
   }
+
+  //Don't set bta_av_refresh_accept_signalling_timer for the BLed device
+  if (interop_match_addr_or_name(INTEROP_DISABLE_REFRESH_ACCPET_SIG_TIMER, &p_scb->peer_addr)) {
+    APPL_TRACE_IMP("%s: Remote device is BLed for "
+                   "INTEROP_DISABLE_REFRESH_ACCPET_SIG_TIMER, return", __func__);
+    return;
+  }
+
   APPL_TRACE_IMP("%s: add: %s hdi = %d", __func__,
                            remote_bdaddr.ToString().c_str(), p_scb->hdi);
   if (alarm_is_scheduled(bta_av_cb.accept_signalling_timer[p_scb->hdi])) {
