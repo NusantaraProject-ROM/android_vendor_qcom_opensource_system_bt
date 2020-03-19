@@ -4034,6 +4034,7 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
             offload_rsp.hndl = offload_start.p_scb->hndl;
           }
           offload_rsp.status = status;
+          offload_rsp.stream_start = offload_start.stream_start;
           //bta_av_data.start.hndl = offload_start.p_scb->hndl;
           bta_av_data.offload_rsp = offload_rsp;
           offload_start.p_scb->vendor_start = true;
@@ -4063,6 +4064,7 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
           offload_rsp.hndl = offload_start.p_scb->hndl;
         }
         offload_rsp.status = status;
+        offload_rsp.stream_start = offload_start.stream_start;
         bta_av_data.offload_rsp = offload_rsp;
         (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, &bta_av_data);
       } else {
