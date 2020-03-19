@@ -110,6 +110,9 @@ RawAddress ba_addr({0xCE, 0xFA, 0xCE, 0xFA, 0xCE, 0xFA});
 
 #define BTIF_TIMEOUT_AV_OPEN_ON_RC_MS (2 * 1000)
 #define BTIF_SUSPEND_RSP_FROM_REMOTE_TOUT (2 * 1000)
+#if (TWS_ENABLED == TRUE)
+#define BTIF_TWS_OFFLOAD_STARTED_SYNC_TOUT (1 * 1000)
+#endif
 
 /* Number of BTIF-AV control blocks */
 /* Now supports Two AV connections. */
@@ -187,6 +190,7 @@ typedef struct {
 #if (TWS_ENABLED == TRUE)
   bool tws_device;
   bool offload_state;
+  alarm_t* tws_offload_started_sync_timer;
 #if (TWS_STATE_ENABLED == TRUE)
   uint8_t eb_state;
   bool tws_state_suspend;
@@ -926,6 +930,12 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
         BTIF_TRACE_DEBUG("%s: clear suspend_rsp_track_timer", __func__);
         alarm_cancel(btif_av_cb[index].suspend_rsp_track_timer);
       }
+ #if (TWS_ENABLED == TRUE)
+      if (alarm_is_scheduled(btif_av_cb[index].tws_offload_started_sync_timer)) {
+        BTIF_TRACE_DEBUG("%s: clear tws_offload_started_sync_timer", __func__);
+        alarm_cancel(btif_av_cb[index].tws_offload_started_sync_timer);
+      }
+#endif
       btif_av_cb[index].fake_suspend_rsp = false;
       for (int i = 0; i < btif_max_av_clients; i++)
         btif_av_cb[i].dual_handoff = false;
@@ -2802,12 +2812,34 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
 
     case BTA_AV_OFFLOAD_START_RSP_EVT:
       tBTA_AV_STATUS status;
-      if (!btif_a2dp_src_vsc.multi_vsc_support)
+      uint8_t stream_start;
+      if (!btif_a2dp_src_vsc.multi_vsc_support) {
         status = p_av->offload_rsp.status;
-      else
+        stream_start = p_av->offload_rsp.stream_start;
+      } else {
         status = p_av->status;
+        stream_start = true;
+      }
 
-      btif_a2dp_on_offload_started(status);
+#if (TWS_ENABLED == TRUE)
+      if (btif_av_cb[index].tws_device && !stream_start &&
+          (status == BTA_AV_SUCCESS)) {
+        BTIF_TRACE_DEBUG("%s: waiting for offload started rsp with streaming start", __func__);
+        btif_av_set_tws_offload_started_sync_timer(index);
+      } else {
+        for (int i = 0; i < btif_max_av_clients; i++) {
+          if (btif_av_cb[i].tws_device &&
+              alarm_is_scheduled(btif_av_cb[i].tws_offload_started_sync_timer)) {
+            BTIF_TRACE_DEBUG("%s: Streaming start, clear tws_offload_started_sync_timer", __func__);
+            alarm_cancel(btif_av_cb[i].tws_offload_started_sync_timer);
+          }
+        }
+#endif
+        btif_a2dp_on_offload_started(status);
+#if (TWS_ENABLED == TRUE)
+      }
+#endif
+
       if (btif_av_cb[index].tws_device) {
         btif_report_audio_state(BTAV_AUDIO_STATE_STARTED, &(btif_av_cb[index].peer_bda));
       }
@@ -4086,6 +4118,11 @@ bt_status_t btif_av_init(int service_id) {
       alarm_free(collision_detect[i].av_coll_detected_timer);
       collision_detect[i].av_coll_detected_timer =
                          alarm_new("btif_av.av_coll_detected_timer");
+#if (TWS_ENABLED == TRUE)
+      alarm_free(btif_av_cb[i].tws_offload_started_sync_timer);
+      btif_av_cb[i].tws_offload_started_sync_timer =
+                         alarm_new("btif_av.tws_offload_started_sync_timer");
+#endif
       memset(&collision_detect[i].bd_addr, 0, sizeof(RawAddress));
       collision_detect[i].conn_retry_count = 1;
     }
@@ -4180,6 +4217,9 @@ static bt_status_t init_src(
     btif_av_cb[i].remote_start_alarm = NULL;
     btif_av_cb[i].suspend_rsp_track_timer = NULL;
     btif_av_cb[i].fake_suspend_rsp = false;
+#if (TWS_ENABLED == TRUE)
+    btif_av_cb[i].tws_offload_started_sync_timer = NULL;
+#endif
     memset(&collision_detect[i].bd_addr, 0, sizeof(RawAddress));
     collision_detect[i].conn_retry_count = 1;
     collision_detect[i].av_coll_detected_timer = NULL;
@@ -4681,6 +4721,9 @@ static void cleanup(int service_uuid) {
 
   for (int i = 0; i < btif_max_av_clients; i++) {
     btif_av_clear_suspend_rsp_track_timer(i);
+#if (TWS_ENABLED == TRUE)
+    btif_av_clear_tws_offload_started_sync_timer(i);
+#endif
     collision_detect[i].conn_retry_count = 1;
     alarm_free(collision_detect[i].av_coll_detected_timer);
     collision_detect[i].av_coll_detected_timer = NULL;
@@ -6258,6 +6301,36 @@ bool btif_av_is_tws_enable_monocfg() {
        }
     }
   return true;
+}
+void btif_av_set_tws_offload_started_sync_timer(int index) {
+  int *arg = NULL;
+  arg = (int *) osi_malloc(sizeof(int));
+  *arg = index;
+  BTIF_TRACE_DEBUG("%s: index: %d", __func__, index);
+  if (alarm_is_scheduled(btif_av_cb[index].tws_offload_started_sync_timer)) {
+      alarm_cancel(btif_av_cb[index].tws_offload_started_sync_timer);
+      BTIF_TRACE_DEBUG("%s: Deleting previously queued timer if any.", __func__);
+  }
+  alarm_set_on_mloop(btif_av_cb[index].tws_offload_started_sync_timer,
+                   BTIF_TWS_OFFLOAD_STARTED_SYNC_TOUT,
+                   btif_av_tws_offload_started_sync_timer_tout, (void *)arg);
+}
+void btif_av_tws_offload_started_sync_timer_tout(void* data) {
+  BTIF_TRACE_DEBUG("%s: enter", __func__);
+  int *arg = (int *)data;
+  if (!arg) {
+    BTIF_TRACE_ERROR("%s: index is null, return", __func__);
+    return;
+  }
+  btif_a2dp_on_offload_started(BTA_AV_SUCCESS);
+}
+void btif_av_clear_tws_offload_started_sync_timer(int index) {
+   BTIF_TRACE_DEBUG("%s: index: %d", __func__, index);
+   if (index < btif_max_av_clients && index >= 0) {
+     if (alarm_is_scheduled(btif_av_cb[index].tws_offload_started_sync_timer))
+       alarm_free(btif_av_cb[index].tws_offload_started_sync_timer);
+     btif_av_cb[index].tws_offload_started_sync_timer = NULL;
+   }
 }
 #endif
 /*SPLITA2DP*/

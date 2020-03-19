@@ -489,6 +489,7 @@ typedef struct {
 typedef struct {
   tBTA_AV_HNDL hndl;
   tBTA_AV_STATUS status;
+  uint8_t stream_start;
 } tBTA_AV_OFFLOAD_RSP;
 
 /* union of data associated with AV callback */
