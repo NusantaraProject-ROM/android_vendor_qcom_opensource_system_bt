@@ -4851,6 +4851,7 @@ static const btav_sink_interface_t bt_av_sink_interface = {
     cleanup_sink,
     update_audio_focus_state,
     update_audio_track_gain,
+    set_active_device,
 };
 
 RawAddress btif_av_get_addr_by_index(int idx) {
