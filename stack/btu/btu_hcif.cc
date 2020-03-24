@@ -1611,8 +1611,8 @@ static void btu_hcif_read_clock_off_comp_evt(uint8_t* p) {
  ******************************************************************************/
 static void btu_hcif_conn_pkt_type_change_evt(uint8_t *p) {
   uint8_t status;
-  uint8_t handle;
-  uint8_t pkt_type;
+  uint16_t handle;
+  uint16_t pkt_type;
 
   STREAM_TO_UINT8(status, p);
 

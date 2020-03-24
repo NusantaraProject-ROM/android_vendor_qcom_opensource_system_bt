@@ -52,7 +52,7 @@ fixed_queue_t* fixed_queue_new(size_t capacity) {
   ret->list = list_new(NULL);
   if (!ret->list) goto error;
 
-  ret->enqueue_sem = semaphore_new(capacity);
+  ret->enqueue_sem = semaphore_new((unsigned int)capacity);
   if (!ret->enqueue_sem) goto error;
 
   ret->dequeue_sem = semaphore_new(0);

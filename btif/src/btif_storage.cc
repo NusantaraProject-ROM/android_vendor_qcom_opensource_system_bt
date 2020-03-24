@@ -738,14 +738,14 @@ bt_status_t btif_storage_get_adapter_property(bt_property_t* property) {
     /* publish list of local supported services */
     Uuid* p_uuid = reinterpret_cast<Uuid*>(property->val);
     uint32_t num_uuids = 0;
-    uint32_t i;
+    uint64_t i;
 
     tBTA_SERVICE_MASK service_mask = btif_get_enabled_services_mask();
     LOG_INFO(LOG_TAG, "%s service_mask:0x%" PRIx64, __func__,service_mask);
     for (i = 0; i < BTA_MAX_SERVICE_ID; i++) {
       /* This should eventually become a function when more services are enabled
        */
-      if (service_mask & (tBTA_SERVICE_MASK)(1 << i)) {
+      if (service_mask & ((tBTA_SERVICE_MASK)1 << i)) {
         switch (i) {
           case BTA_HFP_SERVICE_ID: {
             *(p_uuid + num_uuids) =

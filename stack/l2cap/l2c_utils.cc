@@ -2791,7 +2791,7 @@ void l2cu_process_fixed_disc_cback(tL2C_LCB* p_lcb) {
             xx + L2CAP_FIRST_FIXED_CHNL, p_lcb->remote_bd_addr, false,
             p_lcb->disc_reason, p_lcb->transport);
       }
-    } else if ((peer_channel_mask & (1 << (xx + L2CAP_FIRST_FIXED_CHNL))) &&
+    } else if ((peer_channel_mask & ((uint64_t)1 << (xx + L2CAP_FIRST_FIXED_CHNL))) &&
                (l2cb.fixed_reg[xx].pL2CA_FixedConn_Cb != NULL))
       (*l2cb.fixed_reg[xx].pL2CA_FixedConn_Cb)(
           xx + L2CAP_FIRST_FIXED_CHNL, p_lcb->remote_bd_addr, false,
