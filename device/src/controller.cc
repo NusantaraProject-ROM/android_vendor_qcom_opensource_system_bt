@@ -127,9 +127,8 @@ void send_soc_log_command(bool value) {
   if (soc_type == BT_SOC_TYPE_SMD) {
     LOG_INFO(LOG_TAG, "%s for BT_SOC_SMD.", __func__);
     BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE,5,param,NULL);
-  } else if (soc_type == BT_SOC_TYPE_CHEROKEE || soc_type == BT_SOC_TYPE_HASTINGS) {
-    LOG_INFO(LOG_TAG, "%s for %s", __func__, soc_type == BT_SOC_TYPE_CHEROKEE ?
-                "BT_SOC_CHEROKEE" : "BT_SOC_HASTINGS");
+  } else if (soc_type >= BT_SOC_TYPE_CHEROKEE) {
+    LOG_INFO(LOG_TAG, "%s for soc_type: %d", __func__, soc_type);
     BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE, 2, param_cherokee, NULL);
   }
 }
@@ -450,8 +449,7 @@ static future_t* start_up(void) {
   }
 
   //Read HCI_VS_GET_ADDON_FEATURES_SUPPORT
-  if (soc_type == BT_SOC_TYPE_CHEROKEE || soc_type == BT_SOC_TYPE_HASTINGS) {
-
+  if (soc_type >= BT_SOC_TYPE_CHEROKEE) {
     if (bt_configstore_intf != NULL) {
       add_on_features_list_t features_list;
       if (bt_configstore_intf->get_add_on_features(&features_list)){
