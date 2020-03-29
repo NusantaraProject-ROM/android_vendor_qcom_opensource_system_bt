@@ -567,7 +567,11 @@ bt_status_t btif_a2dp_source_setup_codec(tBTA_AV_HNDL hndl) {
       flow_spec.peak_bandwidth = bitrate/8;  /* bytes/second */
 
     } else if (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_AAC) {
-      flow_spec.peak_bandwidth = (320*1000)/8; /* bytes/second */
+      if (btif_av_is_split_a2dp_enabled()) {
+        flow_spec.peak_bandwidth = (165*1000)/8; /* bytes/second */
+      } else {
+        flow_spec.peak_bandwidth = (320*1000)/8; /* bytes/second */
+      }
     }
     APPL_TRACE_DEBUG("%s: peak_bandwidth: %d", __func__, flow_spec.peak_bandwidth);
     BTM_FlowSpec (peer_bda, &flow_spec, NULL);
