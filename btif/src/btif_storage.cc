@@ -1312,6 +1312,8 @@ bt_status_t btif_storage_remove_ble_bonding_keys(
     ret &= btif_config_remove(bdstr, "LE_KEY_LENC");
   if (btif_config_exist(bdstr, "LE_KEY_LCSRK"))
     ret &= btif_config_remove(bdstr, "LE_KEY_LCSRK");
+  if (btif_config_exist(bdstr, "LE_KEY_LID"))
+    ret &= btif_config_remove(bdstr, "LE_KEY_LID");
   btif_config_save();
   return ret ? BT_STATUS_SUCCESS : BT_STATUS_FAIL;
 }

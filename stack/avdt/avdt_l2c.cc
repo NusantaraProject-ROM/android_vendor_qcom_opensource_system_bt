@@ -515,9 +515,11 @@ void avdt_l2c_congestion_ind_cback(uint16_t lcid, bool is_congested) {
 void avdt_l2c_data_ind_cback(uint16_t lcid, BT_HDR* p_buf) {
   tAVDT_TC_TBL* p_tbl;
 
+  AVDT_TRACE_DEBUG("%s: lcid: %d", __func__, lcid);
   /* look up info for this channel */
   p_tbl = avdt_ad_tc_tbl_by_lcid(lcid);
   if (p_tbl != NULL) {
+    AVDT_TRACE_DEBUG("%s: p_tbl valid", __func__);
     avdt_ad_tc_data_ind(p_tbl, p_buf);
   } else /* prevent buffer leak */
     osi_free(p_buf);

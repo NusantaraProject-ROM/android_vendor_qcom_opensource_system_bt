@@ -678,7 +678,8 @@ void avdt_ccb_snd_getcap_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   /* we're busy */
   p_ccb->proc_busy = true;
 
-  AVDT_TRACE_DEBUG("%s: bd_add: %s", __func__, p_ccb->peer_addr.ToString().c_str());
+  AVDT_TRACE_DEBUG("%s: bd_add: %s, sig_id: %d", __func__,
+            p_ccb->peer_addr.ToString().c_str(), p_data->msg.hdr.sig_id);
   /* build and queue discover req */
   if (p_data->msg.hdr.sig_id == AVDT_SIG_GET_ALLCAP)
     sig_id = AVDT_SIG_GET_ALLCAP;

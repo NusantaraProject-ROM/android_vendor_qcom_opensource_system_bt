@@ -423,6 +423,8 @@ void avdt_ad_tc_data_ind(tAVDT_TC_TBL* p_tbl, BT_HDR* p_buf) {
 
   /* store type (media, recovery, reporting) */
   p_buf->layer_specific = avdt_ad_tcid_to_type(p_tbl->tcid);
+  AVDT_TRACE_ERROR("%s: type: x%x, tcid: %d, ccb_idx: %d",
+         __func__, p_buf->layer_specific, p_tbl->tcid, p_tbl->ccb_idx);
 
   /* if signaling channel, handle control message */
   if (p_tbl->tcid == 0) {
