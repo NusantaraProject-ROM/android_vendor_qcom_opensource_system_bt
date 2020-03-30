@@ -775,7 +775,7 @@ A2dpCodecConfigAac::A2dpCodecConfigAac(
     : A2dpCodecConfig(BTAV_A2DP_CODEC_INDEX_SOURCE_AAC, "AAC", codec_priority) {
   char value[PROPERTY_VALUE_MAX] = {'\0'};
   bool vbr_enabled = false;
-  osi_property_get("persist.vendor.btstack.aac_vbr_ctl.enabled", value, "true");
+  property_get("persist.vendor.qcom.bluetooth.aac_vbr_ctl.enabled", value, "true");
   if (!(strcmp(value,"true"))) {
     LOG_DEBUG(LOG_TAG, "%s: AAC VBR is enabled ", __func__);
     vbr_enabled = true;
