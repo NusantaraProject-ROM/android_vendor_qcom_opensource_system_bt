@@ -149,6 +149,10 @@ static bool is_soc_logging_enabled() {
 bool is_soc_lpa_enh_pwr_enabled() {
   char lpa_enh_pwr_enabled[PROPERTY_VALUE_MAX] = {0};
 
+  if (soc_type != BT_SOC_TYPE_HASTINGS &&
+       soc_type != BT_SOC_TYPE_CHEROKEE) {
+    return false;
+  }
   osi_property_get("persist.vendor.btstack.enable.lpa", lpa_enh_pwr_enabled, "false");
   return strncmp(lpa_enh_pwr_enabled, "true", 4) == 0;
 }
@@ -159,6 +163,19 @@ static future_t* start_up(void) {
   //initialize number_of_scrambling_supported_freqs to 0 during start_up
   number_of_scrambling_supported_freqs = 0;
 
+// read properties  for offtarget test setup
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+   char bt_soc_type[PROPERTY_VALUE_MAX];
+   osi_property_get("vendor.qcom.bluetooth.soc", bt_soc_type, NULL);
+   osi_property_get("persist.vendor.qcom.bluetooth.a2dp_offload_cap",
+          a2dp_offload_Cap, "");
+   LOG_INFO(LOG_TAG, "%s soc_type= %s", __func__, bt_soc_type);
+   if (!strncmp(bt_soc_type, "hastings", sizeof(bt_soc_type))) {
+     soc_type = BT_SOC_TYPE_HASTINGS;
+   }
+   LOG_INFO(LOG_TAG, "%s soc_type= %d ", __func__, soc_type);
+#else
+// get properties from configstore for device
   load_bt_configstore_lib();
   if (bt_configstore_intf != NULL) {
      std::vector<vendor_property_t> vPropList;
@@ -237,7 +254,7 @@ static future_t* start_up(void) {
        }
     }
   }
-
+#endif  /* OFF_TARGET_TEST_ENABLED */
   // Send the initial reset command
   response = AWAIT_COMMAND(packet_factory->make_reset());
   packet_parser->parse_generic_command_complete(response);
@@ -268,7 +285,7 @@ static future_t* start_up(void) {
     }
   }
 
-  if (soc_type == BT_SOC_TYPE_HASTINGS && is_soc_lpa_enh_pwr_enabled()) {
+  if (is_soc_lpa_enh_pwr_enabled()) {
     btm_enable_link_lpa_enh_pwr_ctrl((uint16_t)HCI_INVALID_HANDLE, true);
   }
 

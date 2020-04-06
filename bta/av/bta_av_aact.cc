@@ -494,14 +494,17 @@ static bool bta_av_next_getcap(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
       p_scb->sep_info_idx = i;
 
       /* we got a stream; get its capabilities */
-      if (p_scb->p_cap == NULL)
+      if (p_scb->p_cap == NULL) {
         p_scb->p_cap = (tAVDT_CFG*)osi_malloc(sizeof(tAVDT_CFG));
+      }
+
       if ((p_scb->avdt_version >= AVDT_VERSION_SYNC) &&
           (A2DP_GetAvdtpVersion() >= AVDT_VERSION_SYNC)) {
         p_req = AVDT_GetAllCapReq;
       } else {
         p_req = AVDT_GetCapReq;
       }
+
       if ((*p_req)(p_scb->peer_addr,
                      p_scb->sep_info[i].seid,
                      p_scb->p_cap, bta_av_dt_cback[p_scb->hdi]) == AVDT_SUCCESS) {
@@ -1274,8 +1277,9 @@ void bta_av_cleanup(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
   tBTA_AV_CONN_CHG msg;
   uint8_t role = BTA_AV_ROLE_AD_INT;
 
-  APPL_TRACE_DEBUG("%s: for handle: 0x%x, peer_add: %s",
-           __func__, p_scb->hndl, p_scb->peer_addr.ToString().c_str());
+  APPL_TRACE_DEBUG("%s: handle: 0x%x, peer_add: %s, deregistring: %d, tws_device: %d",
+     __func__, p_scb->hndl, p_scb->peer_addr.ToString().c_str(), p_scb->deregistring,
+     p_scb->tws_device);
   last_sent_vsc_cmd = 0;
 
   /* free any buffers */

@@ -296,7 +296,7 @@ void btm_acl_created(const RawAddress& bda, DEV_CLASS dc, BD_NAME bdn,
           btm_enable_link_PL10_adaptive_ctrl(hci_handle, true);
         }
 
-        if (soc_type == BT_SOC_TYPE_HASTINGS && is_soc_lpa_enh_pwr_enabled() &&
+        if (is_soc_lpa_enh_pwr_enabled() &&
             interop_match_addr_or_name(INTEROP_DISABLE_LPA_ENHANCED_POWER_CONTROL, &bda)) {
             btm_enable_link_lpa_enh_pwr_ctrl(hci_handle, false);
         }
