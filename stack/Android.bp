@@ -50,6 +50,8 @@ cc_library_static {
         "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/stack/btm",
         "vendor/qcom/opensource/commonsys-intf/bluetooth/include",
         "vendor/qcom/opensource/commonsys/system/bt/device/include",
+        "system/bt/embdrv/sbc/encoder/include",
+        "system/bt/embdrv/sbc/decoder/include",
     ],
     srcs: crypto_toolbox_srcs + [
         "a2dp/a2dp_aac.cc",

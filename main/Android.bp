@@ -33,8 +33,8 @@ cc_library_shared {
         "vendor/qcom/opensource/commonsys/system/bt/btif/co",
         "vendor/qcom/opensource/commonsys/system/bt/hci/include",
         "vendor/qcom/opensource/commonsys/system/bt/vnd/include",
-        "vendor/qcom/opensource/commonsys/system/bt/embdrv/sbc/encoder/include",
-        "vendor/qcom/opensource/commonsys/system/bt/embdrv/sbc/decoder/include",
+        "system/bt/embdrv/sbc/encoder/include",
+        "system/bt/embdrv/sbc/decoder/include",
         "vendor/qcom/opensource/commonsys/system/bt/utils/include",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext"
@@ -59,8 +59,8 @@ cc_library_shared {
         "libbtconfigstore",
     ],
     static_libs: [
-        "libbt-sbc-decoder_qti",
-        "libbt-sbc-encoder_qti",
+        "libbt-sbc-decoder",
+        "libbt-sbc-encoder",
         "libFraunhoferAAC",
         "libudrv-uipc_qti",
         "libg722codec_qti",
