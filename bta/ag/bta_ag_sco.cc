@@ -1624,7 +1624,7 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           if (is_twsp_device(p_scb->peer_addr)) {
 
               if (p_scb == p_sco->p_curr_scb) {
-                  if (sco_disc_init) {
+                  if (sco_disc_init && p_scb->svc_conn) {
                       p_sco->state = BTA_AG_SCO_SHUTTING_ST;
                   } else {
                       if (p_scb == bta_ag_cb.main_sm_scb) {
@@ -1636,6 +1636,8 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
                       } else {
                           p_sco->state = BTA_AG_SCO_LISTEN_ST;
                       }
+                      p_scb->sco_idx = BTM_INVALID_SCO_INDEX;
+                      p_sco->p_curr_scb = NULL;
                   }
               } else {
                   if (p_scb == bta_ag_cb.main_sm_scb) {
@@ -1655,15 +1657,13 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
                 } else {
                    p_sco->state = BTA_AG_SCO_LISTEN_ST;
                 }
+                p_scb->sco_idx = BTM_INVALID_SCO_INDEX;
+                p_sco->p_curr_scb = NULL;
             }
           }
 #if (TWS_AG_ENABLED == TRUE)
           }
 #endif
-
-            if (p_scb == p_sco->p_curr_scb) {
-              p_sco->p_curr_scb = NULL;
-            }
           }
           break;
 
@@ -1920,14 +1920,13 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
             bta_ag_create_sco(p_scb, false);
             p_sco->state = BTA_AG_SCO_LISTEN_ST;
           }
-
+#if (TWS_AG_ENABLED == TRUE)
+          }
+#endif
           if (p_scb == p_sco->p_curr_scb) {
             p_sco->p_curr_scb->sco_idx = BTM_INVALID_SCO_INDEX;
             p_sco->p_curr_scb = NULL;
           }
-#if (TWS_AG_ENABLED == TRUE)
-          }
-#endif
           break;
 
         case BTA_AG_SCO_LISTEN_E:
@@ -1980,14 +1979,13 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           {
             p_sco->state = BTA_AG_SCO_LISTEN_ST;
           }
-
+#if (TWS_AG_ENABLED == TRUE)
+          }
+#endif
           if (p_scb == p_sco->p_curr_scb) {
             p_sco->p_curr_scb->sco_idx = BTM_INVALID_SCO_INDEX;
             p_sco->p_curr_scb = NULL;
           }
-#if (TWS_AG_ENABLED == TRUE)
-          }
-#endif
           break;
 
         default:

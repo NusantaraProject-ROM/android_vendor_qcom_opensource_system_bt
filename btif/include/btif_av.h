@@ -563,5 +563,10 @@ tBTA_AV_HNDL btif_av_get_hndl_by_addr(RawAddress peer_address);
 void btif_av_signal_session_ready();
 void btif_av_set_suspend_rsp_track_timer(int index);
 void btif_av_set_suspend_rsp_track_timer_tout(void* data);
+#if (TWS_ENABLED == TRUE)
+void btif_av_set_tws_offload_started_sync_timer(int index);
+void btif_av_tws_offload_started_sync_timer_tout(void* data);
+void btif_av_clear_tws_offload_started_sync_timer(int index);
+#endif
 void btif_av_clear_suspend_rsp_track_timer(int index);
 #endif /* BTIF_AV_H */
