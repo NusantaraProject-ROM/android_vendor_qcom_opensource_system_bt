@@ -267,6 +267,10 @@ bool SMP_PairCancel(const RawAddress& bd_addr) {
     smp_int_data.status = SMP_PAIR_FAIL_UNKNOWN;
     smp_sm_event(p_cb, SMP_AUTH_CMPL_EVT, &smp_int_data);
     return true;
+  } else if ((p_cb->flags & SMP_PAIR_FLAGS_WE_STARTED_DD) &&
+             (p_cb->pairing_bda == bd_addr)) {
+    SMP_TRACE_DEBUG("Cancel Pairing: reset smp cb");
+    smp_reset_control_value(p_cb);
   }
 
   return false;
