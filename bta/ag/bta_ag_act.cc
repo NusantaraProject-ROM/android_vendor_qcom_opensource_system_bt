@@ -265,6 +265,7 @@ void bta_ag_start_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
         // send ourselves close event for clean up
         bta_ag_cback_open(p_scb, NULL, BTA_AG_FAIL_RFCOMM);
         p_scb->state = 0;
+        p_scb->peer_addr = RawAddress::kEmpty;
         return;
       }
     }
@@ -650,6 +651,8 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
     if (ag_scb->in_use) {
 
       VLOG(1) << __func__ << "ag_scb addr:" << ag_scb->peer_addr;
+      APPL_TRACE_DEBUG("%s: bta_ag_cb.max_hf_clients: %d", __func__,
+                      bta_ag_cb.max_hf_clients);
       if (dev_addr == ag_scb->peer_addr) {
         if (bta_ag_cb.max_hf_clients > 1 && ag_scb != p_scb)
         {
