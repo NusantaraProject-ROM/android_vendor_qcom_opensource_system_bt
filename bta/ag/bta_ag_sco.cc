@@ -585,7 +585,7 @@ void bta_ag_cback_sco(tBTA_AG_SCB* p_scb, uint8_t event) {
  * Returns          void
  *
  ******************************************************************************/
-void bta_ag_create_sco(tBTA_AG_SCB* p_scb, bool is_orig) {
+bool bta_ag_create_sco(tBTA_AG_SCB* p_scb, bool is_orig) {
   APPL_TRACE_DEBUG(
       "%s: BEFORE codec_updated=%d, codec_fallback=%d, "
       "sco_codec=%d, peer_codec=%d, msbc_settings=%d, device=%s",
@@ -597,14 +597,14 @@ void bta_ag_create_sco(tBTA_AG_SCB* p_scb, bool is_orig) {
   if (!bta_ag_sco_is_active_device(p_scb->peer_addr)) {
     LOG(WARNING) << __func__ << ": device " << p_scb->peer_addr
                  << " is not active, active_device=" << active_device_addr;
-    return;
+    return false;
   }
 
   /* Make sure this SCO handle is not already in use */
   if (p_scb->sco_idx != BTM_INVALID_SCO_INDEX) {
     APPL_TRACE_ERROR("%s: device %s, index 0x%04x already in use!", __func__,
                      p_scb->peer_addr.ToString().c_str(), p_scb->sco_idx);
-    return;
+    return false;
   }
 
   if ((p_scb->sco_codec == BTA_AG_CODEC_MSBC) && !p_scb->codec_fallback)
@@ -723,6 +723,7 @@ void bta_ag_create_sco(tBTA_AG_SCB* p_scb, bool is_orig) {
       __func__, p_scb->codec_updated, p_scb->codec_fallback, p_scb->sco_codec,
       p_scb->peer_codecs, p_scb->codec_msbc_settings,
       p_scb->peer_addr.ToString().c_str());
+  return true;
 }
 
 /*******************************************************************************
@@ -1121,8 +1122,13 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           }
           else
           {
-              bta_ag_create_sco(p_scb, TRUE);
-              p_sco->state = BTA_AG_SCO_OPENING_ST;
+              if (bta_ag_create_sco(p_scb, TRUE)) {
+                  p_sco->state = BTA_AG_SCO_OPENING_ST;
+              } else {
+                  APPL_TRACE_WARNING("%s: create sco connection failed", __func__);
+                  p_sco->state = BTA_AG_SCO_LISTEN_ST;
+                  bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
+              }
           }
           break;
 
@@ -1217,8 +1223,13 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
               twsp_select_microphone(get_other_twsp_scb(p_scb->peer_addr), p_scb);
           }
 #endif
-          bta_ag_create_sco(p_scb, true);
-          p_sco->state = BTA_AG_SCO_OPENING_ST;
+          if (bta_ag_create_sco(p_scb, true)) {
+              p_sco->state = BTA_AG_SCO_OPENING_ST;
+          } else {
+              APPL_TRACE_WARNING("%s: create sco connection failed", __func__);
+              p_sco->state = BTA_AG_SCO_LISTEN_ST;
+              bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
+          }
           break;
 
         case BTA_AG_SCO_XFER_E:
@@ -1778,8 +1789,13 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           }
           else
           {
-              bta_ag_create_sco(p_scb, TRUE);
-              p_sco->state = BTA_AG_SCO_OPENING_ST;
+              if (bta_ag_create_sco(p_scb, TRUE)) {
+                  p_sco->state = BTA_AG_SCO_OPENING_ST;
+              } else {
+                  APPL_TRACE_WARNING("%s: create sco connection failed", __func__);
+                  p_sco->state = BTA_AG_SCO_LISTEN_ST;
+                  bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
+              }
           }
           break;
 
