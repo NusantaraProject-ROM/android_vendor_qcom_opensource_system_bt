@@ -1763,6 +1763,13 @@ void bta_av_str_opened(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     tBTA_AV bta_av_data;
     bta_av_data.open = open;
     (*bta_av_cb.p_cback)(BTA_AV_OPEN_EVT, &bta_av_data);
+
+    APPL_TRACE_DEBUG("%s: Free Audio list from previous stream", __func__);
+    while (!list_is_empty(p_scb->a2dp_list)) {
+      BT_HDR* p_buf = (BT_HDR*)list_front(p_scb->a2dp_list);
+      list_remove(p_scb->a2dp_list, p_buf);
+      osi_free(p_buf);
+    }
 #if (TWS_ENABLED == TRUE)
     APPL_TRACE_DEBUG("%s:audio count  = %d ",__func__, bta_av_cb.audio_open_cnt);
     if (p_scb->tws_device) {
@@ -3681,6 +3688,13 @@ void bta_av_rcfg_open(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
     /* we may choose to use a different SEP at reconfig.
      * adjust the sep_idx now */
     bta_av_adjust_seps_idx(p_scb, bta_av_get_scb_handle(p_scb, AVDT_TSEP_SRC));
+
+    APPL_TRACE_DEBUG("%s: Free Audio list from previous stream", __func__);
+    while (!list_is_empty(p_scb->a2dp_list)) {
+      BT_HDR* p_buf = (BT_HDR*)list_front(p_scb->a2dp_list);
+      list_remove(p_scb->a2dp_list, p_buf);
+      osi_free(p_buf);
+    }
 
     /* open the stream with the new config */
     p_scb->sep_info_idx = p_scb->rcfg_idx;
