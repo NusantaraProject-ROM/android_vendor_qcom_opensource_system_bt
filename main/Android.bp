@@ -59,12 +59,6 @@ cc_library_shared {
         "libz",
         "libcrypto",
         "libbtconfigstore",
-       // "android.hardware.keymaster@4.0",
-        "android.hardware.keymaster@3.0",
-        //"libkeymaster4support",
-        "libkeystore_aidl",
-       // "libkeystore_binder",
-        "libkeystore_parcelables",
     ],
     static_libs: [
         "libbt-sbc-decoder",
