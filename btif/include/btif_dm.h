@@ -22,6 +22,7 @@
 #include "bta_api.h"
 #include "bte_appl.h"
 #include "btif_uid.h"
+#include "osi/include/list.h"
 
 /*******************************************************************************
  *  Functions
@@ -108,5 +109,9 @@ void btif_dm_update_ble_remote_properties(const RawAddress& bd_addr,
                                           BD_NAME bd_name,
                                           tBT_DEVICE_TYPE dev_type);
 void btif_vendor_update_add_on_features();
+
+void btif_vendor_update_whitelisted_media_players();
+
+bool fetch_whitelisted_media_players(list_t** bl_devices);
 
 #endif
