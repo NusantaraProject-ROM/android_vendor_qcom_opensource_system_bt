@@ -65,6 +65,7 @@
 #include "btif_config.h"
 #include "device/include/controller.h"
 #include "btif_debug.h"
+#include "btif_keystore.h"
 #include "btif_storage.h"
 #include "device/include/device_iot_config.h"
 #include "btsnoop.h"
@@ -432,6 +433,8 @@ static const void* get_profile_interface(const char* profile_id) {
   if (is_profile(profile_id, BT_PROFILE_HEARING_AID_ID))
     return btif_hearing_aid_get_interface();
 
+  if (is_profile(profile_id, BT_KEYSTORE_ID))
+    return bluetooth::bluetooth_keystore::getBluetoothKeystoreInterface();
   return NULL;
 }
 
