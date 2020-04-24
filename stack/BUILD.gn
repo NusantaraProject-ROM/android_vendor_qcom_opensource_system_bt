@@ -176,6 +176,8 @@ static_library("stack") {
     "//internal_include",
     "//device/include",
     "//",
+    "//third_party/bt/embdrv/sbc/encoder/include",
+    "//third_party/bt/embdrv/sbc/decoder/include",
     "//third_party/system/core/include",
     "//third_party/bluetooth_ext/system_bt_ext",
     "//third_party/bluetooth_ext/system_bt_ext/stack/btm",
