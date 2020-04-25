@@ -1254,8 +1254,10 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
 
       tBTA_AG_FEAT features = p_scb->features & BTA_AG_BSRF_FEAT_SPEC;
 
-      if ((p_scb->peer_version < HFP_VERSION_1_7) &&
-           (!(p_scb->peer_features & BTA_AG_PEER_FEAT_HF_IND))) {
+      /* peer is HFP 1.1 if it initiated connection before AG could get remote's
+       * HFP version */
+      if (p_scb->peer_version < HFP_VERSION_1_7 &&
+            p_scb->peer_version != HFP_VERSION_1_1) {
         /* For PTS keep flags as is */
         if (property_get("vendor.bt.pts.certification", value, "false") &&
             strcmp(value, "true") != 0)

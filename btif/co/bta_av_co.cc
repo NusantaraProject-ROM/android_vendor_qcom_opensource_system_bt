@@ -161,6 +161,9 @@ extern tBTA_AV_HNDL btif_av_get_reconfig_dev_hndl();
 extern void btif_av_reset_codec_reconfig_flag(RawAddress address);
 extern bool bt_split_a2dp_enabled;
 extern void btif_av_set_reconfig_flag(tBTA_AV_HNDL bta_handle);
+extern bool btif_av_check_is_reconfig_pending_flag_set(RawAddress address);
+extern bool btif_av_check_is_cached_reconfig_event_exist(RawAddress address);
+
 /*******************************************************************************
  **
  ** Function         bta_av_co_cp_get_flag
@@ -1541,6 +1544,7 @@ bool bta_av_co_set_codec_user_config(
   tBTA_AV_HNDL hndl = btif_av_get_reconfig_dev_hndl();
   // Find the peer that is currently open
   tBTA_AV_CO_PEER* p_peer = nullptr;
+  APPL_TRACE_DEBUG("%s: hndl: %d", __func__, hndl);
   if (hndl > 0)
     p_peer = bta_av_co_get_peer(hndl);
   else {
@@ -1630,7 +1634,7 @@ bool bta_av_co_set_codec_user_config(
     goto done;
   }
 
-  if (restart_output) {
+  if (restart_output || hndl > 0) {
     uint8_t num_protect = 0;
 #if (BTA_AV_CO_CP_SCMS_T == TRUE)
     if (p_peer->cp_active) num_protect = AVDT_CP_INFO_LEN;
@@ -1681,8 +1685,12 @@ done:
                          sizeof(RawAddress));
     APPL_TRACE_DEBUG("%s BDA: %s", __func__, p_peer->addr.ToString().c_str());
   }
-  if (!success || !restart_output) {
-    APPL_TRACE_DEBUG("%s:reseting codec reconfig flag",__func__);
+
+  if (btif_av_check_is_cached_reconfig_event_exist(bt_addr) &&
+      btif_av_check_is_reconfig_pending_flag_set(bt_addr)) {
+    APPL_TRACE_DEBUG("%s: reconfig event exist to process.",__func__);
+  } else if (!success || !restart_output) {
+    APPL_TRACE_DEBUG("%s: reseting codec reconfig flag",__func__);
     btif_av_reset_codec_reconfig_flag(bt_addr);
   }
   return success;

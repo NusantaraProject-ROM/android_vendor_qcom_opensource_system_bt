@@ -1763,6 +1763,8 @@ const char* bta_av_evt_code(uint16_t evt_code) {
       return "UPDATE_ENCODER_MODE";
     case BTA_AV_UPDATE_APTX_DATA_EVT:
       return "UPDATE_APTX_DATA";
+    case BTA_AV_RECONFIG_FAIL_EVT:
+      return "RECONFIG_FAIL";
     default:
       return "unknown";
   }

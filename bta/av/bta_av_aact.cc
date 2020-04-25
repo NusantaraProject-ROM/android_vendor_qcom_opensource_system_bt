@@ -2705,8 +2705,9 @@ void bta_av_reconfig(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   tBTA_AV_RECONFIG evt;
   tBTA_AV_API_RCFG* p_rcfg = &p_data->api_reconfig;
 
-  APPL_TRACE_DEBUG("%s: r:%d, s:%d idx: %d (o:%d)", __func__, p_scb->recfg_sup,
-                   p_scb->suspend_sup, p_scb->rcfg_idx, p_scb->sep_info_idx);
+  APPL_TRACE_DEBUG("%s: r:%d, s:%d idx: %d (o:%d), p_scb->role: x%x,"
+         " p_scb->started: %d", __func__, p_scb->recfg_sup, p_scb->suspend_sup,
+         p_scb->rcfg_idx, p_scb->sep_info_idx, p_scb->role, p_scb->started);
 
   p_scb->num_recfg = 0;
   /* store the new configuration in control block */
@@ -2717,12 +2718,36 @@ void bta_av_reconfig(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     evt.status = BTA_AV_FAIL_RESOURCES;
     evt.chnl   = p_scb->chnl;
     evt.hndl   = p_scb->hndl;
+    APPL_TRACE_DEBUG("%s: sending reconfig fail with status: %d", __func__,
+                                           evt.status);
     (*bta_av_cb.p_cback)(BTA_AV_RECONFIG_EVT, (tBTA_AV *)&evt);
 
     /* this event is not possible in this state.
      * use it to bring the SSM back to open state
      */
     bta_av_ssm_execute(p_scb, BTA_AV_SDP_DISC_OK_EVT, NULL);
+    return;
+  }
+
+  /* When Reconfig from App followed by MM start back to back, then fake reconfig
+   * fail instead sending reconfig to remote, to avoid BAD_STATE error due to btif
+   * AV SM has been moved to started handler. So, from below code host will retry
+   * reconfig in proper way as supend->reconfig->start.
+   */
+  if ((p_scb->role == BTA_AV_ROLE_START_INT) &&
+        (p_scb->started == false)) {
+    /* report failure */
+    evt.status = BTA_AV_FAIL_RECONFIG;
+    evt.chnl   = p_scb->chnl;
+    evt.hndl   = p_scb->hndl;
+    APPL_TRACE_DEBUG("%s: sending reconfig fail with status: %d", __func__,
+                                           evt.status);
+    (*bta_av_cb.p_cback)(BTA_AV_RECONFIG_EVT, (tBTA_AV *)&evt);
+
+    /* Use below event to bring the SSM back to open state if SSM is in reconfig state.
+     * When reconfig fail happens and if is otherthan reconfig SSM, move the SSM to
+     * same state*/
+    bta_av_ssm_execute(p_scb, BTA_AV_RECONFIG_FAIL_EVT, NULL);
     return;
   }
   btav_a2dp_codec_index_t curr_codec_index = A2DP_SourceCodecIndex(p_scb->cfg.codec_info);
