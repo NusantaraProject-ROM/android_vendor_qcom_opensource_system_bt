@@ -131,4 +131,9 @@
 #define GATT_UUID_SCAN_INT_WINDOW 0x2A4F
 #define GATT_UUID_SCAN_REFRESH 0x2A31
 
+/* Native access notification characteristics */
+#define GATT_UUID_ACCEL_GYRO_STR       "00000001-2000-1000-8000-cec278b6b50a"
+#define GATT_UUID_MAG_DATA_STR         "00000002-2000-1000-8000-cec278b6b50a"
+#define GATT_UUID_PRESSURE_SENSOR_STR  "00000003-2000-1000-8000-cec278b6b50a"
+
 #endif
