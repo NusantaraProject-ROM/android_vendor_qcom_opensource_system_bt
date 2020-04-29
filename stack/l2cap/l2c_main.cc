@@ -71,7 +71,7 @@ void l2c_rcv_acl_data(BT_HDR* p_msg) {
   uint8_t pkt_type;
   tL2C_LCB* p_lcb;
   tL2C_CCB* p_ccb = NULL;
-  uint16_t l2cap_len, rcv_cid, psm;
+  uint16_t l2cap_len, rcv_cid;
   uint16_t soc_log_stats_id;
 
   /* Extract the handle */
@@ -184,8 +184,6 @@ void l2c_rcv_acl_data(BT_HDR* p_msg) {
     osi_free(p_msg);
   } else if (rcv_cid == L2CAP_CONNECTIONLESS_CID) {
     /* process_connectionless_data (p_lcb); */
-    STREAM_TO_UINT16(psm, p);
-    L2CAP_TRACE_DEBUG("GOT CONNECTIONLESS DATA PSM:%d", psm);
 
 #if (L2CAP_UCD_INCLUDED == TRUE)
     /* if it is not broadcast, check UCD registration */
@@ -852,6 +850,10 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
 #if (L2CAP_NUM_FIXED_CHNLS > 0)
         if (info_type == L2CAP_FIXED_CHANNELS_INFO_TYPE) {
           if (result == L2CAP_INFO_RESP_RESULT_SUCCESS) {
+            if (p + L2CAP_FIXED_CHNL_ARRAY_SIZE > p_next_cmd) {
+              android_errorWriteLog(0x534e4554, "111215173");
+              return;
+            }
             memcpy(p_lcb->peer_chnl_mask, p, L2CAP_FIXED_CHNL_ARRAY_SIZE);
           }
 

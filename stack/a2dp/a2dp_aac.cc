@@ -34,7 +34,7 @@
 #include "bt_utils.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
-
+#include "osi/include/properties.h"
 
 #define A2DP_AAC_DEFAULT_BITRATE 320000  // 320 kbps
 #define A2DP_AAC_MIN_BITRATE 64000       // 64 kbps
@@ -84,6 +84,33 @@ static const tA2DP_AAC_CIE a2dp_aac_offload_scram_caps = {
     // bits_per_sample
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16};
 
+static const tA2DP_AAC_CIE a2dp_aac_offload_scram_vbr_caps = {
+    // objectType
+    A2DP_AAC_OBJECT_TYPE_MPEG2_LC,
+    // sampleRate
+    A2DP_AAC_SAMPLING_FREQ_44100,
+    // channelMode
+    A2DP_AAC_CHANNEL_MODE_STEREO,
+    // variableBitRateSupport
+    A2DP_AAC_VARIABLE_BIT_RATE_ENABLED,
+    // bitRate
+    A2DP_AAC_DEFAULT_OFFLOAD_BITRATE,
+    // bits_per_sample
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16};
+
+static const tA2DP_AAC_CIE a2dp_aac_offload_vbr_caps = {
+    // objectType
+    A2DP_AAC_OBJECT_TYPE_MPEG2_LC,
+    // sampleRate
+    A2DP_AAC_SAMPLING_FREQ_48000,
+    // channelMode
+    A2DP_AAC_CHANNEL_MODE_STEREO,
+    // variableBitRateSupport
+    A2DP_AAC_VARIABLE_BIT_RATE_ENABLED,
+    // bitRate
+    A2DP_AAC_DEFAULT_OFFLOAD_BITRATE,
+    // bits_per_sample
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16};
 
 /* Default AAC codec configuration */
 static const tA2DP_AAC_CIE a2dp_aac_default_src_config = {
@@ -109,6 +136,24 @@ static const tA2DP_AAC_CIE a2dp_aac_default_offload_scram_config = {
     A2DP_AAC_SAMPLING_FREQ_44100,         // sampleRate
     A2DP_AAC_CHANNEL_MODE_STEREO,         // channelMode
     A2DP_AAC_VARIABLE_BIT_RATE_DISABLED,  // variableBitRateSupport
+    A2DP_AAC_DEFAULT_OFFLOAD_BITRATE,             // bitRate
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16    // bits_per_sample
+};
+
+static const tA2DP_AAC_CIE a2dp_aac_default_offload_scram_vbr_config = {
+    A2DP_AAC_OBJECT_TYPE_MPEG2_LC,        // objectType
+    A2DP_AAC_SAMPLING_FREQ_44100,         // sampleRate
+    A2DP_AAC_CHANNEL_MODE_STEREO,         // channelMode
+    A2DP_AAC_VARIABLE_BIT_RATE_ENABLED,  // variableBitRateSupport
+    A2DP_AAC_DEFAULT_OFFLOAD_BITRATE,             // bitRate
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16    // bits_per_sample
+};
+
+static const tA2DP_AAC_CIE a2dp_aac_default_offload_vbr_config = {
+    A2DP_AAC_OBJECT_TYPE_MPEG2_LC,        // objectType
+    A2DP_AAC_SAMPLING_FREQ_48000,         // sampleRate
+    A2DP_AAC_CHANNEL_MODE_STEREO,         // channelMode
+    A2DP_AAC_VARIABLE_BIT_RATE_ENABLED,  // variableBitRateSupport
     A2DP_AAC_DEFAULT_OFFLOAD_BITRATE,             // bitRate
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16    // bits_per_sample
 };
@@ -728,14 +773,30 @@ UNUSED_ATTR static void build_codec_config(const tA2DP_AAC_CIE& config_cie,
 A2dpCodecConfigAac::A2dpCodecConfigAac(
     btav_a2dp_codec_priority_t codec_priority)
     : A2dpCodecConfig(BTAV_A2DP_CODEC_INDEX_SOURCE_AAC, "AAC", codec_priority) {
-
+  char value[PROPERTY_VALUE_MAX] = {'\0'};
+  bool vbr_enabled = false;
+  property_get("persist.vendor.qcom.bluetooth.aac_vbr_ctl.enabled", value, "true");
+  if (!(strcmp(value,"true"))) {
+    LOG_DEBUG(LOG_TAG, "%s: AAC VBR is enabled ", __func__);
+    vbr_enabled = true;
+  }
   if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_AAC)) {
     if (A2DP_IsScramblingSupported() || A2DP_Is44p1kFreqSupported() ) {
-        a2dp_aac_caps = a2dp_aac_offload_scram_caps;
-        a2dp_aac_default_config = a2dp_aac_default_offload_scram_config;
+        if (vbr_enabled) {
+          a2dp_aac_caps = a2dp_aac_offload_scram_vbr_caps;
+          a2dp_aac_default_config = a2dp_aac_default_offload_scram_vbr_config;
+        } else {
+          a2dp_aac_caps = a2dp_aac_offload_scram_caps;
+          a2dp_aac_default_config = a2dp_aac_default_offload_scram_config;
+        }
     } else {
-        a2dp_aac_caps = a2dp_aac_offload_caps;
-        a2dp_aac_default_config = a2dp_aac_default_offload_config;
+        if (vbr_enabled) {
+          a2dp_aac_caps = a2dp_aac_offload_vbr_caps;
+          a2dp_aac_default_config = a2dp_aac_default_offload_vbr_config;
+        } else {
+          a2dp_aac_caps = a2dp_aac_offload_caps;
+          a2dp_aac_default_config = a2dp_aac_default_offload_config;
+        }
     }
   } else {
     a2dp_aac_caps = a2dp_aac_src_caps;
@@ -994,7 +1055,6 @@ bool A2dpCodecConfigAac::setCodecConfig(const uint8_t* p_peer_codec_info,
   uint8_t channelMode;
   uint16_t sampleRate;
   btav_a2dp_codec_bits_per_sample_t bits_per_sample;
-
   // Save the internal state
   btav_a2dp_codec_config_t saved_codec_config = codec_config_;
   btav_a2dp_codec_config_t saved_codec_capability = codec_capability_;
@@ -1028,7 +1088,8 @@ bool A2dpCodecConfigAac::setCodecConfig(const uint8_t* p_peer_codec_info,
   // NOTE: Always assign the Object Type and Variable Bit Rate Support.
   result_config_cie.objectType = a2dp_aac_caps.objectType;
   result_config_cie.variableBitRateSupport =
-      a2dp_aac_caps.variableBitRateSupport;
+        a2dp_aac_caps.variableBitRateSupport &
+        sink_info_cie.variableBitRateSupport;
 
   // Set the bit rate as follows:
   // 1. If the Sink device reports a bogus bit rate

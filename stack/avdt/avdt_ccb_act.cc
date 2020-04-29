@@ -178,7 +178,11 @@ bool avdt_ccb_check_peer_eligible_for_aac_codec(tAVDT_CCB* p_ccb) {
                           vendor, product, version);
     vndr_prdt_ver_present = true;
   }
-  if (vndr_prdt_ver_present &&
+  if (vndr_prdt_ver_present && (vendor == A2DP_AAC_BOSE_VENDOR_ID)) {
+    APPL_TRACE_DEBUG("%s: vendor id info matches ", __func__);
+    vndr_prdt_ver_present = false;
+    aac_support = true;
+  } else if (vndr_prdt_ver_present &&
       interop_match_vendor_product_ids(INTEROP_ENABLE_AAC_CODEC, vendor, product) &&
       interop_database_match_version(INTEROP_ENABLE_AAC_CODEC, version)) {
     APPL_TRACE_DEBUG("%s: vendor, product, version id is present in conf file", __func__);
@@ -336,7 +340,7 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
       effective_num_seps++;
       codec_name = A2DP_CodecName(p_scb->cs.cfg.codec_info);
       APPL_TRACE_DEBUG("codec name %s", A2DP_CodecName(p_scb->cs.cfg.codec_info));
-      if ((soc_type == BT_SOC_TYPE_CHEROKEE || soc_type == BT_SOC_TYPE_HASTINGS)) {
+      if ((soc_type != BT_SOC_TYPE_SMD && soc_type != BT_SOC_TYPE_ROME)) {
         if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC) {
           if (avdt_ccb_check_peer_eligible_for_aac_codec(p_ccb)) {
             APPL_TRACE_DEBUG("%s: Show AAC SEP for this peer device", __func__);

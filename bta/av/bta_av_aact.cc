@@ -397,43 +397,6 @@ static void notify_start_failed(tBTA_AV_SCB* p_scb) {
   (*bta_av_cb.p_cback)(BTA_AV_START_EVT, &bta_av_data);
 }
 
-static void bta_av_update_flow_spec(tBTA_AV_SCB* p_scb) {
-
-  const char *codec_name;
-  uint8_t *p_codec_info = (uint8_t*) p_scb->cfg.codec_info;
-
-  tBT_FLOW_SPEC flow_spec;
-  memset(&flow_spec, 0x00, sizeof(flow_spec));
-
-  flow_spec.flow_direction = 0x00;     /* flow direction - out going */
-  flow_spec.service_type = 0x02;       /* Guaranteed */
-  flow_spec.token_rate = 0x00;         /* bytes/second - no token rate is specified*/
-  flow_spec.token_bucket_size = 0x00;  /* bytes - no token bucket is needed*/
-  flow_spec.latency = 0xFFFFFFFF;      /* microseconds - default value */
-
-  codec_name = A2DP_CodecName(p_codec_info);
-  if (strcmp(codec_name,"SBC") == 0) {
-    flow_spec.peak_bandwidth = (345*1000)/8; /* bytes/second */
-
-  } else if (strcmp(codec_name,"aptX") == 0)  {
-    flow_spec.peak_bandwidth = (380*1000)/8; /* bytes/second */
-
-  } else if (strcmp(codec_name,"aptX-HD") == 0) {
-    flow_spec.peak_bandwidth = (660*1000)/8; /* bytes/second */
-
-  } else if (strcmp(codec_name,"LDAC") == 0) {
-    /* For ABR mode default peak bandwidth is 0 */
-    flow_spec.peak_bandwidth = 0; /* bytes/second */
-
-  } else if (strcmp(codec_name,"AAC") == 0) {
-    flow_spec.peak_bandwidth = (320*1000)/8; /* bytes/second */
-  }
-  APPL_TRACE_DEBUG("codec_name %s peak_bandwidth %d",codec_name,
-                                flow_spec.peak_bandwidth);
-  //Sending Flow_spec has been taken care whenever event:BTIF_AV_START_STREAM_REQ_EVT comes.
-  //BTM_FlowSpec (p_scb->peer_addr, &flow_spec, NULL);
-}
-
 /*******************************************************************************
  *
  * Function         bta_av_st_rc_timer
@@ -1754,8 +1717,6 @@ void bta_av_str_opened(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
 //  p_scb->channel_mode = 0;//TODO fetch the valuse from core stack
 #endif
 
-  bta_av_update_flow_spec(p_scb);
-
   {
     /* TODO check if other audio channel is open.
      * If yes, check if reconfig is needed
@@ -1802,6 +1763,13 @@ void bta_av_str_opened(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     tBTA_AV bta_av_data;
     bta_av_data.open = open;
     (*bta_av_cb.p_cback)(BTA_AV_OPEN_EVT, &bta_av_data);
+
+    APPL_TRACE_DEBUG("%s: Free Audio list from previous stream", __func__);
+    while (!list_is_empty(p_scb->a2dp_list)) {
+      BT_HDR* p_buf = (BT_HDR*)list_front(p_scb->a2dp_list);
+      list_remove(p_scb->a2dp_list, p_buf);
+      osi_free(p_buf);
+    }
 #if (TWS_ENABLED == TRUE)
     APPL_TRACE_DEBUG("%s:audio count  = %d ",__func__, bta_av_cb.audio_open_cnt);
     if (p_scb->tws_device) {
@@ -2939,7 +2907,7 @@ void bta_av_data_path(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
     p_buf = (BT_HDR*)p_scb->p_cos->data(p_scb->cfg.codec_info, &timestamp);
 
     if (p_buf) {
-      APPL_TRACE_DEBUG("%s: p_buf is valid: %d", __func__);
+      APPL_TRACE_DEBUG("%s: p_buf is valid: ", __func__);
       /* use the offset area for the time stamp */
       *(uint32_t*)(p_buf + 1) = timestamp;
 
@@ -2975,7 +2943,7 @@ void bta_av_data_path(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
 
       uint8_t* data_begin = (uint8_t*)(p_buf + 1) + p_buf->offset;
       uint8_t* data_end = (uint8_t*)(p_buf + 1) + p_buf->offset + p_buf->len;
-      while (extra_fragments_n-- > 0) {
+      while ((extra_fragments_n != 0) && (extra_fragments_n-- > 0)) {
         data_begin += p_scb->stream_mtu;
         size_t fragment_len = data_end - data_begin;
         if (fragment_len > p_scb->stream_mtu) fragment_len = p_scb->stream_mtu;
@@ -3496,7 +3464,6 @@ void bta_av_rcfg_str_ok(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     bta_av_data.reconfig = reconfig;
     (*bta_av_cb.p_cback)(BTA_AV_RECONFIG_EVT, &bta_av_data);
   }
-  bta_av_update_flow_spec(p_scb);
 }
 
 /*******************************************************************************
@@ -3721,6 +3688,13 @@ void bta_av_rcfg_open(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
     /* we may choose to use a different SEP at reconfig.
      * adjust the sep_idx now */
     bta_av_adjust_seps_idx(p_scb, bta_av_get_scb_handle(p_scb, AVDT_TSEP_SRC));
+
+    APPL_TRACE_DEBUG("%s: Free Audio list from previous stream", __func__);
+    while (!list_is_empty(p_scb->a2dp_list)) {
+      BT_HDR* p_buf = (BT_HDR*)list_front(p_scb->a2dp_list);
+      list_remove(p_scb->a2dp_list, p_buf);
+      osi_free(p_buf);
+    }
 
     /* open the stream with the new config */
     p_scb->sep_info_idx = p_scb->rcfg_idx;
@@ -4060,6 +4034,7 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
             offload_rsp.hndl = offload_start.p_scb->hndl;
           }
           offload_rsp.status = status;
+          offload_rsp.stream_start = offload_start.stream_start;
           //bta_av_data.start.hndl = offload_start.p_scb->hndl;
           bta_av_data.offload_rsp = offload_rsp;
           offload_start.p_scb->vendor_start = true;
@@ -4089,6 +4064,7 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
           offload_rsp.hndl = offload_start.p_scb->hndl;
         }
         offload_rsp.status = status;
+        offload_rsp.stream_start = offload_start.stream_start;
         bta_av_data.offload_rsp = offload_rsp;
         (*bta_av_cb.p_cback)(BTA_AV_OFFLOAD_START_RSP_EVT, &bta_av_data);
       } else {

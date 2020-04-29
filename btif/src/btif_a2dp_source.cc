@@ -567,7 +567,11 @@ bt_status_t btif_a2dp_source_setup_codec(tBTA_AV_HNDL hndl) {
       flow_spec.peak_bandwidth = bitrate/8;  /* bytes/second */
 
     } else if (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_AAC) {
-      flow_spec.peak_bandwidth = (320*1000)/8; /* bytes/second */
+      if (btif_av_is_split_a2dp_enabled()) {
+        flow_spec.peak_bandwidth = (165*1000)/8; /* bytes/second */
+      } else {
+        flow_spec.peak_bandwidth = (320*1000)/8; /* bytes/second */
+      }
     }
     APPL_TRACE_DEBUG("%s: peak_bandwidth: %d", __func__, flow_spec.peak_bandwidth);
     BTM_FlowSpec (peer_bda, &flow_spec, NULL);
@@ -1547,6 +1551,11 @@ bool btif_a2dp_source_start_session(const RawAddress& peer_address) {
 
   if (btif_a2dp_source_is_hal_v2_enabled()) {
     bluetooth::audio::a2dp::start_session();
+    if (bluetooth::audio::a2dp::get_session_type() ==
+       SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH) {
+      APPL_TRACE_EVENT("%s Freeing queue from previous session", __func__);
+      fixed_queue_flush(btif_a2dp_source_cb.tx_audio_queue, osi_free);
+    }
   }
   btif_a2dp_update_sink_latency_change();
   return true;

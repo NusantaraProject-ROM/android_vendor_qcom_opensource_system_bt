@@ -256,6 +256,24 @@ bool is_connected(RawAddress* bd_addr) {
 
 /*******************************************************************************
  *
+ * Function         get_connected_dev_count
+ *
+ * Description      Internal function to check number of connected devices
+ *
+ * Returns          number of connected devices
+ *
+ ******************************************************************************/
+static int get_connected_dev_count() {
+  int i, count = 0;
+  for (i = 0; i < btif_max_hf_clients; ++i) {
+    if (btif_hf_cb[i].state == BTHF_CONNECTION_STATE_SLC_CONNECTED)
+      count++;
+  }
+  return count;
+}
+
+/*******************************************************************************
+ *
  * Function         btif_hf_idx_by_bdaddr
  *
  * Description      Internal function to get idx by bdaddr
@@ -416,7 +434,14 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
 
   BTIF_TRACE_IMP("%s: event=%s", __func__, dump_hf_event(event));
   // for BTA_AG_ENABLE_EVT/BTA_AG_DISABLE_EVT, p_data is NULL
-  if (event == BTA_AG_ENABLE_EVT || event == BTA_AG_DISABLE_EVT)
+  if (event == BTA_AG_ENABLE_EVT) {
+    // let bta also know about the max hf clients
+    BTIF_TRACE_DEBUG("%s: notify max hf clients to bta", __func__);
+    BTA_AgSetMaxHfClients(btif_max_hf_clients);
+    return;
+  }
+
+  if (event == BTA_AG_DISABLE_EVT)
     return;
 
   // p_data is NULL for any other event, return
@@ -1006,9 +1031,6 @@ bt_status_t HeadsetInterface::Init(Callbacks* callbacks, int max_hf_clients,
       << BTA_AG_MAX_NUM_CLIENTS << " was given " << max_hf_clients;
 
   btif_max_hf_clients = max_hf_clients;
-
-  // let bta also know about the max hf clients
-  BTA_AgSetMaxHfClients(max_hf_clients);
 
   BTIF_TRACE_DEBUG(
       "%s: btif_hf_features=%zu, max_hf_clients=%d, inband_ringing_enabled=%d",
@@ -1853,12 +1875,25 @@ bt_status_t HeadsetInterface::PhoneStateChange(
           res = BTA_AG_CALL_WAIT_RES;
         } else {
           res = BTA_AG_IN_CALL_RES;
-          if (is_active_device(*bd_addr) &&
-              (btif_hf_features & BTA_AG_FEAT_INBAND)) {
-            ag_res.audio_handle = control_block.handle;
-            if (BTA_AgInbandEnabled(control_block.handle)) {
-              btif_transfer_context(btif_in_hf_generic_evt, BTIF_HFP_CB_AUDIO_CONNECTING,
-                (char*)(&btif_hf_cb[idx].connected_bda), sizeof(RawAddress), NULL);
+
+          if (btif_hf_features & BTA_AG_FEAT_INBAND) {
+            char value[PROPERTY_VALUE_MAX];
+
+            /* For PTS, don't send in-band ring if property is enabled */
+            if (property_get("vendor.bt.pts.certification", value, "false") &&
+                 strcmp(value, "true")) {
+              if (is_active_device(*bd_addr) &&
+                  get_connected_dev_count() == 1) {
+                BTIF_TRACE_IMP("%s, pts property is set to false, send BSIR 1", __func__);
+
+                SendBsir(1, bd_addr);
+                ag_res.audio_handle = control_block.handle;
+                btif_transfer_context(btif_in_hf_generic_evt, BTIF_HFP_CB_AUDIO_CONNECTING,
+                    (char*)(&btif_hf_cb[idx].connected_bda), sizeof(RawAddress), NULL);
+              }
+            } else {
+                BTIF_TRACE_IMP("%s, pts property is set to true, send BSIR 0", __func__);
+                SendBsir(0, bd_addr);
             }
           }
         }

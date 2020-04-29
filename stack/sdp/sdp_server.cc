@@ -237,9 +237,33 @@ int sdp_get_stored_avrc_tg_version(RawAddress addr)
         return AVRC_REV_1_3;
       }
     } else {
-      SDP_TRACE_DEBUG("%s: failed to fetch version from pairing database, returning AVRC_1_3", __func__);
-      return AVRC_REV_1_3;
+      FILE *fp;
+      struct blacklist_entry data;
+      bool is_present = false;
+      fp = fopen(AVRC_PEER_VERSION_CONF_FILE, "rb");
+      if (!fp) {
+        SDP_TRACE_ERROR("%s unable to open AVRC Conf file for read: error: (%s)",\
+                                                 __func__, strerror(errno));
+      } else {
+        while (fread(&data, sizeof(data), 1, fp) != 0) {
+          if (!memcmp(&addr, data.addr, 3)) {
+            is_present = true;
+            break;
+          }
+        }
+        fclose(fp);
+        if (is_present) {
+          if (data.ver >= AVRC_REV_1_4)
+            data.ver |= AVRCP_MASK_BRW_BIT;
+          if (data.ver >= AVRC_REV_1_6)
+            data.ver |= AVRCP_MASK_CA_BIT;
+          SDP_TRACE_DEBUG("%s: return AVRC version : 0x%x", __func__, data.ver);
+          return data.ver;
+        }
+      }
     }
+    SDP_TRACE_DEBUG("%s: failed to fetch version from pairing database, returning AVRC_1_3", __func__);
+    return AVRC_REV_1_3;
 }
 
 /****************************************************************************
@@ -1588,7 +1612,6 @@ void update_pce_entry_after_cancelling_bonding(RawAddress remote_addr) {
                                                       __func__, strerror(errno));
   } else {
     int size_read = 0;
-    int entry_size = sizeof(dynamic_upgrade_entry);
     while (fread(&entry, sizeof(entry), 1, fp) != 0)
     {
       size_read += sizeof(entry);
@@ -1596,8 +1619,9 @@ void update_pce_entry_after_cancelling_bonding(RawAddress remote_addr) {
               entry.addr[0], entry.addr[1], entry.addr[2], entry.ver);
       if(!memcmp(&remote_addr, entry.addr, 3))
       {
+        long entry_size = sizeof(dynamic_upgrade_entry);
         APPL_TRACE_DEBUG("remote bd address matched, rebonded = %c,"
-            " entry_size = %d, size_read = %d", entry.rebonded, entry_size, size_read);
+            " entry_size = %ld, size_read = %d", entry.rebonded, entry_size, size_read);
         if (entry.rebonded == 'N' && entry_size <= size_read) {
             fseek(fp, -(entry_size), SEEK_CUR);
             entry.rebonded = 'Y';
@@ -1673,7 +1697,8 @@ void check_and_store_pce_profile_version(tSDP_DISC_REC* p_sdp_rec) {
             (peer_pce_version >= PBAP_1_2 && entry.ver < PBAP_1_2)) {
           APPL_TRACE_DEBUG("%s: Remote PBAP version is downgraded/Upgraded", __func__);
           // update file pce entry with older version and rebonded = 'N'
-          fseek(fp, -(sizeof(dynamic_upgrade_entry)), SEEK_CUR);
+          long entry_size = sizeof(dynamic_upgrade_entry);
+          fseek(fp, -(entry_size), SEEK_CUR);
           entry.ver = peer_pce_version;
           entry.rebonded = 'N';
           fwrite(&entry, sizeof(dynamic_upgrade_entry), 1, fp);
@@ -1800,7 +1825,8 @@ void check_and_store_mce_profile_version(tSDP_DISC_REC* m_sdp_rec) {
             (peer_mce_version >= MAP_1_4 && entry.ver < MAP_1_4)) {
           APPL_TRACE_DEBUG("%s: Remote MAP version is downgraded/Upgraded", __func__);
           // update file mce entry with older version and rebonded = 'N'
-          fseek(fp, -(sizeof(dynamic_upgrade_entry)), SEEK_CUR);
+          long entry_size = sizeof(dynamic_upgrade_entry);
+          fseek(fp, -(entry_size), SEEK_CUR);
           entry.ver = peer_mce_version;
           entry.rebonded = 'N';
           fwrite(&entry, sizeof(dynamic_upgrade_entry), 1, fp);
@@ -1852,7 +1878,7 @@ void update_mce_entry_after_cancelling_bonding(RawAddress remote_addr) {
                                                       __func__, strerror(errno));
   } else {
     int size_read = 0;
-    int entry_size = sizeof(dynamic_upgrade_entry);
+    long entry_size = sizeof(dynamic_upgrade_entry);
     while (fread(&entry, sizeof(entry), 1, fp) != 0)
     {
       size_read += sizeof(entry);
@@ -1861,7 +1887,7 @@ void update_mce_entry_after_cancelling_bonding(RawAddress remote_addr) {
       if(!memcmp(&remote_addr, entry.addr, 3))
       {
         APPL_TRACE_DEBUG("remote bd address matched, rebonded = %c,"
-            " entry_size = %d, size_read = %d", entry.rebonded, entry_size, size_read);
+            " entry_size = %ld, size_read = %d", entry.rebonded, entry_size, size_read);
         if (entry.rebonded == 'N' && entry_size <= size_read) {
             fseek(fp, -(entry_size), SEEK_CUR);
             entry.rebonded = 'Y';

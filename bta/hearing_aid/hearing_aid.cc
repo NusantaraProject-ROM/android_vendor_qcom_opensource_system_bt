@@ -1183,9 +1183,9 @@ class HearingAidImpl : public HearingAid {
         sample += 2;
         int16_t right = (int16_t)((*(sample + 1) << 8) + *sample) >> 1;
 
-        uint16_t mono_data = (int16_t)(((uint32_t)left + (uint32_t)right) >> 1);
-        chan_left.push_back(mono_data);
-        chan_right.push_back(mono_data);
+        int32_t mono_data = (int32_t)((left + right) >> 1);
+        chan_left.push_back(uint16_t(mono_data));
+        chan_right.push_back(uint16_t(mono_data));
       }
     } else {
       for (int i = 0; i < num_samples; i++) {
@@ -1214,7 +1214,7 @@ class HearingAidImpl : public HearingAid {
       encoded_data_left.resize(4000);
       int encoded_size = 0;
       if (chan_left.size() > 0) {
-          g722_encode(encoder_state_left, encoded_data_left.data(),
+          encoded_size = g722_encode(encoder_state_left, encoded_data_left.data(),
                       (const int16_t*)chan_left.data(), chan_left.size());
       } else {
         LOG(ERROR) << "Error: No chan_left data to encode";
@@ -1242,7 +1242,7 @@ class HearingAidImpl : public HearingAid {
       encoded_data_right.resize(4000);
       int encoded_size = 0;
       if (chan_right.size() > 0) {
-          g722_encode(encoder_state_right, encoded_data_right.data(),
+          encoded_size = g722_encode(encoder_state_right, encoded_data_right.data(),
                       (const int16_t*)chan_right.data(), chan_right.size());
       } else {
         LOG(ERROR) << "Error: No chan_right data to encode";
