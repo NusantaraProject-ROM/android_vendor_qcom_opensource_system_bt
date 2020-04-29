@@ -34,7 +34,7 @@
 #include <base/logging.h>
 #include "a2dp_sbc_encoder.h"
 #include "bt_utils.h"
-#include "embdrv/sbc/encoder/include/sbc_encoder.h"
+#include <sbc_encoder.h>
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 #define A2DP_SBC_MAX_BITPOOL 53
