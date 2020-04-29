@@ -269,7 +269,7 @@ static future_t* start_up() {
 
 static future_t* shut_down(void) {
   std::lock_guard<std::mutex> lock(btsnoop_mutex);
-
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
   if (is_btsnoop_enabled) {
     if (is_btsnoop_filtered) {
       delete_btsnoop_files(false);
@@ -280,6 +280,7 @@ static future_t* shut_down(void) {
     delete_btsnoop_files(true);
     delete_btsnoop_files(false);
   }
+#endif
 
   if (logfile_fd != INVALID_FD) close(logfile_fd);
   logfile_fd = INVALID_FD;

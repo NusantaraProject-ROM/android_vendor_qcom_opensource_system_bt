@@ -25,7 +25,6 @@
 
 #include <stdbool.h>
 
-#include "audio_a2dp_hw/include/audio_a2dp_hw.h"
 #include "bt_common.h"
 #include "bta_av_api.h"
 #include "btif_a2dp.h"
@@ -40,11 +39,12 @@
 
 #if (OFF_TARGET_TEST_ENABLED == FALSE)
 #include "audio_hal_interface/a2dp_encoding.h"
+#include "audio_a2dp_hw/include/audio_a2dp_hw.h"
 #endif
 #include "btif_bat.h"
 
 #if (OFF_TARGET_TEST_ENABLED == TRUE)
-#include "service/a2dp_hal_sim/audio_a2dp_hal_stub.h"
+#include "a2dp_hal_sim/audio_a2dp_hal_stub.h"
 using ::bluetooth::audio::a2dp::SessionType;
 #endif
 

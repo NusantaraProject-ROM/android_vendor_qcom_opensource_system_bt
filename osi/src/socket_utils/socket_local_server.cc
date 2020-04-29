@@ -61,7 +61,9 @@ int osi_socket_local_server_bind(int s, const char* name, int namespaceId) {
     /*ignore ENOENT*/
     unlink(addr.sun_path);
   }
-
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+  unlink(addr.sun_path);
+#endif
   n = 1;
   setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &n, sizeof(n));
 

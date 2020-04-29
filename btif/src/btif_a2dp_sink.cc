@@ -39,6 +39,12 @@
 
 #include "oi_codec_sbc.h"
 #include "oi_status.h"
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+#include "btif_a2dp_control.h"
+#include "bt_prop.h"
+#include "a2dp_hal_sim/audio_a2dp_hal.h"
+#include "a2dp_hal_sim/audio_a2dp_hal_stub.h"
+#endif
 
 /**
  * The receiving queue buffer size.
@@ -174,7 +180,9 @@ bool btif_a2dp_sink_startup(void) {
       btif_a2dp_sink_command_ready, NULL);
 
   APPL_TRACE_EVENT("## A2DP SINK MEDIA THREAD STARTED ##");
-
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+  property_set("persist.vendor.service.bt.a2dp.sink", "true");
+#endif
   /* Schedule the rest of the startup operations */
   thread_post(btif_a2dp_sink_cb.worker_thread, btif_a2dp_sink_startup_delayed,
               NULL);
@@ -659,4 +667,8 @@ static void btif_a2dp_sink_clear_track_event_req(void) {
 void btif_a2dp_sink_on_init(void) {
   btif_a2dp_sink_cb.rx_focus_state = BTIF_A2DP_SINK_FOCUS_GRANTED;
   btif_a2dp_sink_cb.audio_track = NULL;
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+  APPL_TRACE_DEBUG("%s: call UIPC init ", __func__);
+  btif_a2dp_control_init();
+#endif
 }

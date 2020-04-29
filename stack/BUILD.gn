@@ -28,6 +28,8 @@ static_library("stack") {
     "a2dp/a2dp_vendor_aptx_encoder.cc",
     "a2dp/a2dp_vendor_aptx_hd.cc",
     "a2dp/a2dp_vendor_aptx_hd_encoder.cc",
+    "a2dp/a2dp_vendor_aptx_adaptive.cc",
+    "a2dp/a2dp_vendor_aptx_adaptive_encoder.cc",
     "a2dp/a2dp_vendor_ldac.cc",
     "a2dp/a2dp_vendor_ldac_abr.cc",
     "a2dp/a2dp_vendor_ldac_encoder.cc",
@@ -180,7 +182,7 @@ static_library("stack") {
     "//third_party/bluetooth_ext/system_bt_ext/stack/include",
     "//third_party/bluetooth_ext/vhal/include",
     "//third_party/bluetooth-commonsys-intf/include",
-    "//service",
+    "//third_party/bluetooth-internal/test/offtarget/stack",
   ]
 
   deps = [

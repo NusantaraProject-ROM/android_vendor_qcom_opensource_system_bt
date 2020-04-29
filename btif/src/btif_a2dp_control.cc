@@ -27,7 +27,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
 #include "audio_a2dp_hw/include/audio_a2dp_hw.h"
+#endif
+
 #include "bt_common.h"
 #include "btif_a2dp.h"
 #include "btif_a2dp_control.h"
@@ -39,6 +42,13 @@
 #include "osi/include/osi.h"
 #include "uipc.h"
 #include "btif_a2dp_audio_interface.h"
+
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+#include "a2dp_hal_sim/audio_a2dp_hal.h"
+#define A2DP_CTRL_PATH "/tmp/.a2dp_ctrl"
+#define A2DP_SINK_CTRL_PATH "/tmp/.a2dp_sink_ctrl"
+#define A2DP_DATA_PATH "/tmp/.a2dp_data"
+#endif
 
 #define A2DP_DATA_READ_POLL_MS 10
 #define A2DP_NUM_STRS 5
@@ -72,6 +82,12 @@ void btif_a2dp_control_init(void) {
   a2dp_cmd_queued = A2DP_CTRL_CMD_NONE;
   UIPC_Init(NULL);
   UIPC_Open(UIPC_CH_ID_AV_CTRL, btif_a2dp_ctrl_cb, A2DP_CTRL_PATH);
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+  if (btif_device_in_sink_role()){
+    APPL_TRACE_WARNING("%s: SINK UIPC contrl path open ", __func__);
+    UIPC_Open(UIPC_CH_ID_AV_CTRL, btif_a2dp_ctrl_cb,A2DP_SINK_CTRL_PATH);
+  }
+#endif
 }
 
 void btif_a2dp_control_cleanup(void) {
@@ -819,8 +835,15 @@ static void btif_a2dp_ctrl_cb(UNUSED_ATTR tUIPC_CH_ID ch_id,
 
     case UIPC_CLOSE_EVT:
       /* restart ctrl server unless we are shutting down */
-      if (btif_a2dp_source_media_task_is_running())
-        UIPC_Open(UIPC_CH_ID_AV_CTRL, btif_a2dp_ctrl_cb, A2DP_CTRL_PATH);
+      if (btif_a2dp_source_media_task_is_running()){
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+        if (btif_device_in_sink_role()){
+          UIPC_Open(UIPC_CH_ID_AV_CTRL, btif_a2dp_ctrl_cb,A2DP_SINK_CTRL_PATH);
+          break;
+        }
+#endif
+        UIPC_Open(UIPC_CH_ID_AV_CTRL, btif_a2dp_ctrl_cb,A2DP_CTRL_PATH);
+      }
       break;
 
     case UIPC_RX_DATA_READY_EVT:

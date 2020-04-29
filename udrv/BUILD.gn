@@ -29,5 +29,6 @@ source_set("udrv") {
     "//internal_include",
     "//third_party/libchrome",
     "//third_party/system/core/include",
+    "//third_party/bluetooth-internal/test/offtarget/stack",
   ]
 }
