@@ -92,6 +92,7 @@ uint32_t avdt_scb_gen_ssrc(tAVDT_SCB* p_scb) {
  *
  ******************************************************************************/
 void avdt_scb_hdl_abort_cmd(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
+  AVDT_TRACE_DEBUG("%s:", __func__);
   p_scb->role = AVDT_CLOSE_ACP;
   avdt_scb_event(p_scb, AVDT_SCB_API_ABORT_RSP_EVT, p_data);
 }
@@ -108,6 +109,7 @@ void avdt_scb_hdl_abort_cmd(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
  ******************************************************************************/
 void avdt_scb_hdl_abort_rsp(UNUSED_ATTR tAVDT_SCB* p_scb,
                             UNUSED_ATTR tAVDT_SCB_EVT* p_data) {
+  AVDT_TRACE_DEBUG("%s:", __func__);
   return;
 }
 
@@ -1186,6 +1188,7 @@ void avdt_scb_snd_abort_req(tAVDT_SCB* p_scb,
  ******************************************************************************/
 void avdt_scb_snd_abort_rsp(UNUSED_ATTR tAVDT_SCB* p_scb,
                             tAVDT_SCB_EVT* p_data) {
+  AVDT_TRACE_DEBUG("%s:", __func__);
   avdt_msg_send_rsp(avdt_ccb_by_idx(p_data->msg.hdr.ccb_idx), AVDT_SIG_ABORT,
                     &p_data->msg);
 }
