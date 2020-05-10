@@ -115,6 +115,12 @@ typedef enum {
   BT_SOC_REASON_ENHLOG_CMD_STUCK      =  0xBB,
   BT_SOC_REASON_DIAGINIT_STUCK        =  0xBC,
   BT_SOC_REASON_DIAGDEINIT_STUCK      =  0xBD,
+
+  BT_HOST_REASON_FAILED_TO_SEND_CMD              =  0xC3,
+  BT_HOST_REASON_HCI_RESET_CC_NOT_RCVD           =  0xC4,
+  BT_HOST_REASON_HCI_PRE_SHUTDOWN_CC_NOT_RCVD    =  0xC5,
+  BT_HOST_REASON_HCI_SET_BD_ADDRESS_CC_NOT_RCVD  =  0xC6,
+  BT_HOST_REASON_FAILED_TO_RECEIVE_SLEEP_IND     =  0xC7,
 } soc_crash_reason_e;
 
 typedef struct {
@@ -159,6 +165,11 @@ static secondary_reason secondary_crash_reason [] = {
 { BT_SOC_REASON_ENHLOG_CMD_STUCK         ,    "EnhLogCmdStuck"},
 { BT_SOC_REASON_DIAGINIT_STUCK           ,    "DiagInitStuck"},
 { BT_SOC_REASON_DIAGDEINIT_STUCK         ,    "DiagDeinitStuck"},
+{ BT_HOST_REASON_FAILED_TO_SEND_CMD            , "Failed to send internal cmd"},
+{ BT_HOST_REASON_HCI_RESET_CC_NOT_RCVD         , "HCI Reset Cmd CC NotRcvd"},
+{ BT_HOST_REASON_HCI_PRE_SHUTDOWN_CC_NOT_RCVD  , "HCI Pre shutdown Cmd CC not Rcvd"},
+{ BT_HOST_REASON_HCI_SET_BD_ADDRESS_CC_NOT_RCVD, "HCI BD address CC not Rcvd"},
+{ BT_HOST_REASON_FAILED_TO_RECEIVE_SLEEP_IND   , "Failed to receive SLEEP IND from SoC"},
 };
 
 enum host_crash_reason_e  {
@@ -182,6 +193,9 @@ enum host_crash_reason_e  {
   BT_HOST_REASON_SOC_CRASHED_DIAG_SSR_SOC_WAIT_TIMEOUT = 0x24, //SOC CRASHED DIAG INITIATED SSR CRASH WAIT TIMEOUT
   BT_HOST_REASON_NONE_SOC_WAIT_TIMEOUT = 0x25,                 //INVALID FAILURE AND SOC CRASH WAIT TIMEOUT
   BT_HOST_REASON_SOC_DEINIT_STUCK = 0x26,                      //SOC DEINIT STUCK
+  BT_HOST_REASON_SSR_INTERNAL_CMD_TIMEDOUT = 0x27,             //SSR DUE TO CMD INTERNAL TIMED OUT
+  BT_HOST_REASON_FAILED_TO_SEND_INTERNAL_CMD = 0x28,           //FAILED TO SEND INTERNAL CMD
+  BT_HOST_REASON_SSR_SLEEP_IND_NOT_RCVD = 0x29,                //SOC DID NOT RCVD SLEEP IND DURING CLOSE
 };
 
 typedef struct {
@@ -211,6 +225,9 @@ static primary_reason primary_crash_reason [] = {
 { BT_HOST_REASON_SOC_CRASHED_DIAG_SSR_SOC_WAIT_TIMEOUT, "SOC crashed with diag initiated SSR and SOC wait timeout"},
 { BT_HOST_REASON_NONE_SOC_WAIT_TIMEOUT                , "Invalid Reason and SOC crash wait timeout"},
 { BT_HOST_REASON_SOC_DEINIT_STUCK                     , "SOC DeInit Stuck"},
+{ BT_HOST_REASON_SSR_INTERNAL_CMD_TIMEDOUT            , "SSR due to internal Command timeout"},
+{ BT_HOST_REASON_FAILED_TO_SEND_INTERNAL_CMD          , "Failed to send internal command"},
+{ BT_HOST_REASON_SSR_SLEEP_IND_NOT_RCVD               , "Failed to receive SLEEP IND during close"},
 };
 
 void decode_crash_reason(uint8_t* p, uint8_t evt_len);
