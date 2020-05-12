@@ -2560,7 +2560,9 @@ void bta_clear_active_device() { active_device_addr = RawAddress::kEmpty; }
 
 void bta_ag_api_set_active_device(tBTA_AG_DATA* p_data) {
   if (p_data->api_set_active_device.active_device_addr.IsEmpty()) {
-    APPL_TRACE_ERROR("%s: empty device", __func__);
+    APPL_TRACE_WARNING("%s: empty active device, clearing active device",
+              __func__);
+    bta_clear_active_device();
     return;
   }
   //When HFP active device is changed, exit sniff for the new active device
