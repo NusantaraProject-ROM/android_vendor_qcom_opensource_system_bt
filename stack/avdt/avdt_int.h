@@ -38,7 +38,7 @@
 #include "osi/include/fixed_queue.h"
 
 #ifndef AVDT_DEBUG
-#define AVDT_DEBUG FALSE
+#define AVDT_DEBUG TRUE
 #endif
 
 /*****************************************************************************
