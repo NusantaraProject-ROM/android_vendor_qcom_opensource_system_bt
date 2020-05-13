@@ -1562,7 +1562,11 @@ bool check_mm_supports_offload_codec (std::vector<btav_a2dp_codec_config_t>&
 }
 
 bool A2DP_IsHAL2Supported () {
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
   return property_get_bool("persist.bluetooth.bluetooth_audio_hal.enabled", true);
+#else
+ return false;
+#endif
 }
 
 void A2DP_SetOffloadStatus(bool offload_status, const char *offload_cap,
@@ -1739,7 +1743,9 @@ void A2DP_SetOffloadStatus(bool offload_status, const char *offload_cap,
   }
   mA2dp_offload_scrambling_support = scrambling_support;
   mA2dp_offload_44p1kFreq_support = is44p1kFreq_support;
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
   offload_caps = controller_get_interface()->get_a2dp_offload_cap();
+#endif
 }
 
 bool A2DP_GetOffloadStatus() {

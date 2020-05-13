@@ -27,6 +27,7 @@
 #include "osi/include/osi.h"
 #include "osi/include/socket_utils/socket_local.h"
 #include "osi/include/socket_utils/sockets.h"
+#include "bt_target.h"
 
 #define LISTEN_BACKLOG 4
 
@@ -38,7 +39,8 @@ int osi_socket_make_sockaddr_un(const char* name, int namespaceId,
 
   switch (namespaceId) {
     case ANDROID_SOCKET_NAMESPACE_ABSTRACT:
-#if defined(__linux__)
+//#if defined(__linux__)
+#if defined(OFF_TARGET_TEST_ENABLED)
       namelen = strlen(name);
 
       // Test with length +1 for the *initial* '\0'.

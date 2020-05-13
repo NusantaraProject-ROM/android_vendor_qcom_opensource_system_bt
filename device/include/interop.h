@@ -22,6 +22,8 @@
 
 #include "raw_address.h"
 
+#include "osi/include/list.h"
+
 static const char INTEROP_MODULE[] = "interop_module";
 
 // NOTE:
@@ -228,6 +230,9 @@ typedef enum {
   // Disable refresh_accept_signalling_timer
   INTEROP_DISABLE_REFRESH_ACCPET_SIG_TIMER,
 
+  //list of whitelisted media players
+  INTEROP_BROWSE_PLAYER_WHITE_LIST,
+
   END_OF_INTEROP_LIST
 } interop_feature_t;
 
@@ -285,3 +290,8 @@ bool interop_database_match_version(const interop_feature_t feature, uint16_t ve
 // max latency for SSR stored for particular remote device is returned.
 bool interop_match_addr_get_max_lat(const interop_feature_t feature,
         const RawAddress* addr, uint16_t *max_lat);
+
+// This API is used for name based lookups for whitelisted media players.
+// If whitelisted media players list found it will assign the media players list
+// pointer to the argument passed and  return true else return false.
+bool interop_get_whitelisted_media_players_list(list_t** p_bl_devices);

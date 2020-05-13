@@ -39,8 +39,16 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <mutex>
+#include "bt_target.h"
 
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
 #include "audio_a2dp_hw/include/audio_a2dp_hw.h"
+#endif
+
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+#include "a2dp_hal_sim/audio_a2dp_hal.h"
+#endif
+
 #include "bt_common.h"
 #include "bt_types.h"
 #include "bt_utils.h"
@@ -142,10 +150,12 @@ static inline int create_server_socket(const char* name) {
   BTIF_TRACE_EVENT("create_server_socket %s", name);
 
   if (osi_socket_local_server_bind(s, name,
-#if defined(OS_GENERIC)
-                                   ANDROID_SOCKET_NAMESPACE_FILESYSTEM
-#else   // !defined(OS_GENERIC)
+#if defined(OFF_TARGET_TEST_ENABLED)
                                    ANDROID_SOCKET_NAMESPACE_ABSTRACT
+#else
+                                   ANDROID_SOCKET_NAMESPACE_FILESYSTEM
+//#else   // !defined(OS_GENERIC)
+//                                   ANDROID_SOCKET_NAMESPACE_ABSTRACT
 #endif  // defined(OS_GENERIC)
                                    ) < 0) {
     ret = (errno == EADDRINUSE ? -EADDRINUSE : -1);
@@ -581,7 +591,8 @@ void UIPC_Init(UNUSED_ATTR void* p_data) {
  ** Returns          true in case of success, false in case of failure.
  **
  ******************************************************************************/
-bool UIPC_Open(tUIPC_CH_ID ch_id, tUIPC_RCV_CBACK* p_cback) {
+bool UIPC_Open(tUIPC_CH_ID ch_id, tUIPC_RCV_CBACK* p_cback,
+               const char* socket_path) {
   BTIF_TRACE_DEBUG("UIPC_Open : ch_id %d, p_cback %x", ch_id, p_cback);
 
   std::lock_guard<std::recursive_mutex> lock(uipc_main.mutex);
@@ -595,16 +606,7 @@ bool UIPC_Open(tUIPC_CH_ID ch_id, tUIPC_RCV_CBACK* p_cback) {
     return 0;
   }
 
-  switch (ch_id) {
-    case UIPC_CH_ID_AV_CTRL:
-      uipc_setup_server_locked(ch_id, A2DP_CTRL_PATH, p_cback);
-      break;
-
-    case UIPC_CH_ID_AV_AUDIO:
-      uipc_setup_server_locked(ch_id, A2DP_DATA_PATH, p_cback);
-      break;
-  }
-
+  uipc_setup_server_locked(ch_id, socket_path, p_cback);
   return true;
 }
 

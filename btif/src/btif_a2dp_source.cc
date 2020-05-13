@@ -34,14 +34,14 @@
 #include <string.h>
 #include <algorithm>
 
-#include "audio_a2dp_hw/include/audio_a2dp_hw.h"
 #if (OFF_TARGET_TEST_ENABLED == FALSE)
 #include "audio_hal_interface/a2dp_encoding.h"
+#include "audio_a2dp_hw/include/audio_a2dp_hw.h"
 #endif
 
 #if (OFF_TARGET_TEST_ENABLED == TRUE)
-#include "service/a2dp_hal_sim/audio_a2dp_hal.h"
-#include "service/a2dp_hal_sim/audio_a2dp_hal_stub.h"
+#include "a2dp_hal_sim/audio_a2dp_hal.h"
+#include "a2dp_hal_sim/audio_a2dp_hal_stub.h"
 using ::bluetooth::audio::a2dp::SessionType;
 #endif
 
@@ -274,7 +274,9 @@ bool btif_a2dp_source_startup(void) {
 }
 
 static void btif_a2dp_source_startup_delayed(UNUSED_ATTR void* context) {
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
   raise_priority_a2dp(TASK_HIGH_MEDIA);
+#endif
   if (!btif_a2dp_source_is_hal_v2_supported()) {
     btif_a2dp_control_init();
   }

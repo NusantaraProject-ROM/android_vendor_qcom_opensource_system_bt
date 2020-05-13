@@ -640,6 +640,27 @@ bool check_sdp_bl(const RawAddress* remote_bdaddr) {
                                      manufacturer));
 }
 
+/*****************************************************************************
+ *
+ * Function        fetch_whitelisted_media_players
+ *
+ * Description     fetch whitelisted players from interop Database
+ *
+ * Returns         true if the whitelisted players list is present, else false
+ *
+ ******************************************************************************/
+bool fetch_whitelisted_media_players(list_t** bl_devices) {
+  APPL_TRACE_DEBUG("%s",__func__);
+  if (interop_get_whitelisted_media_players_list(bl_devices)) {
+    APPL_TRACE_WARNING(
+        "%s: Found list of Whitelisted media players ",
+        __func__);
+
+    return true;
+  }
+  return false;
+}
+
 void bond_state_changed(bt_status_t status, const RawAddress& bd_addr,
                                bt_bond_state_t state) {
   btif_stats_add_bond_event(bd_addr, BTIF_DM_FUNC_BOND_STATE_CHANGED, state);
@@ -1981,6 +2002,8 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
       btif_storage_load_bonded_devices();
 
       btif_vendor_update_add_on_features();
+
+      btif_vendor_update_whitelisted_media_players();
 
       bluetooth::bqr::EnableBtQualityReport(true);
       btif_enable_bluetooth_evt(p_data->enable.status);

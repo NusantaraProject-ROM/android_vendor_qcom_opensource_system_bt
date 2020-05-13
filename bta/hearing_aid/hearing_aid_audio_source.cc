@@ -161,7 +161,7 @@ void hearing_aid_recv_ctrl_data() {
       if (!hearing_aid_on_resume_req(false)) {
         ctrl_ack_status = HEARING_AID_CTRL_ACK_FAILURE;
       } else {
-        UIPC_Open(UIPC_CH_ID_AV_AUDIO, hearing_aid_data_cb);
+        UIPC_Open(UIPC_CH_ID_AV_AUDIO, hearing_aid_data_cb, HEARING_AID_DATA_PATH);
       }
       hearing_aid_send_ack(ctrl_ack_status);
       break;
@@ -282,7 +282,7 @@ void hearing_aid_ctrl_cb(tUIPC_CH_ID, tUIPC_EVENT event) {
     case UIPC_CLOSE_EVT:
       /* restart ctrl server unless we are shutting down */
       if (HearingAid::IsHearingAidRunning()) {
-        UIPC_Open(UIPC_CH_ID_AV_CTRL, hearing_aid_ctrl_cb);
+        UIPC_Open(UIPC_CH_ID_AV_CTRL, hearing_aid_ctrl_cb, HEARING_AID_CTRL_PATH);
       }
       break;
     case UIPC_RX_DATA_READY_EVT:
@@ -387,7 +387,7 @@ void HearingAidAudioSource::Initialize() {
   if ((get_worker_thread() == NULL) || !bluetooth::audio::hearing_aid::init(stream_cb, get_worker_thread())) {
     LOG(WARNING) << __func__ << ": Using legacy HAL";
     UIPC_Init(NULL);
-    UIPC_Open(UIPC_CH_ID_AV_CTRL, hearing_aid_ctrl_cb);
+    UIPC_Open(UIPC_CH_ID_AV_CTRL, hearing_aid_ctrl_cb, HEARING_AID_CTRL_PATH);
   }
 }
 

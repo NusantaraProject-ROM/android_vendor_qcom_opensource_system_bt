@@ -38,6 +38,7 @@
 #include <vector>
 
 #define BTSNOOP_ENABLE_PROPERTY "persist.bluetooth.btsnoopenable"
+#define BTSNOOP_SOCLOG_PROPERTY "persist.vendor.service.bdroid.soclog"
 
 const bt_event_mask_t BLE_EVENT_MASK = {
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x0B, 0xFE, 0x7f}};
@@ -127,22 +128,37 @@ void send_soc_log_command(bool value) {
   if (soc_type == BT_SOC_TYPE_SMD) {
     LOG_INFO(LOG_TAG, "%s for BT_SOC_SMD.", __func__);
     BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE,5,param,NULL);
-  } else if (soc_type == BT_SOC_TYPE_CHEROKEE || soc_type == BT_SOC_TYPE_HASTINGS) {
-    LOG_INFO(LOG_TAG, "%s for %s", __func__, soc_type == BT_SOC_TYPE_CHEROKEE ?
-                "BT_SOC_CHEROKEE" : "BT_SOC_HASTINGS");
+  } else if (soc_type >= BT_SOC_TYPE_CHEROKEE) {
+    LOG_INFO(LOG_TAG, "%s for soc_type: %d", __func__, soc_type);
     BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE, 2, param_cherokee, NULL);
   }
 }
 
 static bool is_soc_logging_enabled() {
-  char btsnoop_enabled[PROPERTY_VALUE_MAX] = {0};
+  char btsnoop_enabled[PROPERTY_VALUE_MAX] = "false";
+  char btsoclog_enabled[PROPERTY_VALUE_MAX] = {0};
   char donglemode_prop[PROPERTY_VALUE_MAX] = "false";
 
   if(osi_property_get("persist.bluetooth.donglemode", donglemode_prop, "false") &&
       !strcmp(donglemode_prop, "true")) {
     return false;
   }
-  osi_property_get(BTSNOOP_ENABLE_PROPERTY, btsnoop_enabled, "false");
+  osi_property_get(BTSNOOP_SOCLOG_PROPERTY, btsoclog_enabled, "not-set");
+
+  /*
+   * For SMD targets, always check if snoop logs are enabled and
+   * ignore the soclog property.
+   * For other targets, if soclog property is set, stack doesn't need to
+   * send VSC command as BT transport driver will send the command during patch
+   * download
+   */
+  if ((soc_type == BT_SOC_TYPE_SMD) ||
+      (strncmp(btsoclog_enabled, "not-set", 7) == 0))
+    osi_property_get(BTSNOOP_ENABLE_PROPERTY, btsnoop_enabled, "false");
+  else {
+    LOG_INFO(LOG_TAG,
+      "%s: soclog property set, transport driver will send the logs", __func__);
+  }
   return strncmp(btsnoop_enabled, "true", 4) == 0;
 }
 
@@ -463,7 +479,7 @@ static future_t* start_up(void) {
   }
 
   //Read HCI_VS_GET_ADDON_FEATURES_SUPPORT
-  if (soc_type == BT_SOC_TYPE_CHEROKEE || soc_type == BT_SOC_TYPE_HASTINGS) {
+  if (soc_type >= BT_SOC_TYPE_CHEROKEE) {
 
     if (bt_configstore_intf != NULL) {
       add_on_features_list_t features_list;

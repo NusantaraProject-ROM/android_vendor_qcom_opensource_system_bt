@@ -180,8 +180,12 @@ uint16_t get_dut_avrcp_version() {
     // This api get avrcp version stored in property
     uint16_t profile_version = AVRC_REV_1_0;
     char avrcp_version[PROPERTY_VALUE_MAX] = {0};
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
     property_get(AVRCP_VERSION_PROPERTY, avrcp_version,
                      AVRCP_1_6_STRING);
+#else
+    strlcpy(avrcp_version, AVRCP_1_6_STRING, sizeof(AVRCP_1_6_STRING));
+#endif
     SDP_TRACE_DEBUG(" %s AVRCP version used for sdp: \"%s\"",
              __func__,avrcp_version);
 

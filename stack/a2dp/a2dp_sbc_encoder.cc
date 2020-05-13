@@ -28,7 +28,7 @@
 #include "a2dp_sbc.h"
 #include "a2dp_sbc_up_sample.h"
 #include "bt_common.h"
-#include "embdrv/sbc/encoder/include/sbc_encoder.h"
+#include <sbc_encoder.h>
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 #include "btif/include/btif_a2dp_source.h"

@@ -54,7 +54,7 @@ static_library("osi") {
     "//linux_include",
     "//third_party/bluetooth_ext/vhal/include",
     "//third_party/system/core/include",
-    "//service",
+    "//third_party/bluetooth-internal/test/offtarget/stack",
   ]
 
   deps = [

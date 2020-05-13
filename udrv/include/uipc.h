@@ -75,7 +75,7 @@ void UIPC_Init(void*);
  * Returns          void
  *
  ******************************************************************************/
-bool UIPC_Open(tUIPC_CH_ID ch_id, tUIPC_RCV_CBACK* p_cback);
+bool UIPC_Open(tUIPC_CH_ID ch_id, tUIPC_RCV_CBACK* p_cback, const char* socket_path);
 
 /*******************************************************************************
  *

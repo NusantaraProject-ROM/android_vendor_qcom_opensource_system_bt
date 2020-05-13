@@ -59,7 +59,6 @@
 #include <hardware/bt_av.h>
 #include <hardware/bt_rc_ext.h>
 
-#include "audio_a2dp_hw/include/audio_a2dp_hw.h"
 #include "bt_common.h"
 #include "bt_utils.h"
 #include "bta_api.h"
@@ -84,11 +83,13 @@
 #include "device/include/device_iot_config.h"
 #if (OFF_TARGET_TEST_ENABLED == FALSE)
 #include "audio_hal_interface/a2dp_encoding.h"
+#include "audio_a2dp_hw/include/audio_a2dp_hw.h"
 #endif
 #include "controller.h"
 #if (OFF_TARGET_TEST_ENABLED == TRUE)
 #include "log/log.h"
-#include "service/a2dp_hal_sim/audio_a2dp_hal_stub.h"
+#include "a2dp_hal_sim/audio_a2dp_hal_stub.h"
+#include "bt_prop.h"
 #endif
 
 extern bool isDevUiReq;
@@ -2938,8 +2939,17 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
   switch (event) {
     case BTIF_AV_INIT_REQ_EVT:
       BTIF_TRACE_DEBUG("%s: BTIF_AV_INIT_REQ_EVT", __func__);
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+      uuid = (int)*p_param;
+      if(uuid == BTA_A2DP_SINK_SERVICE_ID) {
+        BTIF_TRACE_DEBUG("%s: SINK_ON_INIT", __func__);
+        btif_a2dp_sink_on_init();
+      }
+#endif
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
       if (btif_a2dp_source_startup())
         btif_a2dp_sink_on_init();
+#endif
       break;
 
     case BTIF_AV_CLEANUP_REQ_EVT: // Clean up to be called on default index
@@ -4200,7 +4210,11 @@ static bt_status_t init_src(
   BTIF_TRACE_EVENT("%s() with max conn = %d", __func__, max_a2dp_connections);
   char value[PROPERTY_VALUE_MAX] = {'\0'};
 
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
   bt_split_a2dp_enabled = controller_get_interface()->supports_spilt_a2dp();
+#else
+  bt_split_a2dp_enabled = false;
+#endif
   BTIF_TRACE_DEBUG("split_a2dp_status = %d",bt_split_a2dp_enabled);
   osi_property_get("persist.vendor.btstack.twsplus.defaultchannelmode",
                                     value, "mono");
@@ -4284,10 +4298,9 @@ static bt_status_t init_src(
 
 static bt_status_t init_sink(btav_sink_callbacks_t* callbacks) {
   BTIF_TRACE_EVENT("%s", __func__);
-
+  property_set("persist.vendor.service.bt.a2dp.sink", "true");
   bt_status_t status = btif_av_init(BTA_A2DP_SINK_SERVICE_ID);
   if (status == BT_STATUS_SUCCESS) bt_av_sink_callbacks = callbacks;
-
   return status;
 }
 
@@ -6565,8 +6578,10 @@ int64_t btif_get_average_delay() {
 bool btif_device_in_sink_role() {
     char a2dp_role[6] = "false";
     osi_property_get("persist.vendor.service.bt.a2dp.sink", a2dp_role, "false");
-    if (!strncmp("true", a2dp_role, 4))
+    if (strncmp("true", a2dp_role, 4) == 0){
+        BTIF_TRACE_EVENT("%s: SINK role true ",__func__);
         return true;
+    }
     return false;
 }
 
