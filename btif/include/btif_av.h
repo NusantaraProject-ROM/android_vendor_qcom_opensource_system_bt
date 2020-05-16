@@ -235,6 +235,16 @@ void btif_av_clear_remote_suspend_flag(void);
  ******************************************************************************/
 bool btif_av_peer_supports_3mbps(void);
 
+/**
+ *
+ * Check whether the mandatory codec is more preferred for this peer.
+ *
+ * @param peer_address the target peer address
+ *
+ * @return true if optional codecs are not preferred to be used
+ */
+bool btif_av_peer_prefers_mandatory_codec(const RawAddress& peer_address);
+
 /*******************************************************************************
 **
 ** Function         btif_av_check_flag_remote_suspend
