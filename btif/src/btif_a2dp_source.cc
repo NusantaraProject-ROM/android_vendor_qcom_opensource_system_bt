@@ -304,11 +304,8 @@ void btif_a2dp_source_shutdown(void) {
   // Stop the timer
   alarm_free(btif_a2dp_source_cb.media_alarm);
   btif_a2dp_source_cb.media_alarm = NULL;
-  if (btif_a2dp_source_cb.remote_start_alarm != NULL) {
-    alarm_free(btif_a2dp_source_cb.remote_start_alarm);
-    btif_a2dp_source_cb.remote_start_alarm = NULL;
-    btif_dispatch_sm_event(BTIF_AV_RESET_REMOTE_STARTED_FLAG_EVT, NULL, 0);
-  }
+  btif_a2dp_source_cancel_remote_start();
+  btif_dispatch_sm_event(BTIF_AV_RESET_REMOTE_STARTED_FLAG_EVT, NULL, 0);
 
   // Exit the thread
   fixed_queue_free(btif_a2dp_source_cb.cmd_msg_queue, NULL);
@@ -361,6 +358,7 @@ int btif_a2dp_source_last_remote_start_index() {
 }
 
 void btif_a2dp_source_cancel_remote_start() {
+  APPL_TRACE_DEBUG("%s", __func__);
   if (btif_a2dp_source_cb.remote_start_alarm != NULL) {
     btif_av_clear_remote_start_timer(btif_a2dp_source_cb.last_remote_started_index);
     btif_a2dp_source_cb.remote_start_alarm = NULL;
@@ -408,7 +406,7 @@ void btif_a2dp_source_on_remote_start(struct alarm_t **remote_start_alarm, int i
     return;
   }
   *remote_start_alarm = alarm_new("btif.remote_start_task");
-  if (!remote_start_alarm || !arg) {
+  if (!(*remote_start_alarm) || !arg) {
     LOG_ERROR(LOG_TAG,"%s:unable to allocate media alarm",__func__);
     btif_av_clear_remote_start_timer(index);
     btif_dispatch_sm_event(BTIF_AV_SUSPEND_STREAM_REQ_EVT, &index, sizeof(index));

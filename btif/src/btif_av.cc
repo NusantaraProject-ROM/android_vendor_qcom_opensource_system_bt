@@ -2293,7 +2293,6 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
   if (!btif_a2dp_source_is_hal_v2_supported()) {
     pending_cmd = btif_a2dp_control_get_pending_command();
   }
-  bool remote_start_cancelled = false;
   BTIF_TRACE_IMP("%s: event: %s flags: %x  index = %d, reconfig_event: %d,"
                  " codec_cfg_change: %d", __func__,
                    dump_av_sm_event_name((btif_av_sm_event_t)event),
@@ -2545,10 +2544,7 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
 
       if (btif_av_is_split_a2dp_enabled() &&
         btif_av_is_connected_on_other_idx(index)) {
-        /*Fake handoff state to switch streaming to other coddeced
-          device */
-        //TODO change will be removed after official patch
-        //btif_av_cb[index].dual_handoff = true;
+        BTIF_TRACE_DEBUG("%s: Split A2DP Enabled and connected on other index",__func__);
       } else {
         if (btif_a2dp_audio_if_init && !btif_a2dp_source_is_hal_v2_supported()) {
           if (!isBATEnabled()) {
@@ -2642,11 +2638,6 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
           BTIF_TRACE_DEBUG("%s:cancel remote start timer",__func__);
           if(btif_a2dp_source_last_remote_start_index() == index)
             btif_a2dp_source_cancel_remote_start();
-          /*
-           * Remote sent avdtp start followed by avdtp suspend, setting
-           * the flag not to update the play state to app
-           */
-           //remote_start_cancelled = true;
         }
         btif_av_cb[index].remote_started = false;
       }
@@ -2723,7 +2714,6 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
         }
       }
 
-      remote_start_cancelled = false;
       // if not successful, remain in current state
       if (p_av->suspend.status != BTA_AV_SUCCESS) {
         if (btif_av_cb[index].is_suspend_for_remote_start) {
