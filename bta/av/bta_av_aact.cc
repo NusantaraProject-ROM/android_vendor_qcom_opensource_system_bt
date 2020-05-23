@@ -2493,15 +2493,13 @@ void bta_av_setconfig_rej(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-void bta_av_discover_req(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
+void bta_av_discover_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   /* send avdtp discover request */
-
-    /* send avdtp discover request */
-    if (AVDT_DiscoverReq(p_scb->peer_addr, p_scb->sep_info, BTA_AV_NUM_SEPS, bta_av_dt_cback[p_scb->hdi]) != AVDT_SUCCESS)
-    {
-        APPL_TRACE_ERROR("bta_av_discover_req command could not be sent because of resource constraint");
-        bta_av_ssm_execute(p_scb, BTA_AV_STR_DISC_FAIL_EVT, p_data);
-    }
+  if (AVDT_DiscoverReq(p_scb->peer_addr, p_scb->sep_info,
+      BTA_AV_NUM_SEPS, bta_av_dt_cback[p_scb->hdi]) != AVDT_SUCCESS) {
+    APPL_TRACE_ERROR("bta_av_discover_req command couldn't be sent because of resource constraint");
+    bta_av_ssm_execute(p_scb, BTA_AV_STR_DISC_FAIL_EVT, p_data);
+  }
 }
 
 /*******************************************************************************
@@ -4110,23 +4108,6 @@ void offload_vendor_callback(tBTM_VSC_CMPL *param)
   }
 }
 
-/* static uint8_t bta_av_vendor_offload_convert_sample_rate(uint16_t sample_rate) {
-  uint8_t rate;
-  switch (sample_rate) {
-    case 44100:
-      rate = 0x1 << 0;
-      break;
-    case 48000:
-      rate = 0x1 << 1;
-      break;
-    default:
-      APPL_TRACE_ERROR("Invalid sample rate, going with default 44.1");
-      rate = 0x1 << 0;
-      break;
-  }
-  return rate;
-} */
-
 static void bta_av_vendor_offload_select_codec(tBTA_AV_SCB* p_scb)
 {
   const char *codec_name = A2DP_CodecName(p_scb->cfg.codec_info);
@@ -4727,21 +4708,17 @@ void bta_av_fake_suspend_rsp(const RawAddress &remote_bdaddr) {
  *
  ******************************************************************************/
 void bta_av_disc_fail_as_acp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
-  if (p_scb->cache_setconfig) {
-    APPL_TRACE_DEBUG("%s: Need to reuse the cached set_config, to do get_caps"
-                      " for the same SEP", __func__);
-    memcpy(p_data, p_scb->cache_setconfig, sizeof(tBTA_AV_CI_SETCONFIG));
-    memset(p_scb->cache_setconfig, 0, sizeof(tBTA_AV_CI_SETCONFIG));
-    osi_free(p_scb->cache_setconfig);
-    p_scb->cache_setconfig = NULL;
+  if (p_scb->cache_setconfig == NULL) {
+    APPL_TRACE_DEBUG("%s: p_scb->cache_setconfig is NULL", __func__);
+    return;
   }
 
-  uint8_t num = p_data->ci_setconfig.num_seid + 1;
-  uint8_t avdt_handle = p_data->ci_setconfig.avdt_handle;
-  uint8_t* p_seid = p_data->ci_setconfig.p_seid;
+  uint8_t num = p_scb->cache_setconfig->num_seid + 1;
+  uint8_t avdt_handle = p_scb->cache_setconfig->avdt_handle;
+  uint8_t* p_seid = p_scb->cache_setconfig->p_seid;
   uint8_t local_sep;
   APPL_TRACE_DEBUG("%s: num_seid: %d, p_seid: %d", __func__,
-                                p_data->ci_setconfig.num_seid, *p_seid);
+                                p_scb->cache_setconfig->num_seid, *p_seid);
 
   /* we like this codec_type. find the sep_idx */
   local_sep = bta_av_get_scb_sep_type(p_scb, avdt_handle);
@@ -4761,6 +4738,11 @@ void bta_av_disc_fail_as_acp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   //so, num_seps is '1' and sep_info_idx would be '0'
   p_scb->num_seps = 1;
   p_scb->sep_info_idx = 0;
+
+  /* Free up cached config memory */
+  memset(p_scb->cache_setconfig, 0, sizeof(tBTA_AV_CI_SETCONFIG));
+  osi_free(p_scb->cache_setconfig);
+  p_scb->cache_setconfig = NULL;
 
   /* only in case of local sep as SRC we need to look for other SEPs, In case
    * of SINK we don't */
