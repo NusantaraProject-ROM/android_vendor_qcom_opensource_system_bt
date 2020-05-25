@@ -2,10 +2,10 @@
 # yet implemented for soong as of 12/16/2016
 LOCAL_PATH := $(call my-dir)
 
-# Bluetooth bt_stack.conf config file
+# Bluetooth bt_stack_qti.conf config file
 # ========================================================
 include $(CLEAR_VARS)
-LOCAL_MODULE := bt_stack.conf
+LOCAL_MODULE := bt_stack_qti.conf
 LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_PATH := $(TARGET_OUT)/etc/bluetooth
 LOCAL_MODULE_TAGS := optional
