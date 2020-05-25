@@ -98,7 +98,7 @@ cc_library_shared {
     ldflags: ["-Wl,-Bsymbolic,-Bsymbolic-functions"],
     required: [
         "bt_did.conf",
-        "bt_stack.conf",
+        "bt_stack_qti.conf",
         "interop_database.conf",
         "bt_profile.conf",
         "libbt-hci_qti",

@@ -1,12 +1,12 @@
 soong_namespace {
 }
 
-// Bluetooth bt_stack.conf config file
+// Bluetooth bt_stack_qti.conf config file
 // ========================================================
 prebuilt_etc {
-    name: "bt_stack.conf",
+    name: "bt_stack_qti.conf",
 
-    src: "bt_stack.conf",
+    src: "bt_stack_qti.conf",
     sub_dir: "bluetooth",
 
 }
