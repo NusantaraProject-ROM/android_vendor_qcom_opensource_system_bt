@@ -475,11 +475,11 @@ bool btif_config_get_bin(const char* section, const char* key, uint8_t* value,
 
   bool in_encrypt_key_name_list = btif_in_encrypt_key_name_list(key);
   bool is_key_encrypted = *value_str_from_config == ENCRYPTED_STR;
+  std::string string;
 
   if (!value_str_from_config->empty() && in_encrypt_key_name_list &&
       is_key_encrypted) {
-    std::string string =
-        get_bluetooth_keystore_interface()->get_key(section + "-" + key);
+    string = get_bluetooth_keystore_interface()->get_key(section + "-" + key);
     value_str = &string;
   } else {
     value_str = value_str_from_config;
