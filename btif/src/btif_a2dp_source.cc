@@ -95,7 +95,7 @@ enum {
   BTIF_MEDIA_RESET_VS_STATE
 };
 
-#define MAX_MEDIA_WORKQUEUE_SEM_COUNT 1024
+#define MAX_MEDIA_WORKQUEUE_SEM_COUNT 4096
 
 /* tBTIF_A2DP_SOURCE_ENCODER_INIT msg structure */
 typedef struct {
