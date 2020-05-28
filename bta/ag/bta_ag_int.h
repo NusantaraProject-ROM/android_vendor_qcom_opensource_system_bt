@@ -501,4 +501,6 @@ extern void bta_ag_send_result(tBTA_AG_SCB* p_scb, size_t code,
 extern void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event);
 extern const char* bta_ag_sco_evt_str(uint8_t event);
 extern const char* bta_ag_sco_state_str(uint8_t state);
+
+extern bool bta_ag_is_call_present(const RawAddress* peer_addr);
 #endif /* BTA_AG_INT_H */
