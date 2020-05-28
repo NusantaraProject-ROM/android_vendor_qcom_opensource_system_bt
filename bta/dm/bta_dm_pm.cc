@@ -32,6 +32,7 @@
 #include "bta_api.h"
 #include "bta_dm_api.h"
 #include "bta_dm_int.h"
+#include "bta_ag_int.h"
 #include "bta_sys.h"
 #include "btm_api.h"
 
@@ -524,7 +525,10 @@ static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
        bta_dm_pm_hid_check(bScoActive);
        bool is_blacklisted =
           interop_match_addr_or_name(INTEROP_DISABLE_SNIFF_LINK_DURING_SCO, &peer_addr);
-       if ((id == BTA_ID_AG) && is_blacklisted) {
+       bool is_blacklisted_for_call =
+          interop_match_addr_or_name(INTEROP_DISABLE_SNIFF_DURING_CALL, &peer_addr);
+       if ((id == BTA_ID_AG) && is_blacklisted &&
+            !(is_blacklisted_for_call && bta_ag_is_call_present(&peer_addr))) {
           APPL_TRACE_IMP("%s: The device %s is blacklisted to disable sniff mode during SCO",
                           __func__, peer_addr.ToString().c_str());
           tBTA_DM_PEER_DEVICE *p_rem_dev = NULL;

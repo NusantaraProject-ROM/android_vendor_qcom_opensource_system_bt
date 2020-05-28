@@ -2096,3 +2096,36 @@ void bta_ag_send_ring(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
   }
 #endif
 }
+
+bool bta_ag_is_call_present(const RawAddress* peer_addr)
+{
+  uint16_t handle;
+  tBTA_AG_SCB* p_scb;
+
+  if (peer_addr == NULL)
+  {
+    APPL_TRACE_WARNING("%s, peer address is null", __func__);
+    return 0;
+  }
+
+  handle = bta_ag_idx_by_bdaddr(peer_addr);
+  p_scb = bta_ag_scb_by_idx(handle);
+
+  if (p_scb == NULL)
+  {
+    APPL_TRACE_WARNING("%s, p_scb is null for peer dev %s", __func__,
+                        (*peer_addr).ToString().c_str());
+    return 0;
+  }
+
+  if (p_scb->call_ind || p_scb->callsetup_ind || p_scb->callheld_ind)
+  {
+    APPL_TRACE_IMP("%s, call is present for peer dev %s", __func__,
+                    p_scb->peer_addr.ToString().c_str());
+    return 1;
+  }
+
+  APPL_TRACE_IMP("%s, call is not present for peer dev %s", __func__,
+                    p_scb->peer_addr.ToString().c_str());
+  return 0;
+}
