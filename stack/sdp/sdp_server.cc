@@ -105,8 +105,6 @@ static tSDP_RECORD *sdp_upgrade_mse_record(tSDP_RECORD *p_rec,
                                       RawAddress remote_address);
 
 static bool check_remote_map_version_104(RawAddress remote_addr);
-static bool is_map_adv_enabled();
-static bool is_pbap_adv_enabled();
 
 /******************************************************************************/
 /*                E R R O R   T E X T   S T R I N G S                         */
@@ -739,10 +737,10 @@ static void process_service_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
                             SDP_TEXT_BAD_HANDLE);
     return;
   }
-  if (is_map_adv_enabled()) {
+  if (sdpu_is_map_0104_enabled()) {
     p_rec = sdp_upgrade_mse_record(p_rec, p_ccb->device_address);
   }
-  if(is_pbap_adv_enabled()) {
+  if(sdpu_is_pbap_0102_enabled()) {
     p_rec = sdp_upgrade_pse_record(p_rec, p_ccb->device_address);
   }
   /* Free and reallocate buffer */
@@ -1081,18 +1079,18 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
     p_ccb->cont_info.last_attr_seq_desc_sent = false;
     p_ccb->cont_info.attr_offset = 0;
   }
-  bool is_mse_adv_enabled = is_map_adv_enabled();
-  bool is_pse_adv_enabled = is_pbap_adv_enabled();
+  bool is_mse_v14_enabled = sdpu_is_map_0104_enabled();
+  bool is_pse_v12_enabled = sdpu_is_pbap_0102_enabled();
   /* Get a list of handles that match the UUIDs given to us */
   for (p_rec = sdp_db_service_search(p_ccb->cont_info.prev_sdp_rec, &uid_seq);
        p_rec; p_rec = sdp_db_service_search(p_rec, &uid_seq)) {
     p_ccb->cont_info.curr_sdp_rec = p_rec;
     /* Store the actual record pointer which would be reused later */
     p_prev_rec = p_rec;
-    if (is_mse_adv_enabled) {
+    if (is_mse_v14_enabled) {
       p_rec = sdp_upgrade_mse_record(p_rec, p_ccb->device_address);
     }
-    if (is_pse_adv_enabled) {
+    if (is_pse_v12_enabled) {
       p_rec = sdp_upgrade_pse_record(p_rec, p_ccb->device_address);
     }
     /* Allow space for attribute sequence type and length */
@@ -1293,7 +1291,8 @@ static void process_service_search_attr_req(tCONN_CB* p_ccb, uint16_t trans_num,
     /* Get the total list length for requested uid and attribute sequence */
     p_ccb->list_len = sdpu_get_list_len(&uid_seq, &attr_seq_sav) + 3;
     /* Get the length of blacklisted attributes to be updated if device is blacklisted */
-    p_ccb->bl_update_len = sdp_update_pbap_blacklist_len(p_ccb, &attr_seq_sav, &uid_seq);
+    p_ccb->bl_update_len = sdpu_is_pbap_0102_enabled() ?
+        sdp_update_pbap_blacklist_len(p_ccb, &attr_seq_sav, &uid_seq) : 0 ;
     SDP_TRACE_DEBUG("%s p_ccb->list_len = %d bl_update_len = %d",__func__,
         p_ccb->list_len, p_ccb->bl_update_len);
 
@@ -1429,7 +1428,7 @@ static bool check_remote_pbap_version_102(RawAddress remote_addr) {
 **
 ** Description     Updates the blacklist length to be updated from the SDP response
 **
-** Returns         void
+** Returns         returns the length of blacklisted attributes.
 **
 ***************************************************************************************/
 static uint16_t sdp_update_pbap_blacklist_len(tCONN_CB* p_ccb, tSDP_ATTR_SEQ* attr_seq,
@@ -1450,7 +1449,7 @@ static uint16_t sdp_update_pbap_blacklist_len(tCONN_CB* p_ccb, tSDP_ATTR_SEQ* at
     SDP_TRACE_DEBUG("%s pts running= %d", __func__, pts_property);
     running_pts = true;
   }
-  SDP_TRACE_DEBUG("%s remote BD Addr : %s is_pbap_102_supported : %d "
+  SDP_TRACE_DEBUG("%s remote BD Addr : %s is_pbap_102_supported = %d "
       "is_pbap_1_1__blacklisted = %d is_pbap_1_2__blacklisted = %d "
       "running_pts = %d", __func__,
       p_ccb->device_address.ToString().c_str(), is_pbap_102_supported,
@@ -1961,18 +1960,6 @@ static tSDP_RECORD *sdp_upgrade_mse_record(tSDP_RECORD * p_rec,
   }
   SDP_TRACE_ERROR("%s: Success changed", __func__);
   return &map_104_sdp_rec;
-}
-
-static bool is_map_adv_enabled(){
-  bool feature = profile_feature_fetch(MAP_ID, MAP_0104_SUPPORT);
-  APPL_TRACE_ERROR("%s feature : %d",__func__,feature);
-  return feature;
-}
-
-static bool is_pbap_adv_enabled(){
-  bool feature = profile_feature_fetch(PBAP_ID, PBAP_0102_SUPPORT);
-  APPL_TRACE_ERROR("%s feature : %d",__func__,feature);
-  return feature;
 }
 
 #endif /* SDP_SERVER_ENABLED == TRUE */
