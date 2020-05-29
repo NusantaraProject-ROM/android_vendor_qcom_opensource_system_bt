@@ -4710,9 +4710,17 @@ static void handle_notification_response(tBTA_AV_META_MSG* pmeta_msg,
                      p_rsp->event_id);
 
     node = list_begin(p_dev->rc_supported_event_list);
-
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+    p_event = (btif_rc_supported_event_t*)malloc(sizeof(btif_rc_supported_event_t));
+    p_event->event_id = p_rsp->event_id;
+    p_event->label = 0;
+    p_event->status = eNOT_REGISTERED;
+    BTIF_TRACE_DEBUG("%s:register back completed notification id = %d",__func__, p_event->event_id);
+    register_for_event_notification(p_event, p_dev);
+#else
     while (node != NULL) {
       p_event = (btif_rc_supported_event_t*)list_node(node);
+      BTIF_TRACE_DEBUG("%s:register back for completed notification id = %d",__func__, p_event->event_id);
       if (p_event != NULL && p_event->event_id == p_rsp->event_id) {
         p_event->status = eNOT_REGISTERED;
         register_for_event_notification(p_event, p_dev);
@@ -4720,7 +4728,7 @@ static void handle_notification_response(tBTA_AV_META_MSG* pmeta_msg,
       }
       node = list_next(node);
     }
-
+#endif
     switch (p_rsp->event_id) {
       case AVRC_EVT_PLAY_STATUS_CHANGE:
         /* Start timer to get play status periodically
