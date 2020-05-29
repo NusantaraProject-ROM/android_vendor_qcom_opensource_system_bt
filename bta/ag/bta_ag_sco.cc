@@ -279,7 +279,8 @@ static void bta_ag_sco_disc_cback(uint16_t sco_idx) {
 
       /* If SCO open was initiated by AG and failed for mSBC T2, try mSBC T1
        * 'Safe setting' first. If T1 also fails, try CVSD */
-      if (bta_ag_sco_is_opening(bta_ag_cb.sco.p_curr_scb)) {
+      if (bta_ag_cb.sco.p_curr_scb != NULL &&
+          bta_ag_sco_is_opening(bta_ag_cb.sco.p_curr_scb)) {
         bta_ag_cb.sco.p_curr_scb->state = BTA_AG_SCO_CODEC_ST;
 #if (BLUETOOTH_QTI_SW == FALSE) /* This change is not needed.*/
         if (bta_ag_cb.sco.p_curr_scb->codec_msbc_settings ==
@@ -2559,7 +2560,9 @@ void bta_clear_active_device() { active_device_addr = RawAddress::kEmpty; }
 
 void bta_ag_api_set_active_device(tBTA_AG_DATA* p_data) {
   if (p_data->api_set_active_device.active_device_addr.IsEmpty()) {
-    APPL_TRACE_ERROR("%s: empty device", __func__);
+    APPL_TRACE_WARNING("%s: empty active device, clearing active device",
+              __func__);
+    bta_clear_active_device();
     return;
   }
   //When HFP active device is changed, exit sniff for the new active device

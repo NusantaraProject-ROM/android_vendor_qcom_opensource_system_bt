@@ -346,6 +346,7 @@ static void avdt_msg_bld_none(UNUSED_ATTR uint8_t** p,
  *
  ******************************************************************************/
 static void avdt_msg_bld_single(uint8_t** p, tAVDT_MSG* p_msg) {
+  AVDT_TRACE_DEBUG("%s: ", __func__);
   AVDT_MSG_BLD_SEID(*p, p_msg->single.seid);
 }
 

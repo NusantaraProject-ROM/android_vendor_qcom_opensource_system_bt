@@ -797,6 +797,9 @@ void avdt_scb_event(tAVDT_SCB* p_scb, uint8_t event, tAVDT_SCB_EVT* p_data) {
   /* execute action functions */
   for (i = 0; i < AVDT_SCB_ACTIONS; i++) {
     action = state_table[event][i];
+    AVDT_TRACE_DEBUG("%s: event=%d=%s state=%s action=%d", __func__, event,
+                     avdt_scb_evt_str[event], avdt_scb_st_str[p_scb->state],
+                     action);
     if (action != AVDT_SCB_IGNORE) {
       (*avdt_cb.p_scb_act[action])(p_scb, p_data);
     } else {

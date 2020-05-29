@@ -81,13 +81,14 @@ void btif_a2dp_control_init(void) {
   a2dp_cmd_pending = A2DP_CTRL_CMD_NONE;
   a2dp_cmd_queued = A2DP_CTRL_CMD_NONE;
   UIPC_Init(NULL);
-  UIPC_Open(UIPC_CH_ID_AV_CTRL, btif_a2dp_ctrl_cb, A2DP_CTRL_PATH);
 #if (OFF_TARGET_TEST_ENABLED == TRUE)
   if (btif_device_in_sink_role()){
     APPL_TRACE_WARNING("%s: SINK UIPC contrl path open ", __func__);
     UIPC_Open(UIPC_CH_ID_AV_CTRL, btif_a2dp_ctrl_cb,A2DP_SINK_CTRL_PATH);
+    return;
   }
 #endif
+  UIPC_Open(UIPC_CH_ID_AV_CTRL, btif_a2dp_ctrl_cb, A2DP_CTRL_PATH);
 }
 
 void btif_a2dp_control_cleanup(void) {
