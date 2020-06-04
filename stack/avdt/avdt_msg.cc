@@ -885,9 +885,16 @@ static uint8_t avdt_msg_prs_discover_rsp(tAVDT_MSG* p_msg, uint8_t* p,
   int i;
   uint8_t err = 0;
 
+  if (p_msg->discover_rsp.p_sep_info == NULL) {
+    err = AVDT_ERR_BAD_STATE;
+    AVDT_TRACE_ERROR("%s: not expecting this cfg return err %d", __func__, err);
+    return err;
+  }
+
   /* determine number of seps; seps in msg is len/2, but set to minimum
   ** of seps app has supplied memory for and seps in msg
   */
+  AVDT_TRACE_DEBUG("%s: len: %d num sep %d", __func__, len, p_msg->discover_rsp.num_seps);
   if (p_msg->discover_rsp.num_seps > (len / 2)) {
     p_msg->discover_rsp.num_seps = (len / 2);
   }
@@ -904,6 +911,8 @@ static uint8_t avdt_msg_prs_discover_rsp(tAVDT_MSG* p_msg, uint8_t* p,
     if ((p_msg->discover_rsp.p_sep_info[i].seid < AVDT_SEID_MIN) ||
         (p_msg->discover_rsp.p_sep_info[i].seid > AVDT_SEID_MAX)) {
       err = AVDT_ERR_SEID;
+      AVDT_TRACE_ERROR("%s: Seid %d out of range return err %d ", __func__,
+          p_msg->discover_rsp.p_sep_info[i].seid, err);
       break;
     }
   }
