@@ -326,6 +326,7 @@ uint8_t* bta_av_co_get_peer_codec_info(tBTA_AV_HNDL hndl) {
  ******************************************************************************/
 bool bta_av_co_audio_init(btav_a2dp_codec_index_t codec_index,
                           tAVDT_CFG* p_cfg) {
+  APPL_TRACE_DEBUG("%s: codec_index: %d", __func__, codec_index);
   return A2DP_InitCodecConfig(codec_index, p_cfg);
 }
 
