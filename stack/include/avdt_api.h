@@ -48,6 +48,9 @@
 #define AVRCP_MASK_CA_BIT 0x1000
 #define AVRCP_MASK_BRW_BIT 0x2000
 
+/* Bose vendor ID*/
+#define A2DP_AAC_BOSE_VENDOR_ID 0x009E
+
 /* Maximum size in bytes of the codec capabilities information element. */
 #define AVDT_CODEC_SIZE 45
 #define AV_REM_CTRL_FEATURES_CONFIG_KEY "AvrcpFeatures"
