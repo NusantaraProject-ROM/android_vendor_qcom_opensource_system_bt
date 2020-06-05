@@ -116,7 +116,7 @@ A2dpCodecConfig::A2dpCodecConfig(btav_a2dp_codec_index_t codec_index,
       default_codec_priority_(codec_priority) {
   setCodecPriority(codec_priority);
 
-  LOG_DEBUG(LOG_TAG, "%s: init all codec caps info", __func__)
+  LOG_DEBUG(LOG_TAG, "%s: init all codec caps info", __func__);
   init_btav_a2dp_codec_config(&codec_config_, codec_index_, codecPriority());
   init_btav_a2dp_codec_config(&codec_capability_, codec_index_,
                               codecPriority());
