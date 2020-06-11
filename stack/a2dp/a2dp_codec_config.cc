@@ -144,6 +144,7 @@ void A2dpCodecConfig::setCodecPriority(
   } else {
     codec_priority_ = codec_priority;
   }
+  codec_config_.codec_priority = codec_priority_;
 }
 
 void A2dpCodecConfig::setDefaultCodecPriority() {
@@ -154,6 +155,7 @@ void A2dpCodecConfig::setDefaultCodecPriority() {
     uint32_t priority = 1000 * (codec_index_ + 1) + 1;
     codec_priority_ = static_cast<btav_a2dp_codec_priority_t>(priority);
   }
+  codec_config_.codec_priority = codec_priority_;
 }
 
 A2dpCodecConfig* A2dpCodecConfig::createCodec(
