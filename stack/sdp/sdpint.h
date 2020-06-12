@@ -328,5 +328,6 @@ extern void update_mce_entry_after_cancelling_bonding(RawAddress remote_addr);
 extern void check_and_store_mce_profile_version(tSDP_DISC_REC* p_sdp_rec);
 extern bool sdpu_is_map_0104_enabled();
 
+extern bool sdpu_is_opp_0100_enabled();
 
 #endif

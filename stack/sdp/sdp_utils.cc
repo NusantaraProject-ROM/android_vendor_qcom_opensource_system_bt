@@ -1098,3 +1098,18 @@ bool sdpu_is_map_0104_enabled() {
   SDP_TRACE_DEBUG("%s feature : %d", __func__, feature);
   return feature;
 }
+
+/*******************************************************************************
+ *
+ * Function         sdpu_is_opp_0100_enabled
+ *
+ * Description      This function checks local support for OPP V1 is enabled or not
+ *
+ * Returns          returns true if supports, else false
+ *
+ ******************************************************************************/
+bool sdpu_is_opp_0100_enabled() {
+  bool feature = profile_feature_fetch(OPP_ID, OPP_0100_SUPPORT);
+  SDP_TRACE_DEBUG("%s feature : %d", __func__, feature);
+  return feature;
+}
