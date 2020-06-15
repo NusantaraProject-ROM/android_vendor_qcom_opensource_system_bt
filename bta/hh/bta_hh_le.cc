@@ -696,11 +696,19 @@ bool bta_hh_le_write_rpt_clt_cfg(tBTA_HH_DEV_CB* p_cb);
 static void write_rpt_ctl_cfg_cb(uint16_t conn_id, tGATT_STATUS status,
                                  uint16_t handle, void* data) {
   uint8_t srvc_inst_id, hid_inst_id;
+  uint16_t char_uuid;
 
   tBTA_HH_DEV_CB* p_dev_cb = (tBTA_HH_DEV_CB*)data;
   const gatt::Characteristic* characteristic =
       BTA_GATTC_GetOwningCharacteristic(conn_id, handle);
-  uint16_t char_uuid = characteristic->uuid.As16Bit();
+
+  if (!characteristic) {
+    APPL_TRACE_ERROR("%s: error: characteristic not found for handle: %d"
+        ", conn_id: %d, status: %d", __func__, handle, conn_id, status);
+    return;
+  } else {
+    char_uuid = characteristic->uuid.As16Bit();
+  }
 
   const gatt::Service* service = BTA_GATTC_GetOwningService(conn_id, handle);
   if (!service) {

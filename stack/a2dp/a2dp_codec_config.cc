@@ -116,6 +116,7 @@ A2dpCodecConfig::A2dpCodecConfig(btav_a2dp_codec_index_t codec_index,
       default_codec_priority_(codec_priority) {
   setCodecPriority(codec_priority);
 
+  LOG_DEBUG(LOG_TAG, "%s: init all codec caps info", __func__);
   init_btav_a2dp_codec_config(&codec_config_, codec_index_, codecPriority());
   init_btav_a2dp_codec_config(&codec_capability_, codec_index_,
                               codecPriority());
@@ -1176,7 +1177,7 @@ tA2DP_STATUS A2DP_BuildSrc2SinkConfig(const uint8_t* p_src_cap,
                                       uint8_t* p_pref_cfg) {
   tA2DP_CODEC_TYPE codec_type = A2DP_GetCodecType(p_src_cap);
 
-  LOG_VERBOSE(LOG_TAG, "%s: codec_type = 0x%x", __func__, codec_type);
+  LOG_DEBUG(LOG_TAG, "%s: codec_type = 0x%x", __func__, codec_type);
 
   switch (codec_type) {
     case A2DP_MEDIA_CT_SBC:
@@ -1528,7 +1529,7 @@ const char* A2DP_CodecIndexStr(btav_a2dp_codec_index_t codec_index) {
 
 bool A2DP_InitCodecConfig(btav_a2dp_codec_index_t codec_index,
                           tAVDT_CFG* p_cfg) {
-  LOG_VERBOSE(LOG_TAG, "%s: codec %s", __func__,
+  LOG_DEBUG(LOG_TAG, "%s: codec %s", __func__,
               A2DP_CodecIndexStr(codec_index));
 
   /* Default: no content protection info */

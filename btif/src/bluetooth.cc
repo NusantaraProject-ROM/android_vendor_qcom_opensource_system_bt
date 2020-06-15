@@ -155,9 +155,9 @@ static bool is_profile(const char* p1, const char* p2) {
  ****************************************************************************/
 
 static int init(bt_callbacks_t* callbacks, bool start_restricted,
-                bool is_single_user_mode) {
+                bool is_niap_mode, int config_compare_result) {
   LOG_INFO(LOG_TAG, "QTI OMR1 stack: %s: start restricted = %d : single user = %d",
-                     __func__, start_restricted, is_single_user_mode);
+                     __func__, start_restricted, is_niap_mode);
 
   if (interface_ready()) return BT_STATUS_DONE;
 
@@ -167,7 +167,7 @@ static int init(bt_callbacks_t* callbacks, bool start_restricted,
 
   bt_hal_cbacks = callbacks;
   restricted_mode = start_restricted;
-  single_user_mode = is_single_user_mode;
+  single_user_mode = is_niap_mode;
   stack_manager_get_interface()->init_stack();
   btif_debug_init();
   return BT_STATUS_SUCCESS;

@@ -970,7 +970,7 @@ static tAVRC_STS avrc_bld_get_folder_items_rsp(tAVRC_GET_ITEMS_RSP* p_rsp,
         p_player = &p_item_list[xx].u.player;
         item_len = AVRC_FEATURE_MASK_SIZE + p_player->name.str_len + 12;
 
-        if ((len_left <= item_len) ||
+        if ((len_left < item_len) ||
             AVRC_ITEM_PLAYER_IS_VALID(p_player) == false) {
           p_data = p_item_start;
         } else {
@@ -992,7 +992,7 @@ static tAVRC_STS avrc_bld_get_folder_items_rsp(tAVRC_GET_ITEMS_RSP* p_rsp,
         p_folder = &p_item_list[xx].u.folder;
         item_len = AVRC_UID_SIZE + p_folder->name.str_len + 6;
 
-        if ((len_left > item_len) && p_folder->name.p_str &&
+        if ((len_left >= item_len) && p_folder->name.p_str &&
             p_folder->type <= AVRC_FOLDER_TYPE_YEARS) {
           ARRAY_TO_BE_STREAM(p_data, p_folder->uid, AVRC_UID_SIZE);
           UINT8_TO_BE_STREAM(p_data, p_folder->type);
@@ -1002,6 +1002,8 @@ static tAVRC_STS avrc_bld_get_folder_items_rsp(tAVRC_GET_ITEMS_RSP* p_rsp,
           ARRAY_TO_BE_STREAM(p_data, p_folder->name.p_str,
                              p_folder->name.str_len);
         } else {
+          AVRC_TRACE_DEBUG("item type folder item_len:%d, len_left:%d, num:%d",
+              item_len, len_left, item_count);
           if (len_left < item_len && item_count > 0)
             multi_items_add_fail = TRUE;
           p_data = p_item_start;
@@ -1047,6 +1049,8 @@ static tAVRC_STS avrc_bld_get_folder_items_rsp(tAVRC_GET_ITEMS_RSP* p_rsp,
             }
           }
         } else {
+          AVRC_TRACE_DEBUG("item type media item_len:%d, len_left:%d, num:%d",
+              item_len, len_left, item_count);
           if (len_left < item_len && item_count > 0)
             multi_items_add_fail = TRUE;
           p_data = p_item_start;
@@ -1066,6 +1070,8 @@ static tAVRC_STS avrc_bld_get_folder_items_rsp(tAVRC_GET_ITEMS_RSP* p_rsp,
           status = AVRC_STS_INTERNAL_ERR;
         else
           status = AVRC_STS_BAD_PARAM;
+        AVRC_TRACE_ERROR("Set error rsp for item len:%d, len_left:%d, num:%d, error status: %d",
+            item_len, len_left, item_count, status);
       }
     }
     if (multi_items_add_fail == false) {
