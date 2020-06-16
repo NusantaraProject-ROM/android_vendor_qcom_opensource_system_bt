@@ -5683,9 +5683,9 @@ bool btif_av_is_scrambling_enabled() {
 ********************************************************************************/
 bool btif_av_is_44p1kFreq_supported() {
   uint8_t add_on_features_size = 0;
-  const bt_device_features_t * add_on_features_list = NULL;
+  const bt_device_soc_add_on_features_t * add_on_features_list = NULL;
 
-  add_on_features_list = controller_get_interface()->get_add_on_features(&add_on_features_size);
+  add_on_features_list = controller_get_interface()->get_soc_add_on_features(&add_on_features_size);
   if (add_on_features_size == 0) {
     BTIF_TRACE_WARNING(
         "BT controller doesn't add on features");
