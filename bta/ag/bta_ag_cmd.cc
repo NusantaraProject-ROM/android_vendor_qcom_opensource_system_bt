@@ -1256,27 +1256,36 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
 
       /* peer is HFP 1.1 if it initiated connection before AG could get remote's
        * HFP version */
-      if (p_scb->peer_version < HFP_VERSION_1_7 &&
-            p_scb->peer_version != HFP_VERSION_1_1) {
-        /* For PTS keep flags as is */
-        if (property_get("vendor.bt.pts.certification", value, "false") &&
-            strcmp(value, "true") != 0)
-        {
-          features  = features & ~(BTA_AG_FEAT_HF_IND | BTA_AG_FEAT_ESCO);
+#if (TWS_AG_ENABLED == TRUE)
+      if(!is_twsp_device(p_scb->peer_addr)) {
+#endif
+        if (p_scb->peer_version < HFP_VERSION_1_7 &&
+              p_scb->peer_version != HFP_VERSION_1_1) {
+          /* For PTS keep flags as is */
+          if (property_get("vendor.bt.pts.certification", value, "false") &&
+              strcmp(value, "true") != 0)
+          {
+            features  = features & ~(BTA_AG_FEAT_HF_IND | BTA_AG_FEAT_ESCO);
+          }
         }
-      }
-      else if ((p_scb->peer_version == HFP_VERSION_1_7) &&
-                (!(p_scb->peer_features & BTA_AG_PEER_FEAT_HF_IND)))
-      {
-         APPL_TRACE_WARNING("%s: Remote is hfp 1.7 but does not support HF indicators" \
+        else if ((p_scb->peer_version == HFP_VERSION_1_7) &&
+                  (!(p_scb->peer_features & BTA_AG_PEER_FEAT_HF_IND)))
+        {
+           APPL_TRACE_WARNING("%s: Remote is hfp 1.7 but does not support HF indicators" \
                   "unset hf indicator bit from BRSF", __func__);
-         /* For PTS keep flags as is */
-         if (property_get("vendor.bt.pts.certification", value, "false") &&
-             strcmp(value, "true") != 0)
-         {
-           features = features & ~(BTA_AG_FEAT_HF_IND);
-         }
+           /* For PTS keep flags as is */
+           if (property_get("vendor.bt.pts.certification", value, "false") &&
+               strcmp(value, "true") != 0)
+           {
+             features = features & ~(BTA_AG_FEAT_HF_IND);
+           }
+        }
+#if (TWS_AG_ENABLED == TRUE)
+      } else {
+        APPL_TRACE_IMP("%s peer device is twsp device do not Remove" \
+            "HF indicators, eSCO S4 settings bits from BRSF", __func__);
       }
+#endif
       APPL_TRACE_DEBUG("%s BRSF HF: 0x%x, phone: 0x%x", __func__,
                        p_scb->peer_features, features);
 
