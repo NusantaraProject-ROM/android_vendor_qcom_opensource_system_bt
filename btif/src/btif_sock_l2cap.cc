@@ -277,7 +277,7 @@ static void btsock_l2cap_free_l(l2cap_socket* sock) {
     }
   }
 
-  APPL_TRACE_DEBUG("%s: free(id = %d)", __func__, sock->id);
+  APPL_TRACE_DEBUG("%s: free(sock %p)(id = %d)", __func__, sock, sock->id);
   osi_free(sock);
 }
 
@@ -338,7 +338,7 @@ static l2cap_socket* btsock_l2cap_alloc_l(const char* name,
     if (!++sock->id) /* no zero IDs allowed */
       sock->id++;
   }
-  APPL_TRACE_DEBUG("SOCK_LIST: alloc(id = %d)", sock->id);
+  APPL_TRACE_DEBUG("SOCK_LIST: alloc(sock %p)(id = %d)", sock, sock->id);
   return sock;
 
 fail_sockpair:
@@ -608,7 +608,15 @@ static void on_l2cap_close(tBTA_JV_L2CAP_CLOSE* p_close, uint32_t id) {
 
   std::unique_lock<std::mutex> lock(state_lock);
   sock = btsock_l2cap_find_by_id_l(id);
-  if (!sock) return;
+  if (!sock || sock->channel == 0
+       || sock->channel != p_close->channel) {
+    APPL_TRACE_DEBUG("%s: sock(%p) id=%d not matching.", __func__, sock, id);
+    if (sock) {
+      APPL_TRACE_DEBUG("%s: sock->channel=%d, close->channel=%d", __func__,
+          sock->channel, p_close->channel);
+    }
+    return;
+  }
 
   APPL_TRACE_DEBUG("on_l2cap_close, slot id:%d, fd:%d, %s:%d, server:%d",
                    sock->id, sock->our_fd,
