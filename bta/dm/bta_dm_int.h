@@ -898,6 +898,7 @@ extern void bta_dm_process_iot_report(tBTA_DM_MSG *p_data);
 extern void bta_dm_process_ssr(void);
 extern void bta_dm_add_device(tBTA_DM_MSG* p_data);
 extern void bta_dm_remove_device(tBTA_DM_MSG* p_data);
+extern void bta_dm_process_remove_device(const RawAddress& bd_addr);
 extern void bta_dm_close_acl(tBTA_DM_MSG* p_data);
 extern void bta_dm_reset_pairing_flag(tBTA_DM_MSG* p_data);
 
