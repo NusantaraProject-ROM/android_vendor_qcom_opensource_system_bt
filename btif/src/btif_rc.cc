@@ -1992,7 +1992,7 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
           event == AVRC_PDU_GET_PLAYER_APP_ATTR_TEXT || event == AVRC_PDU_LIST_PLAYER_APP_VALUES)
       {
           send_reject_response (p_dev->rc_handle, label, pavrc_cmd->pdu,
-                                AVRC_STS_BAD_PARAM, pavrc_cmd->cmd.opcode);
+                                AVRC_STS_BAD_CMD, pavrc_cmd->cmd.opcode);
           BTIF_TRACE_DEBUG("Blacklisted CK send AVRC_PDU_LIST_PLAYER_APP_ATTR reject");
           return;
       }
@@ -2000,7 +2000,7 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
                 (event == AVRC_PDU_REGISTER_NOTIFICATION))
       {
           send_reject_response (p_dev->rc_handle, label, pavrc_cmd->pdu,
-                                AVRC_STS_BAD_PARAM, pavrc_cmd->cmd.opcode);
+                                AVRC_STS_BAD_CMD, pavrc_cmd->cmd.opcode);
           p_dev->rc_notif[BTRC_EVT_APP_SETTINGS_CHANGED - 1].bNotify = FALSE;
           BTIF_TRACE_DEBUG("Blacklisted CK send BTRC_EVT_APP_SETTINGS_CHANGED not implemented")
           return;
