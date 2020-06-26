@@ -399,6 +399,7 @@ typedef uint8_t tBTA_SIG_STRENGTH_MASK;
 #define BTA_DM_IOT_INFO_EVT 33 /* IOT device info */
 #define BTA_DM_SSR_EVT 34 /* SSR event */
 
+#define BTA_DM_BLE_CONSENT_REQ_EVT 30 /* SMP consent request event */
 typedef uint8_t tBTA_DM_SEC_EVT;
 
 /* Structure associated with BTA_DM_ENABLE_EVT */
