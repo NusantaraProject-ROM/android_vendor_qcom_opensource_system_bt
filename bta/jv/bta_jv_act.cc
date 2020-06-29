@@ -1077,7 +1077,7 @@ void bta_jv_l2cap_connect(tBTA_JV_MSG* p_data) {
     p_cb->handle = handle;
     p_cb->p_cback = cc->p_cback;
     p_cb->l2cap_socket_id = cc->l2cap_socket_id;
-    p_cb->psm = 0; /* not a server */
+    p_cb->psm = cc->remote_psm; /* remote psm for client */
     p_cb->sec_id = sec_id;
     p_cb->state = BTA_JV_ST_CL_OPENING;
   } else {
