@@ -724,6 +724,12 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
   } else {
       //do service discovery to get features for HSP and also for HFP
       //if the peer version can't be fetched from the config file
+
+      if (p_scb->conn_service == BTA_AG_HFP && !p_scb->peer_version)
+        p_scb->peer_version = HFP_VERSION_1_1;
+      else if (p_scb->conn_service == BTA_AG_HSP && !p_scb->peer_version)
+        p_scb->peer_version = HSP_VERSION_1_2;
+
       APPL_TRACE_DEBUG(
       "%s: Do SDP for HSP/version couldn't be fetched from the config file",
        __func__);
