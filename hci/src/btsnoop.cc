@@ -307,7 +307,8 @@ static void capture(const BT_HDR* buffer, bool is_received) {
   struct timespec ts_now = {};
   clock_gettime(CLOCK_REALTIME, &ts_now);
   uint64_t timestamp_us =
-      ((uint64_t)ts_now.tv_sec * 1000000L) + ((uint64_t)ts_now.tv_nsec / 1000);
+      ((uint64_t)ts_now.tv_sec * 1000000L) +
+      ((uint64_t)gmt_offset*1000000LL) + ((uint64_t)ts_now.tv_nsec / 1000);
 
   btsnoop_mem_capture(buffer, timestamp_us);
 
