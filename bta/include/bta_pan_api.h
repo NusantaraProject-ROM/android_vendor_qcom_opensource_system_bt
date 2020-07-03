@@ -86,6 +86,7 @@ typedef struct {
 
 /* Event associated with BTA_PAN_CLOSE_EVT */
 typedef struct {
+  RawAddress bd_addr; /* BD address of peer device. */
   uint16_t handle; /* Handle associated with the connection. */
 } tBTA_PAN_CLOSE;
 

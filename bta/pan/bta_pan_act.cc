@@ -550,6 +550,7 @@ void bta_pan_conn_close(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data) {
   BT_HDR* p_buf;
 
   bta_pan.close.handle = p_data->hdr.layer_specific;
+  bta_pan.close.bd_addr = p_scb->bd_addr;
 
   bta_sys_conn_close(BTA_ID_PAN, p_scb->app_id, p_scb->bd_addr);
 
