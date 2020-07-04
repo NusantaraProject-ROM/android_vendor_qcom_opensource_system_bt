@@ -1476,7 +1476,14 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
     }
     case BTA_AG_LOCAL_EVT_BCC: {
         if (
-        !bta_ag_sco_is_active_device(p_scb->peer_addr)) {
+          !bta_ag_is_call_present(&p_scb->peer_addr)) {
+          LOG(WARNING) << __func__ << ": AT+BCC rejected as " << p_scb->peer_addr
+                       << " does not have call, call setup";
+          bta_ag_send_error(p_scb, BTA_AG_ERR_OP_NOT_ALLOWED);
+          break;
+        }
+        if (
+          !bta_ag_sco_is_active_device(p_scb->peer_addr)) {
           LOG(WARNING) << __func__ << ": AT+BCC rejected as " << p_scb->peer_addr
                        << " is not the active device";
           bta_ag_send_error(p_scb, BTA_AG_ERR_OP_NOT_ALLOWED);
