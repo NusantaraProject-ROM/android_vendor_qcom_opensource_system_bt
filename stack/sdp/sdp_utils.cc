@@ -30,6 +30,9 @@
 #include "bt_common.h"
 #include "bt_types.h"
 
+#include "device/include/interop.h"
+#include "device/include/profile_config.h"
+
 #include "hcidefs.h"
 #include "hcimsgs.h"
 #include "l2cdefs.h"
@@ -1064,4 +1067,34 @@ void sdpu_clear_pend_ccb(uint16_t cid) {
     }
   }
   return;
+}
+
+/*******************************************************************************
+ *
+ * Function         sdpu_is_pbap_0102_enabled
+ *
+ * Description      This function checks local support for PBAP V1.2 is enabled or not
+ *
+ * Returns          returns true if supports, else false
+ *
+ ******************************************************************************/
+bool sdpu_is_pbap_0102_enabled() {
+  bool feature = profile_feature_fetch(PBAP_ID, PBAP_0102_SUPPORT);
+  SDP_TRACE_DEBUG("%s feature : %d", __func__, feature);
+  return feature;
+}
+
+/*******************************************************************************
+ *
+ * Function         sdpu_is_map_0104_enabled
+ *
+ * Description      This function checks local support for MAP V1.4 is enabled or not
+ *
+ * Returns          returns true if supports, else false
+ *
+ ******************************************************************************/
+bool sdpu_is_map_0104_enabled() {
+  bool feature = profile_feature_fetch(MAP_ID, MAP_0104_SUPPORT);
+  SDP_TRACE_DEBUG("%s feature : %d", __func__, feature);
+  return feature;
 }

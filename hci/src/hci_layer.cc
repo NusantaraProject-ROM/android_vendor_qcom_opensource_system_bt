@@ -75,6 +75,13 @@ typedef struct {
 // Reducing startup timeout to less than 3sec to ensure that wakelock is aquired
 // during initialization
 #define DEFAULT_STARTUP_TIMEOUT_MS 2900
+// Increased STARTUP time to 11.9 sec for default XMEM patch download.
+#define DEFAULT_XMEM_STARTUP_TIMEOUT_MS    11900
+/* Increased STARTUP time to 19.9 sec for XMEM patch with download configuration
+ * set to have rsp for every tlv download cmd.
+ */
+#define XMEM_STARTUP_TIMEOUT_MS    19900
+
 #define STRING_VALUE_OF(x) #x
 
 // RT priority for HCI thread
@@ -201,12 +208,22 @@ static future_t* hci_module_start_up(void) {
   // For now, always use the default timeout on non-Android builds.
   period_ms_t startup_timeout_ms = DEFAULT_STARTUP_TIMEOUT_MS;
 
+  char prop_value[PROPERTY_VALUE_MAX];
+  // Check if XMEM enabled, if yes override startup timeout
+  if (osi_property_get("persist.vendor.bluetooth.enable_XMEM", prop_value,"0") &&
+      ((strcmp(prop_value, "1") == 0) || (strcmp(prop_value, "2") == 0))) {
+    LOG_DEBUG(LOG_TAG, "%s: XMEM download enabled: %s", __func__, prop_value);
+    if (strcmp(prop_value, "1") == 0)
+      startup_timeout_ms = DEFAULT_XMEM_STARTUP_TIMEOUT_MS;
+    else
+      startup_timeout_ms = XMEM_STARTUP_TIMEOUT_MS;
+  }
   // Grab the override startup timeout ms, if present.
-  char timeout_prop[PROPERTY_VALUE_MAX];
-  if (!osi_property_get("bluetooth.enable_timeout_ms", timeout_prop,
+  else if (!osi_property_get("bluetooth.enable_timeout_ms", prop_value,
                         STRING_VALUE_OF(DEFAULT_STARTUP_TIMEOUT_MS)) ||
-      (startup_timeout_ms = atoi(timeout_prop)) < 100)
+      (startup_timeout_ms = atoi(prop_value)) < 100) {
     startup_timeout_ms = DEFAULT_STARTUP_TIMEOUT_MS;
+  }
 
   startup_timer = alarm_new("hci.startup_timer");
   if (!startup_timer) {

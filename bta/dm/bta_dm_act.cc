@@ -2377,9 +2377,7 @@ static void bta_dm_find_services(const RawAddress& bd_addr) {
 
       } else {
         if (uuid == Uuid::From16Bit(UUID_PROTOCOL_L2CAP)) {
-          bool feature = profile_feature_fetch(PBAP_ID, PBAP_0102_SUPPORT);
-          LOG_DEBUG(LOG_TAG, " is_pbap_adv_enabled : %d", feature);
-          if (feature) {
+          if (sdpu_is_pbap_0102_enabled()) {
             LOG_DEBUG(LOG_TAG, "%s SDP search for PBAP Client ", __func__);
             BTA_SdpSearch(bd_addr, Uuid::From16Bit(UUID_SERVCLASS_PBAP_PCE));
           }
