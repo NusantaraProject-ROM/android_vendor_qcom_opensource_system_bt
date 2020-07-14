@@ -111,6 +111,7 @@ static bool sock_snoop_active = false;
 
 extern bt_logger_interface_t *logger_interface;
 int64_t gmt_offset;
+int64_t tmp_gmt_offset;
 
 // Channel tracking variables for filtering.
 
@@ -200,6 +201,10 @@ static future_t* start_up() {
 
   localtime_r (&t, &tm_cur);
   gmt_offset = tm_cur.tm_gmtoff;
+
+  if (gmt_offset < 0) {
+    tmp_gmt_offset = -gmt_offset;
+  }
 
   // Default mode is FILTERED on userdebug/eng build, DISABLED on user build.
   // It can also be overwritten by modifying the global setting.
@@ -307,8 +312,16 @@ static void capture(const BT_HDR* buffer, bool is_received) {
   struct timespec ts_now = {};
   clock_gettime(CLOCK_REALTIME, &ts_now);
   uint64_t timestamp_us =
-      ((uint64_t)ts_now.tv_sec * 1000000L) +
-      ((uint64_t)gmt_offset*1000000LL) + ((uint64_t)ts_now.tv_nsec / 1000);
+      ((uint64_t)ts_now.tv_sec * 1000000L) + ((uint64_t)ts_now.tv_nsec / 1000);
+
+  if (gmt_offset >= 0) {
+    timestamp_us  += ((uint64_t) gmt_offset * 1000000LL);
+  } else {
+    /* when gmt_offset negative, adding offset to timestamp leads to
+     * integer overflow , we need to subtrack 2's complement to avoid overflow
+     */
+    timestamp_us -= ((uint64_t) tmp_gmt_offset * 1000000LL);
+  }
 
   btsnoop_mem_capture(buffer, timestamp_us);
 
