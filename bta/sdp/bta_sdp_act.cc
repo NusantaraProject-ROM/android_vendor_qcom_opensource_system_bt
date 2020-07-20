@@ -36,6 +36,7 @@
 #include "btm_int.h"
 #include "osi/include/allocator.h"
 #include "sdp_api.h"
+#include "stack/sdp/sdpint.h"
 #include "utl.h"
 
 /*****************************************************************************
@@ -221,8 +222,10 @@ static void bta_create_ops_sdp_record(bluetooth_sdp_record* record,
     record->ops.hdr.rfcomm_channel_number = pe.params[0];
   }
 
+  bool opp_v1_enabled = sdpu_is_opp_0100_enabled();
+  APPL_TRACE_DEBUG("%s opp_v1_enabled %d ", __func__, opp_v1_enabled);
   p_attr = SDP_FindAttributeInRec(p_rec, ATTR_ID_GOEP_L2CAP_PSM);
-  if (p_attr != NULL) {
+  if (p_attr != NULL && (!opp_v1_enabled)) {
     record->ops.hdr.l2cap_psm = p_attr->attr_value.v.u16;
   }
   p_attr = SDP_FindAttributeInRec(p_rec, ATTR_ID_SUPPORTED_FORMATS_LIST);

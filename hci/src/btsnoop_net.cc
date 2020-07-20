@@ -207,7 +207,7 @@ static void* listen_fn_(UNUSED_ATTR void* context) {
 
     if ((listen_socket_local_ != -1) && FD_ISSET(listen_socket_local_, &sock_fds)) {
       struct sockaddr_un cliaddr;
-      int length;
+      socklen_t length = sizeof(struct sockaddr_un);
 
       OSI_NO_INTR(client_socket = accept(listen_socket_local_, (struct sockaddr *)&cliaddr,
                   (socklen_t *)&length));

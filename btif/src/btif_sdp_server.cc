@@ -46,7 +46,7 @@
 #include "osi/include/allocator.h"
 #include "utl.h"
 #include "stack_manager.h"
-
+#include "stack/sdp/sdpint.h"
 // Protects the sdp_slots array from concurrent access.
 static std::recursive_mutex sdp_lock;
 
@@ -631,6 +631,7 @@ static int add_opps_sdp(const bluetooth_sdp_ops_record* rec) {
   uint32_t sdp_handle = 0;
   uint8_t temp[4];
   uint8_t* p_temp = temp;
+  uint16_t opp_v1 = 0x0100;
   tBTA_UTL_COD cod;
   int i, j;
 
@@ -667,10 +668,11 @@ static int add_opps_sdp(const bluetooth_sdp_ops_record* rec) {
                              (uint8_t)TEXT_STR_DESC_TYPE,
                              (uint32_t)(rec->hdr.service_name_length + 1),
                              (uint8_t*)rec->hdr.service_name);
-
+  bool opp_v1_enabled = sdpu_is_opp_0100_enabled();
+  int32_t profile_version = opp_v1_enabled ? opp_v1 : rec->hdr.profile_version ;
   /* Add in the Bluetooth Profile Descriptor List */
   status &= SDP_AddProfileDescriptorList(
-      sdp_handle, UUID_SERVCLASS_OBEX_OBJECT_PUSH, rec->hdr.profile_version);
+      sdp_handle, UUID_SERVCLASS_OBEX_OBJECT_PUSH, profile_version);
 
   /* add sequence for supported types */
   for (i = 0, j = 0; i < rec->supported_formats_list_len; i++) {
@@ -684,8 +686,11 @@ static int add_opps_sdp(const bluetooth_sdp_ops_record* rec) {
                       (uint8_t)rec->supported_formats_list_len, desc_type,
                       type_len, type_value);
 
+  if (opp_v1_enabled) {
+    APPL_TRACE_DEBUG("%s OPP_0100_SUPPORT enabled ", __func__);
+  }
   /* Add the L2CAP PSM if present */
-  if (rec->hdr.l2cap_psm != -1) {
+  if (rec->hdr.l2cap_psm != -1 && !opp_v1_enabled) {
     p_temp = temp;  // The macro modifies p_temp, hence rewind.
     UINT16_TO_BE_STREAM(p_temp, rec->hdr.l2cap_psm);
     status &= SDP_AddAttribute(sdp_handle, ATTR_ID_GOEP_L2CAP_PSM,

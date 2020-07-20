@@ -209,6 +209,7 @@ typedef struct {
   tBTA_JV_STATUS status; /* Whether the operation succeeded or failed. */
   uint32_t handle;       /* The connection handle */
   bool async;            /* false, if local initiates disconnect */
+  uint16_t channel;      /* local channel */
 } tBTA_JV_L2CAP_CLOSE;
 
 /* data associated with BTA_JV_L2CAP_START_EVT */

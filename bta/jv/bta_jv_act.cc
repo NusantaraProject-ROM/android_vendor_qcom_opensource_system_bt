@@ -970,6 +970,7 @@ static void bta_jv_l2cap_client_cback(uint16_t gap_handle, uint16_t event,
      // p_cb->state = BTA_JV_ST_NONE;
       bta_jv_free_sec_id(&p_cb->sec_id);
       evt_data.l2c_close.async = true;
+      evt_data.l2c_close.channel = p_cb->psm;
       p_cb->p_cback(BTA_JV_L2CAP_CLOSE_EVT, &evt_data, p_cb->l2cap_socket_id);
       p_cb->p_cback = NULL;
       break;
@@ -1076,7 +1077,7 @@ void bta_jv_l2cap_connect(tBTA_JV_MSG* p_data) {
     p_cb->handle = handle;
     p_cb->p_cback = cc->p_cback;
     p_cb->l2cap_socket_id = cc->l2cap_socket_id;
-    p_cb->psm = 0; /* not a server */
+    p_cb->psm = cc->remote_psm; /* remote psm for client */
     p_cb->sec_id = sec_id;
     p_cb->state = BTA_JV_ST_CL_OPENING;
   } else {
@@ -1107,6 +1108,7 @@ void bta_jv_l2cap_close(tBTA_JV_MSG* p_data) {
   uint32_t l2cap_socket_id = cc->p_cb->l2cap_socket_id;
 
   evt_data.handle = cc->handle;
+  evt_data.channel = cc->p_cb->psm;
   evt_data.status = bta_jv_free_l2c_cb(cc->p_cb);
   evt_data.async = false;
 
@@ -1152,6 +1154,7 @@ static void bta_jv_l2cap_server_cback(uint16_t gap_handle, uint16_t event,
       evt_data.l2c_close.handle = p_cb->handle;
       p_cback = p_cb->p_cback;
       socket_id = p_cb->l2cap_socket_id;
+      evt_data.l2c_close.channel = p_cb->psm;
       evt_data.l2c_close.status = bta_jv_free_l2c_cb(p_cb);
       p_cback(BTA_JV_L2CAP_CLOSE_EVT, &evt_data, socket_id);
       break;
@@ -1290,6 +1293,7 @@ void bta_jv_l2cap_stop_server(tBTA_JV_MSG* p_data) {
       p_cback = p_cb->p_cback;
       uint32_t l2cap_socket_id = p_cb->l2cap_socket_id;
       evt_data.handle = p_cb->handle;
+      evt_data.channel = p_cb->psm;
       evt_data.status = bta_jv_free_l2c_cb(p_cb);
       evt_data.async = false;
       if (p_cback) {
@@ -2595,6 +2599,7 @@ void bta_jv_l2cap_stop_server_le(tBTA_JV_MSG* p_data) {
       evt.l2c_close.handle = fcclient->id;
       evt.l2c_close.status = BTA_JV_SUCCESS;
       evt.l2c_close.async = false;
+      evt.l2c_close.channel = fcclient->chan;
 
       fcclient_free(fcclient);
 

@@ -850,11 +850,20 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
 #if (L2CAP_NUM_FIXED_CHNLS > 0)
         if (info_type == L2CAP_FIXED_CHANNELS_INFO_TYPE) {
           if (result == L2CAP_INFO_RESP_RESULT_SUCCESS) {
+            uint16_t info_len;
             if (p + L2CAP_FIXED_CHNL_ARRAY_SIZE > p_next_cmd) {
               android_errorWriteLog(0x534e4554, "111215173");
-              return;
+              L2CAP_TRACE_WARNING("L2CAP - wrong info rsp parameters of fixed channels type");
+              if(p > p_next_cmd){
+                info_len = 0;
+              } else {
+                info_len = p_next_cmd - p;
+              }
+            } else {
+              info_len = L2CAP_FIXED_CHNL_ARRAY_SIZE;
             }
-            memcpy(p_lcb->peer_chnl_mask, p, L2CAP_FIXED_CHNL_ARRAY_SIZE);
+            L2CAP_TRACE_DEBUG("fixed channels info length %d", info_len);
+            memcpy(p_lcb->peer_chnl_mask, p, info_len);
           }
 
           l2cu_process_fixed_chnl_resp(p_lcb);
