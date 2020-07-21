@@ -45,6 +45,10 @@
 #include "bta_hh_int.h"
 #endif
 
+#include "osi/include/osi.h"
+#include "osi/include/socket_utils/sockets.h"
+#include "osi/include/properties.h"
+
 using base::StringPrintf;
 using bluetooth::Uuid;
 
@@ -113,11 +117,22 @@ void bta_gattc_reset_discover_st(tBTA_GATTC_SERV* p_srcb, tGATT_STATUS status);
 /** Enables GATTC module */
 static void bta_gattc_enable() {
   VLOG(1) << __func__;
+  char native_access_notif_prop[PROPERTY_VALUE_MAX] = "false";
 
   if (bta_gattc_cb.state == BTA_GATTC_STATE_DISABLED) {
     /* initialize control block */
     bta_gattc_cb = tBTA_GATTC_CB();
     bta_gattc_cb.state = BTA_GATTC_STATE_ENABLED;
+    bta_gattc_cb.is_gatt_skt_connected = false;
+    bta_gattc_cb.gatt_skt_fd = -1;
+    bta_gattc_cb.native_access_uuid_list = {Uuid::FromString(GATT_UUID_ACCEL_GYRO_STR),
+        Uuid::FromString(GATT_UUID_MAG_DATA_STR), Uuid::FromString(GATT_UUID_PRESSURE_SENSOR_STR)};
+
+    property_get(
+        "persist.vendor.btstack.enable.native_access_notification", native_access_notif_prop, "false");
+    if(!strcmp(native_access_notif_prop, "true")) {
+      bta_gattc_cb.native_access_notif_enabled = true;
+    }
   } else {
     VLOG(1) << "GATTC is already enabled";
   }
@@ -155,6 +170,12 @@ void bta_gattc_disable() {
     bta_gattc_cb = tBTA_GATTC_CB();
     bta_gattc_cb.state = BTA_GATTC_STATE_DISABLED;
   }
+
+  close(bta_gattc_cb.gatt_skt_fd);
+  bta_gattc_cb.is_gatt_skt_connected = false;
+  bta_gattc_cb.gatt_skt_fd = -1;
+  bta_gattc_cb.native_access_uuid_list.clear();
+  bta_gattc_cb.native_access_notif_enabled = false;
 }
 
 /** start an application interface */
@@ -1064,8 +1085,13 @@ static void bta_gattc_conn_cback(tGATT_IF gattc_if, const RawAddress& bdaddr,
 
   if (connected)
     btif_debug_conn_state(bdaddr, BTIF_DEBUG_CONNECTED, GATT_CONN_UNKNOWN);
-  else
+  else {
     btif_debug_conn_state(bdaddr, BTIF_DEBUG_DISCONNECTED, reason);
+    //close native socket during disconnection.
+    close(bta_gattc_cb.gatt_skt_fd);
+    bta_gattc_cb.is_gatt_skt_connected = false;
+    bta_gattc_cb.gatt_skt_fd = -1;
+  }
 
   tBTA_GATTC_DATA* p_buf =
       (tBTA_GATTC_DATA*)osi_calloc(sizeof(tBTA_GATTC_DATA));
@@ -1205,6 +1231,128 @@ bool bta_gattc_process_srvc_chg_ind(uint16_t conn_id, tBTA_GATTC_RCB* p_clrcb,
   return true;
 }
 
+/** build native access GATT notification data */
+uint8_t* bta_gattc_build_skt_notification_data(Uuid char_uuid,
+                                               tGATT_CL_COMPLETE* p_data,
+                                               size_t* total_len) {
+  size_t data_hdr_len = 4;
+  uint8_t char_uuid_type = 0x01;
+  uint8_t notif_data_type = 0x02;
+  size_t len_char_uuid = char_uuid.GetShortestRepresentationSize();
+  size_t len_data = p_data->att_value.len;
+  uint8_t* p_uuid = new uint8_t[len_char_uuid];
+  *total_len = len_char_uuid + len_data + data_hdr_len;
+  uint8_t* p = new uint8_t[*total_len];
+  uint8_t* pp = p;
+  uint8_t* p_tmp = pp;
+
+  sscanf(char_uuid.ToString().c_str(),
+         "%02hhx%02hhx%02hhx%02hhx-%02hhx%02hhx-%02hhx%02hhx"
+         "-%02hhx%02hhx-%02hhx%02hhx%02hhx%02hhx%02hhx%02hhx",
+         &p_uuid[0], &p_uuid[1], &p_uuid[2], &p_uuid[3], &p_uuid[4], &p_uuid[5],
+         &p_uuid[6], &p_uuid[7], &p_uuid[8], &p_uuid[9], &p_uuid[10], &p_uuid[11],
+         &p_uuid[12], &p_uuid[13], &p_uuid[14], &p_uuid[15]);
+
+  //LTV for char uuid
+  UINT8_TO_STREAM(pp, (len_char_uuid+1));
+  UINT8_TO_STREAM(pp, char_uuid_type);
+  ARRAY_TO_STREAM(pp, p_uuid, (int)len_char_uuid);
+
+  //LTV for notification data
+  UINT8_TO_STREAM(pp, (len_data+1));
+  UINT8_TO_STREAM(pp, notif_data_type);
+  ARRAY_TO_STREAM(pp, p_data->att_value.value, (int)len_data);
+
+  VLOG(1) << __func__ << " Socket data bytes: ";
+  for(uint8_t k=0; k<(data_hdr_len + len_char_uuid + len_data); k++) {
+    VLOG(1) << __func__ << " value: " << +p_tmp[k];
+  }
+
+  return p;
+}
+
+/** write native access GATT notification data to socket */
+bool bta_gattc_write_to_socket(tGATT_CL_COMPLETE* p_data, Uuid char_uuid) {
+  size_t count = 0, total_len = 0;
+  int sent = 0;
+  uint8_t* p_skt_data;
+
+  VLOG(1) << __func__;
+  if (bta_gattc_cb.gatt_skt_fd < 0) {
+    bta_gattc_cb.gatt_skt_fd = socket(AF_LOCAL, SOCK_SEQPACKET, 0);
+
+    if (bta_gattc_cb.gatt_skt_fd < 0) {
+      VLOG(1) << __func__ << " failed to create socket";
+      bta_gattc_cb.is_gatt_skt_connected = false;
+      close(bta_gattc_cb.gatt_skt_fd);
+      bta_gattc_cb.gatt_skt_fd = -1;
+      return false;
+    }
+  }
+
+  if (!bta_gattc_cb.is_gatt_skt_connected) {
+    if (osi_socket_local_client_connect(
+        bta_gattc_cb.gatt_skt_fd, BTA_GATTC_NATIVE_ACCESS_SOCKET, ANDROID_SOCKET_NAMESPACE_FILESYSTEM, SOCK_SEQPACKET) < 0) {
+      VLOG(1) << __func__ << " failed to connect: error: " << +strerror(errno);
+      close(bta_gattc_cb.gatt_skt_fd);
+      bta_gattc_cb.gatt_skt_fd = -1;
+      bta_gattc_cb.is_gatt_skt_connected = false;
+      return false;
+    }
+    else {
+      bta_gattc_cb.is_gatt_skt_connected = true;
+    }
+  }
+
+  p_skt_data = bta_gattc_build_skt_notification_data(char_uuid, p_data, &total_len);
+
+  //write to socket
+  while (count < total_len) {
+    OSI_NO_INTR(sent = send(bta_gattc_cb.gatt_skt_fd, p_skt_data, total_len - count, MSG_NOSIGNAL | MSG_DONTWAIT));
+    if (sent == -1) {
+      if (errno != EAGAIN && errno != EWOULDBLOCK) {
+        VLOG(1) << __func__ << "write failed with error:" << +strerror(errno);
+        bta_gattc_cb.is_gatt_skt_connected = false;
+        close(bta_gattc_cb.gatt_skt_fd);
+        bta_gattc_cb.gatt_skt_fd = -1;
+        return false;
+      }
+    }
+    count += sent;
+    p_skt_data = (uint8_t*)p_skt_data + sent;
+  }
+
+  return true;
+}
+
+/** process native access notification */
+void bta_gattc_proc_native_access_notification(tBTA_GATTC_SERV* p_srcb,
+                                    tGATT_CL_COMPLETE* p_data) {
+  VLOG(1) << __func__
+          << StringPrintf(": p_data->att_value.handle=%d",
+          p_data->att_value.handle);
+
+  std::vector<Uuid> char_uuid_list = bta_gattc_cb.native_access_uuid_list;
+  std::vector<Uuid>::iterator it;
+
+  uint16_t handle = p_data->att_value.handle;
+  const gatt::Characteristic* p_char = bta_gattc_get_characteristic_srcb(p_srcb, handle);
+  bool ret = false;
+  if(p_char) {
+    it = std::find (char_uuid_list.begin(), char_uuid_list.end(), p_char->uuid);
+    if (it != char_uuid_list.end()) {
+      VLOG(1) << __func__ << " GATT characteristic receiving notifications";
+      ret = bta_gattc_write_to_socket(p_data, p_char->uuid);
+      if(ret) {
+        VLOG(1) << __func__ << " GATT notification data write to socket successful";
+      }
+      else {
+        VLOG(1) << __func__ << " GATT notification data write to socket unsuccessful";
+      }
+    }
+  }
+}
+
 /** process all non-service change indication/notification */
 void bta_gattc_proc_other_indication(tBTA_GATTC_CLCB* p_clcb, uint8_t op,
                                      tGATT_CL_COMPLETE* p_data,
@@ -1214,6 +1362,25 @@ void bta_gattc_proc_other_indication(tBTA_GATTC_CLCB* p_clcb, uint8_t op,
                  ": check p_data->att_value.handle=%d p_data->handle=%d",
                  p_data->att_value.handle, p_data->handle);
   VLOG(1) << "is_notify" << p_notify->is_notify;
+  uint16_t conn_id = 0;
+  RawAddress remote_bda;
+  tGATT_IF gatt_if;
+  tBTA_TRANSPORT transport;
+
+  if(bta_gattc_cb.native_access_notif_enabled) {
+    //check for native access notification
+    if(op == GATTC_OPTYPE_NOTIFICATION) {
+      if (p_clcb) {
+        conn_id = p_clcb->bta_conn_id;
+        if (!GATT_GetConnectionInfor(conn_id, &gatt_if, remote_bda, &transport)) {
+          LOG(ERROR) << __func__ << ": notification for unknown app";
+          return;
+        }
+        tBTA_GATTC_SERV* p_srcb = bta_gattc_find_srcb(remote_bda);
+        bta_gattc_proc_native_access_notification(p_srcb, p_data);
+      }
+    }
+  }
 
   p_notify->is_notify = (op == GATTC_OPTYPE_INDICATION) ? false : true;
   p_notify->len = p_data->att_value.len;
