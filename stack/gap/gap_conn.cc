@@ -1128,7 +1128,8 @@ static void gap_congestion_ind(uint16_t lcid, bool is_congested) {
     p_ccb->is_link_policy_set = TRUE;
   } else {
     if (p_ccb->is_link_policy_set) {
-      BTM_SetLinkPolicy(p_ccb->rem_dev_address, &btm_cb.btm_def_link_policy);
+      uint16_t btm_def_link_policy_local = btm_cb.btm_def_link_policy;
+      BTM_SetLinkPolicy(p_ccb->rem_dev_address, &btm_def_link_policy_local);
       p_ccb->is_link_policy_set = FALSE;
     }
   }
