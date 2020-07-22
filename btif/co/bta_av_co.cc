@@ -1321,7 +1321,10 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
     }
 #endif
     if (!strcmp(iter->name().c_str(),"AAC")) {
-      if (bta_av_co_check_peer_eligible_for_aac_codec(p_peer)) {
+      if (A2DP_Get_AAC_VBR_Status()) {
+        APPL_TRACE_DEBUG("%s: AAC VBR is enabled, show AAC support in selectable capability", __func__);
+        bta_av_co_audio_update_selectable_codec(*iter, p_peer);
+      } else if (bta_av_co_check_peer_eligible_for_aac_codec(p_peer)) {
         APPL_TRACE_DEBUG("%s: Show AAC support in selectable capability", __func__);
         bta_av_co_audio_update_selectable_codec(*iter, p_peer);
       } else {
@@ -1342,7 +1345,10 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
     }
 #endif
     if (!strcmp(iter->name().c_str(),"AAC")) {
-      if (bta_av_co_check_peer_eligible_for_aac_codec(p_peer)) {
+      if (A2DP_Get_AAC_VBR_Status()) {
+        APPL_TRACE_DEBUG("%s: AAC VBR is enabled, add AAC codec in sink capability", __func__);
+        p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
+      } else if (bta_av_co_check_peer_eligible_for_aac_codec(p_peer)) {
         APPL_TRACE_DEBUG("%s: AAC codec is added in sink capability", __func__);
         p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
       } else {

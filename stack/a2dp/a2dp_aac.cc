@@ -56,6 +56,21 @@ static const tA2DP_AAC_CIE a2dp_aac_src_caps = {
     // bits_per_sample
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16};
 
+static const tA2DP_AAC_CIE a2dp_aac_src_vbr_caps = {
+    // objectType
+    A2DP_AAC_OBJECT_TYPE_MPEG2_LC,
+    // sampleRate
+    // TODO: AAC 48.0kHz sampling rate should be added back - see b/62301376
+    A2DP_AAC_SAMPLING_FREQ_44100,
+    // channelMode
+    A2DP_AAC_CHANNEL_MODE_STEREO,
+    // variableBitRateSupport
+    A2DP_AAC_VARIABLE_BIT_RATE_ENABLED,
+    // bitRate
+    A2DP_AAC_DEFAULT_BITRATE,
+    // bits_per_sample
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16};
+
 static const tA2DP_AAC_CIE a2dp_aac_offload_caps = {
     // objectType
     A2DP_AAC_OBJECT_TYPE_MPEG2_LC,
@@ -122,12 +137,21 @@ static const tA2DP_AAC_CIE a2dp_aac_default_src_config = {
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16    // bits_per_sample
 };
 
+static const tA2DP_AAC_CIE a2dp_aac_default_src_vbr_config = {
+    A2DP_AAC_OBJECT_TYPE_MPEG2_LC,        // objectType
+    A2DP_AAC_SAMPLING_FREQ_44100,         // sampleRate
+    A2DP_AAC_CHANNEL_MODE_STEREO,         // channelMode
+    A2DP_AAC_VARIABLE_BIT_RATE_ENABLED,   // variableBitRateSupport
+    A2DP_AAC_DEFAULT_BITRATE,             // bitRate
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16    // bits_per_sample
+};
+
 static const tA2DP_AAC_CIE a2dp_aac_default_offload_config = {
     A2DP_AAC_OBJECT_TYPE_MPEG2_LC,        // objectType
     A2DP_AAC_SAMPLING_FREQ_48000,         // sampleRate
     A2DP_AAC_CHANNEL_MODE_STEREO,         // channelMode
     A2DP_AAC_VARIABLE_BIT_RATE_DISABLED,  // variableBitRateSupport
-    A2DP_AAC_DEFAULT_OFFLOAD_BITRATE,             // bitRate
+    A2DP_AAC_DEFAULT_OFFLOAD_BITRATE,     // bitRate
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16    // bits_per_sample
 };
 
@@ -136,7 +160,7 @@ static const tA2DP_AAC_CIE a2dp_aac_default_offload_scram_config = {
     A2DP_AAC_SAMPLING_FREQ_44100,         // sampleRate
     A2DP_AAC_CHANNEL_MODE_STEREO,         // channelMode
     A2DP_AAC_VARIABLE_BIT_RATE_DISABLED,  // variableBitRateSupport
-    A2DP_AAC_DEFAULT_OFFLOAD_BITRATE,             // bitRate
+    A2DP_AAC_DEFAULT_OFFLOAD_BITRATE,     // bitRate
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16    // bits_per_sample
 };
 
@@ -144,8 +168,8 @@ static const tA2DP_AAC_CIE a2dp_aac_default_offload_scram_vbr_config = {
     A2DP_AAC_OBJECT_TYPE_MPEG2_LC,        // objectType
     A2DP_AAC_SAMPLING_FREQ_44100,         // sampleRate
     A2DP_AAC_CHANNEL_MODE_STEREO,         // channelMode
-    A2DP_AAC_VARIABLE_BIT_RATE_ENABLED,  // variableBitRateSupport
-    A2DP_AAC_DEFAULT_OFFLOAD_BITRATE,             // bitRate
+    A2DP_AAC_VARIABLE_BIT_RATE_ENABLED,   // variableBitRateSupport
+    A2DP_AAC_DEFAULT_OFFLOAD_BITRATE,     // bitRate
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16    // bits_per_sample
 };
 
@@ -153,8 +177,8 @@ static const tA2DP_AAC_CIE a2dp_aac_default_offload_vbr_config = {
     A2DP_AAC_OBJECT_TYPE_MPEG2_LC,        // objectType
     A2DP_AAC_SAMPLING_FREQ_48000,         // sampleRate
     A2DP_AAC_CHANNEL_MODE_STEREO,         // channelMode
-    A2DP_AAC_VARIABLE_BIT_RATE_ENABLED,  // variableBitRateSupport
-    A2DP_AAC_DEFAULT_OFFLOAD_BITRATE,             // bitRate
+    A2DP_AAC_VARIABLE_BIT_RATE_ENABLED,   // variableBitRateSupport
+    A2DP_AAC_DEFAULT_OFFLOAD_BITRATE,     // bitRate
     BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16    // bits_per_sample
 };
 
@@ -775,9 +799,9 @@ A2dpCodecConfigAac::A2dpCodecConfigAac(
     : A2dpCodecConfig(BTAV_A2DP_CODEC_INDEX_SOURCE_AAC, "AAC", codec_priority) {
   char value[PROPERTY_VALUE_MAX] = {'\0'};
   bool vbr_enabled = false;
-  property_get("persist.vendor.qcom.bluetooth.aac_vbr_ctl.enabled", value, "true");
+  property_get("persist.vendor.qcom.bluetooth.aac_vbr_ctl.enabled", value, "false");
   if (!(strcmp(value,"true"))) {
-    LOG_DEBUG(LOG_TAG, "%s: AAC VBR is enabled ", __func__);
+    LOG_DEBUG(LOG_TAG, "%s: AAC VBR is enabled for this target", __func__);
     vbr_enabled = true;
   }
   if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_AAC)) {
@@ -799,10 +823,14 @@ A2dpCodecConfigAac::A2dpCodecConfigAac(
         }
     }
   } else {
-    a2dp_aac_caps = a2dp_aac_src_caps;
-    a2dp_aac_default_config = a2dp_aac_default_src_config;
+    if (vbr_enabled) {
+      a2dp_aac_caps = a2dp_aac_src_vbr_caps;
+      a2dp_aac_default_config = a2dp_aac_default_src_vbr_config;
+    } else {
+      a2dp_aac_caps = a2dp_aac_src_caps;
+      a2dp_aac_default_config = a2dp_aac_default_src_config;
+    }
   }
-
   // Compute the local capability
   if (a2dp_aac_caps.sampleRate & A2DP_AAC_SAMPLING_FREQ_44100) {
     codec_local_capability_.sample_rate |= BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
