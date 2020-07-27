@@ -46,6 +46,7 @@
 #include "device/include/device_iot_config.h"
 
 #include "bta/dm/bta_dm_int.h"
+#include "stack_config.h"
 
 #define BTM_SEC_MAX_COLLISION_DELAY (5000)
 
@@ -3506,6 +3507,13 @@ void btm_io_capabilities_req(const RawAddress& p) {
       evt_data.auth_req |= BTM_AUTH_YN_BIT;
       BTM_TRACE_DEBUG(
           "%s: for device in \"SC only\" mode set auth_req to 0x%02x", __func__,
+          evt_data.auth_req);
+    }
+
+    if (stack_config_get_interface()->get_pts_bredr_auth_req() >= 0) {
+      evt_data.auth_req = stack_config_get_interface()->get_pts_bredr_auth_req();
+      BTM_TRACE_WARNING(
+          "%s: set auth_req to 0x%02x for pts test ", __func__,
           evt_data.auth_req);
     }
 
