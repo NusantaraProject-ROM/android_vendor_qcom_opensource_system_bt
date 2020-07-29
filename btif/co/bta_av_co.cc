@@ -1344,6 +1344,15 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
       continue;
     }
 #endif
+    if (btif_av_peer_prefers_mandatory_codec(p_peer->addr)) {
+      if (!strcmp(iter->name().c_str(),"SBC")) {
+        p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
+        APPL_TRACE_DEBUG("%s: Mandatory codec is selected", __func__);
+      } else {
+        APPL_TRACE_DEBUG("%s: HD codec option is disabled, continue", __func__);
+        continue;
+      }
+    }
     if (!strcmp(iter->name().c_str(),"AAC")) {
       if (A2DP_Get_AAC_VBR_Status()) {
         APPL_TRACE_DEBUG("%s: AAC VBR is enabled, add AAC codec in sink capability", __func__);
