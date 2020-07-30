@@ -2404,7 +2404,15 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
 
     case BTIF_AV_START_STREAM_REQ_EVT:
       /* we were remotely started, just ack back the local request */
-      if (btif_av_cb[index].remote_started) btif_av_cb[index].remote_started = false;
+      if (btif_av_cb[index].remote_started) {
+        if (btif_a2dp_source_is_remote_start()) {
+          BTIF_TRACE_DEBUG("%s:cancel remote start timer",__func__);
+          if (btif_a2dp_source_last_remote_start_index() == index)
+            btif_a2dp_source_cancel_remote_start();
+        }
+        btif_av_cb[index].remote_started = false;
+      }
+
       if (btif_av_cb[index].peer_sep == AVDT_TSEP_SNK) {
         uint8_t hdl = btif_av_get_av_hdl_from_idx(index);
         if (hdl >= 0) {
