@@ -2160,10 +2160,15 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
              __func__, p_av->reconfig.status, btif_av_cb[index].reconfig_pending);
       if (btif_av_cb[index].reconfig_event) {
         if (p_av->reconfig.status != BTA_AV_FAIL_RECONFIG) {
-          BTIF_TRACE_DEBUG("%s: Clear cached codec_config data as reconfig got success",
+          if (codec_cfg_change && (btif_av_cb[index].flags & BTIF_AV_FLAG_PENDING_START)) {
+            BTIF_TRACE_DEBUG("%s: do not clear cached codec_config data as codec cfg changed",
+                __func__);
+          } else {
+            BTIF_TRACE_DEBUG("%s: Clear cached codec_config data as reconfig got success",
                                          __func__);
-          btif_av_cb[index].reconfig_event = 0;
-          memset(&btif_av_cb[index].reconfig_data, 0, sizeof(tBTA_AV));
+            btif_av_cb[index].reconfig_event = 0;
+            memset(&btif_av_cb[index].reconfig_data, 0, sizeof(tBTA_AV));
+          }
         } else {
           BTIF_TRACE_DEBUG("%s: ignore, as we are retrying reconfig.",
                                          __func__);
