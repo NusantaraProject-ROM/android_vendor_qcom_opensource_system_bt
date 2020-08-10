@@ -59,56 +59,6 @@ bool bta_dm_co_get_compress_memory(UNUSED_ATTR tBTA_SYS_ID id,
 
 /*******************************************************************************
  *
- * Function         bta_dm_co_io_req
- *
- * Description      This callout function is executed by DM to get IO
- *                  capabilities of the local device for the Simple Pairing
- *                  process.
- *
- * Parameters       bd_addr  - The peer device
- *                  *p_io_cap - The local Input/Output capabilities
- *                  *p_oob_data - true, if OOB data is available for the peer
- *                                device.
- *                  *p_auth_req - true, if MITM protection is required.
- *
- * Returns          void.
- *
- ******************************************************************************/
-void bta_dm_co_io_req(UNUSED_ATTR const RawAddress& bd_addr,
-                      tBTA_IO_CAP* p_io_cap, tBTA_OOB_DATA* p_oob_data,
-                      tBTA_AUTH_REQ* p_auth_req, bool is_orig) {
-  btif_dm_set_oob_for_io_req(p_oob_data);
-  btif_dm_proc_io_req(bd_addr, p_io_cap, p_oob_data, p_auth_req, is_orig);
-  BTIF_TRACE_DEBUG("bta_dm_co_io_req *p_oob_data = %d", *p_oob_data);
-  BTIF_TRACE_DEBUG("bta_dm_co_io_req *p_io_cap = %d", *p_io_cap);
-  BTIF_TRACE_DEBUG("bta_dm_co_io_req *p_auth_req = %d", *p_auth_req);
-  BTIF_TRACE_DEBUG("bta_dm_co_io_req is_orig = %d", is_orig);
-}
-
-/*******************************************************************************
- *
- * Function         bta_dm_co_io_rsp
- *
- * Description      This callout function is executed by DM to report IO
- *                  capabilities of the peer device for the Simple Pairing
- *                  process.
- *
- * Parameters       bd_addr  - The peer device
- *                  io_cap - The remote Input/Output capabilities
- *                  oob_data - true, if OOB data is available for the peer
- *                             device.
- *                  auth_req - true, if MITM protection is required.
- *
- * Returns          void.
- *
- ******************************************************************************/
-void bta_dm_co_io_rsp(const RawAddress& bd_addr, tBTA_IO_CAP io_cap,
-                      tBTA_OOB_DATA oob_data, tBTA_AUTH_REQ auth_req) {
-  btif_dm_proc_io_rsp(bd_addr, io_cap, oob_data, auth_req);
-}
-
-/*******************************************************************************
- *
  * Function         bta_dm_co_lk_upgrade
  *
  * Description      This callout function is executed by DM to check if the
@@ -122,53 +72,6 @@ void bta_dm_co_io_rsp(const RawAddress& bd_addr, tBTA_IO_CAP io_cap,
  ******************************************************************************/
 void bta_dm_co_lk_upgrade(UNUSED_ATTR const RawAddress& bd_addr,
                           UNUSED_ATTR bool* p_upgrade) {}
-
-/*******************************************************************************
- *
- * Function         bta_dm_co_loc_oob
- *
- * Description      This callout function is executed by DM to report the OOB
- *                  data of the local device for the Simple Pairing process
- *
- * Parameters       valid - true, if the local OOB data is retrieved from LM
- *                  c     - Simple Pairing Hash C
- *                  r     - Simple Pairing Randomnizer R
- *
- * Returns          void.
- *
- ******************************************************************************/
-void bta_dm_co_loc_oob(bool valid, const Octet16& c, const Octet16& r) {
-  BTIF_TRACE_DEBUG("bta_dm_co_loc_oob, valid = %d", valid);
-#ifdef BTIF_DM_OOB_TEST
-  btif_dm_proc_loc_oob(valid, c, r);
-#endif
-}
-
-/*******************************************************************************
- *
- * Function         bta_dm_co_rmt_oob
- *
- * Description      This callout function is executed by DM to request the OOB
- *                  data for the remote device for the Simple Pairing process
- *                  Need to call bta_dm_ci_rmt_oob() in response
- *
- * Parameters       bd_addr  - The peer device
- *
- * Returns          void.
- *
- ******************************************************************************/
-void bta_dm_co_rmt_oob(const RawAddress& bd_addr) {
-  Octet16 c;
-  Octet16 r;
-  bool result = false;
-
-#ifdef BTIF_DM_OOB_TEST
-  result = btif_dm_proc_rmt_oob(bd_addr, &c, &r);
-#endif
-
-  BTIF_TRACE_DEBUG("bta_dm_co_rmt_oob: result=%d", result);
-  bta_dm_ci_rmt_oob(result, bd_addr, c, r);
-}
 
 // REMOVE FOR BLUEDROID ?
 
