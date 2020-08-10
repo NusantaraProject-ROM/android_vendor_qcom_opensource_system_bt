@@ -36,6 +36,8 @@
 #include <base/logging.h>
 #include <base/strings/stringprintf.h>
 
+using bluetooth::Uuid;
+
 /*****************************************************************************
  *  Constants and data types
  ****************************************************************************/
@@ -83,6 +85,8 @@ typedef uint16_t tBTA_GATTC_INT_EVT;
 #endif
 
 #define BTA_GATTC_WRITE_PREPARE GATT_WRITE_PREPARE
+
+#define BTA_GATTC_NATIVE_ACCESS_SOCKET "/dev/socket/qvrservice_controller"
 
 /* internal strucutre for GATTC register API  */
 typedef struct {
@@ -298,6 +302,11 @@ typedef struct {
 
   tBTA_GATTC_CLCB clcb[BTA_GATTC_CLCB_MAX];
   tBTA_GATTC_SERV known_server[BTA_GATTC_KNOWN_SR_MAX];
+
+  int gatt_skt_fd;
+  bool is_gatt_skt_connected;
+  std::vector<Uuid> native_access_uuid_list;
+  bool native_access_notif_enabled;
 } tBTA_GATTC_CB;
 
 /*****************************************************************************

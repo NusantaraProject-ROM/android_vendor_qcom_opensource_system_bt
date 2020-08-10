@@ -181,7 +181,7 @@ enum host_crash_reason_e  {
   BT_HOST_REASON_DEFAULT_NONE  = 0x00,                         //INVALID REASON
   BT_HOST_REASON_SOC_CRASHED = 0x01,                           //SOC WAS CRASHED
   BT_HOST_REASON_SOC_CRASHED_DIAG_SSR = 0x02,                  //SOC CRASHED DIAG INITIATED SSR
-  BT_HOST_REASON_PATCH_DLDNG_FAILED_SOCINIT = 0x03,            //CONTROLLED INIT FAILED
+  BT_HOST_REASON_INIT_FAILED = 0x03,                           //HOST INITIALIZATION FAILED
   BT_HOST_REASON_CLOSE_RCVD_DURING_INIT = 0x04,                //CLOSE RECEIVED FROM STACK DURING SOC INIT
   BT_HOST_REASON_ERROR_READING_DATA_FROM_UART = 0x05,          //ERROR READING DATA FROM UART
   BT_HOST_REASON_WRITE_FAIL_SPCL_BUFF_CRASH_SOC = 0x06,        //FAILED TO WRITE SPECIAL BYTES TO CRASH SOC
@@ -212,7 +212,7 @@ static primary_reason primary_crash_reason [] = {
 { BT_HOST_REASON_DEFAULT_NONE                         , "Invalid reason"},
 { BT_HOST_REASON_SOC_CRASHED                          , "SOC crashed"},
 { BT_HOST_REASON_SOC_CRASHED_DIAG_SSR                 , "SOC crashed with diag initiated SSR"},
-{ BT_HOST_REASON_PATCH_DLDNG_FAILED_SOCINIT           , "SOC init failed during patch downloading"},
+{ BT_HOST_REASON_INIT_FAILED                          , "Init failed"},
 { BT_HOST_REASON_CLOSE_RCVD_DURING_INIT               , "Close received from stack during SOC init"},
 { BT_HOST_REASON_ERROR_READING_DATA_FROM_UART         , "Error reading data from UART"},
 { BT_HOST_REASON_WRITE_FAIL_SPCL_BUFF_CRASH_SOC       , "Failed to write special bytes to crash SOC"},

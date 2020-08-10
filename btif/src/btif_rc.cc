@@ -1992,7 +1992,7 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
           event == AVRC_PDU_GET_PLAYER_APP_ATTR_TEXT || event == AVRC_PDU_LIST_PLAYER_APP_VALUES)
       {
           send_reject_response (p_dev->rc_handle, label, pavrc_cmd->pdu,
-                                AVRC_STS_BAD_PARAM, pavrc_cmd->cmd.opcode);
+                                AVRC_STS_BAD_CMD, pavrc_cmd->cmd.opcode);
           BTIF_TRACE_DEBUG("Blacklisted CK send AVRC_PDU_LIST_PLAYER_APP_ATTR reject");
           return;
       }
@@ -2000,7 +2000,7 @@ static void btif_rc_upstreams_evt(uint16_t event, tAVRC_COMMAND* pavrc_cmd,
                 (event == AVRC_PDU_REGISTER_NOTIFICATION))
       {
           send_reject_response (p_dev->rc_handle, label, pavrc_cmd->pdu,
-                                AVRC_STS_BAD_PARAM, pavrc_cmd->cmd.opcode);
+                                AVRC_STS_BAD_CMD, pavrc_cmd->cmd.opcode);
           p_dev->rc_notif[BTRC_EVT_APP_SETTINGS_CHANGED - 1].bNotify = FALSE;
           BTIF_TRACE_DEBUG("Blacklisted CK send BTRC_EVT_APP_SETTINGS_CHANGED not implemented")
           return;
@@ -2917,6 +2917,11 @@ static bt_status_t get_element_attr_rsp(RawAddress* bd_addr, uint8_t num_attr,
   BTIF_TRACE_DEBUG("%s", __func__);
   CHECK_RC_CONNECTED(p_dev);
 
+  if (num_attr > BTRC_MAX_ELEM_ATTR_SIZE) {
+    BTIF_TRACE_DEBUG("%s: Exceeded number attributes: %d", __func__, num_attr);
+    num_attr = BTRC_MAX_ELEM_ATTR_SIZE;
+  }
+
   memset(element_attrs, 0, sizeof(tAVRC_ATTR_ENTRY) * num_attr);
 
   if (num_attr == 0) {
@@ -2925,7 +2930,8 @@ static bt_status_t get_element_attr_rsp(RawAddress* bd_addr, uint8_t num_attr,
     for (i = 0; i < num_attr; i++) {
       element_attrs[i].attr_id = p_attrs[i].attr_id;
       element_attrs[i].name.charset_id = AVRC_CHARSET_ID_UTF8;
-      element_attrs[i].name.str_len = (uint16_t)strlen((char*)p_attrs[i].text);
+      element_attrs[i].name.str_len =
+             (uint16_t)strnlen((char*)p_attrs[i].text, BTRC_MAX_ATTR_STR_LEN);
       element_attrs[i].name.p_str = p_attrs[i].text;
       BTIF_TRACE_DEBUG(
           "%s: attr_id: 0x%x, charset_id: 0x%x, str_len: %d, str: %s", __func__,
