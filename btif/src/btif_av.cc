@@ -6910,3 +6910,7 @@ void btif_av_clear_pending_start_flag() {
     btif_av_cb[i].flags &= ~BTIF_AV_FLAG_PENDING_START;
   }
 }
+
+void btif_av_set_dynamic_audio_buffer_size(uint8_t dynamic_audio_buffer_size) {
+  btif_a2dp_source_set_dynamic_audio_buffer_size(dynamic_audio_buffer_size);
+}
