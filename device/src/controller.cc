@@ -36,6 +36,7 @@
 #include "bt_configstore.h"
 #include <dlfcn.h>
 #include <vector>
+#include "stack_config.h"
 
 #define BTSNOOP_ENABLE_PROPERTY "persist.bluetooth.btsnoopenable"
 #define BTSNOOP_SOCLOG_PROPERTY "persist.vendor.service.bdroid.soclog"
@@ -383,7 +384,12 @@ static future_t* start_up(void) {
   if(ble_offload_features_supported) {
     secure_connections_supported =
         HCI_SC_CTRLR_SUPPORTED(features_classic[2].as_array);
-    if (secure_connections_supported) {
+    bool pts_secure_connections_host_supported_disabled =
+       stack_config_get_interface()->get_pts_bredr_secureconnection_host_support_disabled();
+    if (pts_secure_connections_host_supported_disabled) {
+      LOG_WARN(LOG_TAG, "%s secure connections host support disabled from pts ", __func__);
+    }
+    if (secure_connections_supported && !pts_secure_connections_host_supported_disabled) {
       response = AWAIT_COMMAND(
           packet_factory->make_write_secure_connections_host_support(
               HCI_SC_MODE_ENABLED));
