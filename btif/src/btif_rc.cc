@@ -2944,6 +2944,11 @@ static bt_status_t get_element_attr_rsp(RawAddress* bd_addr, uint8_t num_attr,
   BTIF_TRACE_DEBUG("%s", __func__);
   CHECK_RC_CONNECTED(p_dev);
 
+  if (num_attr > BTRC_MAX_ELEM_ATTR_SIZE) {
+    BTIF_TRACE_DEBUG("%s: Exceeded number attributes: %d", __func__, num_attr);
+    num_attr = BTRC_MAX_ELEM_ATTR_SIZE;
+  }
+
   memset(element_attrs, 0, sizeof(tAVRC_ATTR_ENTRY) * num_attr);
 
   if (num_attr == 0) {
@@ -2952,7 +2957,8 @@ static bt_status_t get_element_attr_rsp(RawAddress* bd_addr, uint8_t num_attr,
     for (i = 0; i < num_attr; i++) {
       element_attrs[i].attr_id = p_attrs[i].attr_id;
       element_attrs[i].name.charset_id = AVRC_CHARSET_ID_UTF8;
-      element_attrs[i].name.str_len = (uint16_t)strlen((char*)p_attrs[i].text);
+      element_attrs[i].name.str_len =
+             (uint16_t)strnlen((char*)p_attrs[i].text, BTRC_MAX_ATTR_STR_LEN);
       element_attrs[i].name.p_str = p_attrs[i].text;
       BTIF_TRACE_DEBUG(
           "%s: attr_id: 0x%x, charset_id: 0x%x, str_len: %d, str: %s", __func__,
