@@ -165,6 +165,8 @@ extern bool bt_split_a2dp_enabled;
 extern void btif_av_set_reconfig_flag(tBTA_AV_HNDL bta_handle);
 extern bool btif_av_check_is_reconfig_pending_flag_set(RawAddress address);
 extern bool btif_av_check_is_cached_reconfig_event_exist(RawAddress address);
+extern bool btif_av_check_is_retry_reconfig_set(RawAddress address);
+extern void btif_av_clear_is_retry_reconfig_flag(RawAddress address);
 
 /*******************************************************************************
  **
@@ -1714,7 +1716,8 @@ bool bta_av_co_set_codec_user_config(
     goto done;
   }
 
-  if (restart_output || hndl > 0) {
+  if (restart_output ||
+      ((hndl > 0) && btif_av_check_is_retry_reconfig_set(bt_addr))) {
     uint8_t num_protect = 0;
 #if (BTA_AV_CO_CP_SCMS_T == TRUE)
     if (p_peer->cp_active) num_protect = AVDT_CP_INFO_LEN;
@@ -1755,6 +1758,9 @@ bool bta_av_co_set_codec_user_config(
                      p_peer->codec_config, num_protect, bta_av_co_cp_scmst);
       p_peer->rcfg_done = true;
       p_peer->reconfig_needed = false;
+      if (btif_av_check_is_retry_reconfig_set(bt_addr)) {
+        btif_av_clear_is_retry_reconfig_flag(bt_addr);
+      }
     }
   }
 

@@ -202,6 +202,7 @@ typedef struct {
   struct alarm_t *suspend_rsp_track_timer;
   bool fake_suspend_rsp;
   int64_t src_codec_config_cs4;
+  bool is_retry_reconfig;
 } btif_av_cb_t;
 
 typedef struct {
@@ -973,6 +974,7 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       }
 #endif
       btif_av_cb[index].fake_suspend_rsp = false;
+      btif_av_cb[index].is_retry_reconfig = false;
       for (int i = 0; i < btif_max_av_clients; i++)
         btif_av_cb[i].dual_handoff = false;
       osi_property_get("persist.vendor.service.bt.a2dp.sink", a2dp_role, "false");
@@ -1762,10 +1764,10 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
   tBTA_AV* p_av = (tBTA_AV*)p_data;
 
   BTIF_TRACE_IMP("%s: event: %s, flags: %x, peer_sep: %x, index: %x reconfig_event: %d,"
-     " codec_cfg_change: %d, reconfig_pending: %d, reconfig_a2dp: %d", __func__,
-     dump_av_sm_event_name((btif_av_sm_event_t)event), btif_av_cb[index].flags,
-     btif_av_cb[index].peer_sep, index, btif_av_cb[index].reconfig_event,
-     codec_cfg_change, btif_av_cb[index].reconfig_pending, reconfig_a2dp);
+     " codec_cfg_change: %d, reconfig_pending: %d, reconfig_a2dp: %d, is_retry_reconfig: %d",
+     __func__, dump_av_sm_event_name((btif_av_sm_event_t)event), btif_av_cb[index].flags,
+     btif_av_cb[index].peer_sep, index, btif_av_cb[index].reconfig_event, codec_cfg_change,
+     btif_av_cb[index].reconfig_pending, reconfig_a2dp, btif_av_cb[index].is_retry_reconfig);
   if (event == BTA_AV_RC_OPEN_EVT) {
     BTIF_TRACE_DEBUG("%s: Remote_add: %s", __func__,
         ((tBTA_AV*)p_data)->rc_open.peer_addr.ToString().c_str());
@@ -2170,8 +2172,9 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
             memset(&btif_av_cb[index].reconfig_data, 0, sizeof(tBTA_AV));
           }
         } else {
-          BTIF_TRACE_DEBUG("%s: ignore, as we are retrying reconfig.",
-                                         __func__);
+          btif_av_cb[index].is_retry_reconfig = true;
+          BTIF_TRACE_DEBUG("%s: ignore, as we are retrying reconfig, is_retry_reconfig: %d",
+                               __func__, btif_av_cb[index].is_retry_reconfig);
         }
       }
 
@@ -4303,6 +4306,7 @@ static bt_status_t init_src(
     btif_av_cb[i].remote_start_alarm = NULL;
     btif_av_cb[i].suspend_rsp_track_timer = NULL;
     btif_av_cb[i].fake_suspend_rsp = false;
+    btif_av_cb[i].is_retry_reconfig = false;
 #if (TWS_ENABLED == TRUE)
     btif_av_cb[i].tws_offload_started_sync_timer = NULL;
 #endif
@@ -6175,6 +6179,56 @@ bool btif_av_check_is_cached_reconfig_event_exist(RawAddress address) {
     return true;
   }
   return false;
+}
+
+/******************************************************************************
+**
+** Function        btif_av_check_is_retry_reconfig_set
+**
+** Description     check if is_retry_reconfig set or not for corresponding
+**                 remote.
+**
+** Returns         void.
+********************************************************************************/
+bool btif_av_check_is_retry_reconfig_set(RawAddress address) {
+  int i;
+  i = btif_av_idx_by_bdaddr(&address);
+  if (i == btif_max_av_clients) {
+    BTIF_TRACE_ERROR("%s: invalid index: %d", __func__, i);
+    return false;
+  }
+  BTIF_TRACE_DEBUG("%s: i = %d, is_retry_reconfig: %d",
+               __func__, i, btif_av_cb[i].is_retry_reconfig);
+  if (btif_av_cb[i].is_retry_reconfig) {
+    return true;
+  }
+  return false;
+}
+
+/******************************************************************************
+**
+** Function        btif_av_clear_is_retry_reconfig_flag
+**
+** Description     if is_retry_reconfig set, then clear the it for corresponding
+**                 remote.
+**
+** Returns         TRUE if is_retry_reconfig set, FALSE otherwise.
+********************************************************************************/
+void btif_av_clear_is_retry_reconfig_flag(RawAddress address) {
+  int i;
+  i = btif_av_idx_by_bdaddr(&address);
+  if (i == btif_max_av_clients) {
+    BTIF_TRACE_ERROR("%s: invalid index: %d", __func__, i);
+    return;
+  }
+  BTIF_TRACE_DEBUG("%s: i = %d, is_retry_reconfig: %d",
+               __func__, i, btif_av_cb[i].is_retry_reconfig);
+  if (btif_av_cb[i].is_retry_reconfig) {
+    btif_av_cb[i].is_retry_reconfig = false;
+  } else {
+    BTIF_TRACE_DEBUG("%s: is_retry_reconfig not set for this remote.", __func__);
+  }
+  return;
 }
 
 void btif_av_reset_reconfig_flag() {
