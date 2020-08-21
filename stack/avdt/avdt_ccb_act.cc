@@ -342,7 +342,9 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
       APPL_TRACE_DEBUG("codec name %s", A2DP_CodecName(p_scb->cs.cfg.codec_info));
       if ((soc_type != BT_SOC_TYPE_SMD && soc_type != BT_SOC_TYPE_ROME)) {
         if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC) {
-          if (avdt_ccb_check_peer_eligible_for_aac_codec(p_ccb)) {
+          if (A2DP_Get_AAC_VBR_Status()) {
+            APPL_TRACE_DEBUG("%s: AAC VBR is enabled, show AAC SEP for this peer device", __func__);
+          } else if (avdt_ccb_check_peer_eligible_for_aac_codec(p_ccb)) {
             APPL_TRACE_DEBUG("%s: Show AAC SEP for this peer device", __func__);
           } else {
             APPL_TRACE_DEBUG("%s: Do not show AAC SEP for this peer device", __func__);
@@ -355,7 +357,9 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
           continue;
         } else {
           if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC) {
-            if (avdt_ccb_check_peer_eligible_for_aac_codec(p_ccb)) {
+            if (A2DP_Get_AAC_VBR_Status()) {
+              APPL_TRACE_DEBUG("%s: AAC VBR is enabled, show AAC SEP for this peer device", __func__);
+            } else if (avdt_ccb_check_peer_eligible_for_aac_codec(p_ccb)) {
               APPL_TRACE_DEBUG("%s: Show AAC SEP for this peer device", __func__);
             } else {
               APPL_TRACE_DEBUG("%s: Do not show AAC SEP for this peer device", __func__);

@@ -121,6 +121,7 @@ static_library("bta") {
     "//third_party/libchrome/base",
     "//third_party/bluetooth_ext/system_bt_ext/btif/include",
     "//third_party/bluetooth-commonsys-intf/include",
+    "//third_party/bluetooth-internal/test/offtarget/stack",
   ]
 
   deps = [

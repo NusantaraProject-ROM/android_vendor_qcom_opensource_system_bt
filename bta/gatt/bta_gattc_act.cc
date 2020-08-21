@@ -49,6 +49,10 @@
 #include "osi/include/socket_utils/sockets.h"
 #include "osi/include/properties.h"
 
+#if (OFF_TARGET_TEST_ENABLED == TRUE)
+#include "bt_prop.h"
+#endif
+
 using base::StringPrintf;
 using bluetooth::Uuid;
 

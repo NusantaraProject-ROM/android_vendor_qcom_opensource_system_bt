@@ -107,7 +107,7 @@ static void parse_read_scrambling_supported_freqs_response(
 }
 
 static void parse_read_add_on_features_supported_response(
-    BT_HDR* response, bt_device_features_t* supported_add_on_features,
+    BT_HDR* response, bt_device_soc_add_on_features_t* supported_add_on_features,
     uint8_t *valid_bytes, uint16_t* product_id, uint16_t* response_version) {
 
   uint8_t* ptr = response->data + response->offset;

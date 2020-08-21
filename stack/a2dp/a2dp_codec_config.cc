@@ -99,6 +99,7 @@ bool aptxhd_sw = false;
 bool aptx_adaptive_sw = false;
 bool ldac_sw = false;
 bool aptxtws_sw = false;
+bool vbr_supported = false;
 std::string offload_caps = "";
 static void init_btav_a2dp_codec_config(
     btav_a2dp_codec_config_t* codec_config, btav_a2dp_codec_index_t codec_index,
@@ -1578,15 +1579,20 @@ void A2DP_SetOffloadStatus(bool offload_status, const char *offload_cap,
   char *tok = NULL;
   char *tmp_token = NULL;
   uint8_t add_on_features_size = 0;
-  bt_device_features_t * add_on_features_list = NULL;
+  const bt_device_soc_add_on_features_t *add_on_features_list =
+      controller_get_interface()->get_soc_add_on_features(&add_on_features_size);
+  char vbr_value[PROPERTY_VALUE_MAX] = {'\0'};
+  property_get("persist.vendor.qcom.bluetooth.aac_vbr_ctl.enabled", vbr_value, "false");
+  if (!(strcmp(vbr_value,"true"))) {
+    BTIF_TRACE_DEBUG("%s: AAC VBR is enabled", __func__);
+    vbr_supported = true;
+  }
   LOG_INFO(LOG_TAG,"A2dp_SetOffloadStatus:status = %d",
                      offload_status);
   mA2dp_offload_status = offload_status;
   offload_capability = true;
   if (strcmp(offload_cap,"null") == 0) offload_capability = false;
 
-  add_on_features_list = (bt_device_features_t *)
-      controller_get_interface()->get_add_on_features(&add_on_features_size);
   if(add_on_features_size == 0) {
     BTIF_TRACE_WARNING(
         "BT controller doesn't have add on features");
@@ -1749,6 +1755,10 @@ void A2DP_SetOffloadStatus(bool offload_status, const char *offload_cap,
 #if (OFF_TARGET_TEST_ENABLED == FALSE)
   offload_caps = controller_get_interface()->get_a2dp_offload_cap();
 #endif
+}
+
+bool A2DP_Get_AAC_VBR_Status() {
+    return vbr_supported;
 }
 
 bool A2DP_GetOffloadStatus() {

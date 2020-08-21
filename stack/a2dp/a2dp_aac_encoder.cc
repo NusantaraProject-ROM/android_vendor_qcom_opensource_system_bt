@@ -426,6 +426,9 @@ static void a2dp_aac_encoder_update(uint16_t peer_mtu,
               "invalid codec bit rate mode",
               __func__);
     return;  // TODO: Return an error?
+  } else if (aac_param_value == A2DP_AAC_VARIABLE_BIT_RATE_ENABLED) {
+    //TODO: Other modes need to add
+    aac_param_value = 0x05; // This is High Bitrate mode value
   }
   aac_error = aacEncoder_SetParam(a2dp_aac_encoder_cb.aac_handle,
                                   AACENC_BITRATEMODE, aac_param_value);

@@ -84,9 +84,11 @@ static uint8_t local_supported_codecs[MAX_LOCAL_SUPPORTED_CODECS_SIZE];
 static uint8_t scrambling_supported_freqs[MAX_SUPPORTED_SCRAMBLING_FREQ_SIZE];
 static uint8_t number_of_local_supported_codecs = 0;
 static uint8_t number_of_scrambling_supported_freqs = 0;
-static bt_device_features_t add_on_features;
-static uint8_t add_on_features_length = 0;
+static bt_device_soc_add_on_features_t soc_add_on_features;
+static uint8_t soc_add_on_features_length = 0;
 static uint16_t product_id, response_version;
+static bt_device_host_add_on_features_t host_add_on_features;
+static uint8_t host_add_on_features_length = 0;
 static uint8_t simple_pairing_options = 0;
 static uint8_t maximum_encryption_key_size = 0;
 
@@ -178,6 +180,8 @@ static future_t* start_up(void) {
 
   //initialize number_of_scrambling_supported_freqs to 0 during start_up
   number_of_scrambling_supported_freqs = 0;
+  soc_add_on_features_length = 0;
+  host_add_on_features_length = 0;
 
 // read properties  for offtarget test setup
 #if (OFF_TARGET_TEST_ENABLED == TRUE)
@@ -478,31 +482,52 @@ static future_t* start_up(void) {
         simple_pairing_options);
   }
 
+  if (bt_configstore_intf != NULL) {
+    host_add_on_features_list_t features_list;
+
+    if (bt_configstore_intf->get_host_add_on_features(&features_list)) {
+      host_add_on_features_length = features_list.feat_mask_len;
+      if (host_add_on_features_length != 0 &&
+          host_add_on_features_length <= HOST_ADD_ON_FEATURES_MAX_SIZE)
+        memcpy(host_add_on_features.as_array, features_list.features,
+            host_add_on_features_length);
+    }
+  }
+
   //Read HCI_VS_GET_ADDON_FEATURES_SUPPORT
   if (soc_type >= BT_SOC_TYPE_CHEROKEE) {
 
     if (bt_configstore_intf != NULL) {
-      add_on_features_list_t features_list;
-      if (bt_configstore_intf->get_add_on_features(&features_list)){
-      product_id = features_list.product_id;
-      response_version = features_list.rsp_version;
-      add_on_features_length = features_list.feat_mask_len;
-      memcpy(add_on_features.as_array, features_list.features,
-          sizeof(add_on_features.as_array));
+      controller_add_on_features_list_t features_list;
+
+      if (bt_configstore_intf->get_controller_add_on_features(&features_list)){
+        product_id = features_list.product_id;
+        response_version = features_list.rsp_version;
+        soc_add_on_features_length = features_list.feat_mask_len;
+        if (soc_add_on_features_length != 0) {
+          if (soc_add_on_features_length <= SOC_ADD_ON_FEATURES_MAX_SIZE) {
+            memcpy(soc_add_on_features.as_array, features_list.features,
+                soc_add_on_features_length);
+          } else {
+            LOG(FATAL) << __func__ << "invalid soc add on features length: "
+              << +soc_add_on_features_length;
+          }
+        }
       }
     }
 
-    if (!add_on_features_length) {
+    if (!soc_add_on_features_length) {
       response =
             AWAIT_COMMAND(packet_factory->make_read_add_on_features_supported());
       if (response) {
 
         LOG_DEBUG(LOG_TAG, "%s sending add-on features supported VSC", __func__);
         packet_parser->parse_read_add_on_features_supported_response(
-            response, &add_on_features, &add_on_features_length, &product_id, &response_version);
+            response, &soc_add_on_features, &soc_add_on_features_length,
+            &product_id, &response_version);
       }
     }
-    if (!add_on_features_length) {
+    if (!soc_add_on_features_length) {
       // read scrambling support from controller incase of cherokee
       response =
             AWAIT_COMMAND(packet_factory->make_read_scrambling_supported_freqs());
@@ -517,14 +542,14 @@ static future_t* start_up(void) {
                         number_of_scrambling_supported_freqs);
       }
     } else {
-        if (HCI_SPLIT_A2DP_SCRAMBLING_DATA_REQUIRED(add_on_features.as_array))  {
-          if (HCI_SPLIT_A2DP_44P1KHZ_SAMPLE_FREQ(add_on_features.as_array)) {
+        if (HCI_SPLIT_A2DP_SCRAMBLING_DATA_REQUIRED(soc_add_on_features.as_array))  {
+          if (HCI_SPLIT_A2DP_44P1KHZ_SAMPLE_FREQ(soc_add_on_features.as_array)) {
             scrambling_supported_freqs[number_of_scrambling_supported_freqs++]
                                 = BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
             scrambling_supported_freqs[number_of_scrambling_supported_freqs++]
                                 = BTAV_A2DP_CODEC_SAMPLE_RATE_88200;
           }
-          if (HCI_SPLIT_A2DP_48KHZ_SAMPLE_FREQ(add_on_features.as_array)) {
+          if (HCI_SPLIT_A2DP_48KHZ_SAMPLE_FREQ(soc_add_on_features.as_array)) {
             scrambling_supported_freqs[number_of_scrambling_supported_freqs++]
                                 = BTAV_A2DP_CODEC_SAMPLE_RATE_48000;
             scrambling_supported_freqs[number_of_scrambling_supported_freqs++]
@@ -808,10 +833,10 @@ static uint8_t get_le_all_initiating_phys() {
   return phy;
 }
 
-static const bt_device_features_t* get_add_on_features(uint8_t *add_on_features_len) {
+static const bt_device_soc_add_on_features_t* get_soc_add_on_features(uint8_t *add_on_features_len) {
   CHECK(readable);
-  *add_on_features_len = add_on_features_length;
-  return &add_on_features;
+  *add_on_features_len = soc_add_on_features_length;
+  return &soc_add_on_features;
 }
 
 static uint16_t  get_product_id(void) {
@@ -822,6 +847,13 @@ static uint16_t  get_product_id(void) {
 static uint16_t get_response_version(void) {
   CHECK(readable);
   return response_version;
+}
+
+static const bt_device_host_add_on_features_t*
+      get_host_add_on_features(uint8_t *add_on_features_len) {
+  CHECK(readable);
+  *add_on_features_len = host_add_on_features_length;
+  return &host_add_on_features;
 }
 
 static bool supports_read_simple_pairing_options(void) {
@@ -921,9 +953,10 @@ static const controller_t interface = {
     supports_ble_offload_features,
     get_le_all_initiating_phys,
     get_scrambling_supported_freqs,
-    get_add_on_features,
+    get_soc_add_on_features,
     get_product_id,
     get_response_version,
+    get_host_add_on_features,
     supports_read_simple_pairing_options,
     performs_remote_public_key_validation,
     get_soc_type,
