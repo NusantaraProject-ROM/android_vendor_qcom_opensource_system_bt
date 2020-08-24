@@ -1326,7 +1326,7 @@ void AVDT_UpdateLinkPktType(uint8_t hdl, uint16_t packet_type) {
 
         p_scb = avdt_scb_by_hdl(hdl);
         if (p_scb != NULL)
-                p_ccb = avdt_scb_by_hdl(hdl)->p_ccb;
+                p_ccb = p_scb->p_ccb;
         if (p_ccb != NULL)
                 p_acl_cb = btm_bda_to_acl(p_ccb->peer_addr, BT_TRANSPORT_BR_EDR);
         if (p_acl_cb != NULL)
