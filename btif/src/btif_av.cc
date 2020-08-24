@@ -95,8 +95,6 @@
 extern bool isDevUiReq;
 bool isBitRateChange = false;
 bool isBitsPerSampleChange = false;
-static int reconfig_a2dp_param_id = 0;
-static int reconfig_a2dp_param_val = 0;
 std::mutex session_wait_mutex_;
 std::condition_variable session_wait_cv;
 bool session_wait;
@@ -157,10 +155,6 @@ typedef enum {
 #define QUICK_SINK_SHO_IND_PKT_CNT 165 /* when previous streaming device starts playing
                                           within 3 sec*/
 #define MAX_ALLOWED_SINK_CONNECTIONS 2 /* Max Sink connections are restricted to 2 */
-
-/* Param id for bitrate and bits per sample */
-#define BITRATE_PARAM_ID 1
-#define BITSPERSAMPLE_PARAM_ID 2
 
 /*****************************************************************************
  *  Local type definitions
@@ -2048,6 +2042,7 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
     } break;
 
     case BTIF_AV_SOURCE_CONFIG_REQ_EVT: {
+      btif_av_query_mandatory_codec_priority(btif_av_cb[index].peer_bda);
       if ((btif_av_cb[index].flags & BTIF_AV_FLAG_PENDING_START) && codec_cfg_change) {
         btif_av_cache_src_codec_config(BTIF_AV_SOURCE_CONFIG_REQ_EVT, p_data, index);
       } else {
@@ -2469,6 +2464,7 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       break;
 
     case BTIF_AV_SOURCE_CONFIG_REQ_EVT:
+      btif_av_query_mandatory_codec_priority(btif_av_cb[index].peer_bda);
       if(codec_cfg_change) {
         btif_av_cb[index].reconfig_pending = true;
       }
@@ -4666,15 +4662,6 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
   BTIF_TRACE_EVENT("%s", __func__);
   CHECK_BTAV_INIT();
   int index = btif_av_idx_by_bdaddr(const_cast<RawAddress*>(&bd_addr));
-#if (TWS_ENABLED == TRUE)
-  //check if current device is TWS and then return failure with SHO support
-  /*if (index < btif_max_av_clients && btif_av_cb[index].tws_device) {
-  //if (btif_av_is_tws_connected()) {
-    BTIF_TRACE_DEBUG("%s:TWSP device connected, config change not allowed",__func__);
-    return BT_STATUS_FAIL;
-  //}
-  } */
-#endif
   btif_av_codec_config_req_t codec_req;
   isDevUiReq = false;
   codec_cfg_change = false;
@@ -4698,55 +4685,9 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
       if ((codec_config.codec_specific_1 != cp.codec_specific_1) &&
             (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC)) {
         isBitRateChange = true;
-        switch (cp.codec_specific_1)
-        {
-          case 1000:
-            if ((codec_config.sample_rate == BTAV_A2DP_CODEC_SAMPLE_RATE_44100) ||
-                (codec_config.sample_rate == BTAV_A2DP_CODEC_SAMPLE_RATE_88200))
-              reconfig_a2dp_param_val = 909000;
-            else
-              reconfig_a2dp_param_val = 990000;
-            break;
-          case 1001:
-            if ((codec_config.sample_rate == BTAV_A2DP_CODEC_SAMPLE_RATE_44100) ||
-                  (codec_config.sample_rate == BTAV_A2DP_CODEC_SAMPLE_RATE_88200))
-              reconfig_a2dp_param_val = 606000;
-            else
-              reconfig_a2dp_param_val = 660000;
-            break;
-          case 1002:
-            if ((codec_config.sample_rate == BTAV_A2DP_CODEC_SAMPLE_RATE_44100) ||
-                (codec_config.sample_rate == BTAV_A2DP_CODEC_SAMPLE_RATE_88200))
-              reconfig_a2dp_param_val = 303000;
-            else
-              reconfig_a2dp_param_val = 330000;
-            break;
-          case 1003:
-            reconfig_a2dp_param_val = 0;
-            break;
-        }
-        if (cp.codec_specific_1 != 0) {
-          reconfig_a2dp_param_id = BITRATE_PARAM_ID;
-        }
       } else if ((codec_config.bits_per_sample != cp.bits_per_sample) &&
                (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC)) {
-          switch (cp.bits_per_sample)
-          {
-            case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16:
-              reconfig_a2dp_param_val = 16;
-              break;
-            case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24:
-              reconfig_a2dp_param_val = 24;
-              break;
-            case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_32:
-              reconfig_a2dp_param_val = 32;
-              break;
-            case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_NONE:
-              break;
-
-          }
           if ((cp.bits_per_sample != 0) && (codec_config.bits_per_sample != 0)) {
-            reconfig_a2dp_param_id = BITSPERSAMPLE_PARAM_ID;
             isBitsPerSampleChange = true;
           } else {
             codec_cfg_change = true;
