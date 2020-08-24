@@ -161,6 +161,11 @@ typedef enum {
  *****************************************************************************/
 
 typedef struct {
+  RawAddress bd_addr;
+  btav_a2dp_codec_config_t codec_config;
+} btif_av_codec_config_req_t;
+
+typedef struct {
   tBTA_AV_HNDL bta_handle;
   RawAddress peer_bda;
   bool self_initiated_connection;
@@ -198,10 +203,9 @@ typedef struct {
   uint16_t remote_delay;
   struct alarm_t *remote_start_alarm;
   btif_sm_event_t reconfig_event;
-  tBTA_AV reconfig_data;
+  btif_av_codec_config_req_t reconfig_data;
   struct alarm_t *suspend_rsp_track_timer;
   bool fake_suspend_rsp;
-  int64_t src_codec_config_cs4;
   bool is_retry_reconfig;
 } btif_av_cb_t;
 
@@ -220,11 +224,6 @@ typedef struct {
   int channel_count;
   RawAddress peer_bd;
 } btif_av_sink_config_req_t;
-
-typedef struct {
-  RawAddress bd_addr;
-  btav_a2dp_codec_config_t codec_config;
-} btif_av_codec_config_req_t;
 
 typedef struct {
   RawAddress bd_addr;
@@ -618,11 +617,6 @@ static void btif_update_source_codec(void* p_data) {
     return;
   }
 
-  if (btif_av_cb[av_index].reconfig_event) {
-    BTIF_TRACE_DEBUG("%s: overwritten codec_specific_4: %d with cached src_codec_config_cs4: %d",
-           __func__, req->codec_config.codec_specific_4, btif_av_cb[av_index].src_codec_config_cs4);
-    req->codec_config.codec_specific_4 = btif_av_cb[av_index].src_codec_config_cs4;
-  }
   btif_a2dp_source_encoder_user_config_update_req(req->codec_config, req->bd_addr);
 
   if (req->codec_config.codec_specific_4 > 0) {
@@ -900,11 +894,9 @@ static void btif_av_cache_src_codec_config(btif_sm_event_t event, void* p_data, 
   BTIF_TRACE_DEBUG("%s: cache codec_config data to process when we move to proper state",
                                         __func__);
   btif_av_cb[index].reconfig_event = BTIF_AV_SOURCE_CONFIG_REQ_EVT;
-  btif_av_codec_config_req_t src_codec_config;
-  btif_av_cb[index].src_codec_config_cs4 = src_codec_config.codec_config.codec_specific_4;
-  BTIF_TRACE_DEBUG("%s: cache codec_specific_4: %d, to src_codec_config_cs4",
-                               __func__, src_codec_config.codec_config.codec_specific_4);
-  memcpy(&(btif_av_cb[index].reconfig_data), ((tBTA_AV*)p_data), sizeof(tBTA_AV));
+  BTIF_TRACE_DEBUG("%s: memcpy p_data to btif_av_cb[%d].reconfig_data.", __func__, index);
+  memcpy(&(btif_av_cb[index].reconfig_data), ((btif_av_codec_config_req_t*)p_data),
+                     sizeof(btif_av_codec_config_req_t));
 }
 
 static void btif_av_process_cached_src_codec_config(int index) {
@@ -961,8 +953,7 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       btif_av_cb[index].aptx_mode = APTX_HQ;
       btif_av_cb[index].codec_latency = 0;
       btif_av_cb[index].reconfig_event = 0;
-      memset(&btif_av_cb[index].reconfig_data, 0, sizeof(tBTA_AV));
-      btif_av_cb[index].src_codec_config_cs4 = 0;
+      memset(&btif_av_cb[index].reconfig_data, 0, sizeof(btif_av_codec_config_req_t));
       if (alarm_is_scheduled(btif_av_cb[index].suspend_rsp_track_timer)) {
         BTIF_TRACE_DEBUG("%s: clear suspend_rsp_track_timer", __func__);
         alarm_cancel(btif_av_cb[index].suspend_rsp_track_timer);
@@ -2049,7 +2040,7 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
         btif_av_cache_src_codec_config(BTIF_AV_SOURCE_CONFIG_REQ_EVT, p_data, index);
       } else {
         btif_av_cb[index].reconfig_event = 0;
-        memset(&btif_av_cb[index].reconfig_data, 0, sizeof(tBTA_AV));
+        memset(&btif_av_cb[index].reconfig_data, 0, sizeof(btif_av_codec_config_req_t));
         if (codec_cfg_change) {
           btif_av_cb[index].reconfig_pending = true;
           btif_av_cache_src_codec_config(BTIF_AV_SOURCE_CONFIG_REQ_EVT, p_data, index);
@@ -2169,7 +2160,7 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
             BTIF_TRACE_DEBUG("%s: Clear cached codec_config data as reconfig got success",
                                          __func__);
             btif_av_cb[index].reconfig_event = 0;
-            memset(&btif_av_cb[index].reconfig_data, 0, sizeof(tBTA_AV));
+            memset(&btif_av_cb[index].reconfig_data, 0, sizeof(btif_av_codec_config_req_t));
           }
         } else {
           btif_av_cb[index].is_retry_reconfig = true;
@@ -2480,7 +2471,7 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
         btif_av_cache_src_codec_config(BTIF_AV_SOURCE_CONFIG_REQ_EVT, p_data, index);
       } else {
         btif_av_cb[index].reconfig_event = 0;
-        memset(&btif_av_cb[index].reconfig_data, 0, sizeof(tBTA_AV));
+        memset(&btif_av_cb[index].reconfig_data, 0, sizeof(btif_av_codec_config_req_t));
         btif_update_source_codec(p_data);
       }
       break;
