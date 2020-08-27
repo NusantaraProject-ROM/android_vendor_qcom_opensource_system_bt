@@ -23,6 +23,8 @@
 #include <base/location.h>
 #include <base/logging.h>
 #include <hardware/bluetooth.h>
+#include <base/callback.h>
+
 #include <map>
 
 using base::Bind;
