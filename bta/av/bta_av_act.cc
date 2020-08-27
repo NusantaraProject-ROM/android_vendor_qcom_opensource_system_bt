@@ -121,9 +121,8 @@ struct blacklist_entry
 std::vector<RawAddress> active_device_priority_list;
 extern fixed_queue_t* btu_bta_alarm_queue;
 extern bool btif_av_is_split_a2dp_enabled(void);
-static void bta_av_browsing_channel_open_retry(uint8_t handle);
+static void bta_av_retry_browsing_channel_open_timer_cback(void *data);
 static void bta_av_accept_signalling_timer_cback(void* data);
-static void bta_av_browsing_channel_open_timer_cback(void* data);
 static int browse_conn_retry_count = 1;
 #ifndef AVRC_MIN_META_CMD_LEN
 #define AVRC_MIN_META_CMD_LEN 20
@@ -318,9 +317,6 @@ static void bta_av_rc_ctrl_cback(uint8_t handle, uint8_t event,
 
   APPL_TRACE_IMP("%s handle: %d, result %d, event=0x%x", __func__, handle, result, event);
   if (event == AVRC_OPEN_IND_EVT) {
-    /* save handle of opened connection
-    bta_av_cb.rc_handle = handle;*/
-
     msg_event = BTA_AV_AVRC_OPEN_EVT;
   } else if (event == AVRC_CLOSE_IND_EVT) {
     msg_event = BTA_AV_AVRC_CLOSE_EVT;
@@ -328,7 +324,9 @@ static void bta_av_rc_ctrl_cback(uint8_t handle, uint8_t event,
       if (result != 0 && (rc_handle != BTA_AV_RC_HANDLE_NONE)) {
         if (browse_conn_retry_count <= 1) {
           browse_conn_retry_count++;
-          bta_av_browsing_channel_open_retry(handle);
+          alarm_set_on_mloop(p_cb->browsing_channel_open_timer,
+                             BTA_AV_BROWSINIG_CHANNEL_INT_TIMEOUT_MS,
+                             bta_av_retry_browsing_channel_open_timer_cback, UINT_TO_PTR(handle));
           p_cb->rcb[handle].browse_open = true;
         } else {
           browse_conn_retry_count = 1;
@@ -337,6 +335,12 @@ static void bta_av_rc_ctrl_cback(uint8_t handle, uint8_t event,
         return;
       }
       else {
+        if (result == 0) {
+          if (browse_conn_retry_count > 1) {
+            browse_conn_retry_count = 1;
+            APPL_TRACE_IMP("%s Connection success after retry, reset retry count ", __func__);
+          }
+        }
         msg_event = BTA_AV_AVRC_BROWSE_OPEN_EVT;
       }
   } else if (event == AVRC_BROWSE_CLOSE_IND_EVT) {
@@ -751,31 +755,16 @@ void bta_av_rc_opened(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
   if ((p_cb->features & BTA_AV_FEAT_BROWSE) &&
       (rc_open.peer_features & BTA_AV_FEAT_BROWSE) &&
       ((p_cb->rcb[i].status & BTA_AV_RC_ROLE_MASK) == BTA_AV_RC_ROLE_INT)) {
-    APPL_TRACE_DEBUG("%s opening AVRC Browse channel", __func__);
-
-    if (interop_match_addr_or_name(INTEROP_AVRCP_BROWSE_OPEN_CHANNEL_COLLISION, &p_data->rc_conn_chg.peer_addr)) {
-      alarm_set_on_mloop(p_cb->browsing_channel_open_timer,
-                                 BTA_AV_BROWSINIG_CHANNEL_INT_TIMEOUT_MS,
-                                 bta_av_browsing_channel_open_timer_cback,
-                                 UINT_TO_PTR(p_data->rc_conn_chg.handle));
-    }
-    else {
+    APPL_TRACE_DEBUG("%s opening AVRC Browse channel for %d", __func__, p_data->rc_conn_chg.handle);
+    if (interop_match_addr_or_name(INTEROP_AVRCP_BROWSE_OPEN_CHANNEL_COLLISION,
+        &p_data->rc_conn_chg.peer_addr)) {
+      APPL_TRACE_DEBUG("%s Blacklisted delay AVRC Browse channel by for 1 sec", __func__);
+      alarm_set_on_mloop(p_cb->browsing_channel_open_timer, BTA_AV_BROWSINIG_CHANNEL_INT_TIMEOUT_MS,
+            bta_av_retry_browsing_channel_open_timer_cback,UINT_TO_PTR(p_data->rc_conn_chg.handle));
+    } else {
       AVRC_OpenBrowse(p_data->rc_conn_chg.handle, AVCT_INT);
     }
   }
-}
-/*******************************************************************************
- *
- * Function         bta_av_browsing_channel_open_timer_cback
- *
- * Description      Send AVRCP command to open browsing channel after timer expires.
- *
- * Returns          void
- *
- ******************************************************************************/
-static void bta_av_browsing_channel_open_timer_cback(void* data) {
-  uint32_t handle = PTR_TO_UINT(data);
-  AVRC_OpenBrowse(handle, AVCT_INT);
 }
 
 /*******************************************************************************
@@ -2918,8 +2907,9 @@ void bta_av_dereg_comp(tBTA_AV_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-static void bta_av_browsing_channel_open_retry(uint8_t handle) {
-  APPL_TRACE_IMP("%s Retry Browse connection", __func__);
+static void bta_av_retry_browsing_channel_open_timer_cback(void *data) {
+  uint32_t handle = PTR_TO_UINT(data);
+  APPL_TRACE_IMP("%s Retry Browse connection for handle %d", __func__, handle);
   AVRC_OpenBrowse(handle, AVCT_INT);
 }
 
