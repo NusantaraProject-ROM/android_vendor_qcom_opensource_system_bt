@@ -100,6 +100,7 @@ bool aptx_adaptive_sw = false;
 bool ldac_sw = false;
 bool aptxtws_sw = false;
 bool vbr_supported = false;
+bool aptxadaptiver2_1_supported = false;
 std::string offload_caps = "";
 static void init_btav_a2dp_codec_config(
     btav_a2dp_codec_config_t* codec_config, btav_a2dp_codec_index_t codec_index,
@@ -1590,10 +1591,16 @@ void A2DP_SetOffloadStatus(bool offload_status, const char *offload_cap,
   const bt_device_soc_add_on_features_t *add_on_features_list =
       controller_get_interface()->get_soc_add_on_features(&add_on_features_size);
   char vbr_value[PROPERTY_VALUE_MAX] = {'\0'};
+  char adaptive_value[PROPERTY_VALUE_MAX] = {'\0'};
   property_get("persist.vendor.qcom.bluetooth.aac_vbr_ctl.enabled", vbr_value, "false");
   if (!(strcmp(vbr_value,"true"))) {
     BTIF_TRACE_DEBUG("%s: AAC VBR is enabled", __func__);
     vbr_supported = true;
+  }
+  property_get("persist.vendor.qcom.bluetooth.aptxadaptiver2_1_support", adaptive_value, "false");
+  if (!(strcmp(adaptive_value,"true"))) {
+    BTIF_TRACE_DEBUG("%s: aptx-adaptive R2.1 is supported", __func__);
+    aptxadaptiver2_1_supported = true;
   }
   LOG_INFO(LOG_TAG,"A2dp_SetOffloadStatus:status = %d",
                      offload_status);
@@ -1763,6 +1770,10 @@ void A2DP_SetOffloadStatus(bool offload_status, const char *offload_cap,
 #if (OFF_TARGET_TEST_ENABLED == FALSE)
   offload_caps = controller_get_interface()->get_a2dp_offload_cap();
 #endif
+}
+
+bool A2DP_Get_Aptx_AdaptiveR2_1_Supported() {
+    return aptxadaptiver2_1_supported;
 }
 
 bool A2DP_Get_AAC_VBR_Status() {
