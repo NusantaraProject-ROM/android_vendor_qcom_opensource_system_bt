@@ -284,4 +284,8 @@ bool bta_av_co_cp_is_active(void);
 
 uint8_t* bta_av_co_get_peer_codec_info(tBTA_AV_HNDL hndl);
 tBTA_AV_CO_PEER* bta_av_co_get_active_peer(void);
+
+void bta_av_co_check_and_add_soc_supported_codecs(const uint8_t* p_codec_info);
+void bta_av_co_append_to_supported_codecs(const uint8_t* p_codec_info);
+
 #endif /* BTA_AV_CO_H */
