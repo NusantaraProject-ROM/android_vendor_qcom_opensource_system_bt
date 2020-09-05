@@ -206,11 +206,15 @@ UNUSED_ATTR static tA2DP_STATUS A2DP_CodecInfoMatchesCapabilityAac(
 static tA2DP_STATUS A2DP_BuildInfoAac(uint8_t media_type,
                                       const tA2DP_AAC_CIE* p_ie,
                                       uint8_t* p_result) {
-  LOG_DEBUG(LOG_TAG, "%s: media_type: %u, p_ie->bitRate: %u",
-                       __func__, media_type, p_ie->bitRate);
   if (p_ie == NULL || p_result == NULL) {
     return A2DP_INVALID_PARAMS;
   }
+
+  /* Fix for below KW issue
+   * Suspicious dereference of pointer 'p_ie' before NULL check at line 217
+   */
+  LOG_DEBUG(LOG_TAG, "%s: media_type: %u, p_ie->bitRate: %u",
+                       __func__, media_type, p_ie->bitRate);
 
   *p_result++ = A2DP_AAC_CODEC_LEN;
   *p_result++ = (media_type << 4);

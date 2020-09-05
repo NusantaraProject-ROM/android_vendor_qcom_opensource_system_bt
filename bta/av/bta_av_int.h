@@ -914,6 +914,7 @@ extern void bta_av_rc_close(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
 extern void bta_av_rc_meta_rsp(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
 extern void bta_av_rc_free_rsp(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
 extern void bta_av_rc_free_browse_msg(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
+extern void bta_av_rc_browse_close(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
 
 extern tBTA_AV_RCB* bta_av_get_rcb_by_shdl(uint8_t shdl);
 extern void bta_av_del_rc(tBTA_AV_RCB* p_rcb);
