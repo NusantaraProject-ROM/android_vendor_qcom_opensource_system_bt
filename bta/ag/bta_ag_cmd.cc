@@ -719,23 +719,25 @@ void bta_ag_at_hsp_cback(tBTA_AG_SCB* p_scb, uint16_t command_id,
   APPL_TRACE_DEBUG("AT cmd:%d arg_type:%d arg:%d arg:%s", command_id, arg_type,
                    int_arg, p_arg);
 
-  bta_ag_send_ok(p_scb);
+  if (p_scb != NULL) {
+    bta_ag_send_ok(p_scb);
 
-  tBTA_AG_VAL val;
-  val.hdr.handle = bta_ag_scb_to_idx(p_scb);
-  val.hdr.app_id = p_scb->app_id;
-  val.num = (uint16_t)int_arg;
+    tBTA_AG_VAL val;
+    val.hdr.handle = bta_ag_scb_to_idx(p_scb);
+    val.hdr.app_id = p_scb->app_id;
+    val.num = (uint16_t)int_arg;
 
-  if ((p_end - p_arg + 1) >= (long)sizeof(val.str)) {
-    APPL_TRACE_ERROR("%s: p_arg is too long, send error and return", __func__);
-    bta_ag_send_error(p_scb, BTA_AG_ERR_TEXT_TOO_LONG);
-    android_errorWriteLog(0x534e4554, "112860487");
-    return;
+    if ((p_end - p_arg + 1) >= (long)sizeof(val.str)) {
+      APPL_TRACE_ERROR("%s: p_arg is too long, send error and return", __func__);
+      bta_ag_send_error(p_scb, BTA_AG_ERR_TEXT_TOO_LONG);
+      android_errorWriteLog(0x534e4554, "112860487");
+      return;
+    }
+    strlcpy(val.str, p_arg, sizeof(val.str));
+
+    /* call callback with event */
+    (*bta_ag_cb.p_cback)(command_id, (tBTA_AG*)&val);
   }
-  strlcpy(val.str, p_arg, sizeof(val.str));
-
-  /* call callback with event */
-  (*bta_ag_cb.p_cback)(command_id, (tBTA_AG*)&val);
 }
 
 static void remove_spaces(char* str) {
