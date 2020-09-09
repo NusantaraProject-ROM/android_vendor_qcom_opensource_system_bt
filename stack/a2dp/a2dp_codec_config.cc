@@ -74,6 +74,7 @@
 #include "btif_av_co.h"
 #include "device/include/device_iot_config.h"
 #include "bta/av/bta_av_int.h"
+#include "btif_av.h"
 
 /* The Media Type offset within the codec info byte array */
 #define A2DP_MEDIA_TYPE_OFFSET 1
@@ -147,17 +148,21 @@ void A2dpCodecConfig::setCodecPriority(
   } else {
     codec_priority_ = codec_priority;
   }
+  LOG_DEBUG(LOG_TAG, "%s: codec_priority_: %d", __func__, codec_priority_);
   codec_config_.codec_priority = codec_priority_;
 }
 
 void A2dpCodecConfig::setDefaultCodecPriority() {
+  LOG_DEBUG(LOG_TAG, "%s: default_codec_priority_: %d", __func__, default_codec_priority_);
   if (default_codec_priority_ != BTAV_A2DP_CODEC_PRIORITY_DEFAULT) {
     codec_priority_ = default_codec_priority_;
   } else {
     // Compute the default codec priority
+    LOG_DEBUG(LOG_TAG, "%s: Compute the default codec priority", __func__);
     uint32_t priority = 1000 * (codec_index_ + 1) + 1;
     codec_priority_ = static_cast<btav_a2dp_codec_priority_t>(priority);
   }
+  LOG_DEBUG(LOG_TAG, "%s: codec_priority_: %d", __func__, codec_priority_);
   codec_config_.codec_priority = codec_priority_;
 }
 
@@ -785,12 +790,16 @@ bool A2dpCodecs::setCodecUserConfig(
     btav_a2dp_codec_priority_t old_priority =
         a2dp_codec_config->codecPriority();
     btav_a2dp_codec_priority_t new_priority = codec_user_config.codec_priority;
+    LOG_DEBUG(LOG_TAG, "%s: old_priority: %d new_priority: %d",
+                      __func__, old_priority, new_priority);
     a2dp_codec_config->setCodecPriority(new_priority);
     // Get the actual (recomputed) priority
     new_priority = a2dp_codec_config->codecPriority();
+    LOG_DEBUG(LOG_TAG, "%s: computed new_priority: %d", __func__, new_priority);
 
     // Check if there was no previous codec
     if (last_codec_config == nullptr) {
+      LOG_DEBUG(LOG_TAG, "%s: last codec config is null", __func__);
       current_codec_config_ = a2dp_codec_config;
       *p_restart_output = true;
       break;
@@ -798,7 +807,11 @@ bool A2dpCodecs::setCodecUserConfig(
 
     // Check if the priority of the current codec was updated
     if (a2dp_codec_config == last_codec_config) {
-      if (old_priority == new_priority) break;  // No change in priority
+      LOG_DEBUG(LOG_TAG, "%s: both last and current config are equal", __func__);
+      if (old_priority == new_priority) {
+        LOG_DEBUG(LOG_TAG, "%s: No change in priority", __func__);
+        break;  // No change in priority
+      }
 
       *p_config_updated = true;
       if (new_priority < old_priority) {
@@ -825,6 +838,7 @@ bool A2dpCodecs::setCodecUserConfig(
     if (new_priority >= last_codec_config->codecPriority()) {
       // The new priority is higher than the current codec. Restart the
       // connection to select a new codec.
+      LOG_DEBUG(LOG_TAG, "%s: new_priority is equal or higher", __func__);
       current_codec_config_ = a2dp_codec_config;
       last_codec_config->setDefaultCodecPriority();
       *p_restart_output = true;
@@ -861,6 +875,9 @@ bool A2dpCodecs::setCodecAudioConfig(
 
   // Reuse the existing codec user config
   codec_user_config = a2dp_codec_config->getCodecUserConfig();
+  LOG_DEBUG(LOG_TAG, "%s: codec_user_config: Reuse the existing codec user config", __func__);
+  print_codec_parameters(codec_user_config);
+
   bool restart_input = false;  // Flag ignored - input was just restarted
   if (!a2dp_codec_config->setCodecUserConfig(
           codec_user_config, codec_audio_config, p_peer_params,
@@ -876,7 +893,7 @@ bool A2dpCodecs::setCodecOtaConfig(
     const uint8_t* p_ota_codec_config,
     const tA2DP_ENCODER_INIT_PEER_PARAMS* p_peer_params,
     uint8_t* p_result_codec_config, bool* p_restart_input,
-    bool* p_restart_output, bool* p_config_updated) {
+    bool* p_restart_output, bool* p_config_updated, RawAddress addr) {
   std::lock_guard<std::recursive_mutex> lock(codec_mutex_);
   btav_a2dp_codec_index_t codec_type;
   btav_a2dp_codec_config_t codec_user_config;
@@ -915,6 +932,29 @@ bool A2dpCodecs::setCodecOtaConfig(
   // Reuse the existing codec user config and codec audio config
   codec_audio_config = a2dp_codec_config->getCodecAudioConfig();
   codec_user_config = a2dp_codec_config->getCodecUserConfig();
+
+  //Assumption is whenever incoming connection done set_config on SBC,
+  //marking it as high priority when HD option has been disabled.
+  //So that form DEV-UI optionalcodecenable API would trigger by
+  //lowering its priority and in setCodecUserConfig() proiority
+  //would get differ which makes p_restart_output hets to true
+  //results in reconfig to high priority codec.
+  //codec_user_config is stack variable where it would negotiate.
+  //setCodecPriority() API would set codec_priority_ which would get populate
+  //to BT App.
+  LOG_DEBUG(LOG_TAG, "%s: codec_name: %s, add: %s ", __func__,
+             A2DP_CodecName(p_ota_codec_config), addr.ToString().c_str());
+  if (btif_av_peer_prefers_mandatory_codec(addr) &&
+      !strcmp(A2DP_CodecName(p_ota_codec_config), "SBC")) {
+    LOG_DEBUG(LOG_TAG, "%s: overwriting SBC priority to high ", __func__);
+    btav_a2dp_codec_config_t high_priority_mandatory{
+              .codec_type = BTAV_A2DP_CODEC_INDEX_SOURCE_SBC,
+              .codec_priority = BTAV_A2DP_CODEC_PRIORITY_HIGHEST,
+              // Using default settings for those untouched fields
+          };
+    codec_user_config = high_priority_mandatory;
+    a2dp_codec_config->setCodecPriority(BTAV_A2DP_CODEC_PRIORITY_HIGHEST);
+  }
 
   LOG_DEBUG(LOG_TAG, "%s: codec_user_config After fetching: ", __func__);
   print_codec_parameters(codec_user_config);
