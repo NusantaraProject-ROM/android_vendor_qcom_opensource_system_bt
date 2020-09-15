@@ -123,6 +123,9 @@ typedef enum {
   BT_HOST_REASON_HCI_PRE_SHUTDOWN_CC_NOT_RCVD    =  0xC5,
   BT_HOST_REASON_HCI_SET_BD_ADDRESS_CC_NOT_RCVD  =  0xC6,
   BT_HOST_REASON_FAILED_TO_RECEIVE_SLEEP_IND     =  0xC7,
+  BT_HOST_REASON_POWER_ON_REGS_STUCK             =  0xC8,
+  BT_HOST_REASON_RX_THREAD_START_STUCK           =  0xC9,
+  BT_HOST_REASON_GET_LOCALADDR_STUCK             =  0xCA,
 } soc_crash_reason_e;
 
 typedef struct {
@@ -174,7 +177,10 @@ static secondary_reason secondary_crash_reason [] = {
 { BT_HOST_REASON_HCI_RESET_CC_NOT_RCVD         , "HCI Reset Cmd CC NotRcvd"},
 { BT_HOST_REASON_HCI_PRE_SHUTDOWN_CC_NOT_RCVD  , "HCI Pre shutdown Cmd CC not Rcvd"},
 { BT_HOST_REASON_HCI_SET_BD_ADDRESS_CC_NOT_RCVD, "HCI BD address CC not Rcvd"},
-{ BT_HOST_REASON_FAILED_TO_RECEIVE_SLEEP_IND   , "Failed to receive SLEEP IND from SoC"}
+{ BT_HOST_REASON_FAILED_TO_RECEIVE_SLEEP_IND   , "Failed to receive SLEEP IND from SoC"},
+{ BT_HOST_REASON_POWER_ON_REGS_STUCK           , "SoC Power ON Sequence stuck"},
+{ BT_HOST_REASON_RX_THREAD_START_STUCK         , "RX thread start stuck"},
+{ BT_HOST_REASON_GET_LOCALADDR_STUCK           , "Get local BD address stuck"}
 };
 
 enum host_crash_reason_e  {
