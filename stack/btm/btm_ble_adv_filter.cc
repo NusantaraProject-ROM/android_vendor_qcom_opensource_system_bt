@@ -676,8 +676,8 @@ void BTM_LE_PF_set(tBTM_BLE_PF_FILT_INDEX filt_index,
          * address is Static RANDOM addr_type (1). So here we are reading
          * proper addr_type from ReadDevInfo. If the device addr_type is not
          * in the inquiry database or in the bonded list then default addr_type
-         * PUBLIC will be set.*/
-        BTM_ReadDevInfo(target_addr.bda, &dev_type, &target_addr.type);
+         * 0x02 will be set.*/
+        BTM_ReadDevScanInfo(target_addr.bda, &dev_type, &target_addr.type);
         BTM_LE_PF_addr_filter(action, filt_index, target_addr,
                               base::DoNothing());
         break;

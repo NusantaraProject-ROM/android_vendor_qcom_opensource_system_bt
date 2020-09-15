@@ -395,12 +395,20 @@ bool A2dpCodecConfig::setCodecUserConfig(
   print_codec_parameters(saved_codec_user_config);
 
   codec_user_config_ = codec_user_config;
+
+  LOG_DEBUG(LOG_TAG, "%s: codec_user_config_: ", __func__);
+  print_codec_parameters(codec_user_config_);
+
   btav_a2dp_codec_config_t saved_codec_audio_config = codec_audio_config_;
 
   LOG_DEBUG(LOG_TAG, "%s: saved_codec_audio_config: ", __func__);
   print_codec_parameters(saved_codec_audio_config);
 
   codec_audio_config_ = codec_audio_config;
+
+  LOG_DEBUG(LOG_TAG, "%s: codec_audio_config_: ", __func__);
+  print_codec_parameters(codec_audio_config_);
+
   bool success =
       setCodecConfig(p_peer_codec_info, is_capability, p_result_codec_config);
   LOG_DEBUG(LOG_TAG, "%s: success: %d, is_capability:%d", __func__, success, is_capability);

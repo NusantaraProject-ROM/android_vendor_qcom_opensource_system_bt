@@ -523,19 +523,26 @@ static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
        const bool bScoActive = (status == BTA_SYS_SCO_OPEN);
        APPL_TRACE_DEBUG("%s: bta_dm_pm_hid_check with bScoActive = %d", __func__, bScoActive);
        bta_dm_pm_hid_check(bScoActive);
-       bool is_blacklisted =
-          interop_match_addr_or_name(INTEROP_DISABLE_SNIFF_LINK_DURING_SCO, &peer_addr);
-       bool is_blacklisted_for_call =
-          interop_match_addr_or_name(INTEROP_DISABLE_SNIFF_DURING_CALL, &peer_addr);
-       if ((id == BTA_ID_AG) && is_blacklisted &&
-            !(is_blacklisted_for_call && bta_ag_is_call_present(&peer_addr))) {
-          APPL_TRACE_IMP("%s: The device %s is blacklisted to disable sniff mode during SCO",
-                          __func__, peer_addr.ToString().c_str());
-          tBTA_DM_PEER_DEVICE *p_rem_dev = NULL;
-          p_rem_dev = bta_dm_find_peer_device(peer_addr);
-          if(p_rem_dev) {
-             APPL_TRACE_IMP("%s: BTA_ID_AG with bScoActive = %d", __func__, bScoActive);
-             bta_dm_pm_set_sniff_policy(p_rem_dev, bScoActive);
+       uint16_t manufacturer = 0;
+       uint16_t lmp_sub_version = 0;
+       uint8_t  lmp_version = 0;
+       if (BTM_ReadRemoteVersion(peer_addr, &lmp_version,
+           &manufacturer, &lmp_sub_version) == BTM_SUCCESS) {
+          bool is_blacklisted =
+             (interop_match_addr_or_name(INTEROP_DISABLE_SNIFF_LINK_DURING_SCO, &peer_addr) ||
+              interop_match_manufacturer(INTEROP_DISABLE_SNIFF_LINK_DURING_SCO, manufacturer));
+          bool is_blacklisted_for_call =
+             interop_match_addr_or_name(INTEROP_DISABLE_SNIFF_DURING_CALL, &peer_addr);
+          if ((id == BTA_ID_AG) && is_blacklisted &&
+               !(is_blacklisted_for_call && bta_ag_is_call_present(&peer_addr))) {
+             APPL_TRACE_IMP("%s: The device %s is blacklisted to disable sniff mode during SCO",
+                             __func__, peer_addr.ToString().c_str());
+             tBTA_DM_PEER_DEVICE *p_rem_dev = NULL;
+             p_rem_dev = bta_dm_find_peer_device(peer_addr);
+             if(p_rem_dev) {
+                APPL_TRACE_IMP("%s: BTA_ID_AG with bScoActive = %d", __func__, bScoActive);
+                bta_dm_pm_set_sniff_policy(p_rem_dev, bScoActive);
+             }
           }
        }
     }

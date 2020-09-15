@@ -543,6 +543,8 @@ static bool config_parse(FILE* fp, config_t* config) {
 
   int line_num = 0;
   char line[1024] = { '\0' };
+  std::string line_new;
+  uint16_t MAX_BUF = 1023;
   char section[1024] = { '\0' };
   char comment[1024] = { '\0' };
   bool skip_entries = false;
@@ -550,15 +552,29 @@ static bool config_parse(FILE* fp, config_t* config) {
 
   while (fgets(line, sizeof(line), fp)) {
     char* line_ptr = trim(line);
-    ++line_num;
 
-    // ignore the line if the line length is more than 1023
-    if (strlen(line) == 1023){
-        int ch = '\0';
-        // read until next line or EOF
-        while(((ch = fgetc(fp)) != EOF) && (ch != '\n'));
-        continue;
+    /* fgets stops when either sizeof(line) = MAX_BUF (buffer_length - 1)character
+     * are read, the newline character is read, or the end-of-file is reached,
+     * whichever comes first.
+     * Hence check if sizeof(line) = MAX_BUF and the last character read is not an
+     * EOF and/or not '\n' then  Read remaining characters of a line.
+     */
+
+    if ((strlen(line) == MAX_BUF) && (line[MAX_BUF - 1] != EOF) &&
+        (line[MAX_BUF - 1] != '\n')) {
+      line_new = line_ptr;
+      while (fgets(line, sizeof(line), fp)) {
+        line_ptr = trim(line);
+        line_new.append(line_ptr);
+
+        //stop reading if '\n' or EOF is reached
+        if (strlen(line) == 0 || line[strlen(line) - 1] == '\n' ||
+            line[strlen(line) - 1] == EOF)
+          break;
+      }
+      line_ptr = &line_new[0];
     }
+    ++line_num;
 
     // Skip blanks.
     if (*line_ptr == '\0')
