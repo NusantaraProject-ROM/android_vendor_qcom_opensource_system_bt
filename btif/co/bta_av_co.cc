@@ -2139,7 +2139,7 @@ void bta_av_co_init(
     if (p_peer != NULL && p_peer->codecs == NULL)
       p_peer->codecs = new A2dpCodecs(codec_priorities);
 
-    if (p_peer->codecs != nullptr)
+    if (p_peer && p_peer->codecs != nullptr)
       p_peer->codecs->init(isMcastSupported);
 
     p_peer->isIncoming = false;
@@ -2159,18 +2159,17 @@ void bta_av_co_peer_init(
     const std::vector<btav_a2dp_codec_config_t>& codec_priorities, int index) {
   APPL_TRACE_DEBUG("%s", __func__);
 
-  tBTA_AV_CO_PEER* p_peer;
   bool a2dp_offload = btif_av_is_split_a2dp_enabled();
   bool isMcastSupported = btif_av_is_multicast_supported();
+  tBTA_AV_CO_PEER* p_peer = &bta_av_co_cb.peers[index];
   if (a2dp_offload) {
     isMcastSupported = false;
   }
 
-  p_peer = &bta_av_co_cb.peers[index];
   if (p_peer != NULL &&  p_peer->codecs == NULL)
     p_peer->codecs = new A2dpCodecs(codec_priorities);
 
-  if (p_peer->codecs != nullptr)
+  if (p_peer && p_peer->codecs != nullptr)
     p_peer->codecs->init(isMcastSupported);
 
   p_peer->isIncoming = false;
