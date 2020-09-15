@@ -690,6 +690,7 @@ bool A2DP_Is44p1kFreqSupported();
 bool A2DP_IsCodecEnabled(btav_a2dp_codec_index_t codec_index);
 bool A2DP_IsCodecEnabledInSoftware(btav_a2dp_codec_index_t codec_index);
 bool A2DP_Get_AAC_VBR_Status();
+bool A2DP_Get_Aptx_AdaptiveR2_1_Supported();
 
 bool A2DP_IsCodecEnabledInOffload(btav_a2dp_codec_index_t codec_index);
 // Decodes and displays A2DP codec info when using |LOG_DEBUG|.

@@ -641,10 +641,18 @@ static void btif_update_source_codec(void* p_data) {
 
         if(encoder_mode == APTX_HQ) {
           btif_av_cb[index].aptx_mode = APTX_HQ;
-          btif_av_cb[index].codec_latency = APTX_HQ_LATENCY;
+          if (A2DP_Get_Aptx_AdaptiveR2_1_Supported()) {
+            btif_av_cb[index].codec_latency = APTX_R2_1_HQ_LATENCY;
+          } else {
+            btif_av_cb[index].codec_latency = APTX_HQ_LATENCY;
+          }
           if(tws_index < btif_max_av_clients) {
             btif_av_cb[tws_index].aptx_mode = APTX_HQ;
-            btif_av_cb[tws_index].codec_latency = APTX_HQ_LATENCY;
+            if (A2DP_Get_Aptx_AdaptiveR2_1_Supported()) {
+              btif_av_cb[tws_index].codec_latency = APTX_R2_1_HQ_LATENCY;
+            } else {
+              btif_av_cb[tws_index].codec_latency = APTX_HQ_LATENCY;
+            }
           }
           btif_a2dp_update_sink_latency_change();
           BTIF_TRACE_DEBUG("%s: Aptx Adaptive mode = %d, codec_latency = %d", __func__,
@@ -696,8 +704,13 @@ static void btif_report_source_codec_state(UNUSED_ATTR void* p_data,
 
   if (index < btif_max_av_clients) {
     if (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE) {
-      if(btif_av_cb[index].codec_latency == 0)
-        btif_av_cb[index].codec_latency = APTX_HQ_LATENCY;
+      if (btif_av_cb[index].codec_latency == 0) {
+        if (A2DP_Get_Aptx_AdaptiveR2_1_Supported()) {
+          btif_av_cb[index].codec_latency = APTX_R2_1_HQ_LATENCY;
+        } else {
+          btif_av_cb[index].codec_latency = APTX_HQ_LATENCY;
+        }
+      }
     } else {
       btif_av_cb[index].codec_latency = 0;
     }
