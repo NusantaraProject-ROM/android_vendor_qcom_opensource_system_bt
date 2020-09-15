@@ -137,6 +137,11 @@ static sco_socket_t* sco_socket_establish_locked(bool is_listening,
   socket_t* socket = NULL;
   tBTM_STATUS status;
   enh_esco_params_t params;
+  if(sock_fd == NULL) {
+    LOG_ERROR(LOG_TAG, "%s Invalid file descriptor. sock_fd is NULL",
+              __func__);
+    return NULL;
+  }
   if (socketpair(AF_LOCAL, SOCK_STREAM, 0, pair) == -1) {
     LOG_ERROR(LOG_TAG, "%s unable to allocate socket pair: %s", __func__,
               strerror(errno));
@@ -211,7 +216,11 @@ static sco_socket_t* sco_socket_find_locked(uint16_t sco_handle) {
 
 static void connection_request_cb(tBTM_ESCO_EVT event,
                                   tBTM_ESCO_EVT_DATA* data) {
-  CHECK(data != NULL);
+  if(data == NULL) {
+    LOG_ERROR(LOG_TAG, "%s Event Data received is NULL",
+               __func__);
+    return;
+  }
 
   // Don't care about change of link parameters, only connection requests.
   if (event != BTM_ESCO_CONN_REQ_EVT) return;

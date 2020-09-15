@@ -831,13 +831,16 @@ static void btif_hf_client_upstreams_evt(uint16_t event, char* p_param) {
     BTIF_TRACE_DEBUG("%s: event BTA_HF_CLIENT_OPEN_EVT allocating block",
                      __func__);
     cb = btif_hf_client_allocate_cb();
-    cb->handle = p_data->open.handle;
-    cb->peer_bda = p_data->open.bd_addr;
+    if (cb != NULL) {
+      cb->handle = p_data->open.handle;
+      cb->peer_bda = p_data->open.bd_addr;
+    }
   } else if (cb == NULL) {
     BTIF_TRACE_ERROR("%s: event %d but not allocating block: cb not found",
                      __func__, event);
     return;
   }
+
 
   BTIF_TRACE_DEBUG("%s: event=%s (%u)", __func__, dump_hf_client_event(event),
                    event);

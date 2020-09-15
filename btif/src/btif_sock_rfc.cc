@@ -306,6 +306,10 @@ bt_status_t btsock_rfc_listen(const char* service_name,
       }
     }
   }
+  if (!service_uuid) {
+    LOG_ERROR(LOG_TAG, "%s service_uuid is NULL.", __func__);
+    return BT_STATUS_FAIL;
+  }
 
   std::unique_lock<std::recursive_mutex> lock(slot_lock);
 

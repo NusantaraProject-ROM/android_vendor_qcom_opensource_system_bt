@@ -88,6 +88,13 @@ void bta_hf_client_start_close(tBTA_HF_CLIENT_DATA* p_data) {
  *
  ******************************************************************************/
 void bta_hf_client_start_open(tBTA_HF_CLIENT_DATA* p_data) {
+
+  if (p_data == NULL) {
+    APPL_TRACE_ERROR("%s: HF Client data is NULL",
+                       __func__);
+    return;
+  }
+
   tBTA_HF_CLIENT_CB* client_cb =
       bta_hf_client_find_cb_by_handle(p_data->hdr.layer_specific);
   if (client_cb == NULL) {
