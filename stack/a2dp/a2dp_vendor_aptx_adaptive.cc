@@ -246,7 +246,37 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_r2_1_default_offload_con
     {0}
 };
 
-static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_r1_config = {
+static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_r1_offload_caps = {
+//static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_config = {
+    A2DP_APTX_ADAPTIVE_VENDOR_ID,          /* vendorId */
+    A2DP_APTX_ADAPTIVE_CODEC_ID_BLUETOOTH, /* codecId */
+    A2DP_APTX_ADAPTIVE_SAMPLERATE_48000,   /* sampleRate */
+    A2DP_APTX_ADAPTIVE_SOURCE_TYPE_1,
+    (A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO |
+     A2DP_APTX_ADAPTIVE_CHANNELS_STEREO |
+     A2DP_APTX_ADAPTIVE_CHANNELS_TWS_STEREO |
+     A2DP_APTX_ADAPTIVE_CHANNELS_TWS_MONO ),      /* channelMode */
+    { A2DP_APTX_ADAPTIVE_TTP_LL_0,
+      A2DP_APTX_ADAPTIVE_TTP_LL_1,
+      A2DP_APTX_ADAPTIVE_TTP_HQ_0,
+      A2DP_APTX_ADAPTIVE_TTP_HQ_1,
+      A2DP_APTX_ADAPTIVE_TTP_TWS_0,
+      A2DP_APTX_ADAPTIVE_TTP_TWS_1,
+      0x00,
+      A2DP_APTX_ADAPTIVE_EOC0,
+      A2DP_APTX_ADAPTIVE_EOC1,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00},
+
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24, /* bits_per_sample */
+    {0}
+};
+
+static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_r1_default_offload_config = {
 //static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_config = {
     A2DP_APTX_ADAPTIVE_VENDOR_ID,          /* vendorId */
     A2DP_APTX_ADAPTIVE_CODEC_ID_BLUETOOTH, /* codecId */
@@ -689,8 +719,14 @@ A2dpCodecConfigAptxAdaptive::A2dpCodecConfigAptxAdaptive(
       a2dp_aptx_adaptive_caps = a2dp_aptx_adaptive_r2_1_offload_caps;
       a2dp_aptx_adaptive_default_config = a2dp_aptx_adaptive_r2_1_default_offload_config;
     } else {
-      a2dp_aptx_adaptive_caps = a2dp_aptx_adaptive_offload_caps;
-      a2dp_aptx_adaptive_default_config = a2dp_aptx_adaptive_default_offload_config;
+      if (getOffloadCaps().find("aptxadaptiver2") == std::string::npos) {
+        LOG_INFO(LOG_TAG, "%s: Using Aptx Adaptive R1 config", __func__);
+        a2dp_aptx_adaptive_caps = a2dp_aptx_adaptive_r1_offload_caps;
+        a2dp_aptx_adaptive_default_config = a2dp_aptx_adaptive_r1_default_offload_config;
+      } else {
+        a2dp_aptx_adaptive_caps = a2dp_aptx_adaptive_offload_caps;
+        a2dp_aptx_adaptive_default_config = a2dp_aptx_adaptive_default_offload_config;
+      }
     }
   } else {
     a2dp_aptx_adaptive_caps = a2dp_aptx_adaptive_src_caps;
@@ -1283,7 +1319,7 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
 
   a2dp_ofload_cap = getOffloadCaps();
   if(getOffloadCaps().find("aptxadaptiver2") == std::string::npos) {
-    result_config_cie.aptx_data = a2dp_aptx_adaptive_r1_config.aptx_data;
+    result_config_cie.aptx_data = a2dp_aptx_adaptive_r1_offload_caps.aptx_data;
     LOG_INFO(LOG_TAG, "%s: Using Aptx Adaptive R1 config", __func__);
   } else {
     result_config_cie.aptx_data = sink_info_cie.aptx_data;
