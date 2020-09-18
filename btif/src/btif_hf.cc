@@ -66,6 +66,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <hardware/bluetooth_headset_interface.h>
 #include <hardware/bt_hf.h>
 #include <log/log.h>
+#include "device/include/interop.h"
 
 #include "bta/include/bta_ag_api.h"
 #if (SWB_ENABLED == TRUE)
@@ -132,6 +133,8 @@ static uint32_t btif_hf_features = BTIF_HF_FEATURES;
 
 /* Assigned number for mSBC codec */
 #define BTA_AG_MSBC_CODEC 5
+
+#define BTA_AG_CALL_INDEX 1
 
 /* Max HF clients supported from App */
 uint16_t btif_max_hf_clients = 1;
@@ -1637,6 +1640,11 @@ bt_status_t HeadsetInterface::ClccResponse(int index, bthf_call_direction_t dir,
     if (index == 0) {
       ag_res.ok_flag = BTA_AG_OK_DONE;
     } else {
+      bool is_ind_blacklisted = interop_match_addr_or_name(INTEROP_SKIP_INCOMING_STATE, bd_addr);
+      if (is_ind_blacklisted && index > BTA_AG_CALL_INDEX && state == BTHF_CALL_STATE_INCOMING) {
+              BTIF_TRACE_ERROR("%s: device is blacklisted for incoming state %d", __func__, idx);
+              state = BTHF_CALL_STATE_WAITING;
+      }
       BTIF_TRACE_EVENT(
           "clcc_response: [%d] dir %d state %d mode %d number = %s type = %d",
           index, dir, state, mode, number, type);
