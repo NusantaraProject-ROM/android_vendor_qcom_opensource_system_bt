@@ -237,6 +237,9 @@ typedef enum {
   //list of whitelisted media players
   INTEROP_BROWSE_PLAYER_WHITE_LIST,
 
+  //skip sending incoming state to blacklisted devices
+  INTEROP_SKIP_INCOMING_STATE,
+
   END_OF_INTEROP_LIST
 } interop_feature_t;
 
