@@ -1254,6 +1254,9 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
       /* store peer features */
       p_scb->peer_features = (uint16_t)int_arg;
 
+      // set in-band setting if enabled
+      p_scb->inband_enabled = p_scb->features & BTA_AG_FEAT_INBAND;
+
       tBTA_AG_FEAT features = p_scb->features & BTA_AG_BSRF_FEAT_SPEC;
 
       /* peer is HFP 1.1 if it initiated connection before AG could get remote's
