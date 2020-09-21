@@ -324,6 +324,8 @@ static void bta_av_rc_ctrl_cback(uint8_t handle, uint8_t event,
       if (result != 0 && (rc_handle != BTA_AV_RC_HANDLE_NONE)) {
         if (browse_conn_retry_count <= 1) {
           browse_conn_retry_count++;
+          if (alarm_is_scheduled(p_cb->browsing_channel_open_timer))
+            alarm_cancel(p_cb->browsing_channel_open_timer);
           alarm_set_on_mloop(p_cb->browsing_channel_open_timer,
                              BTA_AV_BROWSINIG_CHANNEL_INT_TIMEOUT_MS,
                              bta_av_retry_browsing_channel_open_timer_cback, UINT_TO_PTR(handle));
@@ -339,6 +341,10 @@ static void bta_av_rc_ctrl_cback(uint8_t handle, uint8_t event,
           if (browse_conn_retry_count > 1) {
             browse_conn_retry_count = 1;
             APPL_TRACE_IMP("%s Connection success after retry, reset retry count ", __func__);
+          }
+          if (alarm_is_scheduled(p_cb->browsing_channel_open_timer)) {
+            APPL_TRACE_IMP("%s Connection success cancel the collision alarm timer ", __func__);
+            alarm_cancel(p_cb->browsing_channel_open_timer);
           }
         }
         msg_event = BTA_AV_AVRC_BROWSE_OPEN_EVT;
@@ -758,6 +764,8 @@ void bta_av_rc_opened(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
     APPL_TRACE_DEBUG("%s opening AVRC Browse channel for %d", __func__, p_data->rc_conn_chg.handle);
     if (interop_match_addr_or_name(INTEROP_AVRCP_BROWSE_OPEN_CHANNEL_COLLISION,
         &p_data->rc_conn_chg.peer_addr)) {
+      if (alarm_is_scheduled(p_cb->browsing_channel_open_timer))
+        alarm_cancel(p_cb->browsing_channel_open_timer);
       APPL_TRACE_DEBUG("%s Blacklisted delay AVRC Browse channel by for 1 sec", __func__);
       alarm_set_on_mloop(p_cb->browsing_channel_open_timer, BTA_AV_BROWSINIG_CHANNEL_INT_TIMEOUT_MS,
             bta_av_retry_browsing_channel_open_timer_cback,UINT_TO_PTR(p_data->rc_conn_chg.handle));
