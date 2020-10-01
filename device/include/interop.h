@@ -117,6 +117,10 @@ typedef enum {
   // disable AAC for those headsets so that it switch to SBC
   INTEROP_DISABLE_AAC_CODEC,
 
+  // certain remote A2DP sinks have issue playing back Music in AAC VBR format.
+  // disable AAC for those headsets so that it switch to AAC CBR
+  INTEROP_DISABLE_AAC_VBR_CODEC,
+
   // Enable AAC only for whitelist of devices
   INTEROP_ENABLE_AAC_CODEC,
 

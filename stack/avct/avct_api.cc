@@ -244,7 +244,7 @@ uint16_t AVCT_CreateBrowse(uint8_t handle, uint8_t role) {
   tAVCT_BCB* p_bcb;
   int index;
 
-  AVCT_TRACE_API("AVCT_CreateBrowse: %d", role);
+  AVCT_TRACE_API("AVCT_CreateBrowse: %d and handle %d", role, handle);
 
   /* map handle to ccb */
   p_ccb = avct_ccb_by_idx(handle);
@@ -278,7 +278,7 @@ uint16_t AVCT_CreateBrowse(uint8_t handle, uint8_t role) {
       /* bind bcb to ccb */
       p_ccb->p_bcb = p_bcb;
       p_bcb->peer_addr = p_ccb->p_lcb->peer_addr;
-      AVCT_TRACE_DEBUG("ch_state: %d", p_bcb->ch_state);
+      AVCT_TRACE_API("ch_state: %d", p_bcb->ch_state);
       tAVCT_LCB_EVT avct_lcb_evt;
       avct_lcb_evt.p_ccb = p_ccb;
       avct_bcb_event(p_bcb, AVCT_LCB_UL_BIND_EVT, &avct_lcb_evt);

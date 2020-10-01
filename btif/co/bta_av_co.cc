@@ -1318,7 +1318,7 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
     }
 #endif
     if (!strcmp(iter->name().c_str(),"AAC")) {
-      if (A2DP_Get_AAC_VBR_Status()) {
+      if (A2DP_Get_AAC_VBR_Status(&p_peer->addr)) {
         APPL_TRACE_DEBUG("%s: AAC VBR is enabled, show AAC support in selectable capability", __func__);
         bta_av_co_audio_update_selectable_codec(*iter, p_peer);
       } else if (bta_av_co_check_peer_eligible_for_aac_codec(p_peer)) {
@@ -1351,7 +1351,7 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
       }
     }
     if (!strcmp(iter->name().c_str(),"AAC")) {
-      if (A2DP_Get_AAC_VBR_Status()) {
+      if (A2DP_Get_AAC_VBR_Status(&p_peer->addr)) {
         APPL_TRACE_DEBUG("%s: AAC VBR is enabled, add AAC codec in sink capability", __func__);
         p_sink = bta_av_co_audio_codec_selected(*iter, p_peer);
       } else if (bta_av_co_check_peer_eligible_for_aac_codec(p_peer)) {
@@ -1437,8 +1437,20 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_codec_selected(
                      codec_config.name().c_str());
     return NULL;
   }
+  uint8_t sink_codec_cap[AVDT_CODEC_SIZE] = {0};
+  memcpy(sink_codec_cap, p_sink->codec_caps,AVDT_CODEC_SIZE);
+
+  if (codec_config.codecIndex() == BTAV_A2DP_CODEC_INDEX_SOURCE_AAC) {
+    APPL_TRACE_DEBUG("%s: peer sink for codec %s avail", __func__,
+                     codec_config.name().c_str());
+
+    if (!A2DP_Get_AAC_VBR_Status(&p_peer->addr)) {
+      APPL_TRACE_DEBUG("%s: Disable VBR support for peer sink", __func__);
+      sink_codec_cap[6] = 0;
+    }
+  }
   if ((p_peer->codecs == nullptr) || !p_peer->codecs->setCodecConfig(
-          p_sink->codec_caps, true /* is_capability */, new_codec_config,
+          sink_codec_cap, true /* is_capability */, new_codec_config,
           true /* select_current_codec */)) {
     APPL_TRACE_DEBUG("%s: cannot set source codec %s", __func__,
                      codec_config.name().c_str());
@@ -2139,7 +2151,7 @@ void bta_av_co_init(
     if (p_peer != NULL && p_peer->codecs == NULL)
       p_peer->codecs = new A2dpCodecs(codec_priorities);
 
-    if (p_peer->codecs != nullptr)
+    if (p_peer && p_peer->codecs != nullptr)
       p_peer->codecs->init(isMcastSupported);
 
     p_peer->isIncoming = false;
@@ -2159,18 +2171,17 @@ void bta_av_co_peer_init(
     const std::vector<btav_a2dp_codec_config_t>& codec_priorities, int index) {
   APPL_TRACE_DEBUG("%s", __func__);
 
-  tBTA_AV_CO_PEER* p_peer;
   bool a2dp_offload = btif_av_is_split_a2dp_enabled();
   bool isMcastSupported = btif_av_is_multicast_supported();
+  tBTA_AV_CO_PEER* p_peer = &bta_av_co_cb.peers[index];
   if (a2dp_offload) {
     isMcastSupported = false;
   }
 
-  p_peer = &bta_av_co_cb.peers[index];
   if (p_peer != NULL &&  p_peer->codecs == NULL)
     p_peer->codecs = new A2dpCodecs(codec_priorities);
 
-  if (p_peer->codecs != nullptr)
+  if (p_peer && p_peer->codecs != nullptr)
     p_peer->codecs->init(isMcastSupported);
 
   p_peer->isIncoming = false;

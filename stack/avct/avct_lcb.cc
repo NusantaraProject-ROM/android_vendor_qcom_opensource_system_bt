@@ -279,7 +279,7 @@ tAVCT_LCB* avct_lcb_alloc(const RawAddress& bd_addr) {
     if (!p_lcb->allocated) {
       p_lcb->allocated = (uint8_t)(i + 1);
       p_lcb->peer_addr = bd_addr;
-      AVCT_TRACE_DEBUG("avct_lcb_alloc %d", p_lcb->allocated);
+      AVCT_TRACE_WARNING("avct_lcb_alloc %d", p_lcb->allocated);
       p_lcb->tx_q = fixed_queue_new(SIZE_MAX);
       break;
     }

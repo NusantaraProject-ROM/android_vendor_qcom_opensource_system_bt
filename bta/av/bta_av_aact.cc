@@ -3447,6 +3447,8 @@ void bta_av_rcfg_str_ok(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   bta_av_st_rc_timer(p_scb, NULL);
   osi_free_and_reset((void**)&p_scb->p_cap);
 
+  if (p_scb->suspend_local_sent)
+    p_scb->suspend_local_sent = false;
   /* No need to keep the role bits once reconfig is done. */
   p_scb->role &= ~BTA_AV_ROLE_AD_ACP;
   p_scb->role &= ~BTA_AV_ROLE_SUSPEND_OPT;

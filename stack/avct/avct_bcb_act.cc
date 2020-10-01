@@ -220,7 +220,7 @@ void avct_bcb_open_ind(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data) {
  * Returns          Nothing.
  *
  ******************************************************************************/
-void avct_bcb_open_fail(tAVCT_BCB* p_bcb, UNUSED_ATTR tAVCT_LCB_EVT* p_data) {
+void avct_bcb_open_fail(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data) {
   tAVCT_CCB* p_ccb = &avct_cb.ccb[0];
   tAVCT_CTRL_CBACK* p_cback;
   tAVCT_LCB* p_lcb = avct_lcb_by_bcb(p_bcb);
@@ -594,13 +594,13 @@ void avct_bcb_msg_ind(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data) {
 void avct_bcb_dealloc(tAVCT_BCB* p_bcb, UNUSED_ATTR tAVCT_LCB_EVT* p_data) {
   tAVCT_CCB* p_ccb = &avct_cb.ccb[0];
 
-  AVCT_TRACE_DEBUG("%s %d", __func__, p_bcb->allocated);
+  AVCT_TRACE_WARNING("%s %d", __func__, p_bcb->allocated);
 
   for (int idx = 0; idx < AVCT_NUM_CONN; idx++, p_ccb++) {
     /* if ccb allocated and */
     if ((p_ccb->allocated) && (p_ccb->p_bcb == p_bcb)) {
       p_ccb->p_bcb = NULL;
-      AVCT_TRACE_DEBUG("%s used by ccb: %d", __func__, idx);
+      AVCT_TRACE_WARNING("%s used by ccb: %d", __func__, idx);
       break;
     }
   }

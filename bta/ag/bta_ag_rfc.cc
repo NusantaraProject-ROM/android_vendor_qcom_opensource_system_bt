@@ -126,9 +126,11 @@ static void bta_ag_mgmt_cback(uint32_t code, uint16_t port_handle,
                    code, port_handle, handle);
 
   p_scb = bta_ag_scb_by_idx(handle);
-  VLOG(1) << __func__ << " p_scb addr:" << p_scb->peer_addr;
-  APPL_TRACE_DEBUG("%s: p_scb->conn_handle: %d", __func__, p_scb->conn_handle);
   if (p_scb != NULL) {
+
+    VLOG(1) << __func__ << " p_scb addr:" << p_scb->peer_addr;
+    APPL_TRACE_DEBUG("%s: p_scb->conn_handle: %d", __func__, p_scb->conn_handle);
+
     /* ignore close event for port handles other than connected handle */
     if ((code != PORT_SUCCESS) && (port_handle != p_scb->conn_handle)) {
       APPL_TRACE_DEBUG("ag_mgmt_cback ignoring handle:%d", port_handle);
@@ -299,6 +301,7 @@ void bta_ag_setup_port(tBTA_AG_SCB* p_scb, uint16_t handle) {
 void bta_ag_start_servers(tBTA_AG_SCB* p_scb, tBTA_SERVICE_MASK services) {
   int i;
   int bta_ag_port_status;
+  uint16_t index;
 
   services >>= BTA_HSP_SERVICE_ID;
   for (i = 0; i < BTA_AG_NUM_IDX && services != 0; i++, services >>= 1) {
@@ -308,18 +311,21 @@ void bta_ag_start_servers(tBTA_AG_SCB* p_scb, tBTA_SERVICE_MASK services) {
                            BT_PSM_RFCOMM, BTM_SEC_PROTO_RFCOMM,
                            bta_ag_cb.profile[i].scn);
 
-      bta_ag_port_status = RFCOMM_CreateConnection(
-          bta_ag_uuid[i], bta_ag_cb.profile[i].scn, true, BTA_AG_MTU,
-          RawAddress::kAny, &(p_scb->serv_handle[i]),
-          bta_ag_mgmt_cback_tbl[bta_ag_scb_to_idx(p_scb) - 1]);
+      index = bta_ag_scb_to_idx(p_scb) - 1;
+      if (index >= 0 && index < BTA_AG_MAX_NUM_CLIENTS) {
+          bta_ag_port_status = RFCOMM_CreateConnection(
+              bta_ag_uuid[i], bta_ag_cb.profile[i].scn, true, BTA_AG_MTU,
+              RawAddress::kAny, &(p_scb->serv_handle[i]),
+              bta_ag_mgmt_cback_tbl[index]);
 
-      if (bta_ag_port_status == PORT_SUCCESS) {
-        bta_ag_setup_port(p_scb, p_scb->serv_handle[i]);
-      } else {
-        /* TODO: CR#137125 to handle to error properly */
-        APPL_TRACE_DEBUG(
-            "bta_ag_start_servers: RFCOMM_CreateConnection returned error:%d",
-            bta_ag_port_status);
+          if (bta_ag_port_status == PORT_SUCCESS) {
+            bta_ag_setup_port(p_scb, p_scb->serv_handle[i]);
+          } else {
+            /* TODO: CR#137125 to handle to error properly */
+            APPL_TRACE_DEBUG(
+                "bta_ag_start_servers: RFCOMM_CreateConnection returned error:%d",
+                bta_ag_port_status);
+          }
       }
     }
   }
@@ -380,22 +386,26 @@ bool bta_ag_is_server_closed(tBTA_AG_SCB* p_scb) {
  *
  ******************************************************************************/
 void bta_ag_rfc_do_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
+  uint16_t index;
   BTM_SetSecurityLevel(true, "", bta_ag_sec_id[p_scb->conn_service],
                        p_scb->cli_sec_mask, BT_PSM_RFCOMM, BTM_SEC_PROTO_RFCOMM,
                        p_scb->peer_scn);
 
-  if (RFCOMM_CreateConnection(
-          bta_ag_uuid[p_scb->conn_service], p_scb->peer_scn, false, BTA_AG_MTU,
-          p_scb->peer_addr, &(p_scb->conn_handle),
-          bta_ag_mgmt_cback_tbl[bta_ag_scb_to_idx(p_scb) - 1]) ==
-      PORT_SUCCESS) {
-    bta_ag_setup_port(p_scb, p_scb->conn_handle);
-    APPL_TRACE_IMP("bta_ag_rfc_do_open : conn_handle = %d",
-                     p_scb->conn_handle);
-  }
-  /* RFCOMM create connection failed; send ourselves RFCOMM close event */
-  else {
-    bta_ag_sm_execute(p_scb, BTA_AG_RFC_CLOSE_EVT, p_data);
+  index = bta_ag_scb_to_idx(p_scb) - 1;
+  if (index >= 0 && index < BTA_AG_MAX_NUM_CLIENTS) {
+    if (RFCOMM_CreateConnection(
+            bta_ag_uuid[p_scb->conn_service], p_scb->peer_scn, false, BTA_AG_MTU,
+            p_scb->peer_addr, &(p_scb->conn_handle),
+            bta_ag_mgmt_cback_tbl[index]) ==
+        PORT_SUCCESS) {
+      bta_ag_setup_port(p_scb, p_scb->conn_handle);
+      APPL_TRACE_IMP("bta_ag_rfc_do_open : conn_handle = %d",
+                       p_scb->conn_handle);
+    }
+    /* RFCOMM create connection failed; send ourselves RFCOMM close event */
+    else {
+      bta_ag_sm_execute(p_scb, BTA_AG_RFC_CLOSE_EVT, p_data);
+    }
   }
 }
 

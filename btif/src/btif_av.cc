@@ -251,6 +251,7 @@ static bool isPeerA2dpSink = false;
 static bool codec_config_update_enabled = false;
 bool is_codec_config_dump = false;
 static std::vector<btav_a2dp_codec_config_t> offload_enabled_codecs_config_;
+static std::vector<btav_a2dp_codec_config_t> codec_priorities_;
 
 /*SPLITA2DP */
 bool bt_split_a2dp_enabled = false;
@@ -641,10 +642,18 @@ static void btif_update_source_codec(void* p_data) {
 
         if(encoder_mode == APTX_HQ) {
           btif_av_cb[index].aptx_mode = APTX_HQ;
-          btif_av_cb[index].codec_latency = APTX_HQ_LATENCY;
+          if (A2DP_Get_Aptx_AdaptiveR2_1_Supported()) {
+            btif_av_cb[index].codec_latency = APTX_R2_1_HQ_LATENCY;
+          } else {
+            btif_av_cb[index].codec_latency = APTX_HQ_LATENCY;
+          }
           if(tws_index < btif_max_av_clients) {
             btif_av_cb[tws_index].aptx_mode = APTX_HQ;
-            btif_av_cb[tws_index].codec_latency = APTX_HQ_LATENCY;
+            if (A2DP_Get_Aptx_AdaptiveR2_1_Supported()) {
+              btif_av_cb[tws_index].codec_latency = APTX_R2_1_HQ_LATENCY;
+            } else {
+              btif_av_cb[tws_index].codec_latency = APTX_HQ_LATENCY;
+            }
           }
           btif_a2dp_update_sink_latency_change();
           BTIF_TRACE_DEBUG("%s: Aptx Adaptive mode = %d, codec_latency = %d", __func__,
@@ -696,8 +705,13 @@ static void btif_report_source_codec_state(UNUSED_ATTR void* p_data,
 
   if (index < btif_max_av_clients) {
     if (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE) {
-      if(btif_av_cb[index].codec_latency == 0)
-        btif_av_cb[index].codec_latency = APTX_HQ_LATENCY;
+      if (btif_av_cb[index].codec_latency == 0) {
+        if (A2DP_Get_Aptx_AdaptiveR2_1_Supported()) {
+          btif_av_cb[index].codec_latency = APTX_R2_1_HQ_LATENCY;
+        } else {
+          btif_av_cb[index].codec_latency = APTX_HQ_LATENCY;
+        }
+      }
     } else {
       btif_av_cb[index].codec_latency = 0;
     }
@@ -918,7 +932,6 @@ static void btif_av_process_cached_src_codec_config(int index) {
 
 static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int index) {
   char a2dp_role[255] = "false";
-  bool other_device_connected = false;
   BTIF_TRACE_IMP("%s: event:%s flags: %x on index: %x, codec_cfg_change: %d", __func__,
                    dump_av_sm_event_name((btif_av_sm_event_t)event),
                    btif_av_cb[index].flags, index, codec_cfg_change);
@@ -976,24 +989,14 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
         btif_av_cb[index].peer_sep = AVDT_TSEP_SRC;
         isPeerA2dpSink = false;
       }
-      /* This API will be called twice at initialization
-      ** Idle can be moved when device is disconnected too.
-      ** Take care of other connected device here.*/
-      for (int i = 0; i < btif_max_av_clients; i++) {
-        if ((i != index) && btif_av_get_valid_idx(i)) {
-          other_device_connected = true;
-          break;
-        }
-      }
-      if (other_device_connected == false) {
+
+      BTIF_TRACE_EVENT("%s: idle state for index %d init_co", __func__, index);
+      bta_av_co_peer_init(btif_av_cb[index].codec_priorities, index);
+      if (!btif_av_is_connected()) {
         BTIF_TRACE_EVENT("%s: reset A2dp states in IDLE ", __func__);
-        bta_av_co_init(btif_av_cb[index].codec_priorities, offload_enabled_codecs_config_);
         btif_a2dp_on_idle();
-      } else {
-        //There is another AV connection, update current playin
-        BTIF_TRACE_EVENT("%s: idle state for index %d init_co", __func__, index);
-        bta_av_co_peer_init(btif_av_cb[index].codec_priorities, index);
       }
+
       if (!btif_av_is_local_started_on_other_idx(index) &&
            btif_av_is_split_a2dp_enabled()) {
         BTIF_TRACE_EVENT("%s: reset Vendor flag A2DP state is IDLE", __func__);
@@ -1118,10 +1121,8 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       break;
 
     case BTIF_AV_SOURCE_CONFIG_UPDATED_EVT:
-    {
       BTIF_TRACE_DEBUG("%s: BTIF_AV_SOURCE_CONFIG_UPDATED_EVT received, ignore", __func__);
-    }
-    break;
+      break;
 
     /*
      * In case Signalling channel is not down
@@ -4184,6 +4185,7 @@ bt_status_t btif_av_init(int service_id) {
         break;
     }
 
+    bta_av_co_init(codec_priorities_, offload_enabled_codecs_config_);
     /* Also initialize the AV state machine */
     for (int i = 0; i < btif_max_av_clients; i++) {
       btif_av_cb[i].sm_handle = btif_sm_init(
@@ -4245,7 +4247,7 @@ static bt_status_t init_src(
   tws_defaultmono_supported = (strcmp(value, "mono") == 0);
   BTIF_TRACE_DEBUG("default mono channel mode = %d",tws_defaultmono_supported);
   offload_enabled_codecs_config_ = offload_enabled_codecs;
-
+  codec_priorities_ = codec_priorities;
 #if (TWS_STATE_ENABLED == TRUE)
   //osi_property_get("persist.vendor.btstack.twsplus.state", value, "false");
   tws_state_supported =

@@ -1886,9 +1886,12 @@ bt_status_t HeadsetInterface::PhoneStateChange(
                  strcmp(value, "true")) {
               if (is_active_device(*bd_addr) &&
                   get_connected_dev_count() == 1) {
-                BTIF_TRACE_IMP("%s, pts property is set to false, send BSIR 1", __func__);
+                // send BSIR:1 only if BSIR:0 was sent earlier
+                if (BTA_AgInbandEnabled(control_block.handle) == false) {
+                  BTIF_TRACE_IMP("%s, pts property is set to false, send BSIR 1", __func__);
 
-                SendBsir(1, bd_addr);
+                  SendBsir(1, bd_addr);
+                }
                 ag_res.audio_handle = control_block.handle;
                 btif_transfer_context(btif_in_hf_generic_evt, BTIF_HFP_CB_AUDIO_CONNECTING,
                     (char*)(&btif_hf_cb[idx].connected_bda), sizeof(RawAddress), NULL);
