@@ -135,6 +135,10 @@ const tBTA_AV_ACTION bta_av_action[] = {
     bta_av_rc_meta_rsp,
     bta_av_rc_msg,
     bta_av_rc_close,
+    /* Fix for below KW issue
+     * Array 'bta_av_action' of size 10 may use index value(s) 10 */
+    bta_av_rc_browse_close,
+    NULL,
 };
 
 /* state table information */
@@ -523,12 +527,14 @@ static void bta_av_api_register(tBTA_AV_DATA* p_data) {
 
   do {
     p_scb = bta_av_alloc_scb(registr.chnl);
-    cs.registration_id = p_scb->hdi;
+    /* Fix for below KW issue
+     * Suspicious dereference of pointer 'p_scb' before NULL check at line 527 */
     if (p_scb == NULL) {
       APPL_TRACE_ERROR("failed to alloc SCB");
       break;
     }
 
+    cs.registration_id = p_scb->hdi;
     registr.hndl = p_scb->hndl;
     p_scb->app_id = registr.app_id;
 

@@ -246,7 +246,8 @@ bool avdt_ccb_check_peer_eligible_for_aac_codec(tAVDT_CCB* p_ccb) {
  *
  ******************************************************************************/
 void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
-  tAVDT_SEP_INFO sep_info[AVDT_NUM_SEPS];
+  tAVDT_SEP_INFO* sep_info =
+            (tAVDT_SEP_INFO*)osi_malloc(AVDT_NUM_SEPS*sizeof(tAVDT_SEP_INFO));
   tAVDT_SCB* p_scb = &avdt_cb.scb[0];
   int i;
   int num_conn = avdt_scb_get_max_av_client();
@@ -266,6 +267,14 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
 
   AVDT_TRACE_WARNING("%s: soc_type: %d", __func__, soc_type);
 
+  /* Fix for below KW issue
+   * Address of a local variable is returned through
+   * formal argument 'p_data->msg.discover_rsp.p_sep_info'
+   */
+  if (sep_info == NULL) {
+    AVDT_TRACE_ERROR("%s: sep_info in null, return", __func__);
+    return;
+  }
   p_data->msg.discover_rsp.p_sep_info = sep_info;
   p_data->msg.discover_rsp.num_seps = 0;
 
@@ -276,7 +285,7 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
      * we should show SEP for which setconfig was done earlier
      * This is done for IOP with some remotes */
   for (i = 0; i < AVDT_NUM_SEPS; i++, p_scb++) {
-    if((p_ccb != NULL)&& (p_scb->p_ccb != NULL)&&(p_scb->p_ccb == p_ccb)) {
+    if((p_ccb != NULL) && (p_scb->p_ccb != NULL) && (p_scb->p_ccb == p_ccb)) {
       AVDT_TRACE_EVENT(" CCB already tied to SCB[%d] ",i);
       /* copy sep info */
       sep_info[p_data->msg.discover_rsp.num_seps].in_use = p_scb->in_use;
