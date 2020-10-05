@@ -155,7 +155,8 @@ static bool is_profile(const char* p1, const char* p2) {
  ****************************************************************************/
 
 static int init(bt_callbacks_t* callbacks, bool start_restricted,
-                bool is_niap_mode, int config_compare_result) {
+                bool is_niap_mode, int config_compare_result,
+                const char** init_flags) {
   LOG_INFO(LOG_TAG, "QTI OMR1 stack: %s: start restricted = %d : single user = %d",
                      __func__, start_restricted, is_niap_mode);
 
