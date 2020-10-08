@@ -1742,6 +1742,7 @@ static void bta_dm_store_profiles_version() {
     IOT_CONF_KEY_HFP_VERSION,
     IOT_CONF_KEY_AVRCP_CTRL_VERSION,
     IOT_CONF_KEY_AVRCP_TG_VERSION,
+    IOT_CONF_KEY_MAP_VERSION,
   };
 #endif
 
