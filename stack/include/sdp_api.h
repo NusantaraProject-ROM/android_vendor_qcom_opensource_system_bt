@@ -91,6 +91,7 @@
 #define SDP_DISC_ATTR_LEN_MASK 0x0FFF
 #define SDP_DISC_ATTR_TYPE(len_type) ((len_type) >> 12)
 #define SDP_DISC_ATTR_LEN(len_type) ((len_type)&SDP_DISC_ATTR_LEN_MASK)
+#define SDP_DISC_ATTR_MAX_LEN 16
 
 /* Maximum number of protocol list items (list_elem in tSDP_PROTOCOL_ELEM) */
 #define SDP_MAX_LIST_ELEMS 3
@@ -124,11 +125,11 @@ typedef void(tSDP_DISC_RES_CB)(uint16_t event, tSDP_DATA* p_data);
 /* Define a structure to hold the discovered service information. */
 typedef struct {
   union {
-    uint8_t u8;                         /* 8-bit integer            */
-    uint16_t u16;                       /* 16-bit integer           */
-    uint32_t u32;                       /* 32-bit integer           */
-    uint8_t array[4];                   /* Variable length field    */
-    struct t_sdp_disc_attr* p_sub_attr; /* Addr of first sub-attr (list)*/
+    uint8_t u8;                           /* 8-bit integer            */
+    uint16_t u16;                         /* 16-bit integer           */
+    uint32_t u32;                         /* 32-bit integer           */
+    uint8_t array[SDP_DISC_ATTR_MAX_LEN]; /* Variable length field    */
+    struct t_sdp_disc_attr* p_sub_attr;   /* Addr of first sub-attr (list)*/
   } v;
 
 } tSDP_DISC_ATVAL;
