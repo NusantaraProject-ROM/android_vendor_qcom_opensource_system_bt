@@ -2203,5 +2203,6 @@ extern bool BTM_SecGetTwsPlusPeerDev(const RawAddress& eb_addr,
 
 extern bool BTM_SecIsTwsPlusDev(const RawAddress& eb_addr);
 
+extern uint16_t BTM_GetNumSlaveAclLinks(void);
 
 #endif /* BTM_API_H */
