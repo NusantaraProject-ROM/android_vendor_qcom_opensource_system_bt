@@ -3093,3 +3093,24 @@ void btm_acl_chk_peer_pkt_type_support(tACL_CONN* p, uint16_t* p_pkt_type) {
           (BTM_ACL_PKT_TYPES_MASK_NO_2_DH5 + BTM_ACL_PKT_TYPES_MASK_NO_3_DH5);
   }
 }
+
+/*******************************************************************************
+ *
+ * Function         BTM_GetNumSlaveAclLinks
+ *
+ * Description      This function is called to count the number of
+ *                  ACL links with slave role that are active.
+ *
+ * Returns          uint16_t Number of active ACL Slave links
+ *
+ ******************************************************************************/
+uint16_t BTM_GetNumSlaveAclLinks(void) {
+  uint16_t num_acl = 0;
+
+  for (uint16_t i = 0; i < MAX_L2CAP_LINKS; ++i) {
+    if (btm_cb.acl_db[i].in_use && btm_cb.acl_db[i].link_role == HCI_ROLE_SLAVE)
+      ++num_acl;
+  }
+
+  return num_acl;
+}
