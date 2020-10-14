@@ -2878,6 +2878,10 @@ bt_status_t btif_dm_pin_reply(const RawAddress* bd_addr, uint8_t accept,
     int i;
     uint32_t passkey = 0;
     int multi[] = {100000, 10000, 1000, 100, 10, 1};
+    if(pin_len != 6){
+      BTIF_TRACE_ERROR("btif_dm_pin_reply: pin length: %d", pin_len);
+      return BT_STATUS_FAIL;
+    }
     for (i = 0; i < 6; i++) {
       passkey += (multi[i] * (pin_code->pin[i] - '0'));
     }
