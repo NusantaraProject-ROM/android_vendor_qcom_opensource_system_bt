@@ -851,6 +851,8 @@ static void execute_storage_request(uint16_t event, char* p_param) {
         tBTM_BLE_VSC_CB cmn_vsc_cb;
         bt_local_le_features_t local_le_features;
 
+        memset(&local_le_features, 0, sizeof(bt_local_le_features_t));
+
         /* LE features are not stored in storage. Should be retrived from stack
          */
         BTM_BleGetVendorCapabilities(&cmn_vsc_cb);
