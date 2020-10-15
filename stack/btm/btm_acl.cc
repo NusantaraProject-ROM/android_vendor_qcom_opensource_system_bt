@@ -3006,7 +3006,20 @@ void btm_acl_paging(BT_HDR* p, const RawAddress& bda) {
     if (!BTM_ACL_IS_CONNECTED(bda)) {
       VLOG(1) << "connecting_bda: " << btm_cb.connecting_bda;
       if (btm_cb.paging && bda == btm_cb.connecting_bda) {
-        fixed_queue_enqueue(btm_cb.page_queue, p);
+        p_dev_rec = btm_find_dev(bda);
+        /* Accepted incoming connection from legacy remote
+         * we can send RNR on link ,its not a page request now
+         */
+        if (p_dev_rec && (p_dev_rec->sm4 & BTM_SM4_CONN_PEND) &&
+            BTM_SEC_IS_SM4_LEGACY(p_dev_rec->sm4) &&
+            (HCI_GET_CMD_HDR_OPCODE(p) == HCI_RMT_NAME_REQUEST)) {
+          BTM_TRACE_DEBUG("%s: sending rnr for : %s as link up",
+                              __func__, bda.ToString().c_str());
+          btu_hcif_send_cmd(LOCAL_BR_EDR_CONTROLLER_ID, p);
+          return;
+        } else {
+          fixed_queue_enqueue(btm_cb.page_queue, p);
+        }
       } else {
         p_dev_rec = btm_find_or_alloc_dev(bda);
         btm_cb.connecting_bda = p_dev_rec->bd_addr;
