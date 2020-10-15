@@ -672,6 +672,7 @@ tBTM_STATUS BTM_SwitchRole(const RawAddress& remote_bd_addr, uint8_t new_role,
         (interop_match_addr_or_name(
                 INTEROP_DISABLE_ROLE_SWITCH, &remote_bd_addr)) ||
                 (!btm_cb.is_wifi_connected && (btm_get_bredr_acl_count() <= 1) &&
+                (!BTM_SecIsTwsPlusDev(remote_bd_addr)) &&
                 (!IsHighQualityCodecSelected(remote_bd_addr))))
       return(BTM_SUCCESS);
 
