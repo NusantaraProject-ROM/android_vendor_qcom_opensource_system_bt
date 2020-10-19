@@ -251,6 +251,7 @@ typedef struct {
   tBTM_INQ_INFO inq_info;
   bool in_use;
   bool scan_rsp;
+  bool keep; /* keep the devices in the inquriy database to get the name */
 } tINQ_DB_ENT;
 
 enum { INQ_NONE, INQ_LE_OBSERVE, INQ_GENERAL };

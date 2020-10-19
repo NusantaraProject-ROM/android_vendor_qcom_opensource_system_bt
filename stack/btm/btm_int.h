@@ -292,7 +292,7 @@ extern tL2CAP_LE_RESULT_CODE btm_ble_start_sec_check(
     const RawAddress& bd_addr, uint16_t psm, bool is_originator,
     tBTM_SEC_CALLBACK* p_callback, void* p_ref_data);
 
-extern tINQ_DB_ENT* btm_inq_db_new(const RawAddress& p_bda);
+extern tINQ_DB_ENT* btm_inq_db_new(const RawAddress& p_bda, bool keep);
 
 extern void btm_rem_oob_req(uint8_t* p);
 extern void btm_read_local_oob_complete(uint8_t* p);
