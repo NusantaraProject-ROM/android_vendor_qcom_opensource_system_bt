@@ -1878,7 +1878,6 @@ static void read_report_cb(uint16_t conn_id, tGATT_STATUS status,
   p_dev_cb->w4_evt = 0;
   (*bta_hh_cb.p_cback)(BTA_HH_GET_RPT_EVT, (tBTA_HH*)&hs_data);
 
-  osi_free_and_reset((void**)&p_buf);
 }
 
 /*******************************************************************************

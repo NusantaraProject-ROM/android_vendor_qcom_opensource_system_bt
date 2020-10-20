@@ -901,6 +901,7 @@ static void btif_hh_upstreams_evt(uint16_t event, char* p_param) {
           HAL_CBACK(bt_hh_callbacks, get_report_cb,
                     (RawAddress*)&(p_dev->bd_addr),
                     (bthh_status_t)p_data->hs_data.status, data, len);
+          osi_free_and_reset((void**)&hdr);
         } else {
           HAL_CBACK(bt_hh_callbacks, handshake_cb,
                     (RawAddress*)&(p_dev->bd_addr),
@@ -909,6 +910,9 @@ static void btif_hh_upstreams_evt(uint16_t event, char* p_param) {
       } else {
         BTIF_TRACE_WARNING("Error: cannot find device with handle %d",
                            p_data->hs_data.handle);
+        if (hdr) {
+          osi_free_and_reset((void**)&hdr);
+        }
       }
       break;
     }
