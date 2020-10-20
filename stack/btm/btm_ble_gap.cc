@@ -842,13 +842,15 @@ static uint8_t btm_set_conn_mode_adv_init_addr(
 }
 
 uint8_t btm_ble_get_scan_phy(uint8_t scan_phy_input) {
-  switch(scan_phy_input) {
-    case PHY_LE_1M_IN:
-      return SCAN_PHY_LE_1M;
-    case PHY_LE_CODED_IN:
-      return SCAN_PHY_LE_CODED;
-    case PHY_LE_ALL_SUPPORTED_IN:
-      return SCAN_PHY_LE_ALL_SUPPORTED;
+  if (controller_get_interface()->supports_ble_coded_phy()) {
+    switch(scan_phy_input) {
+      case PHY_LE_1M_IN:
+        return SCAN_PHY_LE_1M;
+      case PHY_LE_CODED_IN:
+        return SCAN_PHY_LE_CODED;
+      case PHY_LE_ALL_SUPPORTED_IN:
+        return SCAN_PHY_LE_ALL_SUPPORTED;
+    }
   }
   return SCAN_PHY_LE_1M;
 }

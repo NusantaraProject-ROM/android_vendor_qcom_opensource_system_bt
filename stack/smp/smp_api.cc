@@ -106,6 +106,10 @@ void SMP_Init(void) {
   /* Initialize failure case for certification */
   smp_cb.cert_failure =
       stack_config_get_interface()->get_pts_smp_failure_case();
+
+  /* Initialize h7 support case for certification */
+  smp_cb.cert_disable_h7_support =
+      stack_config_get_interface()->get_pts_smp_disable_h7_support();
   if (smp_cb.cert_failure)
     SMP_TRACE_ERROR("%s PTS FAILURE MODE IN EFFECT (CASE %d)", __func__,
                     smp_cb.cert_failure);

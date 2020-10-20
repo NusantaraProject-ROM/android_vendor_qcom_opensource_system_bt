@@ -52,7 +52,7 @@ static bool pts_test_send_authentication_complete_failure(tSMP_CB* p_cb) {
   uint8_t reason = p_cb->cert_failure;
   if (reason == SMP_PAIR_AUTH_FAIL || reason == SMP_PAIR_FAIL_UNKNOWN ||
       reason == SMP_PAIR_NOT_SUPPORT || reason == SMP_PASSKEY_ENTRY_FAIL ||
-      reason == SMP_REPEATED_ATTEMPTS) {
+      reason == SMP_REPEATED_ATTEMPTS || reason == SMP_ENC_KEY_SIZE) {
     tSMP_INT_DATA smp_int_data;
     smp_int_data.status = reason;
     smp_sm_event(p_cb, SMP_AUTH_CMPL_EVT, &smp_int_data);
@@ -195,6 +195,11 @@ void smp_send_app_cback(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
             p_cb->loc_auth_req &= ~SMP_H7_SUPPORT_BIT;
           }
 
+          if (smp_cb.cert_disable_h7_support) {
+            SMP_TRACE_WARNING("Disabling H7 support for PTS testcase");
+            p_cb->loc_auth_req &= ~SMP_H7_SUPPORT_BIT;
+          }
+
           SMP_TRACE_WARNING(
               "set auth_req: 0x%02x, local_i_key: 0x%02x, local_r_key: 0x%02x",
               p_cb->loc_auth_req, p_cb->local_i_key, p_cb->local_r_key);
@@ -210,6 +215,11 @@ void smp_send_app_cback(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
 
           p_cb->local_i_key &= ~SMP_SEC_KEY_TYPE_LK;
           p_cb->local_r_key &= ~SMP_SEC_KEY_TYPE_LK;
+
+          if (smp_cb.cert_disable_h7_support) {
+            SMP_TRACE_WARNING("Disabling H7 support for PTS testcase");
+            p_cb->loc_auth_req &= ~SMP_H7_SUPPORT_BIT;
+          }
 
           SMP_TRACE_WARNING(
               "for SMP over BR max_key_size: 0x%02x, local_i_key: 0x%02x, "

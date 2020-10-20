@@ -1294,7 +1294,11 @@ bool A2dpCodecConfigSbc::setCodecConfig(const uint8_t* p_peer_codec_info,
   btav_a2dp_codec_config_t saved_codec_capability = codec_capability_;
   btav_a2dp_codec_config_t saved_codec_selectable_capability =
       codec_selectable_capability_;
+
   btav_a2dp_codec_config_t saved_codec_user_config = codec_user_config_;
+  LOG_DEBUG(LOG_TAG, "%s: A2dpCodecConfigSbc: saved_codec_user_config: ", __func__);
+  print_codec_parameters(saved_codec_user_config);
+
   btav_a2dp_codec_config_t saved_codec_audio_config = codec_audio_config_;
   uint8_t saved_ota_codec_config[AVDT_CODEC_SIZE];
   uint8_t saved_ota_codec_peer_capability[AVDT_CODEC_SIZE];
@@ -1730,6 +1734,7 @@ bool A2dpCodecConfigSbc::setCodecConfig(const uint8_t* p_peer_codec_info,
 
 fail:
   // Restore the internal state
+  LOG_ERROR(LOG_TAG, "%s: Reset to internal states ", __func__);
   codec_config_ = saved_codec_config;
   codec_capability_ = saved_codec_capability;
   codec_selectable_capability_ = saved_codec_selectable_capability;

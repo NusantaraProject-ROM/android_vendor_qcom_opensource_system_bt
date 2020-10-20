@@ -40,6 +40,8 @@ const char* PTS_SMP_GENERATE_INVALID_PUBLIC_KEY = "PTS_GenerateInvalidPublicKey"
 const char* PTS_BREDR_AUTH_REQ = "PTS_BredrAuthReq";
 const char* PTS_BREDR_SECURECONNECTION_HOSTSUPPORT_DISABLE = "PTS_BredrSecConnHostSupportDisable";
 const char* PTS_BREDR_INVALID_ENCRYPTION_KEYSIZE = "PTS_BredrInvalidEncryKeysize";
+const char* PTS_LE_DISABLE_ENCRYP = "PTS_LeDisableEncryp";
+const char* PTS_SMP_DISABLE_H7_SUPPORT = "PTS_DisableH7Support";
 
 static config_t* config;
 
@@ -133,6 +135,15 @@ static int get_pts_l2cap_le_insuff_enc_result(void) {
                         PTS_L2CAP_LE_INSUFF_ENCRYP, 0);
 }
 
+static int get_pts_le_enc_disable(void) {
+  return config_get_int(config, CONFIG_DEFAULT_SECTION,
+                        PTS_LE_DISABLE_ENCRYP, 0);
+}
+
+static int get_pts_smp_disable_h7_support(void) {
+  return config_get_int(config, CONFIG_DEFAULT_SECTION,
+                        PTS_SMP_DISABLE_H7_SUPPORT, 0);
+}
 
 static int get_pts_smp_generate_invalid_public_key(void) {
   return config_get_int(config, CONFIG_DEFAULT_SECTION,
@@ -171,6 +182,8 @@ const stack_config_t interface = {get_trace_config_enabled,
                                   get_pts_bredr_auth_req,
                                   get_pts_bredr_secureconnection_host_support_disabled,
                                   get_pts_bredr_invalid_encryption_keysize,
+                                  get_pts_le_enc_disable,
+                                  get_pts_smp_disable_h7_support,
                                   get_all};
 
 const stack_config_t* stack_config_get_interface(void) { return &interface; }

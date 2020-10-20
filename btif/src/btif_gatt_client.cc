@@ -50,6 +50,8 @@
 #include "btif_storage.h"
 #include "osi/include/log.h"
 #include "vendor_api.h"
+#include "stack_config.h"
+
 
 using base::Bind;
 using base::Owned;
@@ -148,10 +150,13 @@ void btif_gattc_upstreams_evt(uint16_t event, char* p_param) {
                   p_data->open.conn_id, p_data->open.status, p_data->open.mtu);
       }
 
-      if (p_data->open.status == GATT_SUCCESS)
 #if (!defined(BTA_SKIP_BLE_START_ENCRYPTION) || BTA_SKIP_BLE_START_ENCRYPTION == FALSE)
-        btif_gatt_check_encrypted_link(p_data->open.remote_bda,
-                                       p_data->open.transport);
+      if (p_data->open.status == GATT_SUCCESS) {
+        if (!stack_config_get_interface()->get_pts_le_enc_disable()) {
+          btif_gatt_check_encrypted_link(p_data->open.remote_bda,
+                                        p_data->open.transport);
+        }
+      }
 #endif
       break;
     }

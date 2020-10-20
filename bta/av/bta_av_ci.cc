@@ -70,7 +70,6 @@ void bta_av_ci_setconfig(tBTA_AV_HNDL hndl, uint8_t err_code, uint8_t category,
   tBTA_AV_CI_SETCONFIG* p_buf =
       (tBTA_AV_CI_SETCONFIG*)osi_malloc(sizeof(tBTA_AV_CI_SETCONFIG));
   uint8_t *p_local_seid = (uint8_t*)osi_malloc(sizeof(uint8_t));
-  *p_local_seid = *p_seid;
 
   p_buf->hdr.layer_specific = hndl;
   p_buf->hdr.event = (err_code == A2DP_SUCCESS) ? BTA_AV_CI_SETCONFIG_OK_EVT
@@ -85,7 +84,14 @@ void bta_av_ci_setconfig(tBTA_AV_HNDL hndl, uint8_t err_code, uint8_t category,
     p_buf->p_seid = (uint8_t*)(p_buf + 1);
     memcpy(p_buf->p_seid, p_seid, num_seid);
   } else {
-    p_buf->p_seid = p_local_seid;
+
+    /* Fix for below KW issue
+     * Suspicious dereference of pointer 'p_seid' before NULL check at line 83
+     */
+    if (p_seid != NULL && p_local_seid != NULL) {
+      *p_local_seid = *p_seid;
+      p_buf->p_seid = p_local_seid;
+    }
     p_buf->num_seid = 0;
     APPL_TRACE_DEBUG("%s: p_buf->p_seid: %d,", __func__, *(p_buf->p_seid));
   }
