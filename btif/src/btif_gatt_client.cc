@@ -230,8 +230,13 @@ void btm_read_rssi_cb(void* p_void) {
  *  Client API Functions
  ******************************************************************************/
 
-bt_status_t btif_gattc_register_app(const Uuid& uuid) {
+bt_status_t btif_gattc_register_app(const Uuid& uuid, bool eatt_support) {
   CHECK_BTGATT_INIT();
+
+  if (eatt_support) {
+    LOG_ERROR(LOG_TAG, "%s: EATT not supported", __func__);
+    return BT_STATUS_UNSUPPORTED;
+  }
 
   return do_in_jni_thread(Bind(
       [](const Uuid& uuid) {
