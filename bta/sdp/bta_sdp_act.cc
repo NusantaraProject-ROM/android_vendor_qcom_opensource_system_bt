@@ -34,22 +34,12 @@
 #include "bta_sys.h"
 #include "btm_api.h"
 #include "btm_int.h"
+#include "btif_sock_sdp.h"
 #include "osi/include/allocator.h"
 #include "sdp_api.h"
 #include "stack/sdp/sdpint.h"
 #include "utl.h"
 
-/*****************************************************************************
- *  Constants
- ****************************************************************************/
-
-static const Uuid UUID_OBEX_OBJECT_PUSH = Uuid::From16Bit(0x1105);
-static const Uuid UUID_PBAP_PCE = Uuid::From16Bit(0x112E);
-static const Uuid UUID_PBAP_PSE = Uuid::From16Bit(0x112F);
-static const Uuid UUID_MAP_MAS = Uuid::From16Bit(0x1132);
-static const Uuid UUID_MAP_MNS = Uuid::From16Bit(0x1133);
-static const Uuid UUID_SAP = Uuid::From16Bit(0x112D);
-static const Uuid UUID_DIP = Uuid::From16Bit(0x1200);
 
 extern void check_and_store_pce_profile_version(tSDP_DISC_REC* p_sdp_rec);
 extern void check_and_store_mce_profile_version(tSDP_DISC_REC* p_sdp_rec);
