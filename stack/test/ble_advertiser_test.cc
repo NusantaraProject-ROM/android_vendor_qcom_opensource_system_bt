@@ -27,6 +27,7 @@
 
 using ::testing::Args;
 using ::testing::Contains;
+using ::testing::DoAll;
 using ::testing::ElementsAreArray;
 using ::testing::Exactly;
 using ::testing::Field;
