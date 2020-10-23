@@ -667,14 +667,14 @@ static void a2dp_aac_encode_frames(uint8_t nb_frame) {
 
     count = 0;
     do {
-      //
       // Read the PCM data and encode it
-      //
       uint32_t bytes_read = 0;
       if (a2dp_aac_read_feeding(read_buffer, &bytes_read)) {
         uint8_t* packet = (uint8_t*)(p_buf + 1) + p_buf->offset + p_buf->len;
         if (!a2dp_aac_encoder_cb.has_aac_handle) {
           LOG_ERROR(LOG_TAG, "%s: invalid AAC handle", __func__);
+          LOG_WARN(LOG_TAG, "%s: nb_frame:%d, bytes_read:%d, len:%d, count:%d, total_bytes_read:%d",
+                   __func__, nb_frame, bytes_read, p_buf->len, count, total_bytes_read);
           a2dp_aac_encoder_cb.stats.media_read_total_dropped_packets++;
           osi_free(p_buf);
           return;
@@ -687,6 +687,8 @@ static void a2dp_aac_encode_frames(uint8_t nb_frame) {
         if (aac_error != AACENC_OK) {
           LOG_ERROR(LOG_TAG, "%s: AAC encoding error: 0x%x", __func__,
                     aac_error);
+          LOG_WARN(LOG_TAG, "%s: nb_frame:%d, bytes_read:%d, len:%d, count:%d, total_bytes_read:%d",
+                   __func__, nb_frame, bytes_read, p_buf->len, count, total_bytes_read);
           a2dp_aac_encoder_cb.stats.media_read_total_dropped_packets++;
           osi_free(p_buf);
           return;
@@ -726,8 +728,12 @@ static void a2dp_aac_encode_frames(uint8_t nb_frame) {
       uint8_t done_nb_frame = remain_nb_frame - nb_frame;
       remain_nb_frame = nb_frame;
       if (!a2dp_aac_encoder_cb.enqueue_callback(p_buf, done_nb_frame,
-                                                total_bytes_read))
+                                                total_bytes_read)) {
+        LOG_WARN(LOG_TAG, "%s: enqueue discarded done_nb_frame: %d,"
+                 "total bytes_read: %d, len: %d, count: %d, written: %d",
+                 __func__, done_nb_frame, total_bytes_read, p_buf->len, count, written);
         return;
+      }
     } else {
       a2dp_aac_encoder_cb.stats.media_read_total_dropped_packets++;
       osi_free(p_buf);
