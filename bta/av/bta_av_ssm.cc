@@ -98,6 +98,7 @@ enum {
   BTA_AV_OFFLOAD_REQ,
   BTA_AV_OFFLOAD_RSP,
   BTA_AV_DISC_FAIL_AS_ACP,
+  BTA_AV_HANDLE_COLLISION,
   BTA_AV_NUM_SACTIONS
 };
 
@@ -156,7 +157,8 @@ static const uint8_t bta_av_sst_init[][BTA_AV_NUM_COLS] = {
     /* API_OFFLOAD_START_RSP_EVT */ {BTA_AV_OFFLOAD_RSP, BTA_AV_SIGNORE,
                                      BTA_AV_INIT_SST},
     /* API_RECONFIG_FAIL_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE,
-                                     BTA_AV_INIT_SST}};
+                                     BTA_AV_INIT_SST},
+    /* COLLISION_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST}};
 
 /* state table for incoming state */
 static const uint8_t bta_av_sst_incoming[][BTA_AV_NUM_COLS] = {
@@ -226,7 +228,8 @@ static const uint8_t bta_av_sst_incoming[][BTA_AV_NUM_COLS] = {
     /* API_OFFLOAD_START_RSP_EVT */ {BTA_AV_OFFLOAD_RSP, BTA_AV_SIGNORE,
                                      BTA_AV_INCOMING_SST},
     /* API_RECONFIG_FAIL_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE,
-                                     BTA_AV_INCOMING_SST}};
+                                     BTA_AV_INCOMING_SST},
+    /* COLLISION_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST}};
 
 /* state table for opening state */
 static const uint8_t bta_av_sst_opening[][BTA_AV_NUM_COLS] = {
@@ -294,7 +297,8 @@ static const uint8_t bta_av_sst_opening[][BTA_AV_NUM_COLS] = {
     /* API_OFFLOAD_START_RSP_EVT */ {BTA_AV_OFFLOAD_RSP, BTA_AV_SIGNORE,
                                      BTA_AV_OPENING_SST},
     /* API_RECONFIG_FAIL_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE,
-                                     BTA_AV_OPENING_SST}};
+                                     BTA_AV_OPENING_SST},
+    /* COLLISION_EVT */ {BTA_AV_HANDLE_COLLISION, BTA_AV_SIGNORE, BTA_AV_INIT_SST}};
 
 /* state table for open state */
 static const uint8_t bta_av_sst_open[][BTA_AV_NUM_COLS] = {
@@ -351,7 +355,8 @@ static const uint8_t bta_av_sst_open[][BTA_AV_NUM_COLS] = {
     /* API_OFFLOAD_START_RSP_EVT */ {BTA_AV_OFFLOAD_RSP, BTA_AV_SIGNORE,
                                      BTA_AV_OPEN_SST},
     /* API_RECONFIG_FAIL_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE,
-                                     BTA_AV_OPEN_SST}};
+                                     BTA_AV_OPEN_SST},
+    /* COLLISION_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPEN_SST}};
 
 /* state table for reconfig state */
 static const uint8_t bta_av_sst_rcfg[][BTA_AV_NUM_COLS] = {
@@ -408,7 +413,8 @@ static const uint8_t bta_av_sst_rcfg[][BTA_AV_NUM_COLS] = {
     /* API_OFFLOAD_START_RSP_EVT */ {BTA_AV_OFFLOAD_RSP, BTA_AV_SIGNORE,
                                      BTA_AV_RCFG_SST},
     /* API_RECONFIG_FAIL_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE,
-                                     BTA_AV_OPEN_SST}};
+                                     BTA_AV_OPEN_SST},
+    /* COLLISION_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_RCFG_SST}};
 
 /* state table for closing state */
 static const uint8_t bta_av_sst_closing[][BTA_AV_NUM_COLS] = {
@@ -473,7 +479,8 @@ static const uint8_t bta_av_sst_closing[][BTA_AV_NUM_COLS] = {
     /* API_OFFLOAD_START_RSP_EVT */ {BTA_AV_OFFLOAD_RSP, BTA_AV_SIGNORE,
                                      BTA_AV_CLOSING_SST},
     /* API_RECONFIG_FAIL_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE,
-                                     BTA_AV_CLOSING_SST}};
+                                     BTA_AV_CLOSING_SST},
+    /* COLLISION_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST}};
 
 /* type for state table */
 typedef const uint8_t (*tBTA_AV_SST_TBL)[BTA_AV_NUM_COLS];
