@@ -42,6 +42,7 @@
 #define CONTINUATION_PACKET_BOUNDARY 1
 #define POINT_TO_POINT 0
 #define L2CAP_HEADER_SIZE 4
+#define POINT_TO_POINT 0
 
 // Our interface and callbacks
 
