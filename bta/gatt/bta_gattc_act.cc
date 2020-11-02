@@ -169,18 +169,18 @@ void bta_gattc_disable() {
 #endif
   }
 
-  /* no registered apps, indicate disable completed */
-  if (bta_gattc_cb.state != BTA_GATTC_STATE_DISABLING) {
-    bta_gattc_cb = tBTA_GATTC_CB();
-    bta_gattc_cb.state = BTA_GATTC_STATE_DISABLED;
-  }
-
   if (bta_gattc_cb.gatt_skt_fd > -1)
     close(bta_gattc_cb.gatt_skt_fd);
   bta_gattc_cb.is_gatt_skt_connected = false;
   bta_gattc_cb.gatt_skt_fd = -1;
   bta_gattc_cb.native_access_uuid_list.clear();
   bta_gattc_cb.native_access_notif_enabled = false;
+
+  /* no registered apps, indicate disable completed */
+  if (bta_gattc_cb.state != BTA_GATTC_STATE_DISABLING) {
+    bta_gattc_cb = tBTA_GATTC_CB();
+    bta_gattc_cb.state = BTA_GATTC_STATE_DISABLED;
+  }
 }
 
 /** start an application interface */
