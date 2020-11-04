@@ -357,7 +357,7 @@ void btm_pm_reset(void) {
   tBTM_PM_STATUS_CBACK* cb = NULL;
 
   /* clear the pending request for application */
-  if ((btm_cb.pm_pend_id < BTM_PM_SET_ONLY_ID) &&
+  if ((btm_cb.pm_pend_id < BTM_MAX_PM_RECORDS) &&
       (btm_cb.pm_reg_db[btm_cb.pm_pend_id].mask & BTM_PM_REG_NOTIF)) {
     cb = btm_cb.pm_reg_db[btm_cb.pm_pend_id].cback;
   }
@@ -729,7 +729,7 @@ void btm_pm_proc_cmd_status(uint8_t status) {
   }
 
   /* notify the caller is appropriate */
-  if ((btm_cb.pm_pend_id < BTM_PM_SET_ONLY_ID) &&
+  if ((btm_cb.pm_pend_id < BTM_MAX_PM_RECORDS) &&
       (btm_cb.pm_reg_db[btm_cb.pm_pend_id].mask & BTM_PM_REG_NOTIF)) {
     (*btm_cb.pm_reg_db[btm_cb.pm_pend_id].cback)(
         btm_cb.acl_db[btm_cb.pm_pend_link].remote_addr, pm_status, 0, status);
