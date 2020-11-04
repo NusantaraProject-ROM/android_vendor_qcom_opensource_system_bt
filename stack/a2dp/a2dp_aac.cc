@@ -1084,6 +1084,7 @@ bool A2dpCodecConfigAac::setCodecConfig(const uint8_t* p_peer_codec_info,
   std::lock_guard<std::recursive_mutex> lock(codec_mutex_);
   tA2DP_AAC_CIE sink_info_cie;
   tA2DP_AAC_CIE result_config_cie;
+  uint32_t peer_bitrate;
   uint8_t channelMode;
   uint16_t sampleRate;
   btav_a2dp_codec_bits_per_sample_t bits_per_sample;
@@ -1134,12 +1135,19 @@ bool A2dpCodecConfigAac::setCodecConfig(const uint8_t* p_peer_codec_info,
   // In either case, the actual streaming bit rate will also consider the MTU.
   LOG_DEBUG(LOG_TAG, "%s: sink_info_cie.bitRate: %u, a2dp_aac_caps.bitRate: %u",
                       __func__, sink_info_cie.bitRate, a2dp_aac_caps.bitRate);
-  if (sink_info_cie.bitRate < A2DP_AAC_MIN_BITRATE) {
+  peer_bitrate = sink_info_cie.bitRate;
+  if (peer_bitrate < A2DP_AAC_MIN_BITRATE) {
+    peer_bitrate *= 1000;
+    LOG_DEBUG(LOG_TAG, "%s: after multiplying by 1000, peer_bitrate is: %u",
+                       __func__, peer_bitrate);
+  }
+
+  if (peer_bitrate < A2DP_AAC_MIN_BITRATE) {
     // Bogus bit rate
     result_config_cie.bitRate = a2dp_aac_caps.bitRate;
   } else {
     result_config_cie.bitRate =
-        std::min(a2dp_aac_caps.bitRate, sink_info_cie.bitRate);
+        std::min(a2dp_aac_caps.bitRate, peer_bitrate);
   }
   LOG_DEBUG(LOG_TAG, "%s: result_config_cie.bitRate: %u", __func__, result_config_cie.bitRate);
 
