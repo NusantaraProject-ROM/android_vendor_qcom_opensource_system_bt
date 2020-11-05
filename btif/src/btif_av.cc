@@ -718,12 +718,16 @@ static void btif_report_source_codec_state(UNUSED_ATTR void* p_data,
   }
 
   if (btif_a2dp_source_is_hal_v2_supported()) {
+    if (codec_cfg_change) {
+      codec_cfg_change = false;
+      BTIF_TRACE_DEBUG("%s: set codec_cfg_change to false", __func__);
+    }
+
     //check for codec update for active device
     if(index < btif_max_av_clients && btif_av_cb[index].current_playing == TRUE) {
       if(btif_a2dp_source_is_restart_session_needed()) {
         RawAddress bt_addr = btif_av_cb[index].peer_bda;
         btif_a2dp_source_restart_session(bt_addr, bt_addr);
-        codec_cfg_change = false;
         if (btif_av_cb[index].reconfig_pending) {
           BTIF_TRACE_DEBUG("%s:Set reconfig_a2dp true",__func__);
           reconfig_a2dp = true;
@@ -949,8 +953,6 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       btif_av_cb[index].is_device_playing = false;
       btif_av_cb[index].reconfig_pending = false;
       btif_av_cb[index].sink_latency = 0;
-      btif_av_cb[index].remote_started = false;
-      btif_av_cb[index].remote_start_alarm = NULL;
       btif_av_cb[index].is_suspend_for_remote_start = false;
       btif_av_cb[index].retry_rc_connect = false;
       btif_av_cb[index].mandatory_codec_preferred = false;
@@ -977,6 +979,14 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
         alarm_cancel(btif_av_cb[index].tws_offload_started_sync_timer);
       }
 #endif
+      if (btif_av_cb[index].remote_started) {
+        if (btif_a2dp_source_is_remote_start()) {
+          BTIF_TRACE_DEBUG("%s:cancel remote start timer",__func__);
+          if (btif_a2dp_source_last_remote_start_index() == index)
+            btif_a2dp_source_cancel_remote_start();
+        }
+        btif_av_cb[index].remote_started = false;
+      }
       btif_av_cb[index].fake_suspend_rsp = false;
       btif_av_cb[index].is_retry_reconfig = false;
       for (int i = 0; i < btif_max_av_clients; i++)
@@ -4665,6 +4675,7 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
   CHECK_BTAV_INIT();
   int index = btif_av_idx_by_bdaddr(const_cast<RawAddress*>(&bd_addr));
   btif_av_codec_config_req_t codec_req;
+  bool saved_codec_cfg_change = codec_cfg_change;
   isDevUiReq = false;
   codec_cfg_change = false;
   for (auto cp : codec_preferences) {
@@ -4707,6 +4718,7 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
 
     if (index < btif_max_av_clients && btif_av_cb[index].reconfig_pending && codec_cfg_change) {
       BTIF_TRACE_ERROR("%s:Reconfig Pending, dishonor codec switch",__func__);
+      codec_cfg_change = saved_codec_cfg_change;
       return BT_STATUS_FAIL;
     }
 
@@ -4992,6 +5004,7 @@ void  btif_av_clear_remote_start_timer(int index) {
   if (index < btif_max_av_clients && index >= 0) {
     if (btif_av_cb[index].remote_start_alarm != NULL &&
              btif_av_cb[index].remote_started)
+      BTIF_TRACE_DEBUG("%s: freeing remote start alarm on index: %d", __func__, index);
       alarm_free(btif_av_cb[index].remote_start_alarm);
       btif_av_cb[index].remote_started = false;
       btif_av_cb[index].remote_start_alarm = NULL;
