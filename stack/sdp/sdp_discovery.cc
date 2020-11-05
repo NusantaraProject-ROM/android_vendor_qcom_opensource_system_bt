@@ -943,21 +943,7 @@ static uint8_t* add_attr(uint8_t* p, uint8_t* p_end, tSDP_DISCOVERY_DB* p_db,
           BE_STREAM_TO_UINT32(p_attr->attr_value.v.u32, p);
           break;
         default:
-          if (attr_len <= SDP_DISC_ATTR_MAX_LEN) {
-            BE_STREAM_TO_ARRAY(p, p_attr->attr_value.v.array, (int32_t)attr_len);
-          } else if (attr_len > SDP_DISC_ATTR_MAX_LEN) {
-            SDP_TRACE_WARNING("%s: att len %d beyond SDP_DISC_ATTR_MAX_LEN for attr type %d",
-                              __func__, attr_len, attr_type);
-            BE_STREAM_TO_ARRAY(p, p_attr->attr_value.v.array, (int32_t)SDP_DISC_ATTR_MAX_LEN);
-            attr_len -= SDP_DISC_ATTR_MAX_LEN;
-            /* Stack can accept up to SDP_DISC_ATTR_MAX_LEN , hence skip remaining bytes
-             * of current attribute in SDP responce and continue to add next attribute.
-             */
-            while (p && attr_len > 0) {
-               p++;
-               attr_len--;
-            }
-          }
+          BE_STREAM_TO_ARRAY(p, p_attr->attr_value.v.array, (int32_t)attr_len);
           break;
       }
       break;
@@ -1030,21 +1016,7 @@ static uint8_t* add_attr(uint8_t* p, uint8_t* p_end, tSDP_DISCOVERY_DB* p_db,
 
     case TEXT_STR_DESC_TYPE:
     case URL_DESC_TYPE:
-      if (attr_len <= SDP_DISC_ATTR_MAX_LEN) {
-        BE_STREAM_TO_ARRAY(p, p_attr->attr_value.v.array, (int32_t)attr_len);
-      } else if (attr_len > SDP_DISC_ATTR_MAX_LEN) {
-        SDP_TRACE_WARNING("%s: att len %d beyond SDP_DISC_ATTR_MAX_LEN for attr type %d",
-                           __func__, attr_len, attr_type);
-        BE_STREAM_TO_ARRAY(p, p_attr->attr_value.v.array, (int32_t)SDP_DISC_ATTR_MAX_LEN);
-        attr_len -= SDP_DISC_ATTR_MAX_LEN;
-        /* Stack can accept up to SDP_DISC_ATTR_MAX_LEN , hence skip remaining bytes
-         * of current attribute in SDP responce and continue to add next attribute.
-         */
-        while (p && attr_len > 0) {
-          p++;
-          attr_len--;
-        }
-      }
+      BE_STREAM_TO_ARRAY(p, p_attr->attr_value.v.array, (int32_t)attr_len);
       break;
 
     case BOOLEAN_DESC_TYPE:
