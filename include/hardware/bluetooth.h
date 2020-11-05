@@ -489,7 +489,7 @@ typedef struct {
      * The |is_atv| flag indicates whether the local device is an Android TV
      */
     int (*init)(bt_callbacks_t* callbacks , bool guest_mode,
-                bool is_single_user_mode, bool is_atv);
+                bool is_single_user_mode , int config_compare_result, bool is_atv);
 
     /** Enable Bluetooth. */
     int (*enable)();
