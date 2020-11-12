@@ -155,6 +155,7 @@ typedef struct {
 typedef struct {
   tGATT_STATUS status;
   uint16_t conn_id;
+  tGATT_STATUS status;
   tGATT_IF client_if;
   RawAddress remote_bda;
   tBTA_GATT_REASON reason; /* disconnect reason code, not useful when connect

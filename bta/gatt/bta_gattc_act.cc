@@ -627,13 +627,11 @@ void bta_gattc_close(tBTA_GATTC_CLCB* p_clcb, tBTA_GATTC_DATA* p_data) {
   tBTA_GATTC_RCB* p_clreg = p_clcb->p_rcb;
   tBTA_GATTC cb_data;
 
-  VLOG(1) << __func__ << ": conn_id=" << loghex(p_clcb->bta_conn_id);
-
   cb_data.close.client_if = p_clcb->p_rcb->client_if;
   cb_data.close.conn_id = p_clcb->bta_conn_id;
   cb_data.close.reason = p_clcb->reason;
-  cb_data.close.status = p_clcb->status;
   cb_data.close.remote_bda = p_clcb->bda;
+  cb_data.close.status = GATT_SUCCESS;
 
 #ifdef ADV_AUDIO_FEATURE
   if (is_remote_support_adv_audio(p_clcb->bda)) {
@@ -650,10 +648,15 @@ void bta_gattc_close(tBTA_GATTC_CLCB* p_clcb, tBTA_GATTC_DATA* p_data) {
   bta_gattc_clcb_dealloc(p_clcb);
 
   if (p_data->hdr.event == BTA_GATTC_API_CLOSE_EVT) {
-    cb_data.close.status = GATT_Disconnect(p_data->hdr.layer_specific);
+    GATT_Disconnect(p_data->hdr.layer_specific);
+    LOG_DEBUG("Local close event client_if:%hu conn_id:%hu reason:%hu",
+              cb_data.close.client_if, cb_data.close.conn_id,
+              cb_data.close.reason);
   } else if (p_data->hdr.event == BTA_GATTC_INT_DISCONN_EVT) {
-    cb_data.close.status = p_data->int_conn.reason;
     cb_data.close.reason = p_data->int_conn.reason;
+    LOG_DEBUG(
+        "Peer close disconnect event client_if:%hu conn_id:%hu reason:%hu",
+        cb_data.close.client_if, cb_data.close.conn_id, cb_data.close.reason);
   }
 
   if (p_cback) (*p_cback)(BTA_GATTC_CLOSE_EVT, &cb_data);
