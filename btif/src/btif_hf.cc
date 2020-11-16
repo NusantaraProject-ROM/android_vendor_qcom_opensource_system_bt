@@ -645,19 +645,31 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       break;
 
     case BTA_AG_AUDIO_OPENING_EVT:
-      BTIF_TRACE_DEBUG("%s:  Moving the audio_state to CONNECTING for device %s",
-                      __FUNCTION__, btif_hf_cb[idx].connected_bda.ToString().c_str());
-      btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_CONNECTING;
-      HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_CONNECTING,
-                &btif_hf_cb[idx].connected_bda);
+      if (btif_hf_cb[idx].state == BTHF_CONNECTION_STATE_DISCONNECTED ||
+          btif_hf_cb[idx].state == BTHF_CONNECTION_STATE_DISCONNECTING) {
+        BTIF_TRACE_WARNING("%s: Ignoring event BTA_AG_AUDIO_OPENING_EVT, btif_hf_cb[idx].state:%d",
+                          __FUNCTION__, btif_hf_cb[idx].state);
+      } else {
+        BTIF_TRACE_DEBUG("%s:  Moving the audio_state to CONNECTING for device %s",
+                        __FUNCTION__, btif_hf_cb[idx].connected_bda.ToString().c_str());
+        btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_CONNECTING;
+        HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_CONNECTING,
+                  &btif_hf_cb[idx].connected_bda);
+      }
       break;
 
     case BTA_AG_AUDIO_OPEN_EVT:
-      BTIF_TRACE_DEBUG("%s: Moving the audio_state to CONNECTED for device %s",
-                      __FUNCTION__, btif_hf_cb[idx].connected_bda.ToString().c_str());
-      btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_CONNECTED;
-      HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_CONNECTED,
-                &btif_hf_cb[idx].connected_bda);
+      if (btif_hf_cb[idx].state == BTHF_CONNECTION_STATE_DISCONNECTED ||
+          btif_hf_cb[idx].state == BTHF_CONNECTION_STATE_DISCONNECTING) {
+        BTIF_TRACE_WARNING("%s: Ignoring event BTA_AG_AUDIO_OPEN_EVT, btif_hf_cb[idx].state:%d",
+                          __FUNCTION__, btif_hf_cb[idx].state);
+      } else {
+        BTIF_TRACE_DEBUG("%s: Moving the audio_state to CONNECTED for device %s",
+                        __FUNCTION__, btif_hf_cb[idx].connected_bda.ToString().c_str());
+        btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_CONNECTED;
+        HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_CONNECTED,
+                  &btif_hf_cb[idx].connected_bda);
+      }
       break;
 
     case BTA_AG_AUDIO_CLOSE_EVT:
