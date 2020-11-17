@@ -84,7 +84,7 @@ cc_library_static {
     ],
     arch: {
         arm64: {
-            cflags: ["-DALOCATION_TRACKER_DEBUG"],
+            cflags: ["-DALOCATION_TRACKER_DEBUG", "-Wno-frame-address"],
         },
     },
     include_dirs: [
