@@ -1037,6 +1037,10 @@ static uint32_t btif_a2dp_source_read_callback(uint8_t* p_buf, uint32_t len) {
         time_get_os_boottime_us();
   }
 
+  // For debugging purpose of any OOB condition
+  if (bytes_read > len)
+    LOG_WARN(LOG_TAG, "%s: READ %d BYTES OUT OF %d", __func__, bytes_read, len);
+
   return bytes_read;
 }
 

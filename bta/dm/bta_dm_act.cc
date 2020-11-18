@@ -1742,6 +1742,7 @@ static void bta_dm_store_profiles_version() {
     IOT_CONF_KEY_HFP_VERSION,
     IOT_CONF_KEY_AVRCP_CTRL_VERSION,
     IOT_CONF_KEY_AVRCP_TG_VERSION,
+    IOT_CONF_KEY_MAP_VERSION,
   };
 #endif
 
@@ -3963,6 +3964,7 @@ static void bta_dm_adjust_roles(bool delay_role_switch) {
 
         if ((bta_dm_cb.device_list.peer_device[i].pref_role ==
              BTA_MASTER_ROLE_ONLY) ||
+             BTM_SecIsTwsPlusDev(bta_dm_cb.device_list.peer_device[i].peer_bdaddr) ||
             (br_count > 1)) {
           /* Initiating immediate role switch with certain remote devices
             has caused issues due to role  switch colliding with link encryption
