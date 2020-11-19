@@ -109,6 +109,7 @@ struct AdvertisingInstance {
   }
 
   ~AdvertisingInstance() {
+    in_use = false;
     alarm_free(adv_raddr_timer);
     adv_raddr_timer = nullptr;
     if (timeout_timer) {
@@ -259,6 +260,11 @@ class BleAdvertisingManagerImpl
             [](AdvertisingInstance* p_inst,
                base::Callback<void(uint8_t, uint8_t)> cb,
                const RawAddress& bda) {
+
+              if (!p_inst->in_use) {
+                LOG(ERROR) << "Not active instance";
+                return;
+              }
               p_inst->own_address = bda;
 
               alarm_set_on_mloop(p_inst->adv_raddr_timer,
