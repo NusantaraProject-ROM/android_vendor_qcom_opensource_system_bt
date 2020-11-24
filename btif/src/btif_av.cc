@@ -522,6 +522,31 @@ static void btif_initiate_av_open_timer_timeout(void* data) {
  *  Static functions
  *****************************************************************************/
 
+static void btif_av_disconnect_queue_advance_by_uuid(const RawAddress* bd_addr) {
+  if (bd_addr == NULL) {
+    BTIF_TRACE_DEBUG("%s: bd_addr is null", __func__);
+    return;
+  }
+
+  uint16_t uuid = 0;
+  if (bt_av_src_callbacks != NULL) {
+    uuid = UUID_SERVCLASS_AUDIO_SOURCE;
+  } else if (bt_av_sink_callbacks != NULL) {
+    uuid = UUID_SERVCLASS_AUDIO_SINK;
+  }
+  if (uuid == 0) {
+    uuid = btif_device_in_sink_role() ? UUID_SERVCLASS_AUDIO_SINK : UUID_SERVCLASS_AUDIO_SOURCE;
+  }
+
+  BTIF_TRACE_DEBUG("%s: UUID=%04X, bd_addr=%s", __func__,
+      uuid, bd_addr->ToString().c_str());
+
+  // currently only disconnect_audio_source is serialized.
+  if (uuid == UUID_SERVCLASS_AUDIO_SOURCE) {
+    btif_disconnect_queue_advance_by_uuid(uuid, bd_addr);
+  }
+}
+
 /*******************************************************************************
  *
  * Function         btif_report_connection_state
@@ -1301,6 +1326,7 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
 
     case BTA_AV_REJECT_EVT:
       BTIF_TRACE_WARNING("%s: Received BTA_AV_REJECT_EVT", __func__);
+      btif_av_disconnect_queue_advance_by_uuid(&(btif_av_cb[index].peer_bda));
       btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED,
                                    &(btif_av_cb[index].peer_bda));
       btif_sm_change_state(btif_av_cb[index].sm_handle, BTIF_AV_STATE_IDLE);
@@ -1403,6 +1429,7 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
           }
         }
         state = BTAV_CONNECTION_STATE_DISCONNECTED;
+        btif_av_disconnect_queue_advance_by_uuid(&(btif_av_cb[index].peer_bda));
         av_state = BTIF_AV_STATE_IDLE;
 #if (BT_IOT_LOGGING_ENABLED == TRUE)
         device_iot_config_addr_int_add_one(btif_av_cb[index].peer_bda,
@@ -1535,6 +1562,7 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
         btif_a2dp_on_stopped(NULL);
       btif_av_cb[index].avdt_sync = FALSE;
       /* inform the application that we are disconnected */
+      btif_av_disconnect_queue_advance_by_uuid(&(btif_av_cb[index].peer_bda));
       btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED,
          &(btif_av_cb[index].peer_bda));
       btif_av_connect_req_t* connect_req_t = (btif_av_connect_req_t*)p_data;
@@ -1554,6 +1582,7 @@ static bool btif_av_state_opening_handler(btif_sm_event_t event, void* p_data,
 
     case BTIF_AV_DISCONNECT_REQ_EVT: {
        uint8_t peer_handle = BTRC_HANDLE_NONE;
+       btif_av_disconnect_queue_advance_by_uuid(&(btif_av_cb[index].peer_bda));
        btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED,
            &(btif_av_cb[index].peer_bda));
        if (!btif_av_cb[index].peer_bda.IsEmpty())
@@ -1694,6 +1723,7 @@ static bool btif_av_state_closing_handler(btif_sm_event_t event, void* p_data, i
 
     case BTA_AV_CLOSE_EVT:
       /* inform the application that we are disconnecting */
+      btif_av_disconnect_queue_advance_by_uuid(&(btif_av_cb[index].peer_bda));
       btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED,
                                    &(btif_av_cb[index].peer_bda));
 
@@ -2145,6 +2175,7 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
 
       /* inform the application that we are disconnected */
       btif_av_cb[index].flags |= BTIF_AV_FLAG_PENDING_DISCONNECT;
+      btif_av_disconnect_queue_advance_by_uuid(&(btif_av_cb[index].peer_bda));
       btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED,
                                         &(btif_av_cb[index].peer_bda));
       btif_av_cb[index].flags &= ~BTIF_AV_FLAG_PENDING_DISCONNECT;
@@ -2849,6 +2880,7 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* p_data,
       btif_a2dp_on_stopped(NULL);
 
       /* inform the application that we are disconnected */
+      btif_av_disconnect_queue_advance_by_uuid(&(btif_av_cb[index].peer_bda));
       btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED,
                                    &(btif_av_cb[index].peer_bda));
 
@@ -3059,6 +3091,10 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
       // Bd address passed should help us in getting the handle
       bt_addr = (RawAddress *)p_param;
       index = btif_av_idx_by_bdaddr(bt_addr);
+      if (index < 0 || index >= btif_max_av_clients ||
+          btif_av_cb[index].sm_handle == NULL) {
+        btif_av_disconnect_queue_advance_by_uuid(bt_addr);
+      }
       break;
 
     case BTIF_AV_SINK_CONFIG_REQ_EVT: {
@@ -4579,7 +4615,23 @@ static bt_status_t sink_connect_src(const RawAddress& bd_addr) {
  * Returns          bt_status_t
  *
  ******************************************************************************/
-static bt_status_t disconnect(const RawAddress& bd_addr) {
+ static bt_status_t disconnect_int(RawAddress* bd_addr, uint16_t uuid) {
+  BTIF_TRACE_EVENT("%s: addr=%s, UUID=%04X",
+      __func__, bd_addr->ToString().c_str(), uuid);
+
+  /* Switch to BTIF context */
+  return btif_transfer_context(btif_av_handle_event, BTIF_AV_DISCONNECT_REQ_EVT,
+                               (char *)bd_addr, sizeof(RawAddress), NULL);
+}
+
+static bt_status_t src_disconnect_sink(const RawAddress& bd_addr) {
+  BTIF_TRACE_EVENT("%s", __func__);
+  CHECK_BTAV_INIT();
+
+  return btif_disconnect_queue_disconnect(UUID_SERVCLASS_AUDIO_SOURCE, bd_addr, disconnect_int);
+}
+
+static bt_status_t sink_disconnect_src(const RawAddress& bd_addr) {
   BTIF_TRACE_EVENT("%s", __func__);
   CHECK_BTAV_INIT();
 
@@ -4776,6 +4828,7 @@ static void cleanup_src(void) {
   BTIF_TRACE_EVENT("%s:", __func__);
 
   btif_queue_cleanup(UUID_SERVCLASS_AUDIO_SOURCE);
+  btif_disconnect_queue_cleanup(UUID_SERVCLASS_AUDIO_SOURCE);
   if (bt_av_sink_callbacks == NULL) cleanup(BTA_A2DP_SOURCE_SERVICE_ID);
 }
 
@@ -4835,6 +4888,7 @@ static void allow_connection(int is_valid, RawAddress *bd_addr)
                      true, BTA_SEC_AUTHENTICATE, UUID_SERVCLASS_AUDIO_SOURCE);
        } else {
          BTIF_TRACE_IMP("Reject incoming AV connection on Index %d", index);
+         btif_av_disconnect_queue_advance_by_uuid(&(btif_av_cb[index].peer_bda));
          btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED,
              &(btif_av_cb[index].peer_bda));
          BTA_AvClose(btif_av_cb[index].bta_handle);
@@ -4867,7 +4921,7 @@ static const btav_source_interface_t bt_av_src_interface = {
     sizeof(btav_source_interface_t),
     init_src,
     src_connect_sink,
-    disconnect,
+    src_disconnect_sink,
     set_silence_device,
     set_active_device,
     codec_config_src,
@@ -4882,7 +4936,7 @@ static const btav_sink_interface_t bt_av_sink_interface = {
     sizeof(btav_sink_interface_t),
     init_sink,
     sink_connect_src,
-    disconnect,
+    sink_disconnect_src,
     cleanup_sink,
     update_audio_focus_state,
     update_audio_track_gain,
@@ -5186,6 +5240,7 @@ bt_status_t btif_av_execute_service(bool b_enable) {
         if ((state == BTIF_AV_STATE_OPENING) || (state == BTIF_AV_STATE_OPENED) ||
             (state == BTIF_AV_STATE_STARTED)) {
           BTIF_TRACE_DEBUG("Moving State from opened/started to Idle due to BT ShutDown");
+          btif_av_disconnect_queue_advance_by_uuid(&(btif_av_cb[i].peer_bda));
           if (btif_av_is_split_a2dp_enabled() &&
              !btif_a2dp_source_is_hal_v2_supported()) {
             btif_a2dp_audio_interface_deinit();
@@ -5802,6 +5857,7 @@ void btif_av_move_idle(RawAddress bd_addr) {
   if (state == BTIF_AV_STATE_OPENING &&
       (memcmp (&bd_addr, &(btif_av_cb[index].peer_bda), sizeof(bd_addr)) == 0)) {
     BTIF_TRACE_IMP("Moving BTIF State from Opening to Idle due to ACL disconnect");
+    btif_av_disconnect_queue_advance_by_uuid(&(btif_av_cb[index].peer_bda));
     btif_report_connection_state(BTAV_CONNECTION_STATE_DISCONNECTED, &(btif_av_cb[index].peer_bda));
     BTA_AvClose(btif_av_cb[index].bta_handle);
     btif_av_check_and_start_collission_timer(index);
