@@ -39,4 +39,14 @@ void btif_queue_advance_by_uuid(uint16_t uuid, const RawAddress* bda);
 bt_status_t btif_queue_connect_next(void);
 void btif_queue_release();
 
+
+typedef bt_status_t (*btif_disconnect_cb_t)(RawAddress* bda, uint16_t uuid);
+bt_status_t btif_disconnect_queue_disconnect(uint16_t uuid, const RawAddress& bda,
+                                             btif_disconnect_cb_t disconnect_cb);
+void btif_disconnect_queue_cleanup(uint16_t uuid);
+void btif_disconnect_queue_advance(const RawAddress* bda);
+void btif_disconnect_queue_advance_by_uuid(uint16_t uuid, const RawAddress* bda);
+bt_status_t btif_disconnect_queue_disconnect_next(void);
+void btif_disconnect_queue_release();
+
 #endif

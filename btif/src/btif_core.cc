@@ -561,6 +561,7 @@ bt_status_t btif_cleanup_bluetooth(void) {
   btif_dm_cleanup();
   btif_jni_disassociate();
   btif_queue_release();
+  btif_disconnect_queue_release();
 
   if (jni_run_loop && message_loop_) {
     message_loop_->task_runner()->PostTask(FROM_HERE,
