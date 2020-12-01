@@ -346,6 +346,17 @@ class BleScannerInterfaceImpl : public BleScannerInterface {
                  SyncLostCb lost_cb) override {}
 
   void StopSync(uint16_t handle) override {}
+
+  virtual void CancelCreateSync(uint8_t sid, RawAddress address) override {}
+
+  virtual void TransferSync(RawAddress address, uint16_t service_data,
+                         uint16_t sync_handle, SyncTransferCb cb) override {}
+
+  virtual void TransferSetInfo(RawAddress address, uint16_t service_data,
+                         uint8_t adv_handle, SyncTransferCb cb) override {}
+
+  virtual void SyncTxParameters(RawAddress addr, uint8_t mode, uint16_t skip,
+                         uint16_t timeout,StartSyncCb start_cb) override {}
 };
 
 BleScannerInterface* btLeScannerInstance = nullptr;
