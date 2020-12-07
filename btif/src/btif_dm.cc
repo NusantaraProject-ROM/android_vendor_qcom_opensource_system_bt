@@ -3423,11 +3423,24 @@ static void btif_dm_ble_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
 
       case BTA_DM_AUTH_SMP_CONN_TOUT: {
         if (btm_sec_is_a_bonded_dev(bd_addr)) {
-          LOG(INFO) << __func__ << " Bonded device addr=" << bd_addr
+          uint8_t dev_type;
+          uint8_t addr_type;
+          BTM_ReadDevInfo(bd_addr, &dev_type, &addr_type);
+
+          if ((pairing_cb.state == BT_BOND_STATE_BONDING) &&
+            (dev_type == BT_DEVICE_TYPE_DUMO) &&
+            (addr_type == BLE_ADDR_PUBLIC) &&
+            !btm_sec_is_a_bonded_dev_by_transport(bd_addr, BT_TRANSPORT_LE)) {
+            btif_storage_remove_bonded_device(&bd_addr);
+            status = BT_STATUS_AUTH_FAILURE;
+            break;
+          } else {
+            LOG(INFO) << __func__ << " Bonded device addr=" << bd_addr
                     << " timed out - will not remove the keys";
-          // Don't send state change to upper layers - otherwise Java think we
-          // unbonded, and will disconnect HID profile.
-          return;
+            // Don't send state change to upper layers - otherwise Java think we
+            // unbonded, and will disconnect HID profile.
+            return;
+          }
         }
 
         btif_dm_remove_ble_bonding_keys();
