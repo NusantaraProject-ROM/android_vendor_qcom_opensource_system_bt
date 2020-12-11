@@ -131,6 +131,17 @@ static BT_HDR* make_ble_set_host_feature_cmd(uint8_t bit_num,
   return packet;
 }
 
+static BT_HDR* make_ble_write_rf_path_compensation(uint16_t tx_value, uint16_t rx_value) {
+  uint8_t* stream;
+  const uint8_t parameter_size = 2 + 2;
+  BT_HDR* packet =
+      make_command(HCI_BLE_WRITE_RF_PATH_COMPENSATION, parameter_size, &stream);
+
+  UINT16_TO_STREAM(stream, tx_value);
+  UINT16_TO_STREAM(stream, rx_value);
+  return packet;
+}
+
 static BT_HDR* make_ble_read_white_list_size(void) {
   return make_command_no_params(HCI_BLE_READ_WHITE_LIST_SIZE);
 }
@@ -303,6 +314,7 @@ static const hci_packet_factory_t interface = {
     make_qbce_set_qhs_host_mode,
     make_qbce_set_qll_event_mask,
     make_qbce_set_qlm_event_mask,
+    make_ble_write_rf_path_compensation,
 };
 
 const hci_packet_factory_t* hci_packet_factory_get_interface() {

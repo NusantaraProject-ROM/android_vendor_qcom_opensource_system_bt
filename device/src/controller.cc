@@ -38,6 +38,8 @@
 #include <vector>
 #include "stack_config.h"
 #include <map>
+#include "device/include/interop_config.h"
+#include "device/include/profile_config.h"
 
 #define BTSNOOP_ENABLE_PROPERTY "persist.bluetooth.btsnoopenable"
 #define BTSNOOP_SOCLOG_PROPERTY "persist.vendor.service.bdroid.soclog"
@@ -125,6 +127,7 @@ static bool ble_offload_features_supported;
 static bool simple_pairing_supported;
 static bool secure_connections_supported;
 static bool read_simple_pairing_options_supported;
+static bool hci_write_rf_path_compensation_supported;
 
 //BT features related defines
 static bt_soc_type_t soc_type = BT_SOC_TYPE_DEFAULT;
@@ -570,6 +573,20 @@ static future_t* start_up(void) {
         response, &simple_pairing_options, &maximum_encryption_key_size);
     LOG_DEBUG(LOG_TAG, "%s simple pairing options is 0x%x", __func__,
         simple_pairing_options);
+  }
+
+  // write rf tx & rx path compensation value
+  hci_write_rf_path_compensation_supported =
+             HCI_WRITE_RF_PATH_COMPENSATION_SUPPORTED(supported_commands);
+
+  if(hci_write_rf_path_compensation_supported) {
+    uint16_t tx_path_value = rf_path_loss_values_fetch(RF_PATH_LOSS_ID, RF_TX_PATH_COMPENSATION_VALUE);
+    uint16_t rx_path_value = rf_path_loss_values_fetch(RF_PATH_LOSS_ID, RF_RX_PATH_COMPENSATION_VALUE);
+    response =
+        AWAIT_COMMAND(packet_factory->make_ble_write_rf_path_compensation(tx_path_value, rx_path_value));
+    packet_parser->parse_generic_command_complete(response);
+    LOG_DEBUG(LOG_TAG, "%s HCI write RF compensation tx value : %d, rx value : %d", __func__,
+        tx_path_value, rx_path_value);
   }
 
   if (bt_configstore_intf != NULL) {
