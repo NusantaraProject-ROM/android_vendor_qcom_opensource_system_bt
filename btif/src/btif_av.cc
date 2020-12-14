@@ -718,12 +718,16 @@ static void btif_report_source_codec_state(UNUSED_ATTR void* p_data,
   }
 
   if (btif_a2dp_source_is_hal_v2_supported()) {
+    if (codec_cfg_change) {
+      codec_cfg_change = false;
+      BTIF_TRACE_DEBUG("%s: set codec_cfg_change to false", __func__);
+    }
+
     //check for codec update for active device
     if(index < btif_max_av_clients && btif_av_cb[index].current_playing == TRUE) {
       if(btif_a2dp_source_is_restart_session_needed()) {
         RawAddress bt_addr = btif_av_cb[index].peer_bda;
         btif_a2dp_source_restart_session(bt_addr, bt_addr);
-        codec_cfg_change = false;
         if (btif_av_cb[index].reconfig_pending) {
           BTIF_TRACE_DEBUG("%s:Set reconfig_a2dp true",__func__);
           reconfig_a2dp = true;
@@ -4671,6 +4675,7 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
   CHECK_BTAV_INIT();
   int index = btif_av_idx_by_bdaddr(const_cast<RawAddress*>(&bd_addr));
   btif_av_codec_config_req_t codec_req;
+  bool saved_codec_cfg_change = codec_cfg_change;
   isDevUiReq = false;
   codec_cfg_change = false;
   for (auto cp : codec_preferences) {
@@ -4713,6 +4718,7 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
 
     if (index < btif_max_av_clients && btif_av_cb[index].reconfig_pending && codec_cfg_change) {
       BTIF_TRACE_ERROR("%s:Reconfig Pending, dishonor codec switch",__func__);
+      codec_cfg_change = saved_codec_cfg_change;
       return BT_STATUS_FAIL;
     }
 
