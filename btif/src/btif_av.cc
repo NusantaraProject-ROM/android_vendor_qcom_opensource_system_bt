@@ -301,7 +301,7 @@ static bool btif_av_state_started_handler(btif_sm_event_t event, void* data, int
 static bool btif_av_state_closing_handler(btif_sm_event_t event, void* data, int idx);
 
 static bool btif_av_get_valid_idx(int idx);
-int btif_av_idx_by_bdaddr(RawAddress *bd_addr);
+int btif_av_idx_by_bdaddr(const RawAddress *bd_addr);
 static int btif_av_get_valid_idx_for_rc_events(RawAddress bd_addr, int rc_handle);
 static int btif_get_conn_state_of_device(RawAddress address);
 static void btif_av_set_browse_active(RawAddress peer_addr, uint8_t device_switch);
@@ -944,6 +944,19 @@ static void btif_av_process_cached_src_codec_config(int index) {
   BTIF_TRACE_DEBUG("%s: process previousely stored codec config", __func__);
   btif_update_source_codec(&btif_av_cb[index].reconfig_data);
   BTIF_TRACE_DEBUG("%s: Exit", __func__);
+}
+
+void btif_av_clear_cached_src_codec_config(const RawAddress& address) {
+  BTIF_TRACE_DEBUG("%s: address=%s", __func__, address.ToString().c_str());
+
+  int index;
+  index = btif_av_idx_by_bdaddr(&address);
+  if (index == btif_max_av_clients) {
+    BTIF_TRACE_ERROR("%s: invalid index: %d", __func__, index);
+    return;
+  }
+  btif_av_cb[index].reconfig_event = 0;
+  memset(&btif_av_cb[index].reconfig_data, 0, sizeof(btif_av_codec_config_req_t));
 }
 
 
@@ -3594,7 +3607,7 @@ static bool btif_av_get_valid_idx(int idx) {
  * Returns          int
  *
  ******************************************************************************/
-int btif_av_idx_by_bdaddr(RawAddress *bd_addr) {
+int btif_av_idx_by_bdaddr(const RawAddress *bd_addr) {
   int i;
   for (i = 0; i < btif_max_av_clients; i++)
     if (*bd_addr == btif_av_cb[i].peer_bda)

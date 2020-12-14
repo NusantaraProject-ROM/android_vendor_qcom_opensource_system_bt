@@ -1657,6 +1657,7 @@ bool bta_av_co_set_codec_user_config(
   bool restart_output = false;
   bool config_updated = false;
   bool success = true;
+  bool do_reconfig = false;
   tBTA_AV_HNDL hndl = btif_av_get_reconfig_dev_hndl();
   // Find the peer that is currently open
   tBTA_AV_CO_PEER* p_peer = nullptr;
@@ -1765,6 +1766,8 @@ bool bta_av_co_set_codec_user_config(
     if (p_peer->cp_active) num_protect = AVDT_CP_INFO_LEN;
 #endif
 
+    do_reconfig = true;
+
     p_sink = bta_av_co_audio_set_codec(p_peer);
     if (p_sink == NULL) {
       APPL_TRACE_ERROR("%s: cannot set up codec for the peer SINK", __func__);
@@ -1821,12 +1824,16 @@ done:
     APPL_TRACE_DEBUG("%s BDA: %s", __func__, p_peer->addr.ToString().c_str());
   }
 
-  if (btif_av_check_is_cached_reconfig_event_exist(bt_addr) &&
-      btif_av_check_is_reconfig_pending_flag_set(bt_addr)) {
-    APPL_TRACE_DEBUG("%s: reconfig event exist to process.",__func__);
-  } else if (!success || !restart_output) {
+  APPL_TRACE_DEBUG("%s: success=%d, restart_output=%d, do_reconfig=%d",
+      __func__, success, restart_output, do_reconfig);
+
+  if (!success || !do_reconfig) {
     APPL_TRACE_DEBUG("%s: reseting codec reconfig flag",__func__);
     btif_av_reset_codec_reconfig_flag(bt_addr);
+    btif_av_clear_cached_src_codec_config(bt_addr);
+  } else if (btif_av_check_is_cached_reconfig_event_exist(bt_addr) &&
+    btif_av_check_is_reconfig_pending_flag_set(bt_addr)) {
+    APPL_TRACE_DEBUG("%s: reconfig event exist to process.",__func__);
   }
   return success;
 }
