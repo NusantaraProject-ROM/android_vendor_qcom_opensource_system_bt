@@ -146,7 +146,7 @@ static period_ms_t now(void);
 static void alarm_set_internal(alarm_t* alarm, period_ms_t period,
                                alarm_callback_t cb, void* data,
                                fixed_queue_t* queue, bool for_msg_loop);
-static void alarm_cancel_internal(alarm_t* alarm);
+static void* alarm_cancel_internal(alarm_t* alarm);
 static void remove_pending_alarm(alarm_t* alarm);
 static void schedule_next_instance(alarm_t* alarm);
 static void reschedule_root_alarm(void);
@@ -196,15 +196,18 @@ static alarm_t* alarm_new_internal(const char* name, bool is_periodic) {
   return ret;
 }
 
-void alarm_free(alarm_t* alarm) {
-  if (!alarm) return;
+void* alarm_free(alarm_t* alarm) {
+  if (!alarm) return NULL;
+  void* data = NULL;
 
   if (alarm_is_scheduled(alarm)) {
-    alarm_cancel(alarm);
+    data = alarm_cancel(alarm);
   }
   osi_free((void*)alarm->stats.name);
   alarm->closure.~CancelableClosureInStruct();
   osi_free(alarm);
+
+  return data;
 }
 
 period_ms_t alarm_get_remaining_ms(const alarm_t* alarm) {
@@ -250,28 +253,33 @@ static void alarm_set_internal(alarm_t* alarm, period_ms_t period,
   alarm->stats.scheduled_count++;
 }
 
-void alarm_cancel(alarm_t* alarm) {
+void* alarm_cancel(alarm_t* alarm) {
   CHECK(alarms != NULL);
-  if (!alarm) return;
+  if (!alarm) return NULL;
+  void* data = NULL;
 
   std::shared_ptr<std::recursive_mutex> local_mutex_ref;
   {
     std::lock_guard<std::mutex> lock(alarms_mutex);
     local_mutex_ref = alarm->callback_mutex;
-    alarm_cancel_internal(alarm);
+    data = alarm_cancel_internal(alarm);
   }
 
   // If the callback for |alarm| is in progress, wait here until it completes.
   std::lock_guard<std::recursive_mutex> lock(*local_mutex_ref);
+
+  return data;
 }
 
 // Internal implementation of canceling an alarm.
 // The caller must hold the |alarms_mutex|
-static void alarm_cancel_internal(alarm_t* alarm) {
+static void* alarm_cancel_internal(alarm_t* alarm) {
   bool needs_reschedule =
       (!list_is_empty(alarms) && list_front(alarms) == alarm);
 
   remove_pending_alarm(alarm);
+
+  void* data = alarm->data;
 
   alarm->deadline = 0;
   alarm->prev_deadline = 0;
@@ -281,6 +289,7 @@ static void alarm_cancel_internal(alarm_t* alarm) {
   alarm->queue = NULL;
 
   if (needs_reschedule) reschedule_root_alarm();
+  return data;
 }
 
 bool alarm_is_scheduled(const alarm_t* alarm) {
