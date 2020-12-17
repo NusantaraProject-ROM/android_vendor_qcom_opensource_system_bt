@@ -546,8 +546,10 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       if (btif_hf_cb[idx].state == BTHF_CONNECTION_STATE_DISCONNECTED)
         btif_hf_cb[idx].connected_bda = RawAddress::kAny;
 
-      if (p_data->open.status != BTA_AG_SUCCESS)
+      if (p_data->open.status != BTA_AG_SUCCESS) {
+        btif_disconnect_queue_advance_by_uuid(UUID_SERVCLASS_AG_HANDSFREE, &bd_addr);
         btif_queue_advance_by_uuid(UUID_SERVCLASS_AG_HANDSFREE, &bd_addr);
+      }
       break;
 
     case BTA_AG_CLOSE_EVT:
@@ -575,6 +577,8 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
          due to collision */
       if (!((btif_max_hf_clients > 1) && (is_connected(&btif_hf_cb[idx].connected_bda))))
       {
+        btif_disconnect_queue_advance_by_uuid(UUID_SERVCLASS_AG_HANDSFREE,
+            &btif_hf_cb[idx].connected_bda);
         HAL_HF_CBACK(bt_hf_callbacks, ConnectionStateCallback, btif_hf_cb[idx].state,
                   &btif_hf_cb[idx].connected_bda);
       }
@@ -1155,6 +1159,29 @@ bt_status_t HeadsetInterface::Connect(RawAddress* bd_addr) {
  * Returns         bt_status_t
  *
  ******************************************************************************/
+static bt_status_t disconnect_int(RawAddress* bd_addr, uint16_t uuid) {
+  CHECK_BTHF_INIT();
+
+  BTIF_TRACE_EVENT("%s: addr=%s, UUID=%04X",
+      __func__, bd_addr->ToString().c_str(), uuid);
+
+  int idx = btif_hf_idx_by_bdaddr(bd_addr);
+
+  if ((idx < 0) || (idx >= BTA_AG_MAX_NUM_CLIENTS)) {
+    BTIF_TRACE_ERROR("%s: Invalid index %d", __func__, idx);
+    btif_disconnect_queue_advance_by_uuid(UUID_SERVCLASS_AG_HANDSFREE, bd_addr);
+    return BT_STATUS_FAIL;
+  }
+
+  if (idx != BTIF_HF_INVALID_IDX) {
+    BTA_AgClose(btif_hf_cb[idx].handle);
+    return BT_STATUS_SUCCESS;
+  }
+
+  btif_disconnect_queue_advance_by_uuid(UUID_SERVCLASS_AG_HANDSFREE, bd_addr);
+  return BT_STATUS_FAIL;
+}
+
 bt_status_t HeadsetInterface::Disconnect(RawAddress* bd_addr) {
   CHECK_BTHF_INIT();
 
@@ -1165,12 +1192,7 @@ bt_status_t HeadsetInterface::Disconnect(RawAddress* bd_addr) {
     return BT_STATUS_FAIL;
   }
 
-  if (idx != BTIF_HF_INVALID_IDX) {
-    BTA_AgClose(btif_hf_cb[idx].handle);
-    return BT_STATUS_SUCCESS;
-  }
-
-  return BT_STATUS_FAIL;
+  return btif_disconnect_queue_disconnect(UUID_SERVCLASS_AG_HANDSFREE, *bd_addr, disconnect_int);
 }
 
 /*******************************************************************************
@@ -2155,6 +2177,7 @@ void HeadsetInterface::Cleanup(void) {
   BTIF_TRACE_EVENT("%s", __func__);
 
   btif_queue_cleanup(UUID_SERVCLASS_AG_HANDSFREE);
+  btif_disconnect_queue_cleanup(UUID_SERVCLASS_AG_HANDSFREE);
 #if (defined(BTIF_HF_SERVICES) && (BTIF_HF_SERVICES & BTA_HFP_SERVICE_MASK))
     btif_disable_service(BTA_HFP_SERVICE_ID);
 #else
