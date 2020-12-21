@@ -90,6 +90,7 @@ using bluetooth::hearing_aid::HearingAidInterface;
 bt_callbacks_t* bt_hal_cbacks = NULL;
 bool restricted_mode = false;
 bool single_user_mode = false;
+bool is_local_device_atv = false;
 
 /*******************************************************************************
  *  Externs
@@ -155,9 +156,10 @@ static bool is_profile(const char* p1, const char* p2) {
  ****************************************************************************/
 
 static int init(bt_callbacks_t* callbacks, bool start_restricted,
-                bool is_niap_mode, int config_compare_result) {
-  LOG_INFO(LOG_TAG, "QTI OMR1 stack: %s: start restricted = %d : single user = %d",
-                     __func__, start_restricted, is_niap_mode);
+                bool is_niap_mode, int config_compare_result, bool is_atv) {
+  LOG_INFO(LOG_TAG,
+           "%s:QTI OMR1 stack: start restricted = %d ; niap = %d, config compare result = %d",
+           __func__, start_restricted, is_niap_mode, config_compare_result);
 
   if (interface_ready()) return BT_STATUS_DONE;
 
@@ -168,6 +170,8 @@ static int init(bt_callbacks_t* callbacks, bool start_restricted,
   bt_hal_cbacks = callbacks;
   restricted_mode = start_restricted;
   single_user_mode = is_niap_mode;
+  is_local_device_atv = is_atv;
+
   stack_manager_get_interface()->init_stack();
   btif_debug_init();
   return BT_STATUS_SUCCESS;
@@ -194,6 +198,8 @@ static void cleanup(void) { stack_manager_get_interface()->clean_up_stack(); }
 
 bool is_restricted_mode() { return restricted_mode; }
 bool is_single_user_mode() { return single_user_mode; }
+
+bool is_atv_device() { return is_local_device_atv; }
 
 static int get_adapter_properties(void) {
   /* sanity check */
