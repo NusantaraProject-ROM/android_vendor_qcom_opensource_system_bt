@@ -804,6 +804,12 @@ void smp_br_process_pairing_command(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
   tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(p_cb->pairing_bda);
 
   SMP_TRACE_DEBUG("%s", __func__);
+
+  if (p_dev_rec == NULL) {
+    SMP_TRACE_ERROR("%s: pairing command for unknown device: %s",
+      __func__, p_cb->pairing_bda.ToString().c_str());
+    return;
+  }
   /* rejecting BR pairing request over non-SC BR link */
   if (!p_dev_rec->new_encryption_key_is_p256 && p_cb->role == HCI_ROLE_SLAVE) {
     tSMP_INT_DATA smp_int_data;
@@ -813,7 +819,7 @@ void smp_br_process_pairing_command(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
   }
 
   /* erase all keys if it is slave proc pairing req*/
-  if (p_dev_rec && (p_cb->role == HCI_ROLE_SLAVE))
+  if (p_cb->role == HCI_ROLE_SLAVE)
     btm_sec_clear_ble_keys(p_dev_rec);
 
   p_cb->flags |= SMP_PAIR_FLAG_ENC_AFTER_PAIR;
