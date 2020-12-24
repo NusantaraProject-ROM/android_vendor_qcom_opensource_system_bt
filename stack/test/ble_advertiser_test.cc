@@ -67,10 +67,10 @@ void alarm_set_on_mloop(alarm_t* alarm, period_ms_t interval_ms,
   last_alarm_data = data;
 }
 
-void alarm_cancel(alarm_t* alarm) {}
+void* alarm_cancel(alarm_t* alarm) { return nullptr; }
 alarm_t* alarm_new_periodic(const char* name) { return nullptr; }
 alarm_t* alarm_new(const char* name) { return nullptr; }
-void alarm_free(alarm_t* alarm) {}
+void* alarm_free(alarm_t* alarm) { return nullptr; }
 const controller_t* controller_get_interface() { return nullptr; }
 
 uint64_t btm_get_next_private_addrress_interval_ms() { return 15 * 60 * 1000; }
