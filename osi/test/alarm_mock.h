@@ -44,7 +44,10 @@ alarm_t* alarm_new(const char* name) {
   return AlarmMock::Get()->AlarmNewImpl(name);
 }
 
-void alarm_free(alarm_t* alarm) { AlarmMock::Get()->AlarmFreeImpl(alarm); }
+void* alarm_free(alarm_t* alarm) {
+  AlarmMock::Get()->AlarmFreeImpl(alarm);
+  return nullptr;
+}
 
 void alarm_set_on_mloop(alarm_t* alarm, uint64_t interval_ms,
                         alarm_callback_t cb, void* data) {
