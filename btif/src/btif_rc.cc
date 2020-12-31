@@ -923,8 +923,9 @@ void handle_rc_connect(tBTA_AV_RC_OPEN* p_rc_open) {
 
   rc_addr = p_dev->rc_addr;
   if (p_dev->rc_features && bt_rc_callbacks != NULL) {
-    if (BTA_AV_FEAT_RCCT)
+    if (p_dev->rc_features & BTA_AV_FEAT_RCCT) {
       HAL_CBACK(bt_rc_callbacks, connection_state_cb, true, false, &rc_addr);
+    }
     handle_rc_features(p_dev);
   }
 
