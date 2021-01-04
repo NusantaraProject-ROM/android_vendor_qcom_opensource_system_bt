@@ -250,9 +250,9 @@ void btif_storage_load_bonded_hearing_aids();
 /** Deletes the bonded hearing aid device info from NVRAM */
 void btif_storage_remove_hearing_aid(const RawAddress& address);
 
-/** Set/Unset the hearing aid device HEARING_AID_IS_WHITE_LISTED flag. */
-void btif_storage_set_hearing_aid_white_list(const RawAddress& address,
-                                             bool add_to_whitelist);
+/** Set/Unset the hearing aid device HEARING_AID_IS_Accept_LISTED flag. */
+void btif_storage_set_hearing_aid_acceptlist(const RawAddress& address,
+                                             bool add_to_acceptlist);
 
 /** Get the hearing aid device properties. */
 bool btif_storage_get_hearing_aid_prop(

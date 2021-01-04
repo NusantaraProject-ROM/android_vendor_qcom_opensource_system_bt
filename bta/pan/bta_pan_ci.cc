@@ -184,11 +184,13 @@ void bta_pan_ci_rx_writebuf(uint16_t handle, const RawAddress& dst,
 BT_HDR* bta_pan_ci_readbuf(uint16_t handle, RawAddress& src, RawAddress& dst,
                            uint16_t* p_protocol, bool* p_ext, bool* p_forward) {
   tBTA_PAN_SCB* p_scb;
-  BT_HDR* p_buf;
+  BT_HDR* p_buf = NULL;
 
   p_scb = bta_pan_scb_by_handle(handle);
 
-  p_buf = (BT_HDR*)fixed_queue_try_dequeue(p_scb->data_queue);
+  if (p_scb != NULL)
+    p_buf = (BT_HDR*)fixed_queue_try_dequeue(p_scb->data_queue);
+
   if (p_buf != NULL) {
     src = ((tBTA_PAN_DATA_PARAMS*)p_buf)->src;
     dst = ((tBTA_PAN_DATA_PARAMS*)p_buf)->dst;

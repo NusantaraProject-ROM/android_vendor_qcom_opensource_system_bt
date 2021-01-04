@@ -949,8 +949,6 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
       btif_av_cb[index].is_device_playing = false;
       btif_av_cb[index].reconfig_pending = false;
       btif_av_cb[index].sink_latency = 0;
-      btif_av_cb[index].remote_started = false;
-      btif_av_cb[index].remote_start_alarm = NULL;
       btif_av_cb[index].is_suspend_for_remote_start = false;
       btif_av_cb[index].retry_rc_connect = false;
       btif_av_cb[index].mandatory_codec_preferred = false;
@@ -977,6 +975,14 @@ static bool btif_av_state_idle_handler(btif_sm_event_t event, void* p_data, int 
         alarm_cancel(btif_av_cb[index].tws_offload_started_sync_timer);
       }
 #endif
+      if (btif_av_cb[index].remote_started) {
+        if (btif_a2dp_source_is_remote_start()) {
+          BTIF_TRACE_DEBUG("%s:cancel remote start timer",__func__);
+          if (btif_a2dp_source_last_remote_start_index() == index)
+            btif_a2dp_source_cancel_remote_start();
+        }
+        btif_av_cb[index].remote_started = false;
+      }
       btif_av_cb[index].fake_suspend_rsp = false;
       btif_av_cb[index].is_retry_reconfig = false;
       for (int i = 0; i < btif_max_av_clients; i++)
@@ -4992,6 +4998,7 @@ void  btif_av_clear_remote_start_timer(int index) {
   if (index < btif_max_av_clients && index >= 0) {
     if (btif_av_cb[index].remote_start_alarm != NULL &&
              btif_av_cb[index].remote_started)
+      BTIF_TRACE_DEBUG("%s: freeing remote start alarm on index: %d", __func__, index);
       alarm_free(btif_av_cb[index].remote_start_alarm);
       btif_av_cb[index].remote_started = false;
       btif_av_cb[index].remote_start_alarm = NULL;

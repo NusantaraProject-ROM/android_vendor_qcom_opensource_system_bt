@@ -41,7 +41,6 @@
 #include <hardware/bt_hearing_aid.h>
 #include <hardware/bt_hf_client.h>
 #include <hardware/bt_hh.h>
-#include <hardware/bt_mce.h>
 #include <hardware/bt_pan.h>
 #include <hardware/bt_rc_ext.h>
 #include <hardware/bt_sdp.h>
@@ -110,8 +109,6 @@ extern bthh_interface_t* btif_hh_get_interface();
 extern bthd_interface_t* btif_hd_get_interface();
 /*pan*/
 extern btpan_interface_t* btif_pan_get_interface();
-/*map client*/
-extern btmce_interface_t* btif_mce_get_interface();
 /* gatt */
 extern const btgatt_interface_t* btif_gatt_get_interface();
 /* avrc target */
@@ -156,7 +153,7 @@ static bool is_profile(const char* p1, const char* p2) {
 
 static int init(bt_callbacks_t* callbacks, bool start_restricted,
                 bool is_niap_mode, int config_compare_result,
-                const char** init_flags) {
+                const char** init_flags, bool is_atv) {
   LOG_INFO(LOG_TAG, "QTI OMR1 stack: %s: start restricted = %d : single user = %d",
                      __func__, start_restricted, is_niap_mode);
 

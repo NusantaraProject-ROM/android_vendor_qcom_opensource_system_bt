@@ -135,7 +135,7 @@ struct a2dp_audio_device {
 
 struct a2dp_config {
   uint32_t rate;
-  uint32_t channel_mask;
+  audio_channel_mask_t channel_mask;
   bool is_stereo_to_mono;  // True if fetching Stereo and mixing into Mono
   int format;
 };
@@ -1286,12 +1286,13 @@ size_t audio_a2dp_hw_stream_compute_buffer_size(
   return buffer_sz;
 }
 
-static uint32_t out_get_channels(const struct audio_stream* stream) {
+static audio_channel_mask_t out_get_channels(
+    const struct audio_stream* stream) {
   struct a2dp_stream_out* out = (struct a2dp_stream_out*)stream;
 
   INFO("channels 0x%" PRIx32, out->common.cfg.channel_mask);
 
-  return out->common.cfg.channel_mask;
+  return (audio_channel_mask_t)out->common.cfg.channel_mask;
 }
 
 static audio_format_t out_get_format(const struct audio_stream* stream) {
@@ -1608,11 +1609,11 @@ static size_t in_get_buffer_size(
   return 320;
 }
 
-static uint32_t in_get_channels(const struct audio_stream* stream) {
+static audio_channel_mask_t in_get_channels(const struct audio_stream* stream) {
   struct a2dp_stream_in* in = (struct a2dp_stream_in*)stream;
 
   FNLOG();
-  return in->common.cfg.channel_mask;
+  return (audio_channel_mask_t)in->common.cfg.channel_mask;
 }
 
 static audio_format_t in_get_format(

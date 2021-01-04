@@ -1645,7 +1645,7 @@ constexpr char HEARING_AID_SERVICE_CHANGED_CCC_HANDLE[] =
 constexpr char HEARING_AID_SYNC_ID[] = "HearingAidSyncId";
 constexpr char HEARING_AID_RENDER_DELAY[] = "HearingAidRenderDelay";
 constexpr char HEARING_AID_PREPARATION_DELAY[] = "HearingAidPreparationDelay";
-constexpr char HEARING_AID_IS_WHITE_LISTED[] = "HearingAidIsWhiteListed";
+constexpr char HEARING_AID_IS_ACCEPTLISTED[] = "HearingAidIsAcceptlisted";
 
 void btif_storage_add_hearing_aid(const HearingDevice& dev_info) {
   do_in_jni_thread(
@@ -1676,7 +1676,7 @@ void btif_storage_add_hearing_aid(const HearingDevice& dev_info) {
                                 dev_info.render_delay);
             btif_config_set_int(bdstr, HEARING_AID_PREPARATION_DELAY,
                                 dev_info.preparation_delay);
-            btif_config_set_int(bdstr, HEARING_AID_IS_WHITE_LISTED, true);
+            btif_config_set_int(bdstr, HEARING_AID_IS_ACCEPTLISTED, true);
             btif_config_save();
           },
           dev_info));
@@ -1768,9 +1768,9 @@ void btif_storage_load_bonded_hearing_aids() {
     if (btif_config_get_int(name, HEARING_AID_PREPARATION_DELAY, &value))
       preparation_delay = value;
 
-    uint16_t is_white_listed = 0;
-    if (btif_config_get_int(name, HEARING_AID_IS_WHITE_LISTED, &value))
-      is_white_listed = value;
+    uint16_t is_acceptlisted = 0;
+    if (btif_config_get_int(name, HEARING_AID_IS_ACCEPTLISTED, &value))
+      is_acceptlisted = value;
 
     RawAddress bd_addr;
     RawAddress::FromString(name, bd_addr);
@@ -1784,7 +1784,7 @@ void btif_storage_load_bonded_hearing_aids() {
                            audio_status_ccc_handle, service_changed_ccc_handle,
                            volume_handle, read_psm_handle, hi_sync_id,
                            render_delay, preparation_delay),
-             is_white_listed));
+             is_acceptlisted));
   }
 }
 
@@ -1804,16 +1804,16 @@ void btif_storage_remove_hearing_aid(const RawAddress& address) {
   btif_config_remove(addrstr, HEARING_AID_SYNC_ID);
   btif_config_remove(addrstr, HEARING_AID_RENDER_DELAY);
   btif_config_remove(addrstr, HEARING_AID_PREPARATION_DELAY);
-  btif_config_remove(addrstr, HEARING_AID_IS_WHITE_LISTED);
+  btif_config_remove(addrstr, HEARING_AID_IS_ACCEPTLISTED);
   btif_config_save();
 }
 
 /** Set/Unset the hearing aid device HEARING_AID_IS_WHITE_LISTED flag. */
-void btif_storage_set_hearing_aid_white_list(const RawAddress& address,
-                                             bool add_to_whitelist) {
+void btif_storage_set_hearing_aid_acceptlist(const RawAddress& address,
+                                             bool add_to_acceptlist) {
   std::string addrstr = address.ToString();
   const char *bdstr = addrstr.c_str();
-  btif_config_set_int(bdstr, HEARING_AID_IS_WHITE_LISTED, add_to_whitelist);
+  btif_config_set_int(bdstr, HEARING_AID_IS_ACCEPTLISTED, add_to_acceptlist);
   btif_config_save();
 }
 

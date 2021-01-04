@@ -318,12 +318,14 @@ void bta_hh_sm_execute(tBTA_HH_DEV_CB* p_cb, uint16_t event,
           break;
 
         default:
-          /* invalid handle, call bad API event */
-          APPL_TRACE_ERROR("wrong device handle: [%d]",
-                           p_data->hdr.layer_specific);
+
           /* Free the callback buffer now */
-          if (p_data != NULL)
+          if (p_data != NULL) {
+            /* invalid handle, call bad API event */
+            APPL_TRACE_ERROR("wrong device handle: [%d]",
+                           p_data->hdr.layer_specific);
             osi_free_and_reset((void**)&p_data->hid_cback.p_data);
+          }
           break;
       }
       if (cback_event) (*bta_hh_cb.p_cback)(cback_event, &cback_data);
