@@ -1251,6 +1251,12 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
                    pairing_cb.state, p_auth_cmpl->success,
                    p_auth_cmpl->key_present);
 
+  if (btm_get_bond_type_dev(p_auth_cmpl->bd_addr) == BOND_TYPE_PERSISTENT) {
+    BTIF_TRACE_DEBUG("%s: setting bond type for persistance pairing",
+                     __func__);
+    pairing_cb.bond_type = BOND_TYPE_PERSISTENT;
+  }
+
   RawAddress bd_addr = p_auth_cmpl->bd_addr;
   if ((p_auth_cmpl->success == true) && (p_auth_cmpl->key_present)) {
     if ((p_auth_cmpl->key_type < HCI_LKEY_TYPE_DEBUG_COMB) ||
