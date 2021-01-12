@@ -1093,7 +1093,10 @@ static bt_status_t connect_int(RawAddress* bd_addr, uint16_t uuid) {
     if (((btif_hf_cb[i].state == BTHF_CONNECTION_STATE_CONNECTED) ||
          (btif_hf_cb[i].state == BTHF_CONNECTION_STATE_SLC_CONNECTED)))
       i++;
-    else
+    else if(!((btif_hf_cb[i].handle > 0) && (btif_hf_cb[i].handle <= btif_max_hf_clients))){
+      BTIF_TRACE_WARNING("%s: index %d, handle %d, not correct", __func__, i, btif_hf_cb[i].handle);
+      i++;
+    }else
       break;
   }
 
