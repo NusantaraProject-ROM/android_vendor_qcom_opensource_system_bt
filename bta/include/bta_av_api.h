@@ -291,9 +291,10 @@ typedef uint8_t tBTA_AV_ERR;
 #define BTA_AV_RC_COLL_DETECTED_EVT 26  /* RC channel collission detected */
 #define BTA_AV_DELAY_REPORT_EVT 27      /* update delay report */
 #define BTA_AV_OFFLOAD_STOP_RSP_EVT 28 /* a2dp offload start response */
+#define BTA_AV_COLL_DETECTED_EVT 29  /* AV channel collission detected */
 
 /* Max BTA event */
-#define BTA_AV_MAX_EVT 29
+#define BTA_AV_MAX_EVT 30
 
 typedef uint8_t tBTA_AV_EVT;
 
@@ -393,6 +394,11 @@ typedef struct {
   uint8_t rc_handle;
   RawAddress peer_addr;
 } tBTA_AV_RC_COLL_DETECTED;
+
+/* data associated with BTA_AV_COLL_DETECTED */
+typedef struct {
+  RawAddress peer_addr;
+} tBTA_AV_COLL_DETECTED;
 
 /* data associated with BTA_AV_RC_BROWSE_OPEN_EVT */
 typedef struct {
@@ -508,6 +514,7 @@ typedef union {
   tBTA_AV_RC_OPEN rc_open;
   tBTA_AV_RC_CLOSE rc_close;
   tBTA_AV_RC_COLL_DETECTED rc_col_detected;
+  tBTA_AV_COLL_DETECTED av_col_detected;
   tBTA_AV_RC_BROWSE_OPEN rc_browse_open;
   tBTA_AV_RC_BROWSE_CLOSE rc_browse_close;
   tBTA_AV_REMOTE_CMD remote_cmd;

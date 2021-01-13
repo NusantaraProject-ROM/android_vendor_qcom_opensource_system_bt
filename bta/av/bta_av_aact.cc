@@ -203,11 +203,12 @@ const tBTA_AV_SACT bta_av_a2dp_action[] = {
     bta_av_cco_close,       /* BTA_AV_CCO_CLOSE */
     bta_av_switch_role,     /* BTA_AV_SWITCH_ROLE */
     bta_av_role_res,        /* BTA_AV_ROLE_RES */
-    bta_av_delay_rpt,        /* BTA_AV_DELAY_RPT */
+    bta_av_delay_rpt,       /* BTA_AV_DELAY_RPT */
     bta_av_open_at_inc,     /* BTA_AV_OPEN_AT_INC */
     bta_av_offload_req,     /* BTA_AV_OFFLOAD_REQ */
     bta_av_offload_rsp,     /* BTA_AV_OFFLOAD_RSP */
     bta_av_disc_fail_as_acp,/* BTA_AV_DISC_FAIL */
+    bta_av_handle_collision,/* BTA_AV_HANDLE_COLLISION */
     NULL};
 
 /* these tables translate AVDT events to SSM events */
@@ -4717,4 +4718,31 @@ void bta_av_disc_fail_as_acp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     if (p_scb->uuid_int == 0) p_scb->uuid_int = UUID_SERVCLASS_AUDIO_SOURCE;
       bta_av_next_getcap(p_scb, p_data);
   }
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_av_handle_collision
+ *
+ * Description      This function is called when lower level ACL collision occurs
+ *                  where we drop outgoing connection and update failure to btif
+ *                  layer which later retries for connection as part of recovery.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void bta_av_handle_collision(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
+  APPL_TRACE_IMP("%s: sending AVDTP fail event to btif for device %s",
+                  __func__, p_scb->peer_addr.ToString().c_str());
+  APPL_TRACE_IMP("%s: Stop ongoing SDP %d and perform cleaanup as part of collission",
+                  __func__, p_scb->sdp_discovery_started);
+
+  /* Cancel SDP discovery procedure and send fail event to upper layer */
+  if (p_scb->sdp_discovery_started)
+    p_scb->sdp_discovery_started = false;
+
+  p_scb->open_status = BTA_AV_FAIL;
+  bta_av_str_closed(p_scb, p_data);
+
+  /* connection is retried from upper layers, no need for connection attempt again */
 }

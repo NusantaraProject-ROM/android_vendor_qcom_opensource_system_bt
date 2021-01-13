@@ -113,6 +113,8 @@ static tLDAC_GET_ERROR_CODE ldac_get_error_code_func;
 #define A2DP_LDAC_OFFSET (AVDT_MEDIA_OFFSET + A2DP_LDAC_MPL_HDR_LEN)
 #endif
 
+#define L2CA_BASIC_MODE_HDR_SIZE 4
+
 typedef struct {
   uint32_t sample_rate;
   uint8_t channel_mode;
@@ -498,8 +500,8 @@ static void a2dp_vendor_ldac_encoder_update(uint16_t peer_mtu,
   // NOTE: MTU in the initialization must include the AVDT media header size.
   int result = ldac_init_handle_encode_func(
       a2dp_ldac_encoder_cb.ldac_handle,
-      a2dp_ldac_encoder_cb.TxAaMtuSize + AVDT_MEDIA_HDR_SIZE, ldac_eqmid,
-      p_encoder_params->channel_mode, p_encoder_params->pcm_fmt,
+      a2dp_ldac_encoder_cb.TxAaMtuSize + AVDT_MEDIA_HDR_SIZE + L2CA_BASIC_MODE_HDR_SIZE,
+      ldac_eqmid, p_encoder_params->channel_mode, p_encoder_params->pcm_fmt,
       p_encoder_params->sample_rate);
   if (result != 0) {
     LOG_ERROR(LOG_TAG, "%s: error initializing the LDAC encoder: %d", __func__,

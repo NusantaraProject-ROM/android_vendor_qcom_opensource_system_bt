@@ -247,6 +247,7 @@ static void event_signal_stack_up(UNUSED_ATTR void* context) {
   // Notify BTIF connect queue that we've brought up the stack. It's
   // now time to dispatch all the pending profile connect requests.
   btif_queue_connect_next();
+  btif_disconnect_queue_disconnect_next();
   HAL_CBACK(bt_hal_cbacks, adapter_state_changed_cb, BT_STATE_ON);
 }
 
