@@ -46,6 +46,7 @@
 #include <btcommon_interface_defs.h>
 #include "bta/include/bta_av_api.h"
 #include "btif/include/btif_config.h"
+#include "a2dp_aac_constants.h"
 int avdt_ccb_get_num_allocated_seps();
 /*******************************************************************************
  *
@@ -452,15 +453,29 @@ void avdt_ccb_hdl_discover_rsp(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
  ******************************************************************************/
 void avdt_ccb_hdl_getcap_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   tAVDT_SCB* p_scb;
-
+  int vbr = 0;
   AVDT_TRACE_DEBUG("%s: bd_add: %s", __func__, p_ccb->peer_addr.ToString().c_str());
   /* look up scb for seid sent to us */
   p_scb = avdt_scb_by_hdl(p_data->msg.single.seid);
 
   p_data->msg.svccap.p_cfg = &p_scb->cs.cfg;
-
+  if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC) {
+      if (!A2DP_Get_AAC_VBR_Status(&p_ccb->peer_addr)) {
+         vbr = p_scb->cs.cfg.codec_info[6] & A2DP_AAC_VARIABLE_BIT_RATE_MASK;
+         APPL_TRACE_DEBUG("%s, original vbr %d",__func__, vbr);
+         if (vbr == A2DP_AAC_VARIABLE_BIT_RATE_ENABLED) {
+            APPL_TRACE_DEBUG("%s, reset vbr to disabled ",__func__);
+            p_scb->cs.cfg.codec_info[6] = p_scb->cs.cfg.codec_info[6] & ~A2DP_AAC_VARIABLE_BIT_RATE_ENABLED;
+         }
+      }
+  }
   bta_av_refresh_accept_signalling_timer(p_ccb->peer_addr);
   avdt_ccb_event(p_ccb, AVDT_CCB_API_GETCAP_RSP_EVT, p_data);
+  if ((p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC)
+     && (vbr == A2DP_AAC_VARIABLE_BIT_RATE_ENABLED)) {
+    APPL_TRACE_DEBUG("%s, reset vbr to enabled",__func__);
+    p_scb->cs.cfg.codec_info[6] = p_scb->cs.cfg.codec_info[6] | A2DP_AAC_VARIABLE_BIT_RATE_ENABLED;
+  }
 }
 
 /*******************************************************************************
