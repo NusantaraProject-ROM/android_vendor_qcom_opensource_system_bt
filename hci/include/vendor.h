@@ -133,6 +133,7 @@ typedef enum {
   BT_HOST_REASON_POWER_ON_REGS_STUCK             =  0xC8,
   BT_HOST_REASON_RX_THREAD_START_STUCK           =  0xC9,
   BT_HOST_REASON_GET_LOCALADDR_STUCK             =  0xCA,
+  BT_HOST_REASON_OTP_INFO_GET_CMD_STUCK          =  0xCB
 } soc_crash_reason_e;
 
 typedef struct {
@@ -194,7 +195,8 @@ static secondary_reason secondary_crash_reason [] = {
 { BT_HOST_REASON_FAILED_TO_RECEIVE_SLEEP_IND   , "Failed to receive SLEEP IND from SoC"},
 { BT_HOST_REASON_POWER_ON_REGS_STUCK           , "SoC Power ON Sequence stuck"},
 { BT_HOST_REASON_RX_THREAD_START_STUCK         , "RX thread start stuck"},
-{ BT_HOST_REASON_GET_LOCALADDR_STUCK           , "Get local BD address stuck"}
+{ BT_HOST_REASON_GET_LOCALADDR_STUCK           , "Get local BD address stuck"},
+{ BT_HOST_REASON_OTP_INFO_GET_CMD_STUCK        , "Get OTP info. cmd stuck"}
 };
 
 enum host_crash_reason_e  {
