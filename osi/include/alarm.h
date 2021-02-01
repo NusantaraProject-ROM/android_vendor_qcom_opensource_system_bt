@@ -51,7 +51,11 @@ alarm_t* alarm_new_periodic(const char* name);
 // |alarm_new_periodic|. |alarm| may be NULL. If the alarm is
 // pending, it will be cancelled first. It is not safe to call
 // |alarm_free| from inside the callback of |alarm|.
-void alarm_free(alarm_t* alarm);
+// Returned value is alarm->data. This returned value can be used by
+// caller to free alarm->data if alarm->data was allocated dynamically
+// and still not freed. For non-periodic alarm, this returned value will
+// be NULL if this alarm is already fired.
+void* alarm_free(alarm_t* alarm);
 
 // Sets an |alarm| to execute a callback in the future. The |cb|
 // callback is called after the given |interval_ms|, where
@@ -85,7 +89,11 @@ void alarm_set_on_mloop(alarm_t* alarm, period_ms_t interval_ms,
 // callback is not in progress and will not be called if it
 // hasn't already been called. This function is idempotent.
 // |alarm| may not be NULL.
-void alarm_cancel(alarm_t* alarm);
+// Returned value is alarm->data. This returned value can be used by
+// caller to free alarm->data if alarm->data was allocated dynamically
+// and still not freed. For non-periodic alarm, this returned value will
+// be NULL if this alarm is already fired.
+void* alarm_cancel(alarm_t* alarm);
 
 // Tests whether the |alarm| is scheduled.
 // Return true if the |alarm| is scheduled or NULL, otherwise false.

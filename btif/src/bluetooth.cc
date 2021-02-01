@@ -64,6 +64,7 @@
 #include "btif_config.h"
 #include "device/include/controller.h"
 #include "btif_debug.h"
+#include "btif_keystore.h"
 #include "btif_storage.h"
 #include "device/include/device_iot_config.h"
 #include "btsnoop.h"
@@ -88,7 +89,10 @@ using bluetooth::hearing_aid::HearingAidInterface;
 
 bt_callbacks_t* bt_hal_cbacks = NULL;
 bool restricted_mode = false;
-bool single_user_mode = false;
+bool niap_mode = false;
+const int CONFIG_COMPARE_ALL_PASS = 0b11;
+int niap_config_compare_result = CONFIG_COMPARE_ALL_PASS;
+bool is_local_device_atv = false;
 
 /*******************************************************************************
  *  Externs
@@ -154,8 +158,9 @@ static bool is_profile(const char* p1, const char* p2) {
 static int init(bt_callbacks_t* callbacks, bool start_restricted,
                 bool is_niap_mode, int config_compare_result,
                 const char** init_flags, bool is_atv) {
-  LOG_INFO(LOG_TAG, "QTI OMR1 stack: %s: start restricted = %d : single user = %d",
-                     __func__, start_restricted, is_niap_mode);
+  LOG_INFO(LOG_TAG, "QTI OMR1 stack: %s: start restricted = %d : niap = %d,"
+           " config compare result = %d", __func__, start_restricted, is_niap_mode,
+           config_compare_result);
 
   if (interface_ready()) return BT_STATUS_DONE;
 
@@ -165,7 +170,10 @@ static int init(bt_callbacks_t* callbacks, bool start_restricted,
 
   bt_hal_cbacks = callbacks;
   restricted_mode = start_restricted;
-  single_user_mode = is_niap_mode;
+  niap_mode = is_niap_mode;
+  niap_config_compare_result = config_compare_result;
+  is_local_device_atv = is_atv;
+
   stack_manager_get_interface()->init_stack();
   btif_debug_init();
   return BT_STATUS_SUCCESS;
@@ -191,7 +199,14 @@ static int disable(void) {
 static void cleanup(void) { stack_manager_get_interface()->clean_up_stack(); }
 
 bool is_restricted_mode() { return restricted_mode; }
-bool is_single_user_mode() { return single_user_mode; }
+bool is_niap_mode() { return niap_mode; }
+// if niap mode disable, will always return CONFIG_COMPARE_ALL_PASS(0b11)
+// indicate don't check config checksum.
+int get_niap_config_compare_result() {
+  return niap_mode ? niap_config_compare_result : CONFIG_COMPARE_ALL_PASS;
+}
+
+bool is_atv_device() { return is_local_device_atv; }
 
 static int get_adapter_properties(void) {
   /* sanity check */
@@ -416,6 +431,8 @@ static const void* get_profile_interface(const char* profile_id) {
   if (is_profile(profile_id, BT_PROFILE_HEARING_AID_ID))
     return btif_hearing_aid_get_interface();
 
+  if (is_profile(profile_id, BT_KEYSTORE_ID))
+    return bluetooth::bluetooth_keystore::getBluetoothKeystoreInterface();
   return NULL;
 }
 

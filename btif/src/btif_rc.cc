@@ -471,7 +471,7 @@ extern bool btif_hf_call_terminated_recently();
 extern bool btif_hf_is_call_vr_idle();
 extern bool check_cod(const RawAddress* remote_bdaddr, uint32_t cod);
 extern bool btif_av_is_split_a2dp_enabled();
-extern int btif_av_idx_by_bdaddr(RawAddress *bd_addr);
+extern int btif_av_idx_by_bdaddr(const RawAddress *bd_addr);
 extern bool btif_av_is_peer_silenced(RawAddress *bd_addr);
 extern bool btif_av_check_flag_remote_suspend(int index);
 extern bt_status_t btif_hf_check_if_sco_connected();
@@ -923,8 +923,9 @@ void handle_rc_connect(tBTA_AV_RC_OPEN* p_rc_open) {
 
   rc_addr = p_dev->rc_addr;
   if (p_dev->rc_features && bt_rc_callbacks != NULL) {
-    if (BTA_AV_FEAT_RCCT)
+    if (p_dev->rc_features & BTA_AV_FEAT_RCCT) {
       HAL_CBACK(bt_rc_callbacks, connection_state_cb, true, false, &rc_addr);
+    }
     handle_rc_features(p_dev);
   }
 

@@ -561,6 +561,7 @@ bt_status_t btif_cleanup_bluetooth(void) {
   btif_dm_cleanup();
   btif_jni_disassociate();
   btif_queue_release();
+  btif_disconnect_queue_release();
 
   if (jni_run_loop && message_loop_) {
     message_loop_->task_runner()->PostTask(FROM_HERE,
@@ -849,6 +850,8 @@ static void execute_storage_request(uint16_t event, char* p_param) {
       if (prop.type == BT_PROPERTY_LOCAL_LE_FEATURES) {
         tBTM_BLE_VSC_CB cmn_vsc_cb;
         bt_local_le_features_t local_le_features;
+
+        memset(&local_le_features, 0, sizeof(bt_local_le_features_t));
 
         /* LE features are not stored in storage. Should be retrived from stack
          */

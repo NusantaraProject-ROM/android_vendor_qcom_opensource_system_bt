@@ -571,6 +571,8 @@ int btif_get_max_allowable_sink_connections();
 *******************************************************************************/
 tBTA_AV_HNDL btif_av_get_hndl_by_addr(RawAddress peer_address);
 
+void btif_av_clear_cached_src_codec_config(const RawAddress& address);
+
 bool btif_device_in_sink_role();
 void btif_av_signal_session_ready();
 void btif_av_set_suspend_rsp_track_timer(int index);
