@@ -623,7 +623,10 @@ static future_t* start_up(void) {
     adv_audio_support_mask &= ~ADV_AUDIO_UNICAST_FEAT_MASK;
   }
   if (!HCI_LE_PERIODIC_SYNC_TRANSFER_SEND_SUPPORTED(features_ble.as_array)) {
-    adv_audio_support_mask &= ~ADV_AUDIO_BROADCAST_FEAT_MASK;
+    adv_audio_support_mask &= ~ADV_AUDIO_BCA_FEAT_MASK;
+  }
+  if (!HCI_LE_ISO_BROADCASTER_SUPPORTED(features_ble.as_array)) {
+    adv_audio_support_mask &= ~ADV_AUDIO_BCS_FEAT_MASK;
   }
   snprintf(adv_audio_property, 2, "%d", adv_audio_support_mask);
   osi_property_set("persist.vendor.service.bt.adv_audio_mask", adv_audio_property);
@@ -1079,10 +1082,10 @@ static bool get_max_power_values(uint8_t *power_val) {
 
 static bool is_adv_audio_supported(void) {
     if ((g_adv_audio_prop & ADV_AUDIO_UNICAST_FEAT_MASK) ||
-              (g_adv_audio_prop & ADV_AUDIO_BROADCAST_FEAT_MASK))
-          return true;
-
-      return false;
+              (g_adv_audio_prop & ADV_AUDIO_BCA_FEAT_MASK)) {
+        return true;
+    }
+    return false;
 }
 
 static const controller_t interface = {
