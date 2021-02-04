@@ -3522,9 +3522,15 @@ void bta_av_rcfg_connect(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
   if (p_scb->num_recfg > BTA_AV_RECONFIG_RETRY) {
     /* let bta_av_rcfg_failed report fail */
     bta_av_rcfg_failed(p_scb, NULL);
-  } else
+  } else {
+    if (BTM_IS_QTI_CONTROLLER() && p_scb->offload_supported) {
+      APPL_TRACE_DEBUG("%s: stream closed, stop vendor offload", __func__);
+      bta_av_vendor_offload_stop(p_scb);
+    }
+
     AVDT_ConnectReq(p_scb->peer_addr, p_scb->sec_mask,
                     bta_av_dt_cback[p_scb->hdi]);
+  }
 }
 
 /*******************************************************************************
@@ -4425,7 +4431,11 @@ void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     if ((codec_type == 0) &&
         (A2DP_GetMaxBitpoolSbc(p_scb->cfg.codec_info) <= BTIF_A2DP_MAX_BITPOOL_MQ)) {
       APPL_TRACE_IMP("Restricting streaming MTU size for MQ Bitpool");
-      mtu = MAX_2MBPS_AVDTP_MTU;
+      if (p_scb->stream_mtu > 0 &&
+        p_scb->stream_mtu < MAX_2MBPS_AVDTP_MTU)
+        mtu = p_scb->stream_mtu;
+      else
+        mtu = MAX_2MBPS_AVDTP_MTU;
     }
 
     mtu = mtu + AVDT_MEDIA_HDR_SIZE;
