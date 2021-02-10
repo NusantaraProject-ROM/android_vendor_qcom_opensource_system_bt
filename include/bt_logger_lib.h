@@ -55,6 +55,7 @@ typedef enum {
     DYNAMIC_LOGCAT_CAPTURE = 2, // Level 6 logcat logs over logger socket
     HCI_SNOOP_LOG_LITE = 4,     // Always enabled, HCI snoop logs sans media packets
     HCI_SNOOP_ONLY_HEADER = 8,  //  HCI snoop logs with only ACL Header packets
+    HCI_SNOOP_LOG_PROFILEFILTER = 16, // Profile filtered mode
 } LoggingFlags;
 
 void init_vnd_Logger(void);

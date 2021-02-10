@@ -38,6 +38,9 @@
 #include "rfc_int.h"
 #include "rfcdefs.h"
 
+#include "stack/l2cap/l2c_int.h"
+#include "hci/include/btsnoop.h"
+
 /*
  * Local function definitions
 */
@@ -974,6 +977,19 @@ void port_rfc_closed(tPORT* p_port, uint8_t res) {
     p_port->dlci &= 0xfe;
 
     return;
+  }
+
+  if (p_port->state >= PORT_STATE_OPENED) {
+    uint16_t lcid;
+    tL2C_CCB *ccb;
+
+    lcid   = p_port->rfc.p_mcb->lcid;
+    ccb    = l2cu_find_ccb_by_cid(nullptr, lcid);
+
+    if (ccb) {
+      btsnoop_get_interface()->set_rfc_port_close(ccb->p_lcb->handle,
+                                      lcid, p_port->dlci, p_port->uuid);
+    }
   }
 
   if ((p_port->state != PORT_STATE_CLOSING) &&
