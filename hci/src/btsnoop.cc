@@ -53,6 +53,7 @@
 #include "stack_config.h"
 #include "l2c_api.h"
 #include <poll.h>
+#include "buffer_allocator.h"
 
 // The number of of packets per btsnoop file before we rotate to the next
 // file. As of right now there are two snoop files that are rotated through.
@@ -61,17 +62,21 @@
 #define DEFAULT_BTSNOOP_SIZE 0xffff
 #define HANDLE_MASK 0x0FFF
 #define START_PACKET_BOUNDARY 2
+#define CONTINUATION_PACKET_BOUNDARY 1
 #define GET_BOUNDARY_FLAG(handle) (((handle) >> 12) & 0x0003)
 
 #define IS_DEBUGGABLE_PROPERTY "ro.debuggable"
 
 #define BTSNOOP_LOG_MODE_PROPERTY "persist.bluetooth.btsnooplogmode"
 #define BTSNOOP_DEFAULT_MODE_PROPERTY "persist.bluetooth.btsnoopdefaultmode"
+#define BTSNOOP_LOG_FILTER_PROFILES_PROPERTY    "persist.bluetooth.snoopfilter.profiles"
+#define BTSNOOP_LOG_PROFILE_FILTERMODE_PROPERTY "persist.bluetooth.snoopfilter.mode"
 #define BTSNOOP_MODE_DISABLED "disabled"
 #define BTSNOOP_MODE_FILTERED "filtered"
 #define BTSNOOP_MODE_FULL "full"
 #define BTSNOOP_MODE_SNOOPHEADERSFILTERED "snoopheadersfiltered"
 #define BTSNOOP_MODE_MEDIAPKTSFILTERED "mediapktsfiltered"
+#define BTSNOOP_MODE_PROFILESFILTERED "profilesfiltered"
 
 #define BTSNOOP_PATH_PROPERTY "persist.bluetooth.btsnooppath"
 #if (OFF_TARGET_TEST_ENABLED == FALSE)
@@ -88,12 +93,20 @@ typedef enum {
   kEventPacket = 4
 } packet_type_t;
 
+enum {
+  FILTER_MODE_FULLFILTER = 0,
+  FILTER_MODE_HEADER,
+  FILTER_MODE_MAGIC,
+};
+
 // Epoch in microseconds since 01/01/0000.
 static const uint64_t BTSNOOP_EPOCH_DELTA = 0x00dcddb30f2f8000ULL;
 
 // Number of bytes into a packet where you can find the value for a channel.
 static const size_t ACL_CHANNEL_OFFSET = 0;
+static const size_t ACL_LENGTH_OFFSET = 2;
 static const size_t L2C_CHANNEL_OFFSET = 6;
+static const size_t L2C_LENGTH_OFFSET = 4;
 static const size_t RFC_CHANNEL_OFFSET = 8;
 static const size_t RFC_EVENT_OFFSET = 9;
 
@@ -112,6 +125,19 @@ static bool sock_snoop_active = false;
 extern bt_logger_interface_t *logger_interface;
 int64_t gmt_offset;
 int64_t tmp_gmt_offset;
+
+static bool pbap_filtered, map_filtered;
+static int profile_filter_mode; // fullfilter, header, magic
+static const char *payload_fill_magic = "PROHIBITED";
+static const char *cpbr_pattern = "\x0d\x0a+CPBR:";
+
+#define PACKET_TYPE_LENGTH 1
+#define HCI_HEADER_LENGTH 4
+#define L2C_HEADER_LENGTH 4
+#define DEFAULT_PACKET_SIZE 0x800
+#define EXTRA_BUF_SIZE 0x40
+
+static uint8_t packet[DEFAULT_PACKET_SIZE];
 
 // Channel tracking variables for filtering.
 
@@ -172,6 +198,161 @@ std::mutex filter_list_mutex;
 std::unordered_map<uint16_t, FilterTracker> filter_list;
 std::unordered_map<uint16_t, uint16_t> local_cid_to_acl;
 
+typedef enum {
+  FILTER_PROFILE_NONE = -1,
+  FILTER_PROFILE_PBAP = 0,
+  FILTER_PROFILE_HFP_HS,
+  FILTER_PROFILE_HFP_HF,
+  FILTER_PROFILE_MAP,
+  FILTER_PROFILE_MAX,
+} profile_type_t;
+
+#define PROFILE_PSM_PBAP 0x1025
+#define PROFILE_PSM_MAP  0x1029
+#define PROFILE_PSM_RFCOMM 0x0003
+
+#define PROFILE_SCN_PBAP 19
+#define PROFILE_SCN_MAP  26
+
+#define PROFILE_UUID_PBAP 0x112f
+#define PROFILE_UUID_MAP  0x1132
+#define PROFILE_UUID_HFP_HS 0x1112
+#define PROFILE_UUID_HFP_HF 0x111f
+
+class ProfilesFilter {
+  public:
+    ProfilesFilter() {
+      for (int i = 0; i < FILTER_PROFILE_MAX; i++) {
+        profiles[i].type = (profile_type_t)i;
+        profiles[i].enabled = false;
+        profiles[i].rfcomm_opened = false;
+        profiles[i].l2cap_opened = false;
+      }
+      if (pbap_filtered) {
+        profiles[FILTER_PROFILE_PBAP].enabled =
+        profiles[FILTER_PROFILE_HFP_HS].enabled =
+        profiles[FILTER_PROFILE_HFP_HF].enabled = true;
+      }
+      if (map_filtered) {
+        profiles[FILTER_PROFILE_MAP].enabled = true;
+      }
+      ch_rfc_l = ch_rfc_r = ch_last = 0;
+    }
+
+    bool isHfpProfile(bool local, uint16_t cid, uint8_t dlci) {
+      profile_type_t profile = dlci2profile(local, cid, dlci);
+
+      return profile == FILTER_PROFILE_HFP_HS ||
+              profile == FILTER_PROFILE_HFP_HF;
+    }
+
+    bool isL2capMatch(bool local, uint16_t cid) {
+      return cid2profile(local, cid) != FILTER_PROFILE_NONE;
+    }
+
+    bool isL2capFlowExt(bool local, uint16_t cid) {
+      profile_type_t profile = cid2profile(local, cid);
+      if (profile >= 0)
+        return profiles[profile].flow_ext_l2cap;
+      return false;
+    }
+
+    bool isRfcommMatch(bool local, uint16_t cid, uint8_t dlci) {
+      return dlci2profile(local, cid, dlci) != FILTER_PROFILE_NONE;
+    }
+
+    bool isRfcommFlowExt(bool local, uint16_t cid, uint8_t dlci) {
+      profile_type_t profile = dlci2profile(local, cid, dlci);
+      if (profile >= 0)
+        return profiles[profile].flow_ext_rfcomm;
+      return false;
+    }
+
+    profile_type_t cid2profile(bool local, uint16_t cid) {
+      uint16_t ch;
+
+      for (int i = 0; i < FILTER_PROFILE_MAX; i++) {
+        if(profiles[i].enabled && profiles[i].l2cap_opened) {
+          ch = local ? profiles[i].lcid : profiles[i].rcid;
+          if (ch == cid)
+            return (profile_type_t)i;
+        }
+      }
+      return FILTER_PROFILE_NONE;
+    }
+
+    profile_type_t dlci2profile(bool local, uint16_t cid, uint8_t dlci) {
+      if (!isRfcChannel(local, cid))
+        return FILTER_PROFILE_NONE;
+
+      for (int i = 0; i < FILTER_PROFILE_MAX; i++) {
+        if(profiles[i].enabled && profiles[i].l2cap_opened &&
+               profiles[i].rfcomm_opened &&
+               profiles[i].scn == (dlci>>1))
+          return (profile_type_t)i;
+      }
+      return FILTER_PROFILE_NONE;
+    }
+
+    void profile_l2cap_open(profile_type_t profile, uint16_t lcid,
+                          uint16_t rcid, uint16_t psm, bool flow_ext) {
+      if (profiles[profile].l2cap_opened == true) {
+        LOG_INFO(LOG_TAG, "%s: l2cap for %d was already opened. Override it",
+                        __func__, profile);
+      }
+      profiles[profile].lcid = lcid;
+      profiles[profile].rcid = rcid;
+      profiles[profile].psm  = psm;
+      profiles[profile].flow_ext_l2cap = flow_ext;
+      profiles[profile].l2cap_opened = true;
+    }
+
+    void profile_l2cap_close(profile_type_t profile) {
+      if (profile < 0 || profile >= FILTER_PROFILE_MAX)
+        return;
+      profiles[profile].l2cap_opened = false;
+    }
+
+    void profile_rfcomm_open(profile_type_t profile, uint16_t lcid, uint8_t dlci,
+                         uint16_t uuid, bool flow_ext) {
+      if (profiles[profile].rfcomm_opened == true) {
+        LOG_INFO(LOG_TAG, "%s: rfcomm for %d was already opened. Override it",
+                       __func__, profile);
+      }
+      profiles[profile].rfcomm_uuid = uuid;
+      profiles[profile].scn = (dlci>>1);
+      profiles[profile].flow_ext_rfcomm = flow_ext;
+      profiles[profile].l2cap_opened = true;
+      profiles[profile].rfcomm_opened = true;
+    }
+
+    void profile_rfcomm_close(profile_type_t profile) {
+      if (profile < 0 || profile >= FILTER_PROFILE_MAX)
+        return;
+      profiles[profile].rfcomm_opened = false;
+    }
+
+    bool isRfcChannel(bool local, uint16_t cid) {
+      uint16_t channel = local ? ch_rfc_l : ch_rfc_r;
+      return cid == channel;
+    }
+
+    uint16_t ch_rfc_l, ch_rfc_r;  // local & remote L2CAP channel for RFCOMM
+    uint16_t ch_last;             // last channel seen for fragment packet
+
+private:
+    struct {
+      profile_type_t type;
+      bool enabled, l2cap_opened, rfcomm_opened;
+      bool flow_ext_l2cap, flow_ext_rfcomm;
+      uint16_t lcid, rcid, rfcomm_uuid, psm;
+      uint8_t scn;
+    } profiles[FILTER_PROFILE_MAX];
+};
+
+std::mutex profiles_filter_mutex;
+std::unordered_map<int16_t, ProfilesFilter> profiles_filter_table;
+
 // Cached value for whether full snoop logs are enabled. So the property isn't
 // checked for every packet.
 static bool is_btsnoop_enabled;
@@ -198,6 +379,7 @@ static future_t* start_up() {
   std::lock_guard<std::mutex> lock(btsnoop_mutex);
   time_t t = time(NULL);
   struct tm tm_cur;
+  int len = 0;
 
   localtime_r (&t, &tm_cur);
   gmt_offset = tm_cur.tm_gmtoff;
@@ -206,18 +388,21 @@ static future_t* start_up() {
     tmp_gmt_offset = -gmt_offset;
   }
 
+  pbap_filtered = map_filtered = false;
+  profile_filter_mode = FILTER_MODE_FULLFILTER;
+
   // Default mode is FILTERED on userdebug/eng build, DISABLED on user build.
   // It can also be overwritten by modifying the global setting.
   int is_debuggable = osi_property_get_int32(IS_DEBUGGABLE_PROPERTY, 0);
   std::string default_mode = BTSNOOP_MODE_DISABLED;
   if (is_debuggable) {
-    int len = osi_property_get(BTSNOOP_DEFAULT_MODE_PROPERTY, property.data(),
+    len = osi_property_get(BTSNOOP_DEFAULT_MODE_PROPERTY, property.data(),
                                BTSNOOP_MODE_FILTERED);
     default_mode = std::string(property.data(), len);
   }
 
   // Get the actual mode
-  int len = osi_property_get(BTSNOOP_LOG_MODE_PROPERTY, property.data(),
+  len = osi_property_get(BTSNOOP_LOG_MODE_PROPERTY, property.data(),
                              default_mode.c_str());
   std::string btsnoop_mode(property.data(), len);
 
@@ -245,6 +430,16 @@ static future_t* start_up() {
     is_btsnoop_enabled = false;
     is_btsnoop_filtered = false;
     vendor_logging_level = HCI_SNOOP_ONLY_HEADER | DYNAMIC_LOGCAT_CAPTURE;
+  } else if (btsnoop_mode == BTSNOOP_MODE_PROFILESFILTERED) {
+    if (is_debuggable) {
+      LOG(INFO) << __func__ << ": Profiles filter works only for user build";
+    } else {
+      LOG(INFO) << __func__ << ": Profile filtered Logs enabled";
+      is_vndbtsnoop_enabled = true;
+      vendor_logging_level = HCI_SNOOP_LOG_PROFILEFILTER | DYNAMIC_LOGCAT_CAPTURE;
+    }
+    is_btsnoop_enabled = false;
+    is_btsnoop_filtered = false;
   } else {
     LOG(INFO) << __func__ << ": Snoop Logs disabled";
     is_btsnoop_enabled = false;
@@ -252,6 +447,37 @@ static future_t* start_up() {
     is_vndbtsnoop_enabled = false;
     delete_btsnoop_files(true);
     delete_btsnoop_files(false);
+  }
+
+  if (btsnoop_mode == BTSNOOP_MODE_PROFILESFILTERED && !is_debuggable) {
+    len = osi_property_get(BTSNOOP_LOG_PROFILE_FILTERMODE_PROPERTY,
+                           property.data(), "fullfilter");
+    std::string filter_mode(property.data(), len);
+    if (filter_mode == "header") {
+      profile_filter_mode = FILTER_MODE_HEADER;
+    } else if (filter_mode == "magic") {
+      profile_filter_mode = FILTER_MODE_MAGIC;
+    } else {
+      profile_filter_mode = FILTER_MODE_FULLFILTER;
+    }
+    LOG(INFO) << __func__ << ": profile filter mode " << profile_filter_mode;
+    len = osi_property_get(BTSNOOP_LOG_FILTER_PROFILES_PROPERTY,
+                           property.data(), "");
+
+    char *token, *saved_token;
+    token = strtok_r((char *)property.data(), ",", &saved_token);
+    while (token != NULL) {
+      if (strcmp(token, "pbap") == 0) {
+        pbap_filtered = true;
+      } else if (strcmp(token, "map") == 0) {
+        map_filtered = true;
+      } else {
+        LOG(INFO) << token << " not supported";
+      }
+      token = strtok_r(NULL, ",", &saved_token);
+    }
+    LOG(INFO) << __func__ << "pbap_filtered=" << pbap_filtered
+              << " map_filtered=" << map_filtered;
   }
 
   if (is_vndbtsnoop_enabled) {
@@ -306,7 +532,27 @@ EXPORT_SYMBOL extern const module_t btsnoop_module = {
 
 // Interface functions
 static void capture(const BT_HDR* buffer, bool is_received) {
-  uint8_t* p = const_cast<uint8_t*>(buffer->data + buffer->offset);
+  uint8_t *p = 0;
+
+  if (vendor_logging_level & HCI_SNOOP_LOG_PROFILEFILTER &&
+        (profile_filter_mode == FILTER_MODE_MAGIC ||
+          profile_filter_mode == FILTER_MODE_HEADER)) {
+
+    if (buffer->len + EXTRA_BUF_SIZE <= DEFAULT_PACKET_SIZE) {
+      p = packet;
+    } else {
+      // Add additional bytes for magic string in case
+      //  payload length is less than the length of magic string.
+      p = (uint8_t *)buffer_allocator_get_interface()->alloc(buffer->len + EXTRA_BUF_SIZE);
+      if (!p) {
+        LOG_ERROR(LOG_TAG, "%s: no enough memory", __func__);
+        return;
+      }
+    }
+    memcpy(p, buffer->data + buffer->offset, buffer->len);
+  } else {
+    p = const_cast<uint8_t*>(buffer->data + buffer->offset);
+  }
 
   std::lock_guard<std::mutex> lock(btsnoop_mutex);
 
@@ -343,6 +589,12 @@ static void capture(const BT_HDR* buffer, bool is_received) {
     case MSG_STACK_TO_HC_HCI_CMD:
       btsnoop_write_packet(kCommandPacket, p, true, timestamp_us);
       break;
+  }
+
+  if (vendor_logging_level & HCI_SNOOP_LOG_PROFILEFILTER &&
+          (profile_filter_mode == FILTER_MODE_MAGIC ||
+            profile_filter_mode == FILTER_MODE_HEADER) && p != packet) {
+    buffer_allocator_get_interface()->free(p);
   }
 }
 
@@ -408,9 +660,234 @@ static void clear_l2cap_whitelist(uint16_t conn_handle, uint16_t local_cid,
   filter_list[conn_handle].removeL2cCid(local_cid, remote_cid);
 }
 
+static uint32_t payload_strip(uint8_t  *packet, uint32_t hdr_len, uint32_t pl_len) {
+  uint32_t len = 0, maglen;
+  uint8_t *stream = packet + ACL_LENGTH_OFFSET;
+
+  switch (profile_filter_mode) {
+    case FILTER_MODE_FULLFILTER:
+      return 0;
+    case FILTER_MODE_HEADER:
+      len = hdr_len;
+
+      UINT16_TO_STREAM(stream, (hdr_len - L2C_HEADER_LENGTH));
+      UINT16_TO_STREAM(stream, (hdr_len - (HCI_HEADER_LENGTH + L2C_HEADER_LENGTH)));
+      break;
+    case FILTER_MODE_MAGIC:
+      maglen = strlen(payload_fill_magic);
+      memcpy(&packet[hdr_len], payload_fill_magic, maglen);
+      UINT16_TO_STREAM(stream, (hdr_len + maglen - L2C_HEADER_LENGTH));
+      UINT16_TO_STREAM(stream, (hdr_len + maglen - (HCI_HEADER_LENGTH + L2C_HEADER_LENGTH)));
+      len = hdr_len + maglen;
+      break;
+  }
+  return len + PACKET_TYPE_LENGTH; // including packet type byte
+}
+
+static uint32_t profiles_filter(bool is_received, uint8_t *packet) {
+  uint8_t *stream = packet;
+  bool frag;
+  uint16_t handle, l2c_chan, l2c_ctl;
+  uint32_t length, totlen, offset;
+
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
+  std::lock_guard lock(profiles_filter_mutex);
+#else
+  std::lock_guard<std::mutex> lock(profiles_filter_mutex);
+#endif
+
+  STREAM_TO_UINT16(handle, stream);
+  frag = (GET_BOUNDARY_FLAG(handle) == CONTINUATION_PACKET_BOUNDARY);
+  handle = handle & HANDLE_MASK;
+  STREAM_TO_UINT16(length, stream);
+  totlen = length + HCI_HEADER_LENGTH;
+  length += PACKET_TYPE_LENGTH + HCI_HEADER_LENGTH; // Additional byte is added for packet type
+
+  STREAM_SKIP_UINT16(stream);
+  STREAM_TO_UINT16(l2c_chan, stream);
+
+  auto &filters = profiles_filter_table[handle];
+  if (frag) {
+    l2c_chan = filters.ch_last;
+  } else {
+    filters.ch_last = l2c_chan;
+  }
+  if (l2c_chan != 0x1 && handle != 0x0edc) {
+    if (filters.isL2capFlowExt(is_received, l2c_chan)) {
+      STREAM_TO_UINT16(l2c_ctl, stream);
+      if (!(l2c_ctl & 1)) { // I-Frame
+        if (((l2c_ctl >> 14) & 0x3) == 0x01) { // Start of L2CAP SDU
+          STREAM_SKIP_UINT16(stream); // skip L2CAP SDU length
+        }
+      }
+    }
+    offset = stream - packet;
+    if (filters.isL2capMatch(is_received, l2c_chan)) {
+      if (frag) {
+        return PACKET_TYPE_LENGTH + HCI_HEADER_LENGTH;
+      }
+      length = payload_strip(packet, offset, totlen - offset);
+    } else {
+      if (filters.isRfcChannel(is_received, l2c_chan)) {
+        uint8_t addr, ctrl, pf;
+
+        STREAM_TO_UINT8(addr, stream);
+        STREAM_TO_UINT8(ctrl, stream);
+        pf = ctrl & 0x10;
+        ctrl = ctrl & 0xef;
+        addr >>= 2;
+        if(ctrl != RFCOMM_UIH) {
+          return length;
+        }
+        if(filters.isRfcommMatch(is_received, l2c_chan, addr)) {
+          uint16_t len;
+          uint8_t ea;
+
+          len = *stream++;
+          ea = len & 1;
+          len = len >> 1;
+          if (!ea) {
+            len += *stream++ << 7;
+          }
+          if (filters.isRfcommFlowExt(is_received, l2c_chan, addr) && pf) {
+            stream ++; // credit byte
+          }
+          offset = stream - packet;
+          if (filters.isHfpProfile(is_received, l2c_chan, addr)) {
+            uint32_t pat_len = strlen(cpbr_pattern);
+
+            if ((totlen - offset) > pat_len) {
+              if (memcmp(&packet[offset], cpbr_pattern, pat_len) == 0) {
+                length = offset + pat_len + 1;
+                packet[ACL_LENGTH_OFFSET] = offset + pat_len - L2C_HEADER_LENGTH;
+                packet[L2C_LENGTH_OFFSET] = offset + pat_len -
+                                              (HCI_HEADER_LENGTH + L2C_HEADER_LENGTH);
+              }
+            }
+          } else {
+            length = payload_strip(packet, offset, totlen - offset);
+          }
+        }
+      }
+    }
+  }
+
+  return length;
+}
+
+static void set_rfc_port_open(uint16_t handle, uint16_t local_cid,
+                          uint8_t dlci, uint16_t uuid, bool flow) {
+
+  if (!(vendor_logging_level & HCI_SNOOP_LOG_PROFILEFILTER))
+    return;
+
+  profile_type_t profile = FILTER_PROFILE_NONE;
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
+  std::lock_guard lock(profiles_filter_mutex);
+#else
+  std::lock_guard<std::mutex> lock(profiles_filter_mutex);
+#endif
+  auto &filters = profiles_filter_table[handle];
+
+  LOG_INFO(LOG_TAG, "RFCOMM port is opened: handle=%d(0x%x),"
+                    " lcid=%d(0x%x), dlci=%d(0x%x), uuid=%d(0x%x)%s",
+                    handle, handle, local_cid, local_cid, dlci, dlci, uuid,
+                    uuid, flow ? " Credit Based Flow Control enabled" : "");
+
+  if (uuid == PROFILE_UUID_PBAP || (dlci>>1) == PROFILE_SCN_PBAP) {
+    profile = FILTER_PROFILE_PBAP;
+  } else if (uuid == PROFILE_UUID_MAP || (dlci>>1) == PROFILE_SCN_MAP) {
+    profile = FILTER_PROFILE_MAP;
+  } else if (uuid == PROFILE_UUID_HFP_HS) {
+    profile = FILTER_PROFILE_HFP_HS;
+  } else if (uuid == PROFILE_UUID_HFP_HF) {
+    profile = FILTER_PROFILE_HFP_HF;
+  }
+
+  if (profile >= 0) {
+    filters.profile_rfcomm_open(profile, local_cid, dlci, uuid, flow);
+  }
+}
+
+static void set_rfc_port_close(uint16_t handle, uint16_t local_cid,
+                           uint8_t dlci, uint16_t uuid) {
+
+  if (!(vendor_logging_level & HCI_SNOOP_LOG_PROFILEFILTER))
+    return;
+
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
+  std::lock_guard lock(profiles_filter_mutex);
+#else
+  std::lock_guard<std::mutex> lock(profiles_filter_mutex);
+#endif
+  auto &filters = profiles_filter_table[handle];
+  LOG_INFO(LOG_TAG, "RFCOMM port is closed: handle=%d(0x%x),"
+                    " lcid=%d(0x%x), dlci=%d(0x%x), uuid=%d(0x%x)", handle,
+                    handle, local_cid, local_cid, dlci, dlci, uuid, uuid);
+
+  filters.profile_rfcomm_close(filters.dlci2profile(true, local_cid, dlci));
+}
+
+static void set_l2cap_channel_open(uint16_t handle, uint16_t local_cid,
+                               uint16_t remote_cid, uint16_t psm, bool flow) {
+
+  if (!(vendor_logging_level & HCI_SNOOP_LOG_PROFILEFILTER))
+    return;
+
+  profile_type_t profile = FILTER_PROFILE_NONE;
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
+  std::lock_guard lock(profiles_filter_mutex);
+#else
+  std::lock_guard<std::mutex> lock(profiles_filter_mutex);
+#endif
+  auto &filters = profiles_filter_table[handle];
+
+  LOG_INFO(LOG_TAG, "L2CAP channel is opened: handle=%d(0x%x), lcid=%d(0x%x),"
+                    " rcid=%d(0x%x), psm=0x%x%s", handle, handle, local_cid,
+                    local_cid, remote_cid, remote_cid, psm,
+                        flow ? " Standard or Enhanced Control enabled" : "");
+
+  if (psm == PROFILE_PSM_RFCOMM) {
+    filters.ch_rfc_l = local_cid;
+    filters.ch_rfc_r = remote_cid;
+  } else if (psm == PROFILE_PSM_PBAP) {
+    profile = FILTER_PROFILE_PBAP;
+  } else if (psm == PROFILE_PSM_MAP) {
+    profile = FILTER_PROFILE_MAP;
+  }
+
+  if (profile >= 0) {
+    filters.profile_l2cap_open(profile, local_cid, remote_cid, psm, flow);
+  }
+}
+
+static void set_l2cap_channel_close(uint16_t handle, uint16_t local_cid, uint16_t remote_cid) {
+
+  if (!(vendor_logging_level & HCI_SNOOP_LOG_PROFILEFILTER))
+    return;
+
+#if (OFF_TARGET_TEST_ENABLED == FALSE)
+  std::lock_guard lock(profiles_filter_mutex);
+#else
+  std::lock_guard<std::mutex> lock(profiles_filter_mutex);
+#endif
+  auto &filters = profiles_filter_table[handle];
+
+  LOG_INFO(LOG_TAG, "L2CAP channel is closed: handle=%d(0x%x), lcid=%d(0x%x),"
+                    " rcid=%d(0x%x)", handle, handle, local_cid, local_cid,
+                    remote_cid, remote_cid);
+
+  filters.profile_l2cap_close(filters.cid2profile(true, local_cid));
+}
+
 static const btsnoop_t interface = {capture, whitelist_l2c_channel,
                                     whitelist_rfc_dlci, add_rfc_l2c_channel,
-                                    clear_l2cap_whitelist};
+                                    clear_l2cap_whitelist
+                                    ,set_rfc_port_open
+                                    ,set_rfc_port_close
+                                    ,set_l2cap_channel_open
+                                    ,set_l2cap_channel_close
+                                    };
 
 const btsnoop_t* btsnoop_get_interface() { return &interface; }
 
@@ -521,6 +998,8 @@ static void calculate_acl_packet_length(uint32_t *length, uint8_t* packet, bool 
   } else if (vendor_logging_level & HCI_SNOOP_LOG_LITE) {
      if(!is_avdt_media_packet(packet, is_received))
        *length = def_len;
+  } else if (vendor_logging_level & HCI_SNOOP_LOG_PROFILEFILTER) {
+     *length = profiles_filter(is_received, packet);
   }
 }
 static bool should_filter_log(bool is_received, uint8_t* packet) {
