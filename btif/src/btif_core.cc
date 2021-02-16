@@ -415,7 +415,7 @@ static bool btif_is_a2dp_offload_enabled() {
 }
 
 void btif_dynamic_audio_buffer_init() {
-  LOG_INFO("%s entered", __func__);
+  LOG_INFO(LOG_TAG, "%s entered", __func__);
 
   char buf[512];
   bt_property_t prop;
@@ -424,7 +424,7 @@ void btif_dynamic_audio_buffer_init() {
 
   bt_dynamic_audio_buffer_item_t dynamic_audio_buffer_item;
   prop.len = sizeof(bt_dynamic_audio_buffer_item_t);
-  LOG_DEBUG("%s prop.len = %d", __func__, prop.len);
+  LOG_DEBUG(LOG_TAG, "%s prop.len = %d", __func__, prop.len);
 
   tBTM_BLE_VSC_CB cmn_vsc_cb;
   BTM_BleGetVendorCapabilities(&cmn_vsc_cb);
@@ -438,7 +438,7 @@ void btif_dynamic_audio_buffer_init() {
           .minimum_buffer_time = MINIMUM_BUFFER_TIME};
     }
     memcpy(prop.val, &dynamic_audio_buffer_item, prop.len);
-    invoke_adapter_properties_cb(BT_STATUS_SUCCESS, 1, &prop);
+    //invoke_adapter_properties_cb(BT_STATUS_SUCCESS, 1, &prop);
   } else {
     if (cmn_vsc_cb.dynamic_audio_buffer_support != 0) {
       BTIF_TRACE_DEBUG("%s Get buffer time for A2DP Offload", __func__);
@@ -456,7 +456,7 @@ void btif_dynamic_audio_buffer_init() {
                 bt_dynamic_audio_buffer_cb[i].minimum_buffer_time};
       }
       memcpy(prop.val, &dynamic_audio_buffer_item, prop.len);
-      invoke_adapter_properties_cb(BT_STATUS_SUCCESS, 1, &prop);
+      //invoke_adapter_properties_cb(BT_STATUS_SUCCESS, 1, &prop);
     } else {
       BTIF_TRACE_DEBUG("%s Don't support Dynamic Audio Buffer", __func__);
     }
@@ -1453,7 +1453,7 @@ bt_status_t btif_set_dynamic_audio_buffer_size(int codec, int size) {
   tBTM_BLE_VSC_CB cmn_vsc_cb;
   BTM_BleGetVendorCapabilities(&cmn_vsc_cb);
 
-  if (!btif_av_is_a2dp_offload_enabled()) {
+  if (!btif_is_a2dp_offload_enabled()) {
     BTIF_TRACE_DEBUG("%s Set buffer size (%d) for A2DP software encoding",
                      __func__, size);
     btif_av_set_dynamic_audio_buffer_size((uint8_t(size)));
