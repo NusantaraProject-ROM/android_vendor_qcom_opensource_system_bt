@@ -31,6 +31,7 @@
 #include "bt_types.h"
 #include "btm_api.h"
 #include "btm_ble_api.h"
+#include <map>
 
 /*****************************************************************************
  *  Constants and data types
@@ -820,6 +821,15 @@ typedef struct {
   bluetooth::Uuid service; /* GATT based Services UUID found on peer device. */
 } tBTA_DM_DISC_BLE_RES;
 
+/* Structure associated with tBTA_DM_ADV_AUDIO_DISC_CMPL */
+typedef struct {
+  RawAddress bd_addr; /* BD address peer device. */
+  bluetooth::Uuid adv_audio_uuids[BT_MAX_NUM_UUIDS];
+  BD_NAME bd_name;  /* Name of peer device. */
+  uint16_t num_uuids;
+  uint8_t transport;
+} tBTA_DM_ADV_AUDIO_DISC_CMPL;
+
 /* Union of all search callback structures */
 typedef union {
   tBTA_DM_INQ_RES inq_res;   /* Inquiry result for a peer device. */
@@ -828,7 +838,7 @@ typedef union {
   tBTA_DM_DISC_BLE_RES
       disc_ble_res;             /* discovery result for GATT based service */
   tBTA_DM_DI_DISC_CMPL di_disc; /* DI discovery result for a peer device */
-
+  tBTA_DM_ADV_AUDIO_DISC_CMPL adv_audio_disc_cmpl; /* ADV AUDIO DISCOVERY COMPLETE */
 } tBTA_DM_SEARCH;
 
 /* Search callback */
@@ -1083,6 +1093,8 @@ typedef uint8_t tBTA_DM_LINK_TYPE;
 #define ALLOW_ALL_FILTER 0x00
 #define LOWEST_RSSI_VALUE 129
 
+/* Group Identifier data length */
+#define GROUP_DATA_LEN 6
 /*****************************************************************************
  *  External Function Declarations
  ****************************************************************************/
@@ -1897,5 +1909,16 @@ extern void BTA_VendorCleanup(void);
  ******************************************************************************/
 extern void BTA_DmProcessQueuedServiceDiscovery(void);
 
+/*******************************************************************************
+ *
+ * Function         BTA_GetGroupData
+ *
+ * Description      This function fetches group identifier data from EIR.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+extern void BTA_GetGroupData(uint8_t* p_eir, size_t eir_len, uint8_t* gid_data,
+                             bool* found);
 
 #endif /* BTA_API_H */

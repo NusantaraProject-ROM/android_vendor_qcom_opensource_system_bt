@@ -18,8 +18,12 @@
 
 #include "audio_a2dp_hw/include/audio_a2dp_hw.h"
 #include <vendor/qti/hardware/bluetooth_audio/2.0/types.h>
+#include <vendor/qti/hardware/bluetooth_audio/2.1/types.h>
 #include "osi/include/thread.h"
 #include "bta_av_api.h"
+#include "internal_include/bt_target.h"
+
+#include "btif_ahim.h"
 
 using vendor::qti::hardware::bluetooth_audio::V2_0::SessionType;
 using vendor::qti::hardware::bluetooth_audio::V2_0::SessionParamType;
@@ -34,13 +38,18 @@ bool is_hal_2_0_supported();
 bool is_hal_2_0_enabled();
 
 // Initialize BluetoothAudio HAL: openProvider
+#if AHIM_ENABLED
+bool init( thread_t* message_loop, uint8_t profile);
+// Set up the codec into BluetoothAudio HAL
+bool setup_codec(uint8_t profile);
+#else
 bool init( thread_t* message_loop);
+// Set up the codec into BluetoothAudio HAL
+bool setup_codec();
+#endif
 
 // Clean up BluetoothAudio HAL
 void cleanup();
-
-// Set up the codec into BluetoothAudio HAL
-bool setup_codec();
 
 // Send command to the BluetoothAudio HAL: StartSession, EndSession,
 // StreamStarted, StreamSuspended

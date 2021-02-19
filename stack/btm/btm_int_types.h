@@ -197,6 +197,14 @@ typedef struct {
                                 /* secure connections */
   tBTM_VS_EVT_CB *p_vnd_iot_info_cb;
   tBTM_NOTIFY_SSR_CB * p_ssr_cb;
+  /*callback for HCI_Configure_Data_Path command complete*/
+  tBTM_CONFIGURE_DATA_PATH_CB *cfg_datapath_cmpl_cb = NULL;
+  /*callback for HCI_Set_Ecosystem_Base_Interval command complete*/
+  tBTM_SET_ECOSYSTEM_BASE_INTERVAL_CB *set_eco_interval_cmpl_cb = NULL;
+  /*callback for HCI_Read_Local_Supported_Codec_Capabilities command complete*/
+  tBTM_READ_LOCAL_SUP_CODEC_CAP_CB *local_codec_cap_cmpl_cb = NULL;
+  /*callback for HCI_Read_Local_Supported_Controller_Delay command complete*/
+  tBTM_READ_LOCAL_SUP_CONTROLLER_DELAY_CB *controller_delay_read_cb = NULL;
 } tBTM_DEVCB;
 
 /* Define the structures and constants used for inquiry

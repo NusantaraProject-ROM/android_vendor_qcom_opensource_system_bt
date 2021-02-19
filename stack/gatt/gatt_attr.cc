@@ -30,6 +30,10 @@
 #include "gatt_int.h"
 #include "osi/include/osi.h"
 
+#include "l2c_api.h"
+#include "btif_storage.h"
+#include "stack/gatt/eatt_int.h"
+
 using base::StringPrintf;
 using bluetooth::Uuid;
 
@@ -44,6 +48,25 @@ using bluetooth::Uuid;
                    GATTP_MAX_CHAR_VALUE_SIZE)
 #endif
 
+#define SR_EATT_NOT_SUPPORTED 0
+#define SR_EATT_SUPPORTED 1
+#define CL_EATT_SUPPORTED 2
+
+typedef struct {
+  uint16_t len;
+  uint8_t value[GATT_MAX_ATTR_LEN];
+} tGATT_BLE_ATTR_VALUE;
+
+typedef struct {
+  uint16_t handle;
+  uint16_t uuid;
+  uint16_t value_len;
+  uint8_t value[GATT_MAX_ATTR_LEN];
+} tGATT_ATTR_INFO;
+
+constexpr int GATT_MAX_CHAR_NUM = 3;
+std::array<tGATT_ATTR_INFO, GATT_MAX_CHAR_NUM> gatt_attr_db;
+
 static void gatt_request_cback(uint16_t conn_id, uint32_t trans_id,
                                uint8_t op_code, tGATTS_DATA* p_data);
 static void gatt_connect_cback(UNUSED_ATTR tGATT_IF gatt_if,
@@ -54,12 +77,15 @@ static void gatt_disc_res_cback(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
                                 tGATT_DISC_RES* p_data);
 static void gatt_disc_cmpl_cback(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
                                  tGATT_STATUS status);
-static void gatt_cl_op_cmpl_cback(UNUSED_ATTR uint16_t conn_id,
-                                  UNUSED_ATTR tGATTC_OPTYPE op,
-                                  UNUSED_ATTR tGATT_STATUS status,
-                                  UNUSED_ATTR tGATT_CL_COMPLETE* p_data);
+static void gatt_cl_op_cmpl_cback(uint16_t conn_id,
+                                  tGATTC_OPTYPE op,
+                                  tGATT_STATUS status,
+                                  tGATT_CL_COMPLETE* p_data,
+                                  uint32_t trans_id);
 
 static void gatt_cl_start_config_ccc(tGATT_PROFILE_CLCB* p_clcb);
+
+static void gatt_cl_check_eatt_support(tGATT_PROFILE_CLCB* p_clcb);
 
 static tGATT_CBACK gatt_profile_cback = {gatt_connect_cback,
                                          gatt_cl_op_cmpl_cback,
@@ -70,6 +96,59 @@ static tGATT_CBACK gatt_profile_cback = {gatt_connect_cback,
                                          NULL,
                                          NULL,
                                          NULL};
+
+/*******************************************************************************
+ *
+ * Function         gatt_profile_sr_is_eatt_supported
+ *
+ * Description      The function checks whether EATT is supported for GATT
+ *                  server side
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+bool gatt_profile_sr_is_eatt_supported(uint16_t conn_id, uint16_t handle) {
+  uint8_t cl_supp_feat = 0;
+  uint8_t tcb_idx = GATT_GET_TCB_IDX(conn_id);
+  tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
+
+  if (!gatt_cb.eatt_enabled) {
+    VLOG(1) << __func__ << " EATT is not enabled";
+    return false;
+  }
+
+  if (!p_tcb) {
+    VLOG(1) << __func__ << " p_tcb is NULL";
+    return false;
+  }
+
+  if (p_tcb->transport != BT_TRANSPORT_LE) {
+    VLOG(1) << __func__ << " EATT not supported for BR/EDR";
+    return false;
+  }
+
+  if (!GATT_HANDLE_IS_VALID(handle)) {
+    VLOG(1) << __func__ << " Invalid handle";
+    return false;
+  }
+
+  if (handle != gatt_attr_db[1].handle) {
+    VLOG(1) << __func__ << " No client supported features char";
+    return false;
+  }
+
+  cl_supp_feat = btif_storage_get_cl_supp_feat(p_tcb->peer_bda);
+
+  //EATT supported check for server side
+  if(((cl_supp_feat & CL_EATT_SUPPORTED) == CL_EATT_SUPPORTED) &&
+      (gatt_attr_db[0].value[0] == SR_EATT_SUPPORTED)) {
+    VLOG(1) << __func__ << " EATT is supported";
+    return true;
+  }
+
+  VLOG(1) << __func__ << " EATT is not supported";
+  return false;
+}
 
 /*******************************************************************************
  *
@@ -184,6 +263,122 @@ void gatt_profile_clcb_dealloc(tGATT_PROFILE_CLCB* p_clcb) {
 
 /*******************************************************************************
  *
+ * Function         read_attr_value
+ *
+ * Description      The function processes GATT Attributes database read request
+ *                  callback
+ *
+ * Returns          status of read
+ *
+ ******************************************************************************/
+tGATT_STATUS read_attr_value(uint16_t conn_id, uint16_t handle,
+                             tGATT_VALUE* p_value, bool is_long) {
+  uint8_t* p = p_value->value;
+  uint8_t i = 0;
+  VLOG(1) << __func__ << " conn_id:" <<+conn_id;
+
+  for (tGATT_ATTR_INFO& db_attr : gatt_attr_db) {
+    if (handle == db_attr.handle) {
+      if (is_long)
+        return GATT_NOT_LONG;
+
+      switch (db_attr.uuid) {
+        case GATT_UUID_GATT_SR_SUPP_FEATURES:
+          for(i=0; i<db_attr.value_len; i++) {
+            UINT8_TO_STREAM(p, db_attr.value[i]);
+          }
+          p_value->len = db_attr.value_len;
+          break;
+        case GATT_UUID_GATT_CL_SUPP_FEATURES:
+          tGATT_PROFILE_CLCB* p_clcb = gatt_profile_find_clcb_by_conn_id(conn_id);
+          if (!p_clcb) {
+            VLOG(1) << __func__ << " Error during read Client supported features char";
+            return GATT_ERROR;
+          }
+
+          //Read Client supported features characteristic from btif storage
+          uint8_t cl_supp_feat = btif_storage_get_cl_supp_feat(p_clcb->bda);
+          UINT8_TO_STREAM(p, cl_supp_feat);
+          p_value->len = 1;
+
+          break;
+      }
+      return GATT_SUCCESS;
+    }
+  }
+  return GATT_NOT_FOUND;
+}
+
+/*******************************************************************************
+ *
+ * Function         proc_read
+ *
+ * Description      The function processes GATT Read request received
+ *
+ *
+ * Returns          status of read
+ *
+ ******************************************************************************/
+tGATT_STATUS proc_read(uint16_t conn_id, tGATT_READ_REQ* p_data,
+                       tGATTS_RSP* p_rsp) {
+  if (p_data->is_long) p_rsp->attr_value.offset = p_data->offset;
+
+  p_rsp->attr_value.handle = p_data->handle;
+
+  return read_attr_value(conn_id, p_data->handle, &p_rsp->attr_value, p_data->is_long);
+}
+
+/*******************************************************************************
+ *
+ * Function         proc_write_req
+ *
+ * Description      The function processes GATT Attributes database write request
+ *                  callback
+ *
+ * Returns          status of write
+ *
+ ******************************************************************************/
+tGATT_STATUS proc_write_req(uint16_t conn_id, tGATT_WRITE_REQ* p_data) {
+  tGATT_PROFILE_CLCB* p_clcb = NULL;
+  uint8_t cl_supp_feat;
+  tGATT_TCB* p_tcb = NULL;
+  VLOG(1) << __func__ << " conn_id:" << +conn_id;
+
+  for (tGATT_ATTR_INFO& db_attr : gatt_attr_db) {
+    if (p_data->handle == db_attr.handle) {
+      if (db_attr.uuid == GATT_UUID_GATT_CL_SUPP_FEATURES) {
+        p_clcb = gatt_profile_find_clcb_by_conn_id(conn_id);
+        if (!p_clcb) {
+          VLOG(1) << __func__ << " Error during writing of Client supported features char";
+          return GATT_ERROR;
+        }
+
+        uint8_t* p = p_data->value;
+        STREAM_TO_UINT8(cl_supp_feat, p);
+
+        btif_storage_set_cl_supp_feat(p_clcb->bda, cl_supp_feat);
+
+        if ((gatt_attr_db[0].value[0] == SR_EATT_SUPPORTED) &&
+           ((cl_supp_feat & CL_EATT_SUPPORTED) == CL_EATT_SUPPORTED)) {
+           p_tcb = gatt_find_tcb_by_addr(p_clcb->bda, BT_TRANSPORT_LE);
+           if (p_tcb) {
+             VLOG(1) << __func__ << " Set EATT Support";
+             p_tcb->is_eatt_supported = true;
+             gatt_eatt_bcb_alloc(p_tcb, L2CAP_ATT_CID, false, false);
+             //Add bda to EATT devices storage
+             btif_storage_add_eatt_support(p_clcb->bda);
+             gatt_add_eatt_device(p_clcb->bda);
+           }
+        }
+        return GATT_SUCCESS;
+      }
+    }
+  }
+  return GATT_NOT_FOUND;
+}
+
+/*******************************************************************************
+ *
  * Function         gatt_request_cback
  *
  * Description      GATT profile attribute access request callback.
@@ -196,16 +391,44 @@ static void gatt_request_cback(uint16_t conn_id, uint32_t trans_id,
   uint8_t status = GATT_INVALID_PDU;
   tGATTS_RSP rsp_msg;
   bool ignore = false;
+  uint8_t tcb_idx = GATT_GET_TCB_IDX(conn_id);
+  tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
+  tGATT_PROFILE_CLCB* p_clcb = NULL;
 
   memset(&rsp_msg, 0, sizeof(tGATTS_RSP));
 
+  if (p_tcb) {
+    p_clcb = gatt_profile_find_clcb_by_bd_addr(p_tcb->peer_bda, p_tcb->transport);
+    if (p_clcb == NULL)
+      p_clcb = gatt_profile_clcb_alloc(0, p_tcb->peer_bda, p_tcb->transport);
+
+    if (p_clcb == NULL) return;
+
+    if (GATT_GetConnIdIfConnected(gatt_cb.gatt_if, p_tcb->peer_bda, &p_clcb->conn_id,
+                                  p_tcb->transport)) {
+      p_clcb->connected = true;
+    }
+  }
+
   switch (type) {
     case GATTS_REQ_TYPE_READ_CHARACTERISTIC:
+      if (p_tcb && p_tcb->transport == BT_TRANSPORT_LE) {
+        status = proc_read(conn_id, &p_data->read_req, &rsp_msg);
+        break;
+      }
+      FALLTHROUGH_INTENDED;
     case GATTS_REQ_TYPE_READ_DESCRIPTOR:
       status = GATT_READ_NOT_PERMIT;
       break;
 
     case GATTS_REQ_TYPE_WRITE_CHARACTERISTIC:
+      if (p_tcb && p_tcb->transport == BT_TRANSPORT_LE) {
+        if (!p_data->write_req.need_rsp) ignore = true;
+
+        status = proc_write_req(conn_id, &p_data->write_req);
+        break;
+      }
+      FALLTHROUGH_INTENDED;
     case GATTS_REQ_TYPE_WRITE_DESCRIPTOR:
       status = GATT_WRITE_NOT_PERMIT;
       break;
@@ -231,6 +454,40 @@ static void gatt_request_cback(uint16_t conn_id, uint32_t trans_id,
 
 /*******************************************************************************
  *
+ * Function         GATT_Config
+ *
+ * Description      Configure MTU over ATT on remote device
+ *
+ * Returns          none
+ *
+ ******************************************************************************/
+void GATT_Config(const RawAddress& remote_bda, tBT_TRANSPORT transport) {
+  tGATT_PROFILE_CLCB* p_clcb =
+      gatt_profile_find_clcb_by_bd_addr(remote_bda, transport);
+
+  VLOG(1) << __func__;
+  if (p_clcb == NULL)
+    p_clcb = gatt_profile_clcb_alloc(0, remote_bda, transport);
+
+  if (p_clcb == NULL) return;
+
+  if (GATT_GetConnIdIfConnected(gatt_cb.gatt_if, remote_bda, &p_clcb->conn_id,
+                                transport)) {
+    p_clcb->connected = true;
+  }
+  /* hold the link here */
+  GATT_Connect(gatt_cb.gatt_if, remote_bda, true, transport, true);
+
+  if (!p_clcb->connected) {
+    /* wait for connection */
+    return;
+  }
+
+  GATTC_ConfigureMTU(p_clcb->conn_id, ATT_MAX_MTU_SIZE);
+}
+
+/*******************************************************************************
+ *
  * Function         gatt_connect_cback
  *
  * Description      Gatt profile connection callback.
@@ -247,7 +504,11 @@ static void gatt_connect_cback(UNUSED_ATTR tGATT_IF gatt_if,
 
   tGATT_PROFILE_CLCB* p_clcb =
       gatt_profile_find_clcb_by_bd_addr(bda, transport);
-  if (p_clcb == NULL) return;
+  if (p_clcb == NULL) {
+    return;
+  }
+
+  VLOG(1) << __func__ << "sr_supp_feat_stage:" << p_clcb->sr_supp_feat_stage;
 
   if (connected) {
     p_clcb->conn_id = conn_id;
@@ -276,26 +537,55 @@ void gatt_profile_db_init(void) {
   std::array<uint8_t, Uuid::kNumBytes128> tmp;
   tmp.fill(0x81);
 
+  gatt_attr_db.fill({});
+
   /* Create a GATT profile service */
-  gatt_cb.gatt_if = GATT_Register(Uuid::From128BitBE(tmp), &gatt_profile_cback);
+  gatt_cb.gatt_if = GATT_Register(Uuid::From128BitBE(tmp), &gatt_profile_cback, false);
   GATT_StartIf(gatt_cb.gatt_if);
 
   Uuid service_uuid = Uuid::From16Bit(UUID_SERVCLASS_GATT_SERVER);
 
   Uuid char_uuid = Uuid::From16Bit(GATT_UUID_GATT_SRV_CHGD);
 
+  Uuid sr_supp_feat_char_uuid = Uuid::From16Bit(GATT_UUID_GATT_SR_SUPP_FEATURES);
+  Uuid cl_supp_feat_char_uuid = Uuid::From16Bit(GATT_UUID_GATT_CL_SUPP_FEATURES);
+
   btgatt_db_element_t service[] = {
       {.type = BTGATT_DB_PRIMARY_SERVICE, .uuid = service_uuid},
       {.type = BTGATT_DB_CHARACTERISTIC,
        .uuid = char_uuid,
        .properties = GATT_CHAR_PROP_BIT_INDICATE,
-       .permissions = 0}};
+       .permissions = 0},
+      {.type = BTGATT_DB_CHARACTERISTIC,
+       .uuid = sr_supp_feat_char_uuid,
+       .properties = GATT_CHAR_PROP_BIT_READ,
+       .permissions = GATT_PERM_READ},
+      {.type = BTGATT_DB_CHARACTERISTIC,
+       .uuid = cl_supp_feat_char_uuid,
+       .properties = (GATT_CHAR_PROP_BIT_READ | GATT_CHAR_PROP_BIT_WRITE),
+       .permissions = (GATT_PERM_READ | GATT_PERM_WRITE)}};
 
   GATTS_AddService(gatt_cb.gatt_if, service,
                    sizeof(service) / sizeof(btgatt_db_element_t));
 
   service_handle = service[0].attribute_handle;
   gatt_cb.handle_of_h_r = service[1].attribute_handle;
+
+  gatt_attr_db[0].uuid = GATT_UUID_GATT_SR_SUPP_FEATURES;
+  gatt_attr_db[0].handle = service[2].attribute_handle;
+
+  VLOG(1) << __func__ << " eatt prop enabled:" << +gatt_cb.eatt_enabled;
+  if (gatt_cb.eatt_enabled) {
+    gatt_attr_db[0].value[0] = SR_EATT_SUPPORTED;
+  }
+  else {
+    gatt_attr_db[0].value[0] = SR_EATT_NOT_SUPPORTED;
+  }
+  gatt_attr_db[0].value_len = 1;
+
+  /* Client supported features characteristic */
+  gatt_attr_db[1].uuid = GATT_UUID_GATT_CL_SUPP_FEATURES;
+  gatt_attr_db[1].handle = service[3].attribute_handle;
 
   VLOG(1) << __func__ << ": gatt_if=" << +gatt_cb.gatt_if;
 }
@@ -319,6 +609,9 @@ static void gatt_disc_res_cback(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
     case GATT_DISC_SRVC_BY_UUID: /* stage 1 */
       p_clcb->e_handle = p_data->value.group_value.e_handle;
       p_clcb->ccc_result++;
+
+      p_clcb->sr_supp_feat_e_handle = p_data->value.group_value.e_handle;
+      p_clcb->sr_supp_feat_result++;
       break;
 
     case GATT_DISC_CHAR: /* stage 2 */
@@ -348,17 +641,33 @@ static void gatt_disc_cmpl_cback(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
                                  tGATT_STATUS status) {
   tGATT_PROFILE_CLCB* p_clcb = gatt_profile_find_clcb_by_conn_id(conn_id);
 
+  VLOG(1) << __func__ << " ccc_stage::" << +p_clcb->ccc_stage
+          << " sr_supp_feat_stage::" << +p_clcb->sr_supp_feat_stage;
   if (p_clcb == NULL) return;
 
   if (status != GATT_SUCCESS || p_clcb->ccc_result == 0) {
     LOG(WARNING) << __func__
-                 << ": Unable to register for service changed indication";
+                 << ": Unable to register for service changed indication ";
+    if(p_clcb->sr_supp_feat_stage <= GATT_SR_SUPP_FEAT_CONNECTING) {
+      if (p_clcb->transport == BT_TRANSPORT_LE) {
+        GATT_CheckEATTSupport(p_clcb->bda, p_clcb->transport);
+      }
+    }
     return;
   }
 
-  p_clcb->ccc_result = 0;
-  p_clcb->ccc_stage++;
-  gatt_cl_start_config_ccc(p_clcb);
+  if ((p_clcb->ccc_stage > GATT_SVC_CHANGED_CONNECTING)  &&
+      (p_clcb->sr_supp_feat_stage < GATT_SR_SUPP_FEAT_CONNECTING)) {
+    p_clcb->ccc_result = 0;
+    p_clcb->ccc_stage++;
+    gatt_cl_start_config_ccc(p_clcb);
+  }
+
+  if (p_clcb->sr_supp_feat_stage > GATT_SR_SUPP_FEAT_CONNECTING) {
+    p_clcb->sr_supp_feat_result = 0;
+    p_clcb->sr_supp_feat_stage++;
+    gatt_cl_check_eatt_support(p_clcb);
+  }
 }
 
 /*******************************************************************************
@@ -370,10 +679,74 @@ static void gatt_disc_cmpl_cback(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
  * Returns          void
  *
  ******************************************************************************/
-static void gatt_cl_op_cmpl_cback(UNUSED_ATTR uint16_t conn_id,
-                                  UNUSED_ATTR tGATTC_OPTYPE op,
-                                  UNUSED_ATTR tGATT_STATUS status,
-                                  UNUSED_ATTR tGATT_CL_COMPLETE* p_data) {}
+static void gatt_cl_op_cmpl_cback(uint16_t conn_id,
+                                  tGATTC_OPTYPE op,
+                                  tGATT_STATUS status,
+                                  tGATT_CL_COMPLETE* p_data,
+                                  uint32_t trans_id) {
+  uint8_t value[GATT_MAX_ATTR_LEN];
+  bool check_eatt_support_continue = false;
+  tGATT_EBCB* p_eatt_bcb = NULL;
+
+  VLOG(1) << __func__ << " op:" << +op;
+
+  tGATT_PROFILE_CLCB* p_clcb = gatt_profile_find_clcb_by_conn_id(conn_id);
+  if (p_clcb == NULL) {
+    VLOG(1) << __func__ << "p_clcb is NULL";
+    return;
+  }
+
+  if ((op == GATTC_OPTYPE_WRITE) &&
+      (p_clcb->ccc_stage == GATT_SVC_CHANGED_CONFIGURE_CCCD) &&
+      (p_clcb->sr_supp_feat_stage <= GATT_SR_SUPP_FEAT_CONNECTING)) {
+    VLOG(1) << __func__ << "Configure CCC is done, Check EATT support";
+    if (p_clcb->transport == BT_TRANSPORT_LE) {
+      GATT_CheckEATTSupport(p_clcb->bda, p_clcb->transport);
+    }
+    return;
+  }
+
+  if ((op == GATTC_OPTYPE_READ) && (status == GATT_SUCCESS)) {
+    if (p_clcb->sr_supp_feat_stage == GATT_CL_SUPP_FEAT_READ) {
+      check_eatt_support_continue = true;
+      p_clcb->sr_supp_feat_e_handle = p_data->att_value.handle;
+      VLOG(1) << __func__ << " GATT_CL_SUPP_FEAT_READ stage completed:";
+    }
+    else if (p_clcb->sr_supp_feat_stage == GATT_SR_SUPP_FEAT_READ){
+      if (p_data && p_data->att_value.len > 0) {
+        memcpy(value, p_data->att_value.value, p_data->att_value.len);
+        if (((value[0] & SR_EATT_SUPPORTED) == SR_EATT_SUPPORTED)) {
+          check_eatt_support_continue = true;
+          VLOG(1) << __func__ << " GATT_SR_SUPP_FEAT_READ stage completed:";
+        }
+      }
+    }
+    if (check_eatt_support_continue) {
+      p_clcb->sr_supp_feat_result = 0;
+      p_clcb->sr_supp_feat_stage++;
+      gatt_cl_check_eatt_support(p_clcb);
+    }
+  }
+  else if ((op == GATTC_OPTYPE_WRITE) && (status == GATT_SUCCESS) &&
+          (p_clcb->sr_supp_feat_stage == GATT_CL_SUPP_FEAT_WRITE)) {
+    VLOG(1) << __func__ << " Set EATT Support on GATT Client:";
+    uint8_t tcb_idx = GATT_GET_TCB_IDX(conn_id);
+    tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
+    if (p_tcb) {
+      p_tcb->is_eatt_supported = true;
+
+      p_eatt_bcb = gatt_eatt_bcb_alloc(p_tcb, L2CAP_ATT_CID, false, false);
+
+      //Add bda to EATT devices storage
+      btif_storage_add_eatt_support(p_tcb->peer_bda);
+      gatt_add_eatt_device(p_tcb->peer_bda);
+
+      if (p_tcb->transport == BT_TRANSPORT_LE) {
+        GATT_Config(p_tcb->peer_bda, p_tcb->transport);
+      }
+    }
+  }
+}
 
 /*******************************************************************************
  *
@@ -419,6 +792,63 @@ static void gatt_cl_start_config_ccc(tGATT_PROFILE_CLCB* p_clcb) {
 
 /*******************************************************************************
  *
+ * Function         gatt_cl_check_eatt_support
+ *
+ * Description      Gatt profile check EATT support
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void gatt_cl_check_eatt_support(tGATT_PROFILE_CLCB* p_clcb) {
+
+  VLOG(1) << __func__ << ": stage: " << +p_clcb->sr_supp_feat_stage;
+
+  switch (p_clcb->sr_supp_feat_stage) {
+    case GATT_SR_SUPP_FEAT_SERVICE: /* discover GATT service */
+      GATTC_Discover(p_clcb->conn_id, GATT_DISC_SRVC_BY_UUID, 0x0001, 0xffff,
+                     Uuid::From16Bit(UUID_SERVCLASS_GATT_SERVER));
+      break;
+
+    case GATT_SR_SUPP_FEAT_READ: /* read server supported featurs char */
+    {
+      tGATT_READ_PARAM read_param;
+      memset(&read_param, 0, sizeof(tGATT_READ_BY_TYPE));
+
+      read_param.char_type.s_handle = 0x0001;
+      read_param.char_type.e_handle = p_clcb->sr_supp_feat_e_handle;
+      read_param.char_type.uuid = Uuid::From16Bit(GATT_UUID_GATT_SR_SUPP_FEATURES);
+
+      GATTC_Read(p_clcb->conn_id, GATT_READ_BY_TYPE, &read_param);
+      break;
+    }
+
+    case GATT_CL_SUPP_FEAT_READ: /* read Client supported features char */
+    {
+      tGATT_READ_PARAM read_param;
+      memset(&read_param, 0, sizeof(tGATT_READ_BY_TYPE));
+
+      read_param.char_type.s_handle = 0x0001;
+      read_param.char_type.e_handle = p_clcb->sr_supp_feat_e_handle;
+      read_param.char_type.uuid = Uuid::From16Bit(GATT_UUID_GATT_CL_SUPP_FEATURES);
+
+      GATTC_Read(p_clcb->conn_id, GATT_READ_BY_TYPE, &read_param);
+      break;
+    }
+    case GATT_CL_SUPP_FEAT_WRITE: /* write Client supported features char */
+    {
+      tGATT_VALUE write_attr_value;
+      memset(&write_attr_value, 0, sizeof(tGATT_VALUE));
+      write_attr_value.handle = p_clcb->sr_supp_feat_e_handle;
+      write_attr_value.len = 1;
+      write_attr_value.value[0] = (GATT_WRITE_EATT_SUPPORT_VALUE | GATT_WRITE_MULTI_NOTIF_SUPPORT);
+      GATTC_Write(p_clcb->conn_id, GATT_WRITE, &write_attr_value);
+      break;
+    }
+  }
+}
+
+/*******************************************************************************
+ *
  * Function         GATT_ConfigServiceChangeCCC
  *
  * Description      Configure service change indication on remote device
@@ -451,4 +881,46 @@ void GATT_ConfigServiceChangeCCC(const RawAddress& remote_bda, bool enable,
 
   p_clcb->ccc_stage++;
   gatt_cl_start_config_ccc(p_clcb);
+}
+
+/*******************************************************************************
+ *
+ * Function         GATT_CheckEATTSupport
+ *
+ * Description      Check EATT Support on remote device
+ *
+ * Returns          none
+ *
+ ******************************************************************************/
+void GATT_CheckEATTSupport(const RawAddress& remote_bda,
+                           tBT_TRANSPORT transport) {
+  VLOG(1) << __func__;
+  tGATT_PROFILE_CLCB* p_clcb = NULL;
+
+  if (!gatt_cb.eatt_enabled) {
+    VLOG(1) << __func__ << " EATT is not enabled";
+    return;
+  }
+
+  p_clcb = gatt_profile_find_clcb_by_bd_addr(remote_bda, transport);
+  if (p_clcb == NULL)
+    p_clcb = gatt_profile_clcb_alloc(0, remote_bda, transport);
+
+  if (p_clcb == NULL) return;
+
+  if (GATT_GetConnIdIfConnected(gatt_cb.gatt_if, remote_bda, &p_clcb->conn_id,
+                                transport)) {
+    p_clcb->connected = true;
+  }
+
+  GATT_Connect(gatt_cb.gatt_if, remote_bda, true, transport, true);
+  p_clcb->sr_supp_feat_stage = GATT_SR_SUPP_FEAT_CONNECTING;
+
+  if (!p_clcb->connected) {
+    /* wait for connection */
+    return;
+  }
+
+  p_clcb->sr_supp_feat_stage++;
+  gatt_cl_check_eatt_support(p_clcb);
 }

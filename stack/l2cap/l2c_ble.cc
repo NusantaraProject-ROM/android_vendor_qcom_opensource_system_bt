@@ -477,12 +477,13 @@ void l2cble_process_sig_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
   uint8_t* p_pkt_end;
   uint8_t cmd_code, id;
   uint16_t cmd_len;
-  uint16_t min_interval, max_interval, latency, timeout;
+  uint16_t min_interval, max_interval, latency, timeout, result;
   tL2C_CONN_INFO con_info;
   uint16_t lcid = 0, rcid = 0, mtu = 0, mps = 0, initial_credit = 0;
   tL2C_CCB *p_ccb = NULL, *temp_p_ccb = NULL;
   tL2C_RCB* p_rcb;
   uint16_t credit;
+  tL2C_CFG_REQ_PARAM *req_param;
   p_pkt_end = p + pkt_len;
 
   if (p + 4 > p_pkt_end) {
@@ -591,7 +592,7 @@ void l2cble_process_sig_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
         break;
       }
 
-      p_rcb = l2cu_find_ble_rcb_by_psm(con_info.psm);
+      p_rcb = l2cu_find_coc_rcb_by_psm(con_info.psm);
       if (p_rcb == NULL) {
         L2CAP_TRACE_WARNING("L2CAP - rcvd conn req for unknown PSM: 0x%04x",
                             con_info.psm);
@@ -651,7 +652,6 @@ void l2cble_process_sig_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
         }
       }
       if (p_ccb) {
-        L2CAP_TRACE_DEBUG("I remember the connection req");
         if (p + 10 > p_pkt_end) {
           android_errorWriteLog(0x534e4554, "80261585");
           LOG(ERROR) << "invalid read";
@@ -702,7 +702,7 @@ void l2cble_process_sig_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
       }
       break;
 
-    case L2CAP_CMD_BLE_FLOW_CTRL_CREDIT:
+    case L2CAP_CMD_FLOW_CONTROL_CREDIT_IND:
       if (p + 4 > p_pkt_end) {
         android_errorWriteLog(0x534e4554, "80261585");
         LOG(ERROR) << "invalid read";
@@ -719,7 +719,7 @@ void l2cble_process_sig_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
 
       STREAM_TO_UINT16(credit, p);
       l2c_csm_execute(p_ccb, L2CEVT_L2CAP_RECV_FLOW_CONTROL_CREDIT, &credit);
-      L2CAP_TRACE_DEBUG("%s Credit received", __func__);
+      L2CAP_TRACE_DEBUG("%s Credits received = %d", __func__, credit);
       break;
 
     case L2CAP_CMD_DISC_REQ:
@@ -755,6 +755,111 @@ void l2cble_process_sig_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
         if ((p_ccb->remote_cid == rcid) && (p_ccb->local_id == id))
           l2c_csm_execute(p_ccb, L2CEVT_L2CAP_DISCONNECT_RSP, NULL);
       }
+      break;
+
+    case L2CAP_CMD_CREDIT_BASED_CONNECTION_REQ:
+    {
+      if (p + cmd_len > p_pkt_end) {
+        LOG(ERROR) << "invalid CMD LEN L2CAP_CMD_CREDIT_BASED_CONNECTION_REQ";
+        return;
+      }
+      /* ECFC contains max 5 channels and each channels will be 2 bytes. Hence
+       * Divided by 2 will get number of channels
+       */
+      uint8_t num_chnls = (cmd_len - L2CAP_CMD_CREDIT_BASED_CONN_LEN)/2;
+      uint16_t dest_cid[5] = {0};
+      tL2CAP_COC_CFG_INFO p_conf_info;
+
+      STREAM_TO_UINT16(con_info.psm, p);
+      STREAM_TO_UINT16(p_conf_info.mtu, p);
+      STREAM_TO_UINT16(p_conf_info.mps, p);
+      STREAM_TO_UINT16(p_conf_info.credits, p);
+      for (int i = 0; i < num_chnls; i++) {
+        STREAM_TO_UINT16(dest_cid[i], p);
+      }
+      l2cu_process_peer_conn_request(p_lcb, &p_conf_info, &con_info, dest_cid,
+                                    num_chnls, id);
+    }
+      break;
+
+    case L2CAP_CMD_CREDIT_BASED_CONNECTION_RSP:
+    {
+      //TODO change to logic like l2cap config request
+      L2CAP_TRACE_DEBUG("Recv L2CAP_CMD_CREDIT_BASED_CONNECTION_RSP");
+      /* For all channels, see whose identifier matches this id */
+      for (temp_p_ccb = p_lcb->ccb_queue.p_first_ccb; temp_p_ccb;
+           temp_p_ccb = temp_p_ccb->p_next_ccb) {
+        if (temp_p_ccb->local_id == id) {
+          p_ccb = temp_p_ccb;
+          break;
+        }
+      }
+      if (p_ccb) {
+        L2CAP_TRACE_DEBUG("I remember the connection req");
+        uint16_t p_ecfc_pkt_len = L2CAP_CMD_CREDIT_BASED_CONN_LEN +
+                                (2 * p_ccb->coc_cmd_info.num_coc_chnls);
+        if (p + p_ecfc_pkt_len > p_pkt_end) {
+          LOG(ERROR) << "Invalid CMD length of CoC Connection RSP";
+          return;
+        }
+        uint16_t dest_cid[5] = {0};
+
+        STREAM_TO_UINT16(p_ccb->peer_conn_cfg.mtu, p);
+        STREAM_TO_UINT16(p_ccb->peer_conn_cfg.mps, p);
+        STREAM_TO_UINT16(p_ccb->peer_conn_cfg.credits, p);
+        STREAM_TO_UINT16(con_info.l2cap_result, p);
+        for (int i = 0; i < p_ccb->coc_cmd_info.num_coc_chnls; i++) {
+          STREAM_TO_UINT16(dest_cid[i], p);
+        }
+        l2cu_process_peer_ecfc_conn_res(p_ccb, dest_cid, &con_info);
+      } else {
+        L2CAP_TRACE_DEBUG("I DO NOT remember the connection req");
+        con_info.l2cap_result = L2CAP_ECFC_SOME_CONNS_REFUSED_INVALID_SOURCE_CID;
+        l2c_csm_execute(p_ccb, L2CEVT_L2CAP_COC_CONNECT_NEG_RSP, &con_info);
+      }
+    }
+      break;
+
+    case L2CAP_CMD_CREDIT_BASED_RECONFIGURE_REQ:
+      if (p + 4 > p_pkt_end) {
+        L2CAP_TRACE_ERROR("L2CAP - ECFC - packet with wrong size: %d bytes more",
+                          (p - p_pkt_end));
+        return;
+      }
+
+      req_param = (tL2C_CFG_REQ_PARAM *)osi_malloc(sizeof(tL2C_CFG_REQ_PARAM));
+      req_param->trans_id = id;
+      STREAM_TO_UINT16(req_param->cfg_params.mtu, p);
+      STREAM_TO_UINT16(req_param->cfg_params.mps, p);
+
+      // num of channels = remaining length of pdu / size of CID;
+      req_param->chnl_info.num_chnls =
+          (cmd_len - L2CAP_CMD_MTU_MPS_OVERHEAD)/ L2CAP_CMD_CID_LEN;
+
+      for (int i = 0; i < req_param->chnl_info.num_chnls; i++) {
+        STREAM_TO_UINT16(rcid, p);
+        p_ccb = l2cu_find_ccb_by_remote_cid(p_lcb, rcid);
+        if (!p_ccb) {
+          req_param->result = L2CAP_RCFG_INVALID_DCID;
+          L2CAP_TRACE_WARNING("L2CAP - reconfig req error (%s). dcid: %x",
+              l2cu_get_reconfig_result(req_param->result), rcid);
+          l2cu_send_peer_rcfg_rsp(p_lcb, NULL, req_param);
+          break;
+        }
+        req_param->chnl_info.sr_cids[i] = p_ccb->local_cid;
+      }
+      l2c_csm_execute(p_ccb, L2CEVT_L2CAP_COC_RECONFIG_REQ, req_param);
+      break;
+
+    case L2CAP_CMD_CREDIT_BASED_RECONFIGURE_RSP:
+      if (p + 2 > p_pkt_end) {
+        L2CAP_TRACE_ERROR("L2CAP - ECFC - packet with wrong size: %d bytes more",
+                          (p - p_pkt_end));
+        return;
+      }
+      STREAM_TO_UINT16(result, p);
+
+      l2cu_find_req_params_for_peer_rcfg_rsp(p_lcb, result, id);
       break;
 
     default:
@@ -987,7 +1092,7 @@ void l2cble_update_data_length(tL2C_LCB* p_lcb) {
   if (tx_mtu > BTM_BLE_DATA_SIZE_MAX) tx_mtu = BTM_BLE_DATA_SIZE_MAX;
 
   /* update TX data length if changed */
-  if (p_lcb->tx_data_len != tx_mtu)
+  if (p_lcb->tx_data_len < tx_mtu)
     BTM_SetBleDataLength(p_lcb->remote_bd_addr, tx_mtu);
 }
 
@@ -1094,51 +1199,6 @@ void l2cble_credit_based_conn_res(tL2C_CCB* p_ccb, uint16_t result) {
 
 /*******************************************************************************
  *
- * Function         l2cble_send_flow_control_credit
- *
- * Description      This function sends flow control credits for
- *                  LE connection oriented channels.
- *
- * Returns          void
- *
- ******************************************************************************/
-void l2cble_send_flow_control_credit(tL2C_CCB* p_ccb, uint16_t credit_value) {
-  if (!p_ccb) return;
-
-  if (p_ccb->p_lcb && p_ccb->p_lcb->transport != BT_TRANSPORT_LE) {
-    L2CAP_TRACE_WARNING("LE link doesn't exist");
-    return;
-  }
-
-  l2cu_send_peer_ble_flow_control_credit(p_ccb, credit_value);
-  return;
-}
-
-/*******************************************************************************
- *
- * Function         l2cble_send_peer_disc_req
- *
- * Description      This function sends disconnect request
- *                  to the peer LE device
- *
- * Returns          void
- *
- ******************************************************************************/
-void l2cble_send_peer_disc_req(tL2C_CCB* p_ccb) {
-  L2CAP_TRACE_DEBUG("%s", __func__);
-  if (!p_ccb) return;
-
-  if (p_ccb->p_lcb && p_ccb->p_lcb->transport != BT_TRANSPORT_LE) {
-    L2CAP_TRACE_WARNING("LE link doesn't exist");
-    return;
-  }
-
-  l2cu_send_peer_ble_credit_based_disconn_req(p_ccb);
-  return;
-}
-
-/*******************************************************************************
- *
  * Function         l2cble_sec_comp
  *
  * Description      This function is called when security procedure for an LE
@@ -1235,8 +1295,8 @@ bool L2CA_LE_SetFlowControlCredits (uint16_t cid, uint16_t credits)
         L2CAP_TRACE_WARNING ("LE-L2CAP: no CCB found");
         return (FALSE);
     }
-        l2cble_send_flow_control_credit(p_ccb, credits);
-        return (TRUE);
+    l2cu_send_flow_control_credit(p_ccb, credits);
+    return (TRUE);
 }
 
 /*******************************************************************************

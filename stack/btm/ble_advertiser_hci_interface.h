@@ -35,6 +35,7 @@ class BleAdvertiserHciInterface {
   using status_cb = base::Callback<void(uint8_t /* status */)>;
   using parameters_cb =
       base::Callback<void(uint8_t /* status */, int8_t /* tx_power */)>;
+  using iso_data_path_cb = base::Callback<void(uint8_t /* status */, uint16_t /*conn_handle*/)>;
 
   static void Initialize();
   static BleAdvertiserHciInterface* Get();
@@ -48,6 +49,14 @@ class BleAdvertiserHciInterface {
     virtual void OnAdvertisingSetTerminated(
         uint8_t status, uint8_t advertising_handle, uint16_t connection_handle,
         uint8_t num_completed_extended_adv_events) = 0;
+    virtual void CreateBIGComplete(
+            uint8_t status, uint8_t big_handle, uint32_t big_sync_delay,
+            uint32_t transport_latency_big, uint8_t phy, uint8_t nse,
+            uint8_t bn, uint8_t pto, uint8_t irc, uint16_t max_pdu,
+            uint16_t iso_int, uint8_t num_bis,
+            std::vector<uint16_t> conn_handle_list) = 0;
+    virtual void TerminateBIGComplete(uint8_t status, uint8_t big_handle,
+                                      bool cmd_status, uint8_t reason) = 0;
   };
 
   virtual void SetAdvertisingEventObserver(
@@ -106,6 +115,21 @@ class BleAdvertiserHciInterface {
                                             status_cb command_complete) = 0;
   virtual void RemoveAdvertisingSet(uint8_t handle,
                                     status_cb command_complete) = 0;
+
+  virtual void CreateBIG(uint8_t big_handle,
+                         uint8_t adv_handle,
+                         uint8_t num_bis,
+                         uint32_t sdu_int,
+                         uint16_t max_sdu,
+                         uint16_t max_transport_latency,
+                         uint8_t rtn,
+                         uint8_t phy,
+                         uint8_t packing,
+                         uint8_t framing,
+                         uint8_t encryption,
+                         std::vector<uint8_t> broadcast_code) = 0;
+  virtual void TerminateBIG(uint8_t big_handle,
+                            uint8_t reason) = 0;
 
   // Some implementation don't behave well when handle value 0 is used.
   virtual bool QuirkAdvertiserZeroHandle() { return 0; }

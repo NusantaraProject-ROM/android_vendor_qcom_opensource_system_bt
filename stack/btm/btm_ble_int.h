@@ -74,6 +74,9 @@ extern tBTM_STATUS btm_ble_stop_adv(void);
 extern void btm_le_on_advertising_set_terminated(uint8_t* p, uint16_t length);
 extern tBTM_STATUS btm_ble_start_scan(void);
 extern void btm_ble_create_ll_conn_complete(uint8_t status);
+extern void btm_le_create_big_complete(uint8_t* p, uint16_t length);
+extern void btm_le_create_big_cmd_status(uint8_t status);
+extern void btm_le_terminate_big_complete(uint8_t* p, uint16_t length);
 
 /* LE security function from btm_sec.cc */
 extern void btm_ble_link_sec_check(const RawAddress& bd_addr,

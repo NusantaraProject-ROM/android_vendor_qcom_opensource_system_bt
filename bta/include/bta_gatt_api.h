@@ -94,9 +94,12 @@ typedef uint16_t tBTA_GATT_REASON;
 
 #define BTA_GATTC_MULTI_MAX GATT_MAX_READ_MULTI_HANDLES
 
+#define BTA_GATTS_MULTI_MAX GATT_MAX_MULTI_HANDLE_NOTIF
+
 typedef struct {
   uint8_t num_attr;
   uint16_t handles[BTA_GATTC_MULTI_MAX];
+  bool is_variable_len;
 } tBTA_GATTC_MULTI;
 
 /* callback data structure */
@@ -165,6 +168,7 @@ typedef struct {
   uint16_t len;
   uint8_t value[GATT_MAX_ATTR_LEN];
   bool is_notify;
+  uint32_t trans_id;
 } tBTA_GATTC_NOTIFY;
 
 typedef struct {
@@ -256,6 +260,7 @@ typedef void(tBTA_GATTC_CBACK)(tBTA_GATTC_EVT event, tBTA_GATTC* p_data);
 #define BTA_GATTS_CONGEST_EVT 20
 #define BTA_GATTS_PHY_UPDATE_EVT 21
 #define BTA_GATTS_CONN_UPDATE_EVT 22
+#define BTA_GATTS_MULTI_NTF_EVT 23
 
 typedef uint8_t tBTA_GATTS_EVT;
 
@@ -342,6 +347,13 @@ typedef struct {
   tGATT_STATUS status;
 } tBTA_GATTS_CONN_UPDATE;
 
+/* Multiple Handle value Notifications*/
+typedef struct {
+  uint8_t num_attr;
+  uint16_t handles[BTA_GATTS_MULTI_MAX];
+  uint16_t lens[BTA_GATTS_MULTI_MAX];
+} tBTA_GATTS_MULTI_NTF;
+
 /* GATTS callback data */
 typedef union {
   tBTA_GATTS_REG_OPER reg_oper;
@@ -393,7 +405,8 @@ using BtaAppRegisterCallback =
  * p_client_cb - pointer to the application callback function.
  **/
 extern void BTA_GATTC_AppRegister(tBTA_GATTC_CBACK* p_client_cb,
-                                  BtaAppRegisterCallback cb);
+                                  BtaAppRegisterCallback cb,
+                                  bool eatt_support);
 
 /*******************************************************************************
  *
@@ -563,6 +576,8 @@ typedef void (*GATT_READ_OP_CB)(uint16_t conn_id, tGATT_STATUS status,
                                 void* data);
 typedef void (*GATT_WRITE_OP_CB)(uint16_t conn_id, tGATT_STATUS status,
                                  uint16_t handle, void* data);
+typedef void (*GATT_READ_MULTI_OP_CB)(uint16_t conn_id, tGATT_STATUS status,
+                                      bool is_variable_len, uint16_t len, uint8_t* value);
 
 /*******************************************************************************
  *
@@ -655,7 +670,7 @@ void BTA_GATTC_WriteCharDescr(uint16_t conn_id, uint16_t handle,
  * Returns          None
  *
  ******************************************************************************/
-extern void BTA_GATTC_SendIndConfirm(uint16_t conn_id, uint16_t handle);
+extern void BTA_GATTC_SendIndConfirm(uint16_t conn_id, uint16_t handle, uint32_t trans_id);
 
 /*******************************************************************************
  *
@@ -745,6 +760,26 @@ extern void BTA_GATTC_ReadMultiple(uint16_t conn_id,
 
 /*******************************************************************************
  *
+ * Function         BTA_GATTC_ReadMultipleVariable
+ *
+ * Description      This function is called to read multiple characteristic or
+ *                  characteristic descriptors of variable length.
+ *
+ * Parameters       conn_id - connection ID.
+ *                  p_read_multi - pointer to the read multiple parameter.
+ *                  auth_req - auth request
+ *                  read_multi_cb - callback for read multi variable request
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+extern void BTA_GATTC_ReadMultipleVariable(uint16_t conn_id,
+                                   tBTA_GATTC_MULTI* p_read_multi,
+                                   tGATT_AUTH_REQ auth_req,
+                                   GATT_READ_MULTI_OP_CB read_multi_cb);
+
+/*******************************************************************************
+ *
  * Function         BTA_GATTC_Refresh
  *
  * Description      Refresh the server cache of the remote device
@@ -806,16 +841,18 @@ extern void BTA_GATTS_Disable(void);
  * Function         BTA_GATTS_AppRegister
  *
  * Description      This function is called to register application callbacks
- *                    with BTA GATTS module.
+ *                  with BTA GATTS module requesting support with or without
+ *                  EATT.
  *
  * Parameters       p_app_uuid - applicaiton UUID
  *                  p_cback - pointer to the application callback function.
+ *                  eatt_support - EATT support requested by app
  *
  * Returns          None
  *
  ******************************************************************************/
 extern void BTA_GATTS_AppRegister(const bluetooth::Uuid& app_uuid,
-                                  tBTA_GATTS_CBACK* p_cback);
+                                  tBTA_GATTS_CBACK* p_cback, bool eatt_support);
 
 /*******************************************************************************
  *
@@ -903,6 +940,24 @@ extern void BTA_GATTS_HandleValueIndication(uint16_t conn_id, uint16_t attr_id,
 
 /*******************************************************************************
  *
+ * Function         BTA_GATTS_MultipleHandleValueNotification
+ *
+ * Description      This function is called to send notifications on
+ *                  multiple handles.
+ *
+ * Parameters       conn_id - connection id.
+ *                  p_multi_ntf - pointer to params for multi notifications.
+ *                  values - data to be notified.
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+extern void BTA_GATTS_MultipleHandleValueNotification(uint16_t conn_id,
+                                                      tBTA_GATTS_MULTI_NTF* p_multi_ntf,
+                                                      std::vector<std::vector<uint8_t>> values);
+
+/*******************************************************************************
+ *
  * Function         BTA_GATTS_SendRsp
  *
  * Description      This function is called to send a response to a request.
@@ -964,5 +1019,19 @@ extern void BTA_GATTS_CancelOpen(tGATT_IF server_if,
  *
  ******************************************************************************/
 extern void BTA_GATTS_Close(uint16_t conn_id);
+
+/*******************************************************************************
+ *
+ * Function         BTA_GATTS_ConfigureMTU
+ *
+ * Description      Configure MTU for a remote device.
+ *
+ * Parameters       conn_id: connection id.
+ *                  mtu: mtu
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+extern void BTA_GATTS_ConfigureMTU(uint16_t conn_id, uint16_t mtu);
 
 #endif /* BTA_GATT_API_H */

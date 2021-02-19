@@ -57,6 +57,8 @@
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 #include <inttypes.h>
+#include "stack/gatt/gatt_int.h"
+#include "stack/gatt/eatt_int.h"
 
 using base::Bind;
 using bluetooth::Uuid;
@@ -77,16 +79,22 @@ using bluetooth::Uuid;
 #define BTIF_STORAGE_PATH_REMOTE_VER_MFCT "Manufacturer"
 #define BTIF_STORAGE_PATH_REMOTE_VER_VER "LmpVer"
 #define BTIF_STORAGE_PATH_REMOTE_VER_SUBVER "LmpSubVer"
+#define BTIF_STORAGE_PATH_REMOTE_VALID_ADDR "ValidAddr"
+#define BTIF_STORAGE_PATH_REMOTE_MAPPING_ADDR "MapAddr"
 
 //#define BTIF_STORAGE_PATH_REMOTE_LINKKEYS "remote_linkkeys"
 #define BTIF_STORAGE_PATH_REMOTE_ALIASE "Aliase"
+#define BTIF_STORAGE_PATH_REMOTE_DGROUP "DGroup"
 #define BTIF_STORAGE_PATH_REMOTE_SERVICE "Service"
+#define BTIF_STORAGE_PATH_ADV_AUDIO_REMOTE_SERVICE "AdvAudioService"
 #define BTIF_STORAGE_PATH_REMOTE_HIDINFO "HidInfo"
 #define BTIF_STORAGE_KEY_ADAPTER_NAME "Name"
 #define BTIF_STORAGE_KEY_ADAPTER_SCANMODE "ScanMode"
 #define BTIF_STORAGE_KEY_LOCAL_IO_CAPS "LocalIOCaps"
 #define BTIF_STORAGE_KEY_LOCAL_IO_CAPS_BLE "LocalIOCapsBLE"
 #define BTIF_STORAGE_KEY_ADAPTER_DISC_TIMEOUT "DiscoveryTimeout"
+#define BTIF_STORAGE_KEY_EATT_SUPPORT "EattSupport"
+#define BTIF_STORAGE_KEY_CLIENT_SUPP_FEAT "ClientSupportedFeaturesChar"
 
 /* This is a local property to add a device found */
 #define BT_PROPERTY_REMOTE_DEVICE_TIMESTAMP 0xFF
@@ -172,7 +180,7 @@ static bt_status_t btif_in_fetch_bonded_ble_device(
     list_t** p_bonded_devices);
 static bt_status_t btif_in_fetch_bonded_device(const char* bdstr, int *dev_type);
 
-static bool btif_has_ble_keys(const char* bdstr);
+bool btif_has_ble_keys(const char* bdstr);
 
 static bool prop_upd(const RawAddress* remote_bd_addr, bt_property_t *prop);
 /*******************************************************************************
@@ -199,7 +207,7 @@ static bool prop_upd(const RawAddress* remote_bd_addr, bt_property_t *prop)
   BTIF_TRACE_DEBUG("%s: in, bd addr:%s, prop type:%d, len:%d", __func__, bdstr, prop->type,
               prop->len);
 
-  switch(prop->type) {
+  switch((uint8_t)prop->type) {
     case BT_PROPERTY_REMOTE_DEVICE_TIMESTAMP:
       btif_config_set_int(bdstr, BTIF_STORAGE_PATH_REMOTE_DEVTIME,
                   (int)time(NULL));
@@ -243,6 +251,18 @@ static bool prop_upd(const RawAddress* remote_bd_addr, bt_property_t *prop)
       btif_config_set_int(bdstr, BTIF_STORAGE_PATH_REMOTE_DEVTYPE,
                   *(int*)prop->val);
       break;
+    case BT_PROPERTY_REM_DEViCE_VALID_ADDR:
+      btif_config_set_int(bdstr, BTIF_STORAGE_PATH_REMOTE_VALID_ADDR,
+                *(int*)prop->val);
+      break;
+    case BT_PROPERTY_REM_DEV_IDENT_BD_ADDR:
+    {
+      RawAddress peer_addr;
+      peer_addr = *(RawAddress *)prop->val;
+      btif_config_set_str(bdstr, BTIF_STORAGE_PATH_REMOTE_MAPPING_ADDR,
+        (char*) peer_addr.ToString().c_str());
+    }
+      break;
     case BT_PROPERTY_UUIDS:
       {
         std::string val;
@@ -267,6 +287,20 @@ static bool prop_upd(const RawAddress* remote_bd_addr, bt_property_t *prop)
                     info->version);
         btif_config_set_int(bdstr, BTIF_STORAGE_PATH_REMOTE_VER_SUBVER,
                     info->sub_ver);
+      }
+      break;
+    case BT_PROPERTY_ADV_AUDIO_UUIDS:
+      {
+        std::string val;
+        size_t cnt = (prop->len) / sizeof(Uuid);
+        for (size_t i = 0; i < cnt; i++) {
+          Uuid* tmp_uuid;
+          tmp_uuid = ((Uuid*)(prop->val) + i);
+          BTIF_TRACE_DEBUG(" %s  index %d", tmp_uuid->ToString().c_str(), i);
+          val += tmp_uuid->ToString() + " ";
+          //val += (reinterpret_cast<Uuid*>(prop->val) + i)->ToString() + " ";
+        }
+        btif_config_set_str(bdstr, BTIF_STORAGE_PATH_ADV_AUDIO_REMOTE_SERVICE, val.c_str());
       }
       break;
     default:
@@ -350,7 +384,7 @@ static int cfg2prop(const RawAddress* remote_bd_addr, bt_property_t* prop) {
     return false;
   }
   int ret = false;
-  switch (prop->type) {
+  switch ((uint8_t)prop->type) {
     case BT_PROPERTY_REMOTE_DEVICE_TIMESTAMP:
       if (prop->len >= (int)sizeof(int))
         ret = btif_config_get_int(bdstr, BTIF_STORAGE_PATH_REMOTE_DEVTIME,
@@ -384,6 +418,22 @@ static int cfg2prop(const RawAddress* remote_bd_addr, bt_property_t* prop) {
       }
       break;
     }
+
+    case BT_PROPERTY_GROUP_DETAILS: {
+      BTIF_TRACE_DEBUG("loading device group details: %s", BTIF_STORAGE_PATH_REMOTE_DGROUP);
+      int len = prop->len;
+      ret = btif_config_get_str(bdstr, BTIF_STORAGE_PATH_REMOTE_DGROUP,
+                                (char*)prop->val, &len);
+      BTIF_TRACE_DEBUG("loading group details val: %s ret = %d", prop->val, ret);
+      if (ret && len && len <= prop->len)
+        prop->len = len - 1;
+      else {
+        prop->len = 0;
+        ret = false;
+      }
+      break;
+    }
+
     case BT_PROPERTY_ADAPTER_SCAN_MODE:
       if (prop->len >= (int)sizeof(int))
         ret = btif_config_get_int("Adapter", BTIF_STORAGE_KEY_ADAPTER_SCANMODE,
@@ -416,10 +466,39 @@ static int cfg2prop(const RawAddress* remote_bd_addr, bt_property_t* prop) {
         ret = btif_config_get_int(bdstr, BTIF_STORAGE_PATH_REMOTE_DEVTYPE,
                                   (int*)prop->val);
       break;
+    case BT_PROPERTY_REM_DEViCE_VALID_ADDR:
+      if (prop->len >= (int)sizeof(int))
+        ret = btif_config_get_int(bdstr, BTIF_STORAGE_PATH_REMOTE_VALID_ADDR,
+                                  (int*)prop->val);
+      break;
+    case BT_PROPERTY_REM_DEV_IDENT_BD_ADDR:
+    {
+      int len = prop->len;
+      BTIF_TRACE_DEBUG("%s() BT_PROPERTY_REM_DEV_IDENT_BD_ADDR %s", __func__, bdstr);
+      if (prop->len >= (int)sizeof(RawAddress))
+        ret = btif_config_get_str(bdstr, BTIF_STORAGE_PATH_REMOTE_MAPPING_ADDR,
+                                  (char*)prop->val, &len);
+    }
+      break;
     case BT_PROPERTY_UUIDS: {
       char value[1280];
       int size = sizeof(value);
       if (btif_config_get_str(bdstr, BTIF_STORAGE_PATH_REMOTE_SERVICE, value,
+                              &size)) {
+        Uuid* p_uuid = reinterpret_cast<Uuid*>(prop->val);
+        size_t num_uuids =
+            btif_split_uuids_string(value, p_uuid, BT_MAX_NUM_UUIDS);
+        prop->len = num_uuids * sizeof(Uuid);
+        ret = true;
+      } else {
+        prop->val = NULL;
+        prop->len = 0;
+      }
+    } break;
+    case BT_PROPERTY_ADV_AUDIO_UUIDS: {
+      char value[1280];
+      int size = sizeof(value);
+      if (btif_config_get_str(bdstr, BTIF_STORAGE_PATH_ADV_AUDIO_REMOTE_SERVICE, value,
                               &size)) {
         Uuid* p_uuid = reinterpret_cast<Uuid*>(prop->val);
         size_t num_uuids =
@@ -983,6 +1062,16 @@ bt_status_t btif_storage_remove_bonded_device(
     ret &= btif_config_remove(bdstr, "ProductVersion");
   if (btif_config_exist(bdstr, MAP_MCE_VERSION_CONFIG_KEY))
     ret &= btif_config_remove(bdstr, MAP_MCE_VERSION_CONFIG_KEY);
+  if (btif_config_exist(bdstr, BTIF_STORAGE_KEY_EATT_SUPPORT))
+    ret &= btif_config_remove(bdstr, BTIF_STORAGE_KEY_EATT_SUPPORT);
+  if (btif_config_exist(bdstr, BTIF_STORAGE_KEY_CLIENT_SUPP_FEAT))
+    ret &= btif_config_remove(bdstr, BTIF_STORAGE_KEY_CLIENT_SUPP_FEAT);
+  if (btif_config_exist(bdstr, "ValidAddr"))
+    ret &= btif_config_remove(bdstr, "ValidAddr");
+  if (btif_config_exist(bdstr, "MapAddr"))
+    ret &= btif_config_remove(bdstr, "MapAddr");
+  if (btif_config_exist(bdstr, "AdvAudioService"))
+    ret &= btif_config_remove(bdstr, "AdvAudioService");
   /* Retaining TwsPlusPeerAddr , AvrcpCtVersion and AvrcpFeatures
      as these are needed even after unpair */
   /* write bonded info immediately */
@@ -1059,6 +1148,43 @@ bt_status_t btif_storage_is_device_bonded(RawAddress *remote_bd_addr) {
     return BT_STATUS_FAIL;
 }
 
+void btif_storage_get_remote_services(RawAddress *p_addr, Uuid *actual_rem_uuids,
+        int num_uuids) {
+
+  Uuid remote_uuids[BT_MAX_NUM_UUIDS];
+  Uuid remote_le_uuids[BT_MAX_NUM_UUIDS];
+  bt_property_t prop;
+
+  prop.type = BT_PROPERTY_UUIDS;
+  prop.val = &remote_uuids[0];
+  prop.len = sizeof(remote_uuids);
+  btif_storage_get_remote_device_property(p_addr, &prop);
+
+  int i, valid_uuids = 0;
+  for (i = 0; i < BT_MAX_NUM_UUIDS; i++) {
+    if (remote_uuids[i] != Uuid::kEmpty) {
+      BTIF_TRACE_EVENT("%s: UUID %s index %d ", __func__,
+        remote_uuids[i].ToString().c_str());
+      actual_rem_uuids[valid_uuids] = remote_uuids[i];
+      valid_uuids++;
+    }
+  }
+  prop.type = (bt_property_type_t)BT_PROPERTY_ADV_AUDIO_UUIDS;
+  prop.val = &remote_le_uuids[0];
+  prop.len = sizeof(remote_le_uuids);
+  btif_storage_get_remote_device_property(p_addr, &prop);
+
+  int final_valid_index = valid_uuids;
+  for (i = 0; i < BT_MAX_NUM_UUIDS; i++) {
+    if (remote_le_uuids[i] != Uuid::kEmpty) {
+      BTIF_TRACE_EVENT("%s: UUID %s index %d ", __func__,
+        remote_le_uuids[i].ToString().c_str());
+      actual_rem_uuids[final_valid_index] = remote_le_uuids[i];
+      final_valid_index++;
+    }
+  }
+}
+
 /*******************************************************************************
 **
  * Function         btif_storage_load_bonded_devices
@@ -1077,13 +1203,13 @@ bt_status_t btif_storage_load_bonded_devices(void) {
   uint32_t i = 0;
   bt_property_t adapter_props[6];
   uint32_t num_props = 0;
-  bt_property_t remote_properties[8];
+  bt_property_t remote_properties[8]; // is 8 sufficient ?
   RawAddress addr;
   bt_bdname_t name, alias;
   bt_scan_mode_t mode;
   uint32_t disc_timeout;
   Uuid local_uuids[BT_MAX_NUM_UUIDS];
-  Uuid remote_uuids[BT_MAX_NUM_UUIDS];
+  Uuid remote_uuids[BT_MAX_NUM_UUIDS] = {};
   bt_status_t status;
 
   remove_devices_with_sample_ltk();
@@ -1162,10 +1288,14 @@ bt_status_t btif_storage_load_bonded_devices(void) {
        */
       uint32_t cod = 0;
       uint32_t devtype = 0;
+      int validAddr = 1;
+      RawAddress mapping_addr;
+      char group_details[512] = {0};
 
       num_props = 0;
       p_remote_addr = (RawAddress *)list_node(node);
       memset(remote_properties, 0, sizeof(remote_properties));
+      memset(remote_uuids, 0, sizeof(remote_uuids));
       BTIF_STORAGE_GET_REMOTE_PROP(p_remote_addr, BT_PROPERTY_BDNAME, &name,
                                    sizeof(name), remote_properties[num_props]);
       num_props++;
@@ -1185,11 +1315,43 @@ bt_status_t btif_storage_load_bonded_devices(void) {
                                    remote_properties[num_props]);
       num_props++;
 
-      BTIF_STORAGE_GET_REMOTE_PROP(p_remote_addr, BT_PROPERTY_UUIDS,
-                                   remote_uuids, sizeof(remote_uuids),
+      BTIF_STORAGE_GET_REMOTE_PROP(p_remote_addr, (bt_property_type_t)BT_PROPERTY_REM_DEViCE_VALID_ADDR,
+                                   &validAddr, sizeof(int),
                                    remote_properties[num_props]);
       num_props++;
 
+      char addr_map[1024] = "";
+      int addr_len = RawAddress::kLength;
+      BTIF_STORAGE_GET_REMOTE_PROP(p_remote_addr, (bt_property_type_t)BT_PROPERTY_REM_DEV_IDENT_BD_ADDR,
+                                   addr_map, addr_len,
+                                   remote_properties[num_props]);
+      RawAddress::FromString(addr_map, mapping_addr);
+      remote_properties[num_props].val = &mapping_addr;
+      remote_properties[num_props].len = RawAddress::kLength;
+      num_props++;
+
+      btif_storage_get_remote_services(p_remote_addr, remote_uuids,
+        sizeof(remote_uuids));
+
+
+      remote_properties[num_props].val = remote_uuids;
+      remote_properties[num_props].len = sizeof(remote_uuids);
+      remote_properties[num_props].type = BT_PROPERTY_UUIDS;
+      num_props++;
+      for (int i = 0; i < BT_MAX_NUM_UUIDS; i++) {
+        if (remote_uuids[i] != Uuid::kEmpty) {
+          BTIF_TRACE_EVENT("%s: index %d UUID %s", __func__,
+            i, remote_uuids[i].ToString().c_str());
+        }
+      }
+
+      BTIF_STORAGE_GET_REMOTE_PROP(p_remote_addr, (bt_property_type_t)BT_PROPERTY_GROUP_DETAILS,
+                                   group_details, sizeof(group_details),
+                                   remote_properties[num_props]);
+
+      BTIF_TRACE_EVENT("%s: num_props = %d group_details = %s",__func__ ,
+                          num_props, group_details); //debug
+      num_props++;
       btif_remote_properties_evt(BT_STATUS_SUCCESS, p_remote_addr, num_props,
                                  remote_properties);
     }
@@ -1947,4 +2109,88 @@ bool btif_storage_get_stored_remote_name(const RawAddress& bd_addr,
 
   return (btif_storage_get_remote_device_property(&bd_addr, &property) ==
           BT_STATUS_SUCCESS);
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_storage_load_bonded_eatt_devices
+ *
+ * Description      BTIF storage API - Loads all the bonded devices from NVRAM
+ *                  with EATT support.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void btif_storage_load_bonded_eatt_devices() {
+  RawAddress bd_addr;
+  int is_eatt_supported = 0;
+
+  for (const btif_config_section_iter_t* iter = btif_config_section_begin();
+       iter != btif_config_section_end(); iter = btif_config_section_next(iter)) {
+    const char* name = btif_config_section_name(iter);
+    if (!RawAddress::IsValidAddress(name)) continue;
+
+    btif_config_get_int(name, BTIF_STORAGE_KEY_EATT_SUPPORT,
+                        &is_eatt_supported);
+    if (!is_eatt_supported) {
+      continue;
+    }
+
+    RawAddress::FromString(name, bd_addr);
+    BTIF_TRACE_DEBUG("BD addr :%s", bd_addr.ToString().c_str());
+    gatt_add_eatt_device(bd_addr);
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_storage_add_eatt_support
+ *
+ * Description      BTIF storage API - Add EATT support for bd_addr
+ *                  in btif storage.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void btif_storage_add_eatt_support(const RawAddress& bd_addr) {
+  do_in_jni_thread(FROM_HERE,
+                   Bind(
+                       [](const RawAddress& bd_addr) {
+                         std::string bda_str = bd_addr.ToString();
+                         btif_config_set_int(
+                             bda_str.c_str(), BTIF_STORAGE_KEY_EATT_SUPPORT, true);
+                         btif_config_save();
+                       },
+                       bd_addr));
+}
+
+/*******************************************************************************
+ *
+ * Function         btif_storage_get_cl_supp_feat
+ *
+ * Description      BTIF storage API - Get client supported features characteristic
+ *                  value for a remote bda from btif storage.
+ *
+ *
+ * Returns          value of the characteristic
+ *
+ ******************************************************************************/
+uint8_t btif_storage_get_cl_supp_feat(const RawAddress& bda) {
+  std::string bda_str = bda.ToString();
+  int value = 0;
+
+  btif_config_get_int(bda_str.c_str(), BTIF_STORAGE_KEY_CLIENT_SUPP_FEAT, &value);
+  return value;
+}
+
+void btif_storage_set_cl_supp_feat(const RawAddress& bda, uint8_t value) {
+  do_in_jni_thread(
+      FROM_HERE, Bind(
+                     [](const RawAddress& bda, uint8_t value) {
+                       std::string bda_str = bda.ToString();
+                       btif_config_set_int(
+                           bda_str.c_str(), BTIF_STORAGE_KEY_CLIENT_SUPP_FEAT, value);
+                       btif_config_save();
+                     },
+                     bda, value));
 }

@@ -138,6 +138,7 @@ typedef struct {
 typedef struct {
   BT_HDR hdr;
   uint16_t handle;
+  uint32_t trans_id;
 } tBTA_GATTC_API_CONFIRM;
 
 typedef tGATT_CL_COMPLETE tBTA_GATTC_CMPL;
@@ -159,6 +160,8 @@ typedef struct {
   tGATT_AUTH_REQ auth_req;
   uint8_t num_attr;
   uint16_t handles[GATT_MAX_READ_MULTI_HANDLES];
+  bool is_variable_len;
+  GATT_READ_MULTI_OP_CB read_multi_cb;
 } tBTA_GATTC_API_READ_MULTI;
 
 typedef struct {
@@ -327,7 +330,8 @@ extern bool bta_gattc_sm_execute(tBTA_GATTC_CLCB* p_clcb, uint16_t event,
 extern void bta_gattc_disable();
 extern void bta_gattc_register(const bluetooth::Uuid& app_uuid,
                                tBTA_GATTC_CBACK* p_data,
-                               BtaAppRegisterCallback cb);
+                               BtaAppRegisterCallback cb,
+                               bool eatt_support);
 extern void bta_gattc_process_api_open(tBTA_GATTC_DATA* p_msg);
 extern void bta_gattc_process_api_open_cancel(tBTA_GATTC_DATA* p_msg);
 extern void bta_gattc_deregister(tBTA_GATTC_RCB* p_clreg);

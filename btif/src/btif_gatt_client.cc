@@ -134,7 +134,8 @@ void btif_gattc_upstreams_evt(uint16_t event, char* p_param) {
                 data);
 
       if (!p_data->notify.is_notify)
-        BTA_GATTC_SendIndConfirm(p_data->notify.conn_id, p_data->notify.handle);
+        BTA_GATTC_SendIndConfirm(p_data->notify.conn_id, p_data->notify.handle,
+            p_data->notify.trans_id);
 
       break;
     }
@@ -234,32 +235,55 @@ void btm_read_rssi_cb(void* p_void) {
 /*******************************************************************************
  *  Client API Functions
  ******************************************************************************/
+#if (EATT_IF_SUPPORTED == TRUE)
+  bt_status_t btif_gattc_register_app(const Uuid& uuid, bool eatt_support) {
+    CHECK_BTGATT_INIT();
 
-bt_status_t btif_gattc_register_app(const Uuid& uuid, bool eatt_support) {
-  CHECK_BTGATT_INIT();
+    if (eatt_support) {
+      LOG_ERROR(LOG_TAG, "%s: EATT not supported", __func__);
+      return BT_STATUS_UNSUPPORTED;
+    }
 
-  if (eatt_support) {
-    LOG_ERROR(LOG_TAG, "%s: EATT not supported", __func__);
-    return BT_STATUS_UNSUPPORTED;
+    return do_in_jni_thread(Bind(
+        [](const Uuid& uuid, bool eatt_support) {
+          BTA_GATTC_AppRegister(
+              bta_gattc_cback,
+              base::Bind(
+                  [](const Uuid& uuid, uint8_t client_id, uint8_t status) {
+                    do_in_jni_thread(Bind(
+                        [](const Uuid& uuid, uint8_t client_id, uint8_t status) {
+                          HAL_CBACK(bt_gatt_callbacks, client->register_client_cb,
+                                    status, client_id, uuid);
+                        },
+                        uuid, client_id, status));
+                  },
+                  uuid), eatt_support);
+        },
+        uuid, eatt_support));
   }
+#else
+  bt_status_t btif_gattc_register_app(const Uuid& uuid) {
+    CHECK_BTGATT_INIT();
 
-  return do_in_jni_thread(Bind(
-      [](const Uuid& uuid) {
-        BTA_GATTC_AppRegister(
-            bta_gattc_cback,
-            base::Bind(
-                [](const Uuid& uuid, uint8_t client_id, uint8_t status) {
-                  do_in_jni_thread(Bind(
-                      [](const Uuid& uuid, uint8_t client_id, uint8_t status) {
-                        HAL_CBACK(bt_gatt_callbacks, client->register_client_cb,
-                                  status, client_id, uuid);
-                      },
-                      uuid, client_id, status));
-                },
-                uuid));
-      },
-      uuid));
-}
+    bool eatt_support = false;
+    return do_in_jni_thread(Bind(
+        [](const Uuid& uuid, bool eatt_support) {
+          BTA_GATTC_AppRegister(
+              bta_gattc_cback,
+              base::Bind(
+                  [](const Uuid& uuid, uint8_t client_id, uint8_t status) {
+                    do_in_jni_thread(Bind(
+                        [](const Uuid& uuid, uint8_t client_id, uint8_t status) {
+                          HAL_CBACK(bt_gatt_callbacks, client->register_client_cb,
+                                    status, client_id, uuid);
+                        },
+                        uuid, client_id, status));
+                  },
+                  uuid), eatt_support);
+        },
+        uuid, eatt_support));
+  }
+#endif
 
 void btif_gattc_unregister_app_impl(int client_if) {
   BTA_GATTC_AppDeregister(client_if);

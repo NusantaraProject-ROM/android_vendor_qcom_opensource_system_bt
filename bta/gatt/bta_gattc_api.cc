@@ -72,12 +72,14 @@ void BTA_GATTC_Disable(void) {
  * |cb| one time callback when registration is finished
  */
 void BTA_GATTC_AppRegister(tBTA_GATTC_CBACK* p_client_cb,
-                           BtaAppRegisterCallback cb) {
+                           BtaAppRegisterCallback cb,
+                           bool eatt_support) {
   if (!bta_sys_is_register(BTA_ID_GATTC))
     bta_sys_register(BTA_ID_GATTC, &bta_gattc_reg);
 
   do_in_bta_thread(FROM_HERE, base::Bind(&bta_gattc_register, Uuid::GetRandom(),
-                                         p_client_cb, std::move(cb)));
+                                         p_client_cb, std::move(cb),
+                                         eatt_support));
 }
 
 static void app_deregister_impl(tGATT_IF client_if) {
@@ -442,6 +444,40 @@ void BTA_GATTC_ReadMultiple(uint16_t conn_id, tBTA_GATTC_MULTI* p_read_multi,
   p_buf->hdr.layer_specific = conn_id;
   p_buf->auth_req = auth_req;
   p_buf->num_attr = p_read_multi->num_attr;
+  p_buf->is_variable_len = p_read_multi->is_variable_len;
+
+  if (p_buf->num_attr > 0)
+    memcpy(p_buf->handles, p_read_multi->handles,
+           sizeof(uint16_t) * p_read_multi->num_attr);
+
+  bta_sys_sendmsg(p_buf);
+}
+
+/*******************************************************************************
+ *
+ * Function         BTA_GATTC_ReadMultipleVariable
+ *
+ * Description      This function is called to read multiple characteristic or
+ *                  characteristic descriptors of variable length.
+ *
+ * Parameters       conn_id - connection ID.
+ *                  p_read_multi - pointer to the read multiple parameter.
+ *                  auth_req - auth request
+ *                  read_multi_cb - callback for read multi variable request
+ * Returns          None
+ *
+ ******************************************************************************/
+void BTA_GATTC_ReadMultipleVariable(uint16_t conn_id, tBTA_GATTC_MULTI* p_read_multi,
+                            tGATT_AUTH_REQ auth_req, GATT_READ_MULTI_OP_CB read_multi_cb) {
+  tBTA_GATTC_API_READ_MULTI* p_buf =
+      (tBTA_GATTC_API_READ_MULTI*)osi_calloc(sizeof(tBTA_GATTC_API_READ_MULTI));
+
+  p_buf->hdr.event = BTA_GATTC_API_READ_MULTI_EVT;
+  p_buf->hdr.layer_specific = conn_id;
+  p_buf->auth_req = auth_req;
+  p_buf->num_attr = p_read_multi->num_attr;
+  p_buf->is_variable_len = p_read_multi->is_variable_len;
+  p_buf->read_multi_cb = read_multi_cb;
 
   if (p_buf->num_attr > 0)
     memcpy(p_buf->handles, p_read_multi->handles,
@@ -597,12 +633,13 @@ void BTA_GATTC_ExecuteWrite(uint16_t conn_id, bool is_execute) {
  * Description      This function is called to send handle value confirmation.
  *
  * Parameters       conn_id - connection ID.
- *                    p_char_id - characteristic ID to confirm.
+ *                  handle - characteristic handle to confirm.
+ *                  trans_id - transcation id for confirmation
  *
  * Returns          None
  *
  ******************************************************************************/
-void BTA_GATTC_SendIndConfirm(uint16_t conn_id, uint16_t handle) {
+void BTA_GATTC_SendIndConfirm(uint16_t conn_id, uint16_t handle, uint32_t trans_id) {
   tBTA_GATTC_API_CONFIRM* p_buf =
       (tBTA_GATTC_API_CONFIRM*)osi_calloc(sizeof(tBTA_GATTC_API_CONFIRM));
 
@@ -612,6 +649,7 @@ void BTA_GATTC_SendIndConfirm(uint16_t conn_id, uint16_t handle) {
   p_buf->hdr.event = BTA_GATTC_API_CONFIRM_EVT;
   p_buf->hdr.layer_specific = conn_id;
   p_buf->handle = handle;
+  p_buf->trans_id = trans_id;
 
   bta_sys_sendmsg(p_buf);
 }

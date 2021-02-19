@@ -31,6 +31,7 @@
 #include "l2c_int.h"
 #include "log/log.h"
 #include "osi/include/osi.h"
+#include "stack/gatt/eatt_int.h"
 
 #define GATT_WRITE_LONG_HDR_SIZE 5 /* 1 opcode + 2 handle + 2 offset */
 #define GATT_READ_CHAR_VALUE_HDL (GATT_READ_CHAR_VALUE | 0x80)
@@ -80,6 +81,7 @@ uint16_t disc_type_to_uuid[GATT_DISC_MAX] = {
  ******************************************************************************/
 void gatt_act_discovery(tGATT_CLCB* p_clcb) {
   uint8_t op_code = disc_type_to_att_opcode[p_clcb->op_subtype];
+  uint16_t lcid = p_clcb->p_tcb->att_lcid;
 
   if (p_clcb->s_handle > p_clcb->e_handle || p_clcb->s_handle == 0) {
     /* end of handle range */
@@ -121,7 +123,11 @@ void gatt_act_discovery(tGATT_CLCB* p_clcb) {
                size);
     }
 
-  tGATT_STATUS st = attp_send_cl_msg(*p_clcb->p_tcb, p_clcb, op_code, &cl_req);
+  if (p_clcb->p_tcb->is_eatt_supported) {
+    lcid = gatt_get_cid_by_conn_id(p_clcb->conn_id);
+  }
+
+  tGATT_STATUS st = attp_send_cl_msg(*p_clcb->p_tcb, p_clcb, lcid, op_code, &cl_req);
   if (st != GATT_SUCCESS && st != GATT_CMD_STARTED) {
     gatt_end_operation(p_clcb, GATT_ERROR, NULL);
   }
@@ -141,6 +147,7 @@ void gatt_act_read(tGATT_CLCB* p_clcb, uint16_t offset) {
   uint8_t rt = GATT_INTERNAL_ERROR;
   tGATT_CL_MSG msg;
   uint8_t op_code = 0;
+  uint16_t lcid = tcb.att_lcid;
 
   memset(&msg, 0, sizeof(tGATT_CL_MSG));
 
@@ -188,6 +195,11 @@ void gatt_act_read(tGATT_CLCB* p_clcb, uint16_t offset) {
       memcpy(&msg.read_multi, p_clcb->p_attr_buf, sizeof(tGATT_READ_MULTI));
       break;
 
+    case GATT_READ_MULTIPLE_VARIABLE:
+      op_code = GATT_REQ_READ_MULTI_VARIABLE;
+      memcpy(&msg.read_multi, p_clcb->p_attr_buf, sizeof(tGATT_READ_MULTI));
+      break;
+
     case GATT_READ_INC_SRV_UUID128:
       op_code = GATT_REQ_READ;
       msg.handle = p_clcb->s_handle;
@@ -199,7 +211,11 @@ void gatt_act_read(tGATT_CLCB* p_clcb, uint16_t offset) {
       break;
   }
 
-  if (op_code != 0) rt = attp_send_cl_msg(tcb, p_clcb, op_code, &msg);
+  if (tcb.is_eatt_supported) {
+    lcid = gatt_get_cid_by_conn_id(p_clcb->conn_id);
+  }
+
+  if (op_code != 0) rt = attp_send_cl_msg(tcb, p_clcb, lcid, op_code, &msg);
 
   if (op_code == 0 || (rt != GATT_SUCCESS && rt != GATT_CMD_STARTED)) {
     gatt_end_operation(p_clcb, rt, NULL);
@@ -212,6 +228,9 @@ void gatt_act_write(tGATT_CLCB* p_clcb, uint8_t sec_act) {
 
   CHECK(p_clcb->p_attr_buf);
   tGATT_VALUE& attr = *((tGATT_VALUE*)p_clcb->p_attr_buf);
+
+  uint16_t lcid = gatt_get_cid_by_conn_id(p_clcb->conn_id);
+  uint16_t payload_size = gatt_get_payload_size(p_clcb->p_tcb, lcid);
 
   switch (p_clcb->op_subtype) {
     case GATT_WRITE_NO_RSP: {
@@ -231,7 +250,7 @@ void gatt_act_write(tGATT_CLCB* p_clcb, uint8_t sec_act) {
     }
 
     case GATT_WRITE: {
-      if (attr.len <= (tcb.payload_size - GATT_HDR_SIZE)) {
+      if (attr.len <= (payload_size - GATT_HDR_SIZE)) {
         p_clcb->s_handle = attr.handle;
 
         uint8_t rt = gatt_send_write_msg(tcb, p_clcb, GATT_REQ_WRITE,
@@ -274,12 +293,18 @@ void gatt_act_write(tGATT_CLCB* p_clcb, uint8_t sec_act) {
 void gatt_send_queue_write_cancel(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
                                   tGATT_EXEC_FLAG flag) {
   uint8_t rt;
+  uint16_t lcid = tcb.att_lcid;
 
   VLOG(1) << __func__;
 
   tGATT_CL_MSG gatt_cl_msg;
   gatt_cl_msg.exec_write = flag;
-  rt = attp_send_cl_msg(tcb, p_clcb, GATT_REQ_EXEC_WRITE, &gatt_cl_msg);
+
+  if (tcb.is_eatt_supported) {
+    lcid = gatt_get_cid_by_conn_id(p_clcb->conn_id);
+  }
+
+  rt = attp_send_cl_msg(tcb, p_clcb, lcid, GATT_REQ_EXEC_WRITE, &gatt_cl_msg);
 
   if (rt != GATT_SUCCESS) {
     gatt_end_operation(p_clcb, rt, NULL);
@@ -338,9 +363,12 @@ void gatt_send_prepare_write(tGATT_TCB& tcb, tGATT_CLCB* p_clcb) {
   VLOG(1) << __func__ << StringPrintf(" type=0x%x", type);
   uint16_t to_send = p_attr->len - p_attr->offset;
 
-  if (to_send > (tcb.payload_size -
+  uint16_t lcid = gatt_get_cid_by_conn_id(p_clcb->conn_id);
+  uint16_t payload_size = gatt_get_payload_size(&tcb, lcid);
+
+  if (to_send > (payload_size -
                  GATT_WRITE_LONG_HDR_SIZE)) /* 2 = uint16_t offset bytes  */
-    to_send = tcb.payload_size - GATT_WRITE_LONG_HDR_SIZE;
+    to_send = payload_size - GATT_WRITE_LONG_HDR_SIZE;
 
   p_clcb->s_handle = p_attr->handle;
 
@@ -602,6 +630,7 @@ void gatt_process_prep_write_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
     gatt_end_operation(p_clcb, p_clcb->status, &value);
   }
 }
+
 /*******************************************************************************
  *
  * Function         gatt_process_notification
@@ -611,8 +640,8 @@ void gatt_process_prep_write_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
  * Returns          void
  *
  ******************************************************************************/
-void gatt_process_notification(tGATT_TCB& tcb, uint8_t op_code, uint16_t len,
-                               uint8_t* p_data) {
+void gatt_process_notification(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_code,
+                               uint16_t len, uint8_t* p_data) {
   tGATT_VALUE value;
   tGATT_REG* p_reg;
   uint16_t conn_id;
@@ -622,6 +651,8 @@ void gatt_process_notification(tGATT_TCB& tcb, uint8_t op_code, uint16_t len,
   uint8_t event = (op_code == GATT_HANDLE_VALUE_NOTIF)
                       ? GATTC_OPTYPE_NOTIFICATION
                       : GATTC_OPTYPE_INDICATION;
+  tGATT_EBCB* p_eatt_bcb;
+  uint32_t cl_trans_id = 0;
 
   VLOG(1) << __func__;
 
@@ -638,7 +669,7 @@ void gatt_process_notification(tGATT_TCB& tcb, uint8_t op_code, uint16_t len,
   if (!GATT_HANDLE_IS_VALID(value.handle)) {
     /* illegal handle, send ack now */
     if (op_code == GATT_HANDLE_VALUE_IND)
-      attp_send_cl_msg(tcb, nullptr, GATT_HANDLE_VALUE_CONF, NULL);
+      attp_send_cl_msg(tcb, nullptr, lcid, GATT_HANDLE_VALUE_CONF, NULL);
     return;
   }
 
@@ -670,20 +701,104 @@ void gatt_process_notification(tGATT_TCB& tcb, uint8_t op_code, uint16_t len,
   if (event == GATTC_OPTYPE_INDICATION) {
     /* start a timer for app confirmation */
     if (tcb.ind_count > 0)
-      gatt_start_ind_ack_timer(tcb);
+      gatt_start_ind_ack_timer(tcb, lcid);
     else /* no app to indicate, or invalid handle */
-      attp_send_cl_msg(tcb, nullptr, GATT_HANDLE_VALUE_CONF, NULL);
+      attp_send_cl_msg(tcb, nullptr, lcid, GATT_HANDLE_VALUE_CONF, NULL);
   }
 
   encrypt_status = gatt_get_link_encrypt_status(tcb);
   tGATT_CL_COMPLETE gatt_cl_complete;
   gatt_cl_complete.att_value = value;
+
+  if (tcb.is_eatt_supported) {
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    if (p_eatt_bcb) {
+      ++tcb.cl_trans_id;
+      tcb.trans_id %= GATT_TRANS_ID_MAX;
+      p_eatt_bcb->cl_trans_id = tcb.cl_trans_id;
+      cl_trans_id = p_eatt_bcb->cl_trans_id;
+    }
+    else {
+      VLOG(1) << __func__ << "EATT Supported, Unknown lcid";
+      return;
+    }
+  }
+
   for (i = 0, p_reg = gatt_cb.cl_rcb; i < GATT_MAX_APPS; i++, p_reg++) {
     if (p_reg->in_use && p_reg->app_cb.p_cmpl_cb) {
       conn_id = GATT_CREATE_CONN_ID(tcb.tcb_idx, p_reg->gatt_if);
       (*p_reg->app_cb.p_cmpl_cb)(conn_id, event, encrypt_status,
-                                 &gatt_cl_complete);
+                                 &gatt_cl_complete, cl_trans_id);
     }
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         gatt_process_multi_notification
+ *
+ * Description      Handle the handle value indication/notification.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void gatt_process_multi_notification(tGATT_TCB& tcb, uint16_t lcid,
+                                     uint16_t len, uint8_t* p_data) {
+  tGATT_VALUE value;
+  tGATT_REG* p_reg;
+  uint16_t conn_id;
+  tGATT_STATUS encrypt_status;
+  uint8_t* p = p_data;
+  uint8_t i;
+  uint8_t event = GATTC_OPTYPE_NOTIFICATION;
+  tGATT_EBCB* p_eatt_bcb;
+  uint32_t cl_trans_id = 0;
+  uint8_t hdl_length_bytes = 4;
+
+  if (len < GATT_NOTIFICATION_MIN_LEN) {
+    LOG(ERROR) << "illegal notification PDU length, discard";
+    return;
+  }
+
+  while (len > 0) {
+    memset(&value, 0, sizeof(value));
+    STREAM_TO_UINT16(value.handle, p);
+    STREAM_TO_UINT16(value.len, p);
+    memcpy(value.value, p, value.len);
+    p += value.len;
+
+    if (!GATT_HANDLE_IS_VALID(value.handle)) {
+      LOG(ERROR) << " Handle is invalid";
+      return;
+    }
+
+    encrypt_status = gatt_get_link_encrypt_status(tcb);
+    tGATT_CL_COMPLETE gatt_cl_complete;
+    gatt_cl_complete.att_value = value;
+
+    if (tcb.is_eatt_supported) {
+      p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+      if(p_eatt_bcb) {
+        ++tcb.cl_trans_id;
+        tcb.trans_id %= GATT_TRANS_ID_MAX;
+        p_eatt_bcb->cl_trans_id = tcb.cl_trans_id;
+        cl_trans_id = p_eatt_bcb->cl_trans_id;
+      }
+      else {
+        VLOG(1) << __func__ << "EATT Supported, Unknown lcid";
+        return;
+      }
+    }
+
+    for (i = 0, p_reg = gatt_cb.cl_rcb; i < GATT_MAX_APPS; i++, p_reg++) {
+      if (p_reg->in_use && p_reg->app_cb.p_cmpl_cb) {
+        conn_id = GATT_CREATE_CONN_ID(tcb.tcb_idx, p_reg->gatt_if);
+        (*p_reg->app_cb.p_cmpl_cb)(conn_id, event, encrypt_status,
+                                   &gatt_cl_complete, cl_trans_id);
+      }
+    }
+
+    len -= (hdl_length_bytes + value.len);
   }
 }
 
@@ -717,9 +832,12 @@ void gatt_process_read_by_type_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
     return;
   }
 
+  uint16_t lcid = gatt_get_cid_by_conn_id(p_clcb->conn_id);
+  uint16_t payload_size = gatt_get_payload_size(&tcb, lcid);
+
   STREAM_TO_UINT8(value_len, p);
 
-  if ((value_len > (tcb.payload_size - 2)) || (value_len > (len - 1))) {
+  if ((value_len > (payload_size - 2)) || (value_len > (len - 1))) {
     /* this is an error case that server's response containing a value length
        which is larger than MTU-2
        or value_len > message total length -1 */
@@ -727,7 +845,7 @@ void gatt_process_read_by_type_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
                << StringPrintf(
                       ": Discard response op_code=%d "
                       "vale_len=%d > (MTU-2=%d or msg_len-1=%d)",
-                      op_code, value_len, (tcb.payload_size - 2), (len - 1));
+                      op_code, value_len, (payload_size - 2), (len - 1));
     gatt_end_operation(p_clcb, GATT_ERROR, NULL);
     return;
   }
@@ -816,7 +934,7 @@ void gatt_process_read_by_type_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
              p_clcb->op_subtype == GATT_READ_BY_TYPE) {
       p_clcb->counter = len - 2;
       p_clcb->s_handle = handle;
-      if (p_clcb->counter == (p_clcb->p_tcb->payload_size - 4)) {
+      if (p_clcb->counter == (payload_size - 4)) {
         p_clcb->op_subtype = GATT_READ_BY_HANDLE;
         if (!p_clcb->p_attr_buf)
           p_clcb->p_attr_buf = (uint8_t*)osi_malloc(GATT_MAX_ATTR_LEN);
@@ -909,8 +1027,12 @@ void gatt_process_read_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
   uint16_t offset = p_clcb->counter;
   uint8_t* p = p_data;
 
+  uint16_t lcid = gatt_get_cid_by_conn_id(p_clcb->conn_id);
+  uint16_t payload_size = gatt_get_payload_size(&tcb, lcid);
+
   if (p_clcb->operation == GATTC_OPTYPE_READ) {
-    if (p_clcb->op_subtype != GATT_READ_BY_HANDLE) {
+    if (p_clcb->op_subtype != GATT_READ_BY_HANDLE  && (p_clcb->notif_ind_opcode != GATT_HANDLE_VALUE_NOTIF)
+        && (p_clcb->notif_ind_opcode != GATT_HANDLE_VALUE_IND)) {
       p_clcb->counter = len;
       gatt_end_operation(p_clcb, GATT_SUCCESS, (void*)p);
     } else {
@@ -929,12 +1051,12 @@ void gatt_process_read_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
 
         /* full packet for read or read blob rsp */
         bool packet_is_full;
-        if (tcb.payload_size == p_clcb->read_req_current_mtu) {
-          packet_is_full = (len == (tcb.payload_size - 1));
+        if (payload_size == p_clcb->read_req_current_mtu) {
+          packet_is_full = (len == (payload_size - 1));
         } else {
           packet_is_full = (len == (p_clcb->read_req_current_mtu - 1) ||
-                            len == (tcb.payload_size - 1));
-          p_clcb->read_req_current_mtu = tcb.payload_size;
+                            len == (payload_size - 1));
+          p_clcb->read_req_current_mtu = payload_size;
         }
 
         /* send next request if needed  */
@@ -952,8 +1074,7 @@ void gatt_process_read_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
       {
         LOG(ERROR) << "attr offset = " << +offset
                    << " p_attr_buf = " << p_clcb->p_attr_buf;
-        gatt_end_operation(p_clcb, GATT_NO_RESOURCES,
-                           (void*)p_clcb->p_attr_buf);
+        gatt_end_operation(p_clcb, GATT_NO_RESOURCES, (void*)p_clcb->p_attr_buf);
       }
     }
   } else {
@@ -1004,6 +1125,7 @@ void gatt_process_mtu_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb, uint16_t len,
                           uint8_t* p_data) {
   uint16_t mtu;
   tGATT_STATUS status = GATT_SUCCESS;
+  tGATT_EBCB* p_eatt_bcb = NULL;
 
   if (len < GATT_MTU_RSP_MIN_LEN) {
     LOG(ERROR) << "invalid MTU response PDU received, discard.";
@@ -1013,6 +1135,32 @@ void gatt_process_mtu_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb, uint16_t len,
 
     if (mtu < tcb.payload_size && mtu >= GATT_DEF_BLE_MTU_SIZE)
       tcb.payload_size = mtu;
+
+    if (tcb.payload_size > GATT_DEF_EATT_MTU_SIZE)
+      tcb.mtu_for_eatt = tcb.payload_size;
+    else
+      tcb.mtu_for_eatt = GATT_DEF_EATT_MTU_SIZE;
+
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(L2CAP_ATT_CID);
+    if (p_eatt_bcb)
+      p_eatt_bcb->payload_size = tcb.payload_size;
+
+    if (tcb.is_eatt_supported) {
+      if (!tcb.is_conn_cb_sent_eatt_sr_apps) {
+        for (size_t i=0; i<tcb.sr_eatt_apps.size(); i++) {
+          tGATT_IF gatt_if = tcb.sr_eatt_apps[i];
+          tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
+          if (p_reg->app_cb.p_conn_cb) {
+            uint16_t conn_id = GATT_CREATE_CONN_ID(tcb.tcb_idx, p_reg->gatt_if);
+            (*p_reg->app_cb.p_conn_cb)(p_reg->gatt_if, tcb.peer_bda, conn_id,
+                                       true, 0, tcb.transport);
+          }
+        }
+      }
+
+      VLOG(1) << __func__ << " upgrade to EATT conn after LE connection";
+      gatt_upgrade_conn(&tcb);
+    }
   }
 
   l2cble_set_fixed_channel_tx_data_length(tcb.peer_bda, L2CAP_ATT_CID,
@@ -1039,15 +1187,29 @@ uint8_t gatt_cmd_to_rsp_code(uint8_t cmd_code) {
 }
 
 /** Find next command in queue and sent to server */
-bool gatt_cl_send_next_cmd_inq(tGATT_TCB& tcb) {
-  while (!tcb.cl_cmd_q.empty()) {
-    tGATT_CMD_Q& cmd = tcb.cl_cmd_q.front();
+bool gatt_cl_send_next_cmd_inq(tGATT_TCB& tcb, uint16_t lcid) {
+  std::queue<tGATT_CMD_Q>* cl_cmd_q = &tcb.cl_cmd_q;
+  tGATT_EBCB* p_eatt_bcb;
+
+  if (tcb.is_eatt_supported) {
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    if (p_eatt_bcb) {
+      cl_cmd_q = &(p_eatt_bcb->cl_cmd_q);
+    }
+    else {
+      VLOG(1) << __func__ << "EATT supported: Unknown lcid";
+      return false;
+    }
+  }
+
+  while (!cl_cmd_q->empty()) {
+    tGATT_CMD_Q& cmd = cl_cmd_q->front();
     if (!cmd.to_send || cmd.p_cmd == NULL) return false;
 
-    tGATT_STATUS att_ret = attp_send_msg_to_l2cap(tcb, cmd.p_cmd);
+    tGATT_STATUS att_ret = attp_send_msg_to_l2cap(tcb, lcid, cmd.p_cmd);
     if (att_ret != GATT_SUCCESS && att_ret != GATT_CONGESTED) {
       LOG(ERROR) << __func__ << ": L2CAP sent error";
-      tcb.cl_cmd_q.pop();
+      cl_cmd_q->pop();
       continue;
     }
 
@@ -1057,7 +1219,7 @@ bool gatt_cl_send_next_cmd_inq(tGATT_TCB& tcb) {
     if (cmd.op_code == GATT_CMD_WRITE || cmd.op_code == GATT_SIGN_CMD_WRITE) {
       /* dequeue the request if is write command or sign write */
       uint8_t rsp_code;
-      tGATT_CLCB* p_clcb = gatt_cmd_dequeue(tcb, &rsp_code);
+      tGATT_CLCB* p_clcb = gatt_cmd_dequeue(tcb, lcid, &rsp_code);
 
       /* send command complete callback here */
       gatt_end_operation(p_clcb, att_ret, NULL);
@@ -1076,22 +1238,37 @@ bool gatt_cl_send_next_cmd_inq(tGATT_TCB& tcb) {
 }
 
 /** This function is called to handle the server response to client */
-void gatt_client_handle_server_rsp(tGATT_TCB& tcb, uint8_t op_code,
+void gatt_client_handle_server_rsp(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_code,
                                    uint16_t len, uint8_t* p_data) {
+  uint16_t payload_size = gatt_get_payload_size(&tcb, lcid);
+
   if (op_code == GATT_HANDLE_VALUE_IND || op_code == GATT_HANDLE_VALUE_NOTIF) {
-    if (len >= tcb.payload_size) {
+    if (len >= payload_size) {
       LOG(ERROR) << StringPrintf(
           "%s: invalid indicate pkt size: %d, PDU size: %d", __func__, len + 1,
-          tcb.payload_size);
+          payload_size);
       return;
     }
 
-    gatt_process_notification(tcb, op_code, len, p_data);
+    gatt_process_notification(tcb, lcid, op_code, len, p_data);
+    return;
+  }
+
+  if (op_code == GATT_MULTI_HANDLE_VALUE_NOTIF) {
+    VLOG(1) << __func__ << " Multi handle Value Notif";
+    if (len >= payload_size) {
+      LOG(ERROR) << StringPrintf(
+          "%s: invalid multi handle value Notif pkt size: %d, PDU size: %d", __func__, len + 1,
+          payload_size);
+      return;
+    }
+
+    gatt_process_multi_notification(tcb, lcid, len, p_data);
     return;
   }
 
   uint8_t cmd_code = 0;
-  tGATT_CLCB* p_clcb = gatt_cmd_dequeue(tcb, &cmd_code);
+  tGATT_CLCB* p_clcb = gatt_cmd_dequeue(tcb, lcid, &cmd_code);
   uint8_t rsp_code = gatt_cmd_to_rsp_code(cmd_code);
   if (!p_clcb || (rsp_code != op_code && op_code != GATT_RSP_ERROR)) {
     LOG(WARNING) << StringPrintf(
@@ -1102,7 +1279,7 @@ void gatt_client_handle_server_rsp(tGATT_TCB& tcb, uint8_t op_code,
 
   if (!p_clcb->in_use) {
     LOG(WARNING) << "ATT - clcb already not in use, ignoring response";
-    gatt_cl_send_next_cmd_inq(tcb);
+    gatt_cl_send_next_cmd_inq(tcb, lcid);
     return;
   }
 
@@ -1115,10 +1292,10 @@ void gatt_client_handle_server_rsp(tGATT_TCB& tcb, uint8_t op_code,
   /* the size of the message may not be bigger than the local max PDU size*/
   /* The message has to be smaller than the agreed MTU, len does not count
    * op_code */
-  if (len >= tcb.payload_size) {
+  if (len >= payload_size) {
     LOG(ERROR) << StringPrintf(
         "%s: invalid response pkt size: %d, PDU size: %d", __func__, len + 1,
-        tcb.payload_size);
+        payload_size);
     gatt_end_operation(p_clcb, GATT_ERROR, NULL);
   } else {
     switch (op_code) {
@@ -1142,6 +1319,7 @@ void gatt_client_handle_server_rsp(tGATT_TCB& tcb, uint8_t op_code,
       case GATT_RSP_READ:
       case GATT_RSP_READ_BLOB:
       case GATT_RSP_READ_MULTI:
+      case GATT_RSP_READ_MULTI_VARIABLE:
         gatt_process_read_rsp(tcb, p_clcb, op_code, len, p_data);
         break;
 
@@ -1168,5 +1346,5 @@ void gatt_client_handle_server_rsp(tGATT_TCB& tcb, uint8_t op_code,
     }
   }
 
-  gatt_cl_send_next_cmd_inq(tcb);
+  gatt_cl_send_next_cmd_inq(tcb, lcid);
 }

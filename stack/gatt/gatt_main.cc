@@ -35,6 +35,8 @@
 #include "l2c_api.h"
 #include "l2c_int.h"
 #include "osi/include/osi.h"
+#include "stack/gatt/eatt_int.h"
+#include "osi/include/properties.h"
 
 using base::StringPrintf;
 
@@ -69,7 +71,7 @@ static void gatt_l2cif_disconnect_ind_cback(uint16_t l2cap_cid,
 static void gatt_l2cif_disconnect_cfm_cback(uint16_t l2cap_cid,
                                             uint16_t result);
 static void gatt_l2cif_data_ind_cback(uint16_t l2cap_cid, BT_HDR* p_msg);
-static void gatt_send_conn_cback(tGATT_TCB* p_tcb);
+static void gatt_send_conn_cback(tGATT_TCB* p_tcb, uint16_t lcid);
 static void gatt_l2cif_congest_cback(uint16_t cid, bool congested);
 
 static const tL2CAP_APPL_INFO dyn_info = {gatt_l2cif_connect_ind_cback,
@@ -85,6 +87,32 @@ static const tL2CAP_APPL_INFO dyn_info = {gatt_l2cif_connect_ind_cback,
                                           NULL,
                                           NULL /* tL2CA_CREDITS_RECEIVED_CB */};
 
+
+static void gatt_l2cif_eatt_connect_ind_cback(tL2CAP_COC_CONN_REQ *p_conn_req,
+                                              uint16_t l2cap_id, uint16_t result,
+                                              uint16_t status);
+static void gatt_l2cif_eatt_connect_cfm_cback(RawAddress &p_bd_addr,
+                                              tL2CAP_COC_CHMAP_INFO  *chmap_info,
+                                              uint16_t p_mtu, uint16_t result,
+                                              uint16_t status);
+static void gatt_l2cif_eatt_reconfig_ind_cback(tL2CAP_COC_CHMAP_INFO* chmap_info,
+                                               uint16_t p_mtu);
+static void gatt_l2cif_eatt_disconnect_ind_cback(uint16_t l2cap_cid, bool ack_needed);
+static void gatt_l2cif_eatt_disconnect_cfm_cback(uint16_t l2cap_cid, uint16_t result);
+static void gatt_l2cif_eatt_data_ind_cback(uint16_t l2cap_cid);
+
+static const tL2CAP_COC_APPL_INFO eatt_dyn_info = {gatt_l2cif_eatt_connect_ind_cback,
+                                                   gatt_l2cif_eatt_connect_cfm_cback,
+                                                   gatt_l2cif_eatt_reconfig_ind_cback,
+                                                   NULL,
+                                                   gatt_l2cif_eatt_disconnect_ind_cback,
+                                                   gatt_l2cif_eatt_disconnect_cfm_cback,
+                                                   gatt_l2cif_eatt_data_ind_cback,
+                                                   NULL,
+                                                   NULL,
+                                                   NULL,
+                                                  };
+
 tGATT_CB gatt_cb;
 
 /*******************************************************************************
@@ -99,6 +127,7 @@ tGATT_CB gatt_cb;
  ******************************************************************************/
 void gatt_init(void) {
   tL2CAP_FIXED_CHNL_REG fixed_reg;
+  char eatt_enabled_prop[PROPERTY_VALUE_MAX] = "false";
 
   VLOG(1) << __func__;
 
@@ -122,6 +151,14 @@ void gatt_init(void) {
   fixed_reg.pL2CA_FixedCong_Cb = gatt_le_cong_cback; /* congestion callback */
   fixed_reg.default_idle_tout = 0xffff; /* 0xffff default idle timeout */
 
+  if (property_get("persist.vendor.btstack.enable.eatt", eatt_enabled_prop, "false")
+      && !strcmp(eatt_enabled_prop, "true")) {
+    gatt_cb.eatt_enabled = true;
+  }
+  else {
+    gatt_cb.eatt_enabled = false;
+  }
+
   L2CA_RegisterFixedChannel(L2CAP_ATT_CID, &fixed_reg);
 
   /* Now, register with L2CAP for ATT PSM over BR/EDR */
@@ -134,6 +171,22 @@ void gatt_init(void) {
                        0, 0);
   BTM_SetSecurityLevel(false, "", BTM_SEC_SERVICE_ATT, BTM_SEC_NONE, BT_PSM_ATT,
                        0, 0);
+
+  if (gatt_cb.eatt_enabled) {
+    /* Register with L2CAP for EATT PSM */
+    if (!L2CA_RegisterCoc(BT_PSM_EATT, (tL2CAP_COC_APPL_INFO*)&eatt_dyn_info,
+                          false /* enable_snoop */)) {
+      LOG(ERROR) << "EATT Dynamic Registration failed";
+    }
+
+    BTM_SetSecurityLevel(true, "", BTM_SEC_SERVICE_EATT, BTM_SEC_OUT_ENCRYPT, BT_PSM_EATT,
+                           0, 0);
+    BTM_SetSecurityLevel(false, "", BTM_SEC_SERVICE_EATT, BTM_SEC_IN_ENCRYPT, BT_PSM_EATT,
+                         0, 0);
+
+    btif_storage_load_bonded_eatt_devices();
+  }
+
 
   gatt_cb.hdl_cfg.gatt_start_hdl = GATT_GATT_START_HANDLE;
   gatt_cb.hdl_cfg.gap_start_hdl = GATT_GAP_START_HANDLE;
@@ -177,6 +230,20 @@ void gatt_free(void) {
     gatt_cb.tcb[i].sr_cmd.multi_rsp_q = NULL;
   }
 
+  for (i = 0; i < GATT_MAX_EATT_CHANNELS; i++) {
+    fixed_queue_free(gatt_cb.eatt_bcb[i].pending_ind_q, NULL);
+    gatt_cb.eatt_bcb[i].pending_ind_q = NULL;
+
+    alarm_free(gatt_cb.eatt_bcb[i].conf_timer);
+    gatt_cb.eatt_bcb[i].conf_timer = NULL;
+
+    alarm_free(gatt_cb.eatt_bcb[i].ind_ack_timer);
+    gatt_cb.eatt_bcb[i].ind_ack_timer = NULL;
+
+    fixed_queue_free(gatt_cb.eatt_bcb[i].sr_cmd.multi_rsp_q, NULL);
+    gatt_cb.eatt_bcb[i].sr_cmd.multi_rsp_q = NULL;
+  }
+
   if (gatt_cb.hdl_list_info != nullptr) {
     gatt_cb.hdl_list_info->clear();
     delete(gatt_cb.hdl_list_info);
@@ -205,6 +272,9 @@ void gatt_free(void) {
 bool gatt_connect(const RawAddress& rem_bda, tGATT_TCB* p_tcb,
                   tBT_TRANSPORT transport, uint8_t initiating_phys,
                   tGATT_IF gatt_if) {
+  VLOG(1) << __func__;
+  tGATT_REG* p_reg_app = gatt_get_regcb(gatt_if);
+
   if (gatt_get_ch_state(p_tcb) != GATT_CH_OPEN)
     gatt_set_ch_state(p_tcb, GATT_CH_CONN);
 
@@ -218,18 +288,32 @@ bool gatt_connect(const RawAddress& rem_bda, tGATT_TCB* p_tcb,
     /*  very similar to gatt_send_conn_cback, but no good way to reuse the code
      */
 
-    /* notifying application about the connection up event */
-    for (int i = 0; i < GATT_MAX_APPS; i++) {
-      tGATT_REG* p_reg = &gatt_cb.cl_rcb[i];
+    VLOG(1) << __func__ << " is_eatt_supported:" << +p_tcb->is_eatt_supported
+            << " p_reg eatt_support:" << +p_reg_app->eatt_support;
+    if(!p_tcb->is_eatt_supported || (!p_reg_app->eatt_support)) {
+      /* notifying application about the connection up event */
+      for (int i = 0; i < GATT_MAX_APPS; i++) {
+        tGATT_REG* p_reg = &gatt_cb.cl_rcb[i];
 
-      if (!p_reg->in_use || p_reg->gatt_if != gatt_if) continue;
+        if (!p_reg->in_use || p_reg->gatt_if != gatt_if) continue;
 
-      gatt_update_app_use_link_flag(p_reg->gatt_if, p_tcb, true, true);
-      if (p_reg->app_cb.p_conn_cb) {
-        uint16_t conn_id = GATT_CREATE_CONN_ID(p_tcb->tcb_idx, p_reg->gatt_if);
-        (*p_reg->app_cb.p_conn_cb)(p_reg->gatt_if, p_tcb->peer_bda, conn_id,
-                                   true, 0, p_tcb->transport);
+        gatt_update_app_use_link_flag(p_reg->gatt_if, p_tcb, true, true);
+
+        if (p_reg->app_cb.p_conn_cb) {
+          uint16_t conn_id = GATT_CREATE_CONN_ID(p_tcb->tcb_idx, p_reg->gatt_if);
+          (*p_reg->app_cb.p_conn_cb)(p_reg->gatt_if, p_tcb->peer_bda, conn_id,
+                                     true, 0, p_tcb->transport);
+        }
       }
+    }
+    else if (p_tcb->is_eatt_supported && p_reg_app->eatt_support) {
+      std::deque<tGATT_IF>::iterator it =
+          std::find(p_tcb->apps_needing_eatt.begin(), p_tcb->apps_needing_eatt.end(), gatt_if);
+      if (it == p_tcb->apps_needing_eatt.end()) {
+        p_tcb->apps_needing_eatt.push_back(gatt_if);
+      }
+      if (btm_sec_is_a_bonded_dev(rem_bda))
+        gatt_establish_eatt_connect(p_tcb, 1);
     }
 
     return true;
@@ -251,11 +335,17 @@ bool gatt_connect(const RawAddress& rem_bda, tGATT_TCB* p_tcb,
  *                  return false.
  *
  ******************************************************************************/
-bool gatt_disconnect(tGATT_TCB* p_tcb) {
+bool gatt_disconnect(tGATT_TCB* p_tcb, uint16_t lcid) {
   VLOG(1) << __func__;
+  uint16_t cid = p_tcb->att_lcid;
 
   if (!p_tcb) return false;
 
+  if (p_tcb->is_eatt_supported) {
+    cid = lcid;
+  }
+
+  VLOG(1) << __func__ << " cid:" << +cid;
   tGATT_CH_STATE ch_state = gatt_get_ch_state(p_tcb);
   if (ch_state == GATT_CH_CLOSING) {
     VLOG(1) << __func__ << " already in closing state";
@@ -263,7 +353,7 @@ bool gatt_disconnect(tGATT_TCB* p_tcb) {
   }
 
   bool ret = true;
-  if (p_tcb->att_lcid == L2CAP_ATT_CID) {
+  if (cid == L2CAP_ATT_CID) {
     tL2C_LCB *p_lcb = l2cu_find_lcb_by_bd_addr(p_tcb->peer_bda, p_tcb->transport);
     tL2C_LINK_STATE link_state = p_lcb != NULL ? p_lcb->link_state : LST_DISCONNECTED;
     VLOG(1) << __func__ << "ch_state= " << ch_state << " link_state= " << link_state;
@@ -279,8 +369,9 @@ bool gatt_disconnect(tGATT_TCB* p_tcb) {
     }
     gatt_set_ch_state(p_tcb, GATT_CH_CLOSING);
   } else {
-    if ((ch_state == GATT_CH_OPEN) || (ch_state == GATT_CH_CFG))
-      ret = L2CA_DisconnectReq(p_tcb->att_lcid);
+    if ((ch_state == GATT_CH_OPEN) || (ch_state == GATT_CH_CFG)) {
+      ret = L2CA_DisconnectReq(cid);
+    }
     else
       VLOG(1) << __func__ << " gatt_disconnect channel not opened";
   }
@@ -362,9 +453,14 @@ void gatt_update_app_use_link_flag(tGATT_IF gatt_if, tGATT_TCB* p_tcb,
                                    bool is_add, bool check_acl_link) {
   VLOG(1) << StringPrintf("%s: is_add=%d chk_link=%d", __func__, is_add,
                           check_acl_link);
+  tGATT_EBCB* p_eatt_bcb;
+  uint16_t lcid;
+  uint8_t i = 0;
+  tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
 
   if (!p_tcb) return;
 
+  lcid = p_tcb->att_lcid;
   // If we make no modification, i.e. kill app that was never connected to a
   // device, skip updating the device state.
   if (!gatt_update_app_hold_link_status(gatt_if, p_tcb, is_add)) return;
@@ -377,26 +473,54 @@ void gatt_update_app_use_link_flag(tGATT_IF gatt_if, tGATT_TCB* p_tcb,
       (BTM_GetHCIConnHandle(p_tcb->peer_bda, p_tcb->transport) !=
        GATT_INVALID_ACL_HANDLE);
 
+  if (p_tcb->is_eatt_supported) {
+    p_eatt_bcb = gatt_find_eatt_bcb_by_gatt_if(gatt_if, p_tcb->peer_bda);
+    if(p_eatt_bcb) {
+      lcid = p_eatt_bcb->cid;
+    }
+  }
+
   if (is_add) {
-    if (p_tcb->att_lcid == L2CAP_ATT_CID && is_valid_handle) {
+    if ((lcid == L2CAP_ATT_CID) && is_valid_handle) {
       VLOG(1) << "disable link idle timer";
       /* acl link is connected disable the idle timeout */
       GATT_SetIdleTimeout(p_tcb->peer_bda, GATT_LINK_NO_IDLE_TIMEOUT,
-                          p_tcb->transport);
+                          p_tcb->transport, lcid);
     }
   } else {
-    if (p_tcb->app_hold_link.empty()) {
-      // acl link is connected but no application needs to use the link
-      if (p_tcb->att_lcid == L2CAP_ATT_CID && is_valid_handle) {
-        /* for fixed channel, set the timeout value to
-           GATT_LINK_IDLE_TIMEOUT_WHEN_NO_APP seconds */
-        VLOG(1) << " start link idle timer = "
-                << GATT_LINK_IDLE_TIMEOUT_WHEN_NO_APP << " sec";
-        GATT_SetIdleTimeout(p_tcb->peer_bda, GATT_LINK_IDLE_TIMEOUT_WHEN_NO_APP,
-                            p_tcb->transport);
-      } else
-        // disconnect the dynamic channel
-        gatt_disconnect(p_tcb);
+    if (p_tcb->is_eatt_supported && p_reg->eatt_support &&
+        (lcid != L2CAP_ATT_CID) &&
+        !gatt_remove_app_on_lcid(lcid, gatt_if)) {
+      VLOG(1) << __func__ << " EATT disconnect lcid:" << +lcid;
+      gatt_disconnect(p_tcb, lcid);
+    }
+    else {
+      if (p_tcb->app_hold_link.empty()) {
+        // acl link is connected but no application needs to use the link
+        if (lcid == L2CAP_ATT_CID && is_valid_handle) {
+          // If remote created EATT channels available, disconnect them
+          if (gatt_num_eatt_bcbs(p_tcb) > 0) {
+            for (i = 0; i < GATT_MAX_EATT_CHANNELS; i++) {
+              if (gatt_cb.eatt_bcb[i].in_use && (gatt_cb.eatt_bcb[i].p_tcb->peer_bda == p_tcb->peer_bda)
+                  && (!gatt_cb.eatt_bcb[i].create_in_prg) && (gatt_cb.eatt_bcb[i].cid != L2CAP_ATT_CID)) {
+                p_eatt_bcb = &gatt_cb.eatt_bcb[i];
+                L2CA_DisconnectReq(p_eatt_bcb->cid);
+                break;
+              }
+            }
+          }
+          else {
+            /* for fixed channel, set the timeout value to
+             GATT_LINK_IDLE_TIMEOUT_WHEN_NO_APP seconds */
+            VLOG(1) << " start link idle timer = "
+                    << GATT_LINK_IDLE_TIMEOUT_WHEN_NO_APP << " sec";
+            GATT_SetIdleTimeout(p_tcb->peer_bda, GATT_LINK_IDLE_TIMEOUT_WHEN_NO_APP,
+                                p_tcb->transport, lcid);
+          }
+        } else
+          // disconnect the dynamic channel
+          gatt_disconnect(p_tcb, lcid);
+      }
     }
   }
 }
@@ -417,6 +541,12 @@ bool gatt_act_connect(tGATT_REG* p_reg, const RawAddress& bd_addr,
       LOG(INFO) << "Must finish disconnection before new connection";
       /* need to complete the closing first */
       return false;
+    } else if ((p_tcb->is_eatt_supported) && (p_reg->eatt_support)
+               && (st == GATT_CH_OPEN) &&
+               (transport == BT_TRANSPORT_LE)) {
+      if (!gatt_connect(bd_addr, p_tcb, transport, initiating_phys,
+                        p_reg->gatt_if))
+        return false;
     }
 
     return true;
@@ -441,7 +571,16 @@ bool gatt_act_connect(tGATT_REG* p_reg, const RawAddress& bd_addr,
 
 namespace connection_manager {
 void on_connection_timed_out(uint8_t app_id, const RawAddress& address) {
-  gatt_le_connect_cback(L2CAP_ATT_CID, address, false, 0xff, BT_TRANSPORT_LE);
+  tGATT_EBCB* p_eatt_bcb;
+  uint16_t lcid;
+
+  p_eatt_bcb = gatt_find_eatt_bcb_by_gatt_if(app_id, address);
+  if (p_eatt_bcb)
+    lcid = p_eatt_bcb->cid;
+  else
+    lcid = L2CAP_ATT_CID;
+
+  gatt_le_connect_cback(lcid, address, false, 0xff, BT_TRANSPORT_LE);
 }
 }  // namespace connection_manager
 
@@ -454,6 +593,7 @@ static void gatt_le_connect_cback(uint16_t chan, const RawAddress& bd_addr,
   tGATT_TCB* p_tcb = gatt_find_tcb_by_addr(bd_addr, transport);
   bool check_srv_chg = false;
   tGATTS_SRV_CHG* p_srv_chg_clt = NULL;
+  tGATT_EBCB* p_eatt_bcb = NULL;
 
   /* ignore all fixed channel connect/disconnect on BR/EDR link for GATT */
   if (transport == BT_TRANSPORT_BR_EDR) return;
@@ -483,7 +623,7 @@ static void gatt_le_connect_cback(uint16_t chan, const RawAddress& bd_addr,
       gatt_set_ch_state(p_tcb, GATT_CH_OPEN);
       p_tcb->payload_size = GATT_DEF_BLE_MTU_SIZE;
 
-      gatt_send_conn_cback(p_tcb);
+      gatt_send_conn_cback(p_tcb, chan);
     }
     if (check_srv_chg) gatt_chk_srv_chg(p_srv_chg_clt);
   }
@@ -502,22 +642,34 @@ static void gatt_le_connect_cback(uint16_t chan, const RawAddress& bd_addr,
 
     p_tcb->payload_size = GATT_DEF_BLE_MTU_SIZE;
 
-    gatt_send_conn_cback(p_tcb);
+    gatt_send_conn_cback(p_tcb, chan);
     if (check_srv_chg) {
       gatt_chk_srv_chg(p_srv_chg_clt);
     }
   }
+
+  p_tcb->mtu_for_eatt = GATT_DEF_EATT_MTU_SIZE;
+  //Check whether bda supports EATT
+  if (btm_sec_is_a_bonded_dev(bd_addr) && is_eatt_device(bd_addr)) {
+    p_tcb->is_eatt_supported = true;
+
+    //Allocate entry for ATT channel
+    p_eatt_bcb = gatt_eatt_bcb_alloc(p_tcb, L2CAP_ATT_CID, false, false);
+
+    GATT_Config(bd_addr, BT_TRANSPORT_LE);
+  }
+
 }
 
 /** This function is called to process the congestion callback from lcb */
-static void gatt_channel_congestion(tGATT_TCB* p_tcb, bool congested) {
+static void gatt_channel_congestion(tGATT_TCB* p_tcb, bool congested, uint16_t lcid) {
   uint8_t i = 0;
   tGATT_REG* p_reg = NULL;
   uint16_t conn_id;
 
   /* if uncongested, check to see if there is any more pending data */
   if (p_tcb != NULL && !congested) {
-    gatt_cl_send_next_cmd_inq(*p_tcb);
+    gatt_cl_send_next_cmd_inq(*p_tcb, lcid);
   }
   /* notifying all applications for the connection up event */
   for (i = 0, p_reg = gatt_cb.cl_rcb; i < GATT_MAX_APPS; i++, p_reg++) {
@@ -579,7 +731,7 @@ static void gatt_le_cong_cback(const RawAddress& remote_bda, bool congested) {
   if (!p_tcb) return;
 
   /* if uncongested, check to see if there is any more pending data */
-    gatt_channel_congestion(p_tcb, congested);
+    gatt_channel_congestion(p_tcb, congested, p_tcb->att_lcid);
 }
 
 /*******************************************************************************
@@ -608,7 +760,7 @@ static void gatt_le_data_ind(uint16_t chan, const RawAddress& bd_addr,
       LOG(WARNING) << "ATT - Ignored L2CAP data while in state: "
                    << +gatt_get_ch_state(p_tcb);
     } else
-      gatt_data_process(*p_tcb, p_buf);
+      gatt_data_process(*p_tcb, p_tcb->att_lcid, p_buf);
   }
 
   osi_free(p_buf);
@@ -641,6 +793,7 @@ static void gatt_l2cif_connect_ind_cback(const RawAddress& bd_addr,
       result = L2CAP_CONN_NO_RESOURCES;
     } else
       p_tcb->att_lcid = lcid;
+      p_tcb->is_eatt_supported = false;
 
   } else /* existing connection , reject it */
   {
@@ -740,7 +893,7 @@ void gatt_l2cif_config_cfm_cback(uint16_t lcid, tL2CAP_CFG_INFO* p_cfg) {
   }
 
   /* send callback */
-  gatt_send_conn_cback(p_tcb);
+  gatt_send_conn_cback(p_tcb, lcid);
 }
 
 /** This is the L2CAP config indication callback function */
@@ -781,7 +934,7 @@ void gatt_l2cif_config_ind_cback(uint16_t lcid, tL2CAP_CFG_INFO* p_cfg) {
   }
 
   /* send callback */
-  gatt_send_conn_cback(p_tcb);
+  gatt_send_conn_cback(p_tcb, lcid);
 }
 
 /** This is the L2CAP disconnect indication callback function */
@@ -838,7 +991,7 @@ static void gatt_l2cif_data_ind_cback(uint16_t lcid, BT_HDR* p_buf) {
   tGATT_TCB* p_tcb = gatt_find_tcb_by_cid(lcid);
   if (p_tcb && gatt_get_ch_state(p_tcb) == GATT_CH_OPEN) {
     /* process the data */
-    gatt_data_process(*p_tcb, p_buf);
+    gatt_data_process(*p_tcb, p_tcb->att_lcid, p_buf);
   }
 
   osi_free(p_buf);
@@ -849,12 +1002,435 @@ static void gatt_l2cif_congest_cback(uint16_t lcid, bool congested) {
   tGATT_TCB* p_tcb = gatt_find_tcb_by_cid(lcid);
 
   if (p_tcb != NULL) {
-    gatt_channel_congestion(p_tcb, congested);
+    gatt_channel_congestion(p_tcb, congested, lcid);
   }
 }
 
+/*******************************************************************************
+ *
+ * Function         gatt_l2cif_eatt_connect_ind_cback
+ *
+ * Description      This function handles inbound connection indication callback
+ *                  from L2CAP for EATT channel establishment. This is the case
+ *                  where local device is the recipient of incoming L2CAP credit
+ *                  based connection request.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void gatt_l2cif_eatt_connect_ind_cback(tL2CAP_COC_CONN_REQ *p_conn_req,
+                                              uint16_t l2cap_id, uint16_t result,
+                                              uint16_t status) {
+  uint8_t num_chnls;
+  uint16_t lcid;
+  tBT_TRANSPORT transport = BT_TRANSPORT_LE;
+  uint16_t rsp_status = L2CAP_CONN_OK;
+  tGATT_EBCB* p_eatt_bcb;
+  tL2CAP_COC_CONN_REQ conn_rsp;
+  tL2CAP_COC_CONN_REQ* p_conn_rsp = &conn_rsp;
+  uint16_t remote_rx_mtu = 0;
+
+  if (p_conn_req && (p_conn_req->transport != BT_TRANSPORT_LE)) {
+    LOG(ERROR) << " Unsupported transport";
+    return;
+  }
+
+  for (uint8_t i=0; i< L2C_MAX_ECFC_CHNLS_PER_CONN; i++) {
+    p_conn_rsp->sr_cids[i] = 0;
+  }
+  p_conn_rsp->num_chnls = 0;
+  p_conn_rsp->transport = p_conn_req->transport;
+  p_conn_rsp->p_bd_addr = p_conn_req->p_bd_addr;
+
+  VLOG(1) << __func__ << " result:" << +result << " status:" << +status;
+
+  if (p_conn_req) {
+    tGATT_TCB* p_tcb = gatt_find_tcb_by_addr(p_conn_req->p_bd_addr, p_conn_req->transport);
+    if (!p_tcb) {
+      VLOG(1) << __func__ << "p_tcb is null";
+      return;
+    }
+    transport = p_conn_req->transport;
+    num_chnls = p_conn_req->num_chnls;
+
+    for (uint8_t i=0; i< num_chnls; i++) {
+      lcid = p_conn_req->sr_cids[i];
+      p_eatt_bcb = gatt_eatt_bcb_alloc(p_tcb, lcid, false, true);
+
+      if (p_eatt_bcb) {
+        if (p_conn_req->mtu < GATT_DEF_EATT_MTU_SIZE)
+          remote_rx_mtu = GATT_DEF_EATT_MTU_SIZE;
+        else if (p_conn_req->mtu > GATT_MAX_MTU_SIZE)
+          remote_rx_mtu = GATT_MAX_MTU_SIZE;
+        else
+          remote_rx_mtu = p_conn_req->mtu;
+
+        if (p_eatt_bcb->p_tcb->mtu_for_eatt < GATT_DEF_EATT_MTU_SIZE) {
+          p_eatt_bcb->p_tcb->mtu_for_eatt = GATT_DEF_EATT_MTU_SIZE;
+        }
+        p_eatt_bcb->payload_size = std::min(p_eatt_bcb->p_tcb->mtu_for_eatt, remote_rx_mtu);
+        p_eatt_bcb->local_rx_mtu = p_eatt_bcb->p_tcb->mtu_for_eatt;
+        p_eatt_bcb->remote_rx_mtu = remote_rx_mtu;
+
+        p_conn_rsp->num_chnls++;
+        p_conn_rsp->sr_cids[i] = lcid;
+        p_conn_rsp->mtu = p_eatt_bcb->p_tcb->mtu_for_eatt;
+      }
+    }
+
+    if (p_conn_rsp->num_chnls == num_chnls)
+      result = L2C_COC_CONNECT_REQ_SUCCESS;
+    else if (p_conn_rsp->num_chnls > 0)
+      result = L2C_SOME_CONNS_ACCEPTED;
+    else if (p_conn_rsp->num_chnls == 0)
+      result = L2C_NO_RESOURCE_AVALIABLE;
+
+    if (p_conn_rsp->num_chnls >= 1) {
+      VLOG(1) << __func__ << " Updating EATT support";
+      p_tcb->is_eatt_supported = true;
+    }
+
+    p_conn_rsp->p_bd_addr = p_conn_req->p_bd_addr;
+    L2CA_ConnectCocRsp(p_conn_rsp, l2cap_id, result, rsp_status);
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         gatt_l2cif_eatt_connect_cfm_cback
+ *
+ * Description      This function handles connection confirmation callback
+ *                  from L2CAP for EATT channel establishment. This is the case
+ *                  where local device is the initiator of outgoing L2CAP
+ *                  credit based connection request.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void gatt_l2cif_eatt_connect_cfm_cback(RawAddress &p_bd_addr,
+                                              tL2CAP_COC_CHMAP_INFO *chmap_info,
+                                              uint16_t p_mtu, uint16_t result,
+                                              uint16_t status) {
+  uint8_t num_chnls = 0;
+  uint16_t lcid;
+  tGATT_TCB* p_tcb = NULL;
+  tGATT_IF gatt_if;
+  tBT_TRANSPORT transport = BT_TRANSPORT_LE;
+  tGATT_EBCB* p_eatt_bcb = NULL;
+  uint16_t conn_id = 0;
+
+  VLOG(1) << __func__ << " result:" << +result << " status:" << +status;
+
+  if (chmap_info)
+    num_chnls = chmap_info->num_chnls;
+
+  if ((status == L2CAP_CONN_OK) && (result == L2CAP_ECFC_ALL_CONNS_SUCCESSFUL)) {
+    if (num_chnls > 0) {
+      for (uint8_t idx=0; idx < num_chnls; idx++) {
+        lcid = chmap_info->sr_cids[idx];
+        p_eatt_bcb = gatt_find_eatt_bcb_by_cid_in_progress(p_bd_addr, lcid);
+        if (p_eatt_bcb) {
+          transport = p_eatt_bcb->p_tcb->transport;
+          p_tcb = p_eatt_bcb->p_tcb;
+        }
+        else {
+          VLOG(1) << __func__ << " p_eatt_bcb is NULL";
+          return;
+        }
+        if (transport == BT_TRANSPORT_BR_EDR) {
+          LOG(ERROR) << " Unsupported transport";
+          return;
+        }
+        if (!p_tcb->apps_needing_eatt.empty()) {
+          gatt_if = p_tcb->apps_needing_eatt.front();
+          p_tcb->apps_needing_eatt.pop_front();
+
+          //Add mapping of conn_id and lcid
+          conn_id = GATT_CREATE_CONN_ID(p_tcb->tcb_idx, gatt_if);
+          gatt_add_conn(conn_id, lcid);
+
+          p_eatt_bcb->apps.push_back(gatt_if);
+          p_eatt_bcb->create_in_prg = false;
+
+          p_eatt_bcb->payload_size = std::min(p_eatt_bcb->p_tcb->mtu_for_eatt, p_mtu);
+          p_eatt_bcb->local_rx_mtu = p_eatt_bcb->p_tcb->mtu_for_eatt;
+          p_eatt_bcb->remote_rx_mtu = p_mtu;
+        }
+        else {
+          VLOG(1) << __func__ << " None of the apps have initiated EATT connect:";
+          return;
+        }
+
+        for (int i = 0; i < GATT_MAX_APPS; i++) {
+          tGATT_REG* p_reg = &gatt_cb.cl_rcb[i];
+
+          if (!p_reg->in_use || p_reg->gatt_if != gatt_if) continue;
+
+          gatt_update_app_use_link_flag(p_reg->gatt_if, p_tcb, true, true);
+
+          if (p_reg->app_cb.p_conn_cb) {
+            uint16_t conn_id = GATT_CREATE_CONN_ID(p_tcb->tcb_idx, p_reg->gatt_if);
+            (*p_reg->app_cb.p_conn_cb)(p_reg->gatt_if, p_tcb->peer_bda, conn_id,
+                                       true, 0, p_tcb->transport);
+          }
+        }
+      }
+    }
+  }
+  else { //Failure
+    p_tcb = gatt_find_tcb_by_addr(p_bd_addr, BT_TRANSPORT_LE);
+
+    if (!p_tcb) {
+      VLOG(1) << __func__ << " p_tcb is null";
+      return;
+    }
+
+    if (gatt_num_eatt_bcbs(p_tcb) == 0) {
+      VLOG(1) << " First EATT conn attempt rejected, set eatt as not supported";
+      p_tcb->is_eatt_supported = false;
+      gatt_eatt_bcb_in_progress_dealloc(p_bd_addr);
+      return;
+    }
+
+    //Assign least burdened channel
+    if (!p_tcb->apps_needing_eatt.empty()) {
+      gatt_if = p_tcb->apps_needing_eatt.front();
+      p_tcb->apps_needing_eatt.pop_front();
+      p_eatt_bcb = gatt_find_best_eatt_bcb(p_tcb, gatt_if, 0, false);
+
+      if (p_eatt_bcb) {
+        for (int i = 0; i < GATT_MAX_APPS; i++) {
+          tGATT_REG* p_reg = &gatt_cb.cl_rcb[i];
+
+          if (!p_reg->in_use || p_reg->gatt_if != gatt_if) continue;
+
+          gatt_update_app_use_link_flag(p_reg->gatt_if, p_tcb, true, true);
+
+          if (p_reg->app_cb.p_conn_cb) {
+            uint16_t conn_id = GATT_CREATE_CONN_ID(p_tcb->tcb_idx, p_reg->gatt_if);
+            (*p_reg->app_cb.p_conn_cb)(p_reg->gatt_if, p_tcb->peer_bda, conn_id,
+                true, 0, p_tcb->transport);
+          }
+        }
+      }
+    }
+    gatt_eatt_bcb_in_progress_dealloc(p_bd_addr);
+  }
+
+  if (p_tcb && !p_tcb->apps_needing_eatt.empty()) {
+    gatt_establish_eatt_connect(p_tcb, 1);
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         gatt_l2cif_eatt_disconnect_ind_cback
+ *
+ * Description      This function handles disconnection indication callback
+ *                  from L2CAP for EATT channel disconnection. This is the case
+ *                  where local device is the recipient of incoming L2CAP
+ *                  disconnection request.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void gatt_l2cif_eatt_disconnect_ind_cback(uint16_t l2cap_cid, bool ack_needed) {
+  tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(l2cap_cid);
+
+  VLOG(1) << __func__;
+
+  if (!p_eatt_bcb) {
+    VLOG(1) << __func__ << " p_eatt_bcb is NULL for cid: " << +l2cap_cid;
+    return;
+  }
+
+  //Move apps if remote disconnects an EATT channel
+  gatt_move_apps(l2cap_cid);
+
+  //dealloc eatt_bcb for the lcid
+  gatt_eatt_bcb_dealloc(l2cap_cid);
+
+  if (ack_needed) {
+    L2CA_DisconnectRsp(l2cap_cid);
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         gatt_l2cif_eatt_disconnect_cfm_cback
+ *
+ * Description      This function handles disconnection confirmation callback
+ *                  from L2CAP for EATT channel disconnection. This is the case
+ *                  where local device is the initiator of outgoing L2CAP
+ *                  disconnection request.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void gatt_l2cif_eatt_disconnect_cfm_cback(uint16_t l2cap_cid, uint16_t result) {
+  tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(l2cap_cid);
+  tGATT_TCB* p_tcb = NULL;
+  uint8_t i = 0;
+
+  VLOG(1) << __func__;
+
+  if (!p_eatt_bcb) {
+    VLOG(1) << __func__ << " p_eatt_bcb is NULL for cid: " << +l2cap_cid;
+    return;
+  }
+
+  p_tcb = p_eatt_bcb->p_tcb;
+  gatt_eatt_bcb_dealloc(l2cap_cid);
+
+  // Disconnect EATT bearers
+  if (p_tcb->is_eatt_supported &&
+      (p_tcb->app_hold_link.empty() || p_tcb->is_att_rsp_tout)) {
+    if (gatt_num_eatt_bcbs(p_tcb) > 0) {
+      for (i = 0; i < GATT_MAX_EATT_CHANNELS; i++) {
+        if (gatt_cb.eatt_bcb[i].in_use && gatt_cb.eatt_bcb[i].p_tcb->peer_bda == p_tcb->peer_bda
+            && (!gatt_cb.eatt_bcb[i].create_in_prg) && gatt_cb.eatt_bcb[i].cid != L2CAP_ATT_CID) {
+          p_eatt_bcb = &gatt_cb.eatt_bcb[i];
+          L2CA_DisconnectReq(p_eatt_bcb->cid);
+          break;
+        }
+      }
+    }
+    else {
+      gatt_disconnect(p_tcb, L2CAP_ATT_CID);
+    }
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         gatt_l2cif_eatt_reconfig_ind_cback
+ *
+ * Description      This function handles reconfiguration indication callback
+ *                  from L2CAP for EATT channel reconfiguration. This is the case
+ *                  where local device is the recipient of incoming L2CAP
+ *                  credit based reconfigure request.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void gatt_l2cif_eatt_reconfig_ind_cback(tL2CAP_COC_CHMAP_INFO* chmap_info,
+                                               uint16_t p_mtu) {
+  bool ret = false;
+  uint8_t i=0;
+  uint8_t num_chnls =0;
+  uint16_t lcid = 0;
+  tGATT_EBCB* p_eatt_bcb;
+  tL2CAP_COC_CHMAP_INFO chmap_info_rsp;
+  tL2CAP_COC_CHMAP_INFO* p_chmap_info_rsp = &chmap_info_rsp;
+  uint16_t result = L2CAP_RCFG_OK;
+  tGATTS_DATA gatts_data;
+  tGATT_CL_COMPLETE cb_data;
+
+  VLOG(1) << __func__;
+
+  for (i=0; i< L2C_MAX_ECFC_CHNLS_PER_CONN; i++) {
+    chmap_info_rsp.sr_cids[i] = 0;
+  }
+  chmap_info_rsp.num_chnls = 0;
+
+  if (!chmap_info) {
+    VLOG(1) << __func__ << " Invalid L2CAP EATT channels:";
+    return;
+  }
+
+  num_chnls = chmap_info->num_chnls;
+
+  if ((p_mtu < GATT_DEF_EATT_MTU_SIZE) || (p_mtu > GATT_MAX_MTU_SIZE)) {
+    VLOG(1) << __func__ << " Unacceptable MTU size:";
+    result = L2CAP_RCFG_UNACCEPTABLE_PARAMS;
+  }
+
+  //Update MTU size for lcids
+  if (result == L2CAP_RCFG_OK) {
+    VLOG(1) << __func__ << " Reconfig accepted:";
+    for (i=0; i<num_chnls; i++) {
+      if (chmap_info->sr_cids[i] > 0) {
+        lcid = chmap_info->sr_cids[i];
+        p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+        if (p_eatt_bcb) {
+          p_eatt_bcb->payload_size = std::min(p_eatt_bcb->local_rx_mtu, p_mtu);
+          p_eatt_bcb->remote_rx_mtu = p_mtu;
+        }
+      }
+    }
+    p_chmap_info_rsp = chmap_info;
+  }
+
+  ret = L2CA_ReconfigCocRsp(p_chmap_info_rsp, result);
+
+  if (result == L2CAP_RCFG_OK) {
+    gatts_data.mtu = p_mtu;
+    /* Notify all registered applications on the cid with MTU size.*/
+    for (i=0; i<num_chnls; i++) {
+      if (chmap_info->sr_cids[i] > 0) {
+        lcid = chmap_info->sr_cids[i];
+        p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+        if (p_eatt_bcb) {
+          uint8_t num_apps_on_lcid = p_eatt_bcb->apps.size();
+          for (int j=0; j< num_apps_on_lcid; j++) {
+            tGATT_IF gatt_if = p_eatt_bcb->apps[j];
+            tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
+            uint16_t conn_id =
+                GATT_CREATE_CONN_ID(p_eatt_bcb->p_tcb->tcb_idx, gatt_if);
+
+            if (!p_reg->eatt_support)
+              continue;
+
+            gatt_sr_send_req_callback(conn_id, 0, GATTS_REQ_TYPE_MTU, &gatts_data);
+
+            tGATT_CMPL_CBACK* p_cmpl_cb = (p_reg) ? p_reg->app_cb.p_cmpl_cb : NULL;
+            cb_data.mtu = p_eatt_bcb->payload_size;
+            if (p_cmpl_cb) {
+              (*p_cmpl_cb)(conn_id, GATTC_OPTYPE_CONFIG, GATT_SUCCESS, &cb_data, 0);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         gatt_l2cif_eatt_data_ind_cback
+ *
+ * Description      This function handles data indication callback from L2CAP
+ *                  for EATT channel data. This is the case where local device
+ *                  is the recipient of incoming data on EATT channel.
+ *
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void gatt_l2cif_eatt_data_ind_cback(uint16_t l2cap_cid) {
+  tGATT_EBCB* p_eatt_bcb;
+  tGATT_TCB* p_tcb;
+  BT_HDR* p_buf = NULL;
+
+  p_eatt_bcb = gatt_find_eatt_bcb_by_cid(l2cap_cid);
+  if(p_eatt_bcb) {
+    p_tcb = p_eatt_bcb->p_tcb;
+    if (p_tcb && gatt_get_ch_state(p_tcb) == GATT_CH_OPEN) {
+      p_buf = L2CA_ReadData(l2cap_cid);
+      /* process the data */
+      gatt_data_process(*p_tcb, l2cap_cid, p_buf);
+    }
+  }
+  else {
+    VLOG(1) << __func__ << " unknown cid: " << +l2cap_cid;
+    return;
+  }
+
+  osi_free(p_buf);
+}
+
 /** Callback used to notify layer above about a connection */
-static void gatt_send_conn_cback(tGATT_TCB* p_tcb) {
+static void gatt_send_conn_cback(tGATT_TCB* p_tcb, uint16_t lcid) {
   uint8_t i;
   tGATT_REG* p_reg;
   uint16_t conn_id;
@@ -862,13 +1438,38 @@ static void gatt_send_conn_cback(tGATT_TCB* p_tcb) {
   VLOG(1) << __func__ << " : address " << p_tcb->peer_bda;
   std::set<tGATT_IF> apps =
       connection_manager::get_apps_connecting_to(p_tcb->peer_bda);
+  std::unordered_set<uint8_t> dir_conn_apps = p_tcb->app_hold_link;
+  bool is_eatt_dev = is_eatt_device(p_tcb->peer_bda);
 
   /* notifying all applications for the connection up event */
   for (i = 0, p_reg = gatt_cb.cl_rcb; i < GATT_MAX_APPS; i++, p_reg++) {
+    bool is_app_req_eatt_conn = false;
     if (!p_reg->in_use) continue;
 
-    if (apps.find(p_reg->gatt_if) != apps.end())
+    if (apps.find(p_reg->gatt_if) != apps.end()) {
       gatt_update_app_use_link_flag(p_reg->gatt_if, p_tcb, true, true);
+      if (p_reg->eatt_support)
+        is_app_req_eatt_conn = true;
+    }
+
+    if (dir_conn_apps.find(p_reg->gatt_if) != dir_conn_apps.end()) {
+      if (p_reg->eatt_support)
+        is_app_req_eatt_conn = true;
+    }
+
+    //For server apps requested for EATT
+    if (!is_app_req_eatt_conn && p_reg->eatt_support) {
+      if (is_eatt_dev) {
+        is_app_req_eatt_conn = true;
+        p_tcb->sr_eatt_apps.push_back(p_reg->gatt_if);
+      }
+      else {
+        p_tcb->is_conn_cb_sent_eatt_sr_apps = true;
+      }
+    }
+
+    if (is_eatt_dev && is_app_req_eatt_conn)
+      continue;
 
     if (p_reg->app_cb.p_conn_cb) {
       conn_id = GATT_CREATE_CONN_ID(p_tcb->tcb_idx, p_reg->gatt_if);
@@ -880,11 +1481,16 @@ static void gatt_send_conn_cback(tGATT_TCB* p_tcb) {
   /* Remove the direct connection */
   connection_manager::on_connection_complete(p_tcb->peer_bda);
 
-  if (!p_tcb->app_hold_link.empty() && p_tcb->att_lcid == L2CAP_ATT_CID) {
+  if (!p_tcb->is_eatt_supported) {
+    lcid = p_tcb->att_lcid;
+  }
+
+  if (!p_tcb->app_hold_link.empty() && (lcid == L2CAP_ATT_CID ||
+      p_tcb->transport == BT_TRANSPORT_LE)) {
     /* disable idle timeout if one or more clients are holding the link disable
      * the idle timer */
     GATT_SetIdleTimeout(p_tcb->peer_bda, GATT_LINK_NO_IDLE_TIMEOUT,
-                        p_tcb->transport);
+                        p_tcb->transport, lcid);
   }
 }
 
@@ -904,7 +1510,7 @@ static void gatt_send_conn_cback(tGATT_TCB* p_tcb) {
  * Returns          void
  *
  ******************************************************************************/
-void gatt_data_process(tGATT_TCB& tcb, BT_HDR* p_buf) {
+void gatt_data_process(tGATT_TCB& tcb, uint16_t lcid, BT_HDR* p_buf) {
   uint8_t* p = (uint8_t*)(p_buf + 1) + p_buf->offset;
   uint8_t op_code, pseudo_op_code;
 
@@ -927,7 +1533,7 @@ void gatt_data_process(tGATT_TCB& tcb, BT_HDR* p_buf) {
      */
     LOG(ERROR) << __func__
                << ": ATT - Rcvd L2CAP data, unknown cmd: " << loghex(op_code);
-    gatt_send_error_rsp(tcb, GATT_REQ_NOT_SUPPORTED, op_code, 0, false);
+    gatt_send_error_rsp(tcb, lcid, GATT_REQ_NOT_SUPPORTED, op_code, 0, false);
     return;
   }
 
@@ -936,9 +1542,9 @@ void gatt_data_process(tGATT_TCB& tcb, BT_HDR* p_buf) {
   } else {
     /* message from client */
     if ((op_code % 2) == 0)
-      gatt_server_handle_client_req(tcb, op_code, msg_len, p);
+      gatt_server_handle_client_req(tcb, lcid, op_code, msg_len, p);
     else
-      gatt_client_handle_server_rsp(tcb, op_code, msg_len, p);
+      gatt_client_handle_server_rsp(tcb, lcid, op_code, msg_len, p);
   }
 }
 
@@ -1085,4 +1691,49 @@ tGATT_CH_STATE gatt_get_ch_state(tGATT_TCB* p_tcb) {
 
   VLOG(1) << "gatt_get_ch_state: ch_state=" << +p_tcb->ch_state;
   return p_tcb->ch_state;
+}
+
+/*******************************************************************************
+ *
+ * Function         gatt_establish_eatt_connect
+ *
+ * Description      This function calls L2CAP enhanced credit based connection
+ *                  API to establish EATT connection.
+ *
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void gatt_establish_eatt_connect(tGATT_TCB* p_tcb, uint8_t num_chnls) {
+  uint8_t result, i=0;
+  tL2CAP_COC_CONN_REQ conn_req;
+  tGATT_EBCB* p_eatt_bcb;
+
+  if (gatt_num_eatt_bcbs_in_progress(p_tcb) > 0) {
+    VLOG(1) << __func__ << " Already processing EATT connect req";
+    return;
+  }
+
+  if (p_tcb) {
+    conn_req.mtu = p_tcb->mtu_for_eatt;
+    conn_req.num_chnls = num_chnls;
+    conn_req.psm = BT_PSM_EATT;
+    conn_req.p_bd_addr = p_tcb->peer_bda;
+    conn_req.transport = p_tcb->transport;
+  }
+
+  result = L2CA_ConnectCocReq(&conn_req);
+  VLOG(1) << __func__ << " result:" << +result;
+
+  if ((result == L2C_COC_CONNECT_REQ_SUCCESS) || (result == L2C_SOME_CONNS_ACCEPTED)) {
+    for (i=0; i<num_chnls; i++) {
+      if (conn_req.sr_cids[i] > 0) {
+        p_eatt_bcb = gatt_eatt_bcb_alloc(p_tcb, conn_req.sr_cids[i], true, false);
+      }
+      else {
+        break;
+      }
+    }
+  }
+
 }

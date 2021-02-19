@@ -47,7 +47,9 @@ enum {
   BTA_GATTS_API_OPEN_EVT,
   BTA_GATTS_API_CANCEL_OPEN_EVT,
   BTA_GATTS_API_CLOSE_EVT,
-  BTA_GATTS_API_DISABLE_EVT
+  BTA_GATTS_API_DISABLE_EVT,
+  BTA_GATTS_API_CFG_MTU_EVT,
+  BTA_GATTS_API_MULTI_NOTIFICATION_EVT
 };
 typedef uint16_t tBTA_GATTS_INT_EVT;
 
@@ -62,6 +64,7 @@ typedef struct {
   BT_HDR hdr;
   bluetooth::Uuid app_uuid;
   tBTA_GATTS_CBACK* p_cback;
+  bool eatt_support;
 } tBTA_GATTS_API_REG;
 
 typedef struct {
@@ -88,6 +91,14 @@ typedef struct {
 
 typedef struct {
   BT_HDR hdr;
+  uint8_t num_attr;
+  uint16_t handles[BTA_GATTS_MULTI_MAX];
+  uint16_t lens[BTA_GATTS_MULTI_MAX];
+  std::vector<std::vector<uint8_t>> values;
+} tBTA_GATTS_API_MULTI_NOTIFICATION;
+
+typedef struct {
+  BT_HDR hdr;
   uint32_t trans_id;
   tGATT_STATUS status;
   tGATTS_RSP* p_rsp;
@@ -107,6 +118,11 @@ typedef struct {
 
 } tBTA_GATTS_API_OPEN;
 
+typedef struct {
+  BT_HDR hdr;
+  uint16_t mtu;
+} tBTA_GATTS_API_CFG_MTU;
+
 typedef tBTA_GATTS_API_OPEN tBTA_GATTS_API_CANCEL_OPEN;
 
 typedef union {
@@ -120,6 +136,8 @@ typedef union {
   tBTA_GATTS_API_CANCEL_OPEN api_cancel_open;
 
   tBTA_GATTS_INT_START_IF int_start_if;
+  tBTA_GATTS_API_CFG_MTU api_mtu;
+  tBTA_GATTS_API_MULTI_NOTIFICATION api_multi_ntf;
 } tBTA_GATTS_DATA;
 
 /* application registration control block */
@@ -172,9 +190,13 @@ extern void bta_gatts_send_rsp(tBTA_GATTS_CB* p_cb, tBTA_GATTS_DATA* p_msg);
 extern void bta_gatts_indicate_handle(tBTA_GATTS_CB* p_cb,
                                       tBTA_GATTS_DATA* p_msg);
 
+extern void bta_gatts_multi_notifications(tBTA_GATTS_CB* p_cb,
+                                          tBTA_GATTS_DATA* p_msg);
+
 extern void bta_gatts_open(tBTA_GATTS_CB* p_cb, tBTA_GATTS_DATA* p_msg);
 extern void bta_gatts_cancel_open(tBTA_GATTS_CB* p_cb, tBTA_GATTS_DATA* p_msg);
 extern void bta_gatts_close(tBTA_GATTS_CB* p_cb, tBTA_GATTS_DATA* p_msg);
+extern void bta_gatts_cfg_mtu(tBTA_GATTS_CB* p_cb, tBTA_GATTS_DATA* p_msg);
 
 extern tBTA_GATTS_RCB* bta_gatts_find_app_rcb_by_app_if(tGATT_IF server_if);
 extern uint8_t bta_gatts_find_app_rcb_idx_by_app_if(tBTA_GATTS_CB* p_cb,

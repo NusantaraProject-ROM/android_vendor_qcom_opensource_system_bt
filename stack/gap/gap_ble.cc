@@ -55,7 +55,7 @@ void server_attr_request_cback(uint16_t, uint32_t, tGATTS_REQ_TYPE,
 void client_connect_cback(tGATT_IF, const RawAddress&, uint16_t, bool,
                           tGATT_DISCONN_REASON, tGATT_TRANSPORT);
 void client_cmpl_cback(uint16_t, tGATTC_OPTYPE, tGATT_STATUS,
-                       tGATT_CL_COMPLETE*);
+                       tGATT_CL_COMPLETE*, uint32_t trans_id);
 
 tGATT_CBACK gap_cback = {client_connect_cback,
                          client_cmpl_cback,
@@ -305,7 +305,7 @@ void client_connect_cback(tGATT_IF, const RawAddress& bda, uint16_t conn_id,
 
 /** Client operation complete callback */
 void client_cmpl_cback(uint16_t conn_id, tGATTC_OPTYPE op, tGATT_STATUS status,
-                       tGATT_CL_COMPLETE* p_data) {
+                       tGATT_CL_COMPLETE* p_data, uint32_t trans_id) {
   tGAP_CLCB* p_clcb = ble_find_clcb_by_conn_id(conn_id);
   uint16_t op_type;
   uint16_t min, max, latency, tout;
@@ -401,7 +401,7 @@ void gap_attr_db_init(void) {
   Uuid app_uuid = Uuid::From128BitBE(tmp);
   gatt_attr.fill({});
 
-  gatt_if = GATT_Register(app_uuid, &gap_cback);
+  gatt_if = GATT_Register(app_uuid, &gap_cback, false);
 
   GATT_StartIf(gatt_if);
 

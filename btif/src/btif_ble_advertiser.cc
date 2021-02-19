@@ -83,6 +83,23 @@ void parsePeriodicParams(tBLE_PERIODIC_ADV_PARAMS* p_periodic_params,
       periodic_params.periodic_advertising_properties;
 }
 
+#if (BLE_ISO_IF_SUPPORTED == TRUE)
+void parseCreateBIGParams(tBLE_CREATE_BIG_PARAMS* p_create_big_params,
+                          CreateBIGParameters create_big_params) {
+  p_create_big_params->adv_handle = create_big_params.adv_handle;
+  p_create_big_params->num_bis = create_big_params.num_bis;
+  p_create_big_params->sdu_int = create_big_params.sdu_int;
+  p_create_big_params->max_sdu = create_big_params.max_sdu;
+  p_create_big_params->max_transport_latency = create_big_params.max_transport_latency;
+  p_create_big_params->rtn = create_big_params.rtn;
+  p_create_big_params->phy = create_big_params.phy;
+  p_create_big_params->packing = create_big_params.packing;
+  p_create_big_params->framing = create_big_params.framing;
+  p_create_big_params->encryption = create_big_params.encryption;
+  p_create_big_params->broadcast_code = create_big_params.broadcast_code;
+}
+#endif /* BLE_ISO_IF_SUPPORTED == TRUE */
+
 class BleAdvertiserInterfaceImpl : public BleAdvertiserInterface {
   ~BleAdvertiserInterfaceImpl(){};
 
@@ -252,16 +269,35 @@ class BleAdvertiserInterfaceImpl : public BleAdvertiserInterface {
     // For GD only
   }
 
+#if (BLE_ISO_IF_SUPPORTED == TRUE)
   void CreateBIG(int advertiser_id, CreateBIGParameters create_big_params,
                  CreateBIGCallback cb) override {
     VLOG(1) << __func__ << " advertiser_id: " << +advertiser_id;
+
+    if (!BleAdvertisingManager::IsInitialized()) return;
+    tBLE_CREATE_BIG_PARAMS* p_create_big_params = new tBLE_CREATE_BIG_PARAMS;
+    parseCreateBIGParams(p_create_big_params, create_big_params);
+
+    do_in_bta_thread(FROM_HERE,
+                     Bind(&BleAdvertisingManager::CreateBIG,
+                          BleAdvertisingManager::Get(), advertiser_id,
+                          base::Owned(p_create_big_params),
+                          jni_thread_wrapper(FROM_HERE, cb)));
   }
 
   void TerminateBIG(int advertiser_id, int big_handle, int reason,
                     TerminateBIGCallback cb) override {
     VLOG(1) << __func__ << "big_handle: " << +big_handle;
-  }
 
+    if (!BleAdvertisingManager::IsInitialized()) return;
+
+    do_in_bta_thread(FROM_HERE,
+                     Bind(&BleAdvertisingManager::TerminateBIG,
+                          BleAdvertisingManager::Get(), advertiser_id,
+                          big_handle, reason,
+                          jni_thread_wrapper(FROM_HERE, cb)));
+  }
+#endif /* BLE_ISO_IF_SUPPORTED == TRUE */
 };
 
 BleAdvertiserInterface* btLeAdvertiserInstance = nullptr;

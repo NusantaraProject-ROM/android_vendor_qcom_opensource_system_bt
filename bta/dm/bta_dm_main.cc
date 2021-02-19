@@ -343,6 +343,8 @@ bool bta_dm_search_sm_execute(BT_HDR* p_msg) {
   for (i = 0; i < BTA_DM_SEARCH_ACTIONS; i++) {
     action = state_table[p_msg->event & 0x00ff][i];
     if (action < BTA_DM_SEARCH_IGNORE) {
+       APPL_TRACE_EVENT("bta_dm_search_sm_execute state:%d, action %d ",
+                   bta_dm_search_cb.state, action);
       (*bta_dm_search_action[action])((tBTA_DM_MSG*)p_msg);
     } else {
       break;

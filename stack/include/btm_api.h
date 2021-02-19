@@ -1508,15 +1508,11 @@ extern void BTM_SecClearSecurityFlags(const RawAddress& bd_addr);
  * Function         BTM_SecGetDeviceLinkKey
  *
  * Description      This function is called to obtain link key for the device
- *                  it returns BTM_SUCCESS if link key is available, or
- *                  BTM_UNKNOWN_ADDR if Security Manager does not know about
- *                  the device or device record does not contain link key info
  *
- * Returns          BTM_SUCCESS if successful, otherwise error code
+ * Returns          LinkKey (Empty Key for unknown device).
  *
  ******************************************************************************/
-extern tBTM_STATUS BTM_SecGetDeviceLinkKey(const RawAddress& bd_addr,
-                                           LinkKey* link_key);
+extern LinkKey BTM_SecGetDeviceLinkKey(const RawAddress& bd_addr);
 
 /*******************************************************************************
  *
@@ -2202,6 +2198,72 @@ extern bool BTM_SecGetTwsPlusPeerDev(const RawAddress& eb_addr,
                                      RawAddress& peer_bd_addr);
 
 extern bool BTM_SecIsTwsPlusDev(const RawAddress& eb_addr);
+
+// Bluetooth Spec 5.2 Commands
+/*******************************************************************************
+ *
+ * Function         BTM_SetEcosystemBaseInterval
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_Set_Ecosystem_Base_Interval Command.
+ *
+ * Parameters       interval: interval to be set
+ *                  tBTM_SET_ECOSYSTEM_BASE_INTERVAL_CB: Command Complete callback.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+extern void BTM_SetEcosystemBaseInterval(uint16_t interval,
+                                  tBTM_SET_ECOSYSTEM_BASE_INTERVAL_CB* p_cb);
+
+/*******************************************************************************
+ *
+ * Function         BTM_ReadLocalSupportedCodecCap
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_Read_Local_Supported_Codec_Capabilities.
+ *
+ * Parameters       tBTM_LOCAL_CODEC_CAP_PARAM includes all parameters of
+ *                  the HCI command.
+ *                  Note: free memory allocated to this structure after returning.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+extern void BTM_ReadLocalSupportedCodecCap(tBTM_LOCAL_CODEC_CAP_PARAM* param);
+
+/*******************************************************************************
+ *
+ * Function         BTM_ReadLocalSupportedControllerDelay
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_Read_Local_Supported_Controller_Delay.
+ *
+ * Parameters       tBTM_LOCAL_SUP_CONTROLLER_DELAY_PARAM includes all parameters of
+ *                  the HCI command.
+ *                  Note: free memory allocated to this structure after returning.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+extern void BTM_ReadLocalSupportedControllerDelay(
+                                 tBTM_LOCAL_SUP_CONTROLLER_DELAY_PARAM* param);
+
+/*******************************************************************************
+ *
+ * Function         BTM_ConfigureDataPath
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_Configure_Data_Path.
+ *
+ * Parameters       tBTM_CFG_DATA_PATH_PARAM includes all parameters of
+ *                  the HCI command.
+ *                  Note: free memory allocated to this structure after returning.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+extern void BTM_ConfigureDataPath(tBTM_CFG_DATA_PATH_PARAM* param);
 
 extern uint16_t BTM_GetNumSlaveAclLinks(void);
 

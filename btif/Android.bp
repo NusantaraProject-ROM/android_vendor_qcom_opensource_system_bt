@@ -28,6 +28,10 @@ btifCommonIncludes = [
     "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/bta/include",
     "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include",
     "vendor/qcom/opensource/commonsys-intf/bluetooth/include",
+    "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/system/bt/btif/include",
+    "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/system/bt",
+    "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/system/bt/bta/include",
+    "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/vhal/include",
     "system/bt/include",
 ]
 
@@ -46,6 +50,7 @@ cc_library_static {
         "src/btif_a2dp_sink.cc",
         "src/btif_a2dp_source.cc",
         "src/btif_a2dp_audio_interface.cc",
+        "src/btif_ahim.cc",
         "src/btif_av.cc",
         "src/btif_avrcp_audio_track.cc",
         "src/btif_ble_advertiser.cc",
@@ -86,6 +91,7 @@ cc_library_static {
         "src/btif_util.cc",
         "src/btif_keystore.cc",
         "src/stack_manager.cc",
+        "src/stack_interface.cc",
         // Callouts
         "co/bta_ag_co.cc",
         "co/bta_dm_co.cc",
@@ -103,6 +109,7 @@ cc_library_static {
         "libtinyxml2",
         "com.qualcomm.qti.bluetooth_audio@1.0",
         "vendor.qti.hardware.bluetooth_audio@2.0",
+        "vendor.qti.hardware.bluetooth_audio@2.1",
         "libhidlbase",
         "libutils",
 //        "libdl",

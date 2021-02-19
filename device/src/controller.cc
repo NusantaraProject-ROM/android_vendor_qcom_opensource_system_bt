@@ -37,12 +37,13 @@
 #include <dlfcn.h>
 #include <vector>
 #include "stack_config.h"
+#include <map>
 
 #define BTSNOOP_ENABLE_PROPERTY "persist.bluetooth.btsnoopenable"
 #define BTSNOOP_SOCLOG_PROPERTY "persist.vendor.service.bdroid.soclog"
 
 const bt_event_mask_t BLE_EVENT_MASK = {
-    {0x00, 0x00, 0x00, 0x00, 0x00, 0x0B, 0xFE, 0x7f}};
+    {0x00, 0x00, 0x00, 0x02, 0xCF, 0x0B, 0xFE, 0x7f}};
 
 const bt_event_mask_t CLASSIC_EVENT_MASK = {HCI_DUMO_EVENT_MASK_EXT};
 
@@ -56,6 +57,7 @@ const uint8_t SCO_HOST_BUFFER_SIZE = 0xff;
 #define MAX_LOCAL_SUPPORTED_CODECS_SIZE 8
 #define MAX_SUPPORTED_SCRAMBLING_FREQ_SIZE 8
 #define MAX_SCRAMBLING_FREQS_SIZE 64
+#define ISO_CHANNEL_HOST_SUPPORT_BIT 32
 #define UNUSED(x) (void)(x)
 
 static const hci_t* hci;
@@ -71,8 +73,10 @@ static uint8_t last_features_classic_page_index;
 
 static uint16_t acl_data_size_classic;
 static uint16_t acl_data_size_ble;
+static uint16_t iso_data_packet_len;
 static uint16_t acl_buffer_count_classic;
 static uint8_t acl_buffer_count_ble;
+static uint8_t total_num_iso_data_packets;
 
 static uint8_t ble_white_list_size;
 static uint8_t ble_resolving_list_max_size;
@@ -82,8 +86,12 @@ static uint16_t ble_suggested_default_data_length;
 static uint16_t ble_maxium_advertising_data_length;
 static uint8_t ble_number_of_supported_advertising_sets;
 static uint8_t local_supported_codecs[MAX_LOCAL_SUPPORTED_CODECS_SIZE];
+static uint8_t std_codec_tx[MAX_LOCAL_SUPPORTED_CODECS_SIZE];
+static uint32_t vs_supported_codecs[MAX_LOCAL_SUPPORTED_CODECS_SIZE];
+static uint8_t vs_codec_tx[MAX_LOCAL_SUPPORTED_CODECS_SIZE];
 static uint8_t scrambling_supported_freqs[MAX_SUPPORTED_SCRAMBLING_FREQ_SIZE];
 static uint8_t number_of_local_supported_codecs = 0;
+static uint8_t number_of_vs_supported_codecs = 0;
 static uint8_t number_of_scrambling_supported_freqs = 0;
 static bt_device_soc_add_on_features_t soc_add_on_features;
 static uint8_t soc_add_on_features_length = 0;
@@ -116,6 +124,14 @@ static void *bt_configstore_lib_handle = NULL;
 
 static int load_bt_configstore_lib();
 bool decode_max_power_values(char *);
+
+// map of codec and its transport
+std::map<uint8_t, uint8_t> std_codec_transport;
+std::map<uint32_t, uint8_t> vs_codec_transport;
+
+uint8_t g_adv_audio_prop = 0;
+
+void update_soc_codec_transport();
 
 #define AWAIT_COMMAND(command) \
   static_cast<BT_HDR*>(future_await(hci->transmit_command_futured(command)))
@@ -181,6 +197,11 @@ bool is_soc_lpa_enh_pwr_enabled() {
 
 static future_t* start_up(void) {
   BT_HDR* response;
+  uint8_t adv_audio_support_mask = 0;
+  char adv_audio_property[2] = {};
+
+  osi_property_get("persist.vendor.service.bt.adv_audio_mask", adv_audio_property, "0");
+  adv_audio_support_mask = (uint8_t)atoi(adv_audio_property);
 
   //initialize number_of_scrambling_supported_freqs to 0 during start_up
   number_of_scrambling_supported_freqs = 0;
@@ -415,9 +436,16 @@ static future_t* start_up(void) {
         response, &ble_white_list_size);
 
     // Request the ble buffer size next
-    response = AWAIT_COMMAND(packet_factory->make_ble_read_buffer_size());
-    packet_parser->parse_ble_read_buffer_size_response(
-        response, &acl_data_size_ble, &acl_buffer_count_ble);
+    if (HCI_LE_READ_BUFFER_SIZE_V2_SUPPORTED(supported_commands)) {
+      response = AWAIT_COMMAND(packet_factory->make_ble_read_buffer_size_v2());
+      packet_parser->parse_ble_read_buffer_size_response(
+          response, &acl_data_size_ble, &acl_buffer_count_ble,
+          &iso_data_packet_len, &total_num_iso_data_packets);
+    } else {
+      response = AWAIT_COMMAND(packet_factory->make_ble_read_buffer_size());
+      packet_parser->parse_ble_read_buffer_size_response(
+          response, &acl_data_size_ble, &acl_buffer_count_ble, NULL, NULL);
+    }
 
     // Response of 0 indicates ble has the same buffer size as classic
     if (acl_data_size_ble == 0) acl_data_size_ble = acl_data_size_classic;
@@ -432,6 +460,15 @@ static future_t* start_up(void) {
         AWAIT_COMMAND(packet_factory->make_ble_read_local_supported_features());
     packet_parser->parse_ble_read_local_supported_features_response(
         response, &features_ble);
+
+    // Set Host support for Isochrnous channel management
+    if (adv_audio_support_mask > 0 && (HCI_LE_CIS_MASTER_SUPPORT(features_ble.as_array)
+          || HCI_LE_CIS_SLAVE_SUPPORT(features_ble.as_array))) { //TODO: Add BIS Support check
+      response = AWAIT_COMMAND(
+          packet_factory->make_ble_set_host_feature_cmd(ISO_CHANNEL_HOST_SUPPORT_BIT, 1));
+      packet_parser->parse_ble_set_host_feature_cmd(response);
+      HCI_LE_SET_CIS_HOST_SUPPORT(features_ble.as_array);
+    }
 
     if (HCI_LE_ENHANCED_PRIVACY_SUPPORTED(features_ble.as_array)) {
       response =
@@ -475,11 +512,20 @@ static future_t* start_up(void) {
   }
 
   // read local supported codecs
-  if (HCI_READ_LOCAL_CODECS_SUPPORTED(supported_commands)) {
+  if (HCI_READ_LOCAL_CODECS_SUPPORTED_V2(supported_commands)) {
+    response =
+        AWAIT_COMMAND(packet_factory->make_read_local_supported_codecs_v2());
+    packet_parser->parse_read_local_supported_codecs_response(
+        response,
+        &number_of_local_supported_codecs, local_supported_codecs, std_codec_tx,
+        &number_of_vs_supported_codecs, vs_supported_codecs, vs_codec_tx);
+    update_soc_codec_transport();
+  } else if (HCI_READ_LOCAL_CODECS_SUPPORTED(supported_commands)) {
     response =
         AWAIT_COMMAND(packet_factory->make_read_local_supported_codecs());
     packet_parser->parse_read_local_supported_codecs_response(
-        response, &number_of_local_supported_codecs, local_supported_codecs);
+        response, &number_of_local_supported_codecs, local_supported_codecs, NULL,
+        &number_of_vs_supported_codecs, vs_supported_codecs, NULL);
   }
 
   read_simple_pairing_options_supported =
@@ -573,11 +619,20 @@ static future_t* start_up(void) {
     }
   }
 
+  if (!HCI_LE_CIS_MASTER_SUPPORT(features_ble.as_array)) {
+    adv_audio_support_mask &= ~ADV_AUDIO_UNICAST_FEAT_MASK;
+  }
+  if (!HCI_LE_PERIODIC_SYNC_TRANSFER_SEND_SUPPORTED(features_ble.as_array)) {
+    adv_audio_support_mask &= ~ADV_AUDIO_BROADCAST_FEAT_MASK;
+  }
+  snprintf(adv_audio_property, 2, "%d", adv_audio_support_mask);
+  osi_property_set("persist.vendor.service.bt.adv_audio_mask", adv_audio_property);
 
   if (!HCI_READ_ENCR_KEY_SIZE_SUPPORTED(supported_commands)) {
     LOG(FATAL) << " Controller must support Read Encryption Key Size command";
   }
 
+  g_adv_audio_prop = adv_audio_support_mask;
   readable = true;
   return future_new_immediate(FUTURE_SUCCESS);
 }
@@ -635,6 +690,40 @@ static uint8_t* get_local_supported_codecs(uint8_t* number_of_codecs) {
     return local_supported_codecs;
   }
   return NULL;
+}
+
+/* get transport of the corresponding standard codec*/
+static uint8_t get_std_supported_codec_transport(uint8_t std_codec_id) {
+  CHECK(readable);
+  if (number_of_local_supported_codecs) {
+    std::map<uint8_t, uint8_t>::iterator it = std_codec_transport.find(std_codec_id);
+    if (it != std_codec_transport.end()) {
+      return it->second;
+    }
+  }
+  return INVALID_TRANSPORT;
+}
+
+/* get vs codecs*/
+static uint32_t* get_vs_supported_codecs(uint8_t* number_of_codecs) {
+  CHECK(readable);
+  if (number_of_vs_supported_codecs) {
+    *number_of_codecs = number_of_vs_supported_codecs;
+    return vs_supported_codecs;
+  }
+  return NULL;
+}
+
+/* get transport of the corresponding vs codec*/
+static uint8_t get_vs_supported_codec_transport(uint32_t vs_codec_id) {
+  CHECK(readable);
+  if (number_of_vs_supported_codecs) {
+    std::map<uint32_t, uint8_t>::iterator it = vs_codec_transport.find(vs_codec_id);
+    if (it != vs_codec_transport.end()) {
+      return it->second;
+    }
+  }
+  return INVALID_TRANSPORT;
 }
 
 static uint8_t* get_scrambling_supported_freqs(uint8_t* number_of_freqs) {
@@ -767,6 +856,18 @@ static bool supports_ble_periodic_advertising(void) {
   return HCI_LE_PERIODIC_ADVERTISING_SUPPORTED(features_ble.as_array);
 }
 
+static bool supports_ble_periodic_sync_transfer(void) {
+  CHECK(readable);
+  CHECK(ble_supported);
+  return HCI_LE_PERIODIC_SYNC_TRANSFER_SEND_SUPPORTED(features_ble.as_array);
+}
+
+static bool supports_ble_iso_broadcaster(void) {
+  CHECK(readable);
+  CHECK(ble_supported);
+  return HCI_LE_ISO_BROADCASTER_SUPPORTED(features_ble.as_array);
+}
+
 static uint16_t get_acl_data_size_classic(void) {
   CHECK(readable);
   return acl_data_size_classic;
@@ -776,6 +877,12 @@ static uint16_t get_acl_data_size_ble(void) {
   CHECK(readable);
   CHECK(ble_supported);
   return acl_data_size_ble;
+}
+
+/* to get max length of data portion in iso packet*/
+static uint16_t get_ble_iso_data_packet_len(void) {
+  CHECK(readable);
+  return iso_data_packet_len;
 }
 
 static uint16_t get_acl_packet_size_classic(void) {
@@ -815,6 +922,12 @@ static uint8_t get_acl_buffer_count_ble(void) {
   CHECK(readable);
   CHECK(ble_supported);
   return acl_buffer_count_ble;
+}
+
+/* to get number of iso data packets that controller can buffer*/
+static uint8_t get_ble_iso_num_data_packets(void) {
+  CHECK(readable);
+  return total_num_iso_data_packets;
 }
 
 static uint8_t get_ble_white_list_size(void) {
@@ -915,9 +1028,61 @@ static bool supports_twsp_remote_state() {
   return twsp_state_supported;
 }
 
+/* save transport information of standard and vendor specific codecs */
+void update_soc_codec_transport() {
+  int number_of_codecs = (number_of_local_supported_codecs > number_of_vs_supported_codecs ?
+                            number_of_local_supported_codecs : number_of_vs_supported_codecs);
+  for (int i = 0; i < number_of_codecs; i++) {
+    if (i < number_of_local_supported_codecs) {
+      std_codec_transport.insert(std::make_pair(local_supported_codecs[i], std_codec_tx[i]));
+    }
+    if (i < number_of_vs_supported_codecs) {
+      vs_codec_transport.insert(std::make_pair(vs_supported_codecs[i], vs_codec_tx[i]));
+    }
+  }
+}
+
+/* to check if CIS master role is enabled in LL feture mask*/
+static bool is_cis_master_role_supported(void) {
+  CHECK(readable);
+  return HCI_LE_CIS_MASTER_SUPPORT(features_ble.as_array);
+}
+
+/* to check if CIS slave role is enabled in LL feture mask*/
+static bool is_cis_slave_role_supported(void) {
+  CHECK(readable);
+  return HCI_LE_CIS_SLAVE_SUPPORT(features_ble.as_array);
+}
+
+/* to check if host support for ISO channel is set in LL Feature Mask*/
+static bool is_host_iso_channel_supported(void) {
+  CHECK(readable);
+  return HCI_LE_ISO_CHNL_HOST_SUPPORT(features_ble.as_array);
+}
+
+/* to check if power control feature is enabled in LL Feature mask*/
+static bool is_pow_ctr_req_supported(void) {
+  CHECK(readable);
+  return HCI_LE_POW_CTR_REQ_SUPPORT(features_ble.as_array);
+}
+
+/* to check if pathloss manitoring feature is enabled in LL Feature mask*/
+static bool is_pathloss_monitoring_supported(void) {
+  CHECK(readable);
+  return HCI_LE_PATHLOSS_MONITORING_SUPPORT(features_ble.as_array);
+}
+
 static bool get_max_power_values(uint8_t *power_val) {
   memcpy(power_val, max_power_prop_value, sizeof(max_power_prop_value));
   return max_power_prop_enabled;
+}
+
+static bool is_adv_audio_supported(void) {
+    if ((g_adv_audio_prop & ADV_AUDIO_UNICAST_FEAT_MASK) ||
+              (g_adv_audio_prop & ADV_AUDIO_BROADCAST_FEAT_MASK))
+          return true;
+
+      return false;
 }
 
 static const controller_t interface = {
@@ -952,6 +1117,8 @@ static const controller_t interface = {
     supports_ble_coded_phy,
     supports_ble_extended_advertising,
     supports_ble_periodic_advertising,
+    supports_ble_periodic_sync_transfer,
+    supports_ble_iso_broadcaster,
 
     get_acl_data_size_classic,
     get_acl_data_size_ble,
@@ -986,7 +1153,18 @@ static const controller_t interface = {
     supports_wipower,
     is_multicast_enabled,
     supports_twsp_remote_state,
+    get_vs_supported_codecs,
+    get_ble_iso_data_packet_len,
+    get_ble_iso_num_data_packets,
+    get_std_supported_codec_transport,
+    get_vs_supported_codec_transport,
+    is_host_iso_channel_supported,
+    is_cis_master_role_supported,
+    is_cis_slave_role_supported,
+    is_pow_ctr_req_supported,
+    is_pathloss_monitoring_supported,
     get_max_power_values,
+    is_adv_audio_supported,
 };
 
 const controller_t* controller_get_interface() {

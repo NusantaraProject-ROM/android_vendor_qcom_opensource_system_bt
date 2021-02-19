@@ -26,7 +26,10 @@
 namespace {
 
 using vendor::qti::hardware::bluetooth_audio::V2_0::CodecType;
-using ::bluetooth::audio::AudioConfiguration;
+using AudioConfiguration =
+      vendor::qti::hardware::bluetooth_audio::V2_0::AudioConfiguration;
+using AudioConfiguration_2_1 =
+      vendor::qti::hardware::bluetooth_audio::V2_1::AudioConfiguration;
 using ::bluetooth::audio::BitsPerSample;
 using ::bluetooth::audio::BluetoothAudioCtrlAck;
 using ::bluetooth::audio::ChannelMode;
@@ -149,6 +152,117 @@ class HearingAidTransport
   uint64_t total_bytes_read_;
   timespec data_position_;
 };
+class HearingAidTransport_2_1
+    : public bluetooth::audio::IBluetoothTransportInstance_2_1 {
+ public:
+  HearingAidTransport_2_1(StreamCallbacks stream_cb)
+      : IBluetoothTransportInstance_2_1(
+            SessionType::HEARING_AID_SOFTWARE_ENCODING_DATAPATH, {}),
+        stream_cb_(std::move(stream_cb)),
+        remote_delay_report_ms_(0),
+        total_bytes_read_(0),
+        data_position_({}){};
+
+  BluetoothAudioCtrlAck StartRequest() override {
+    if(!IsActvie()) {
+      LOG(WARNING) << __func__ << ": Not active";
+      return BluetoothAudioCtrlAck::FAILURE;
+    }
+    LOG(INFO) << __func__;
+    if (stream_cb_.on_resume_(true)) {
+      return BluetoothAudioCtrlAck::SUCCESS_FINISHED;
+    }
+    return BluetoothAudioCtrlAck::FAILURE;
+  }
+
+  BluetoothAudioCtrlAck SuspendRequest() override {
+    if(!IsActvie()) {
+      LOG(WARNING) << __func__ << ": Not active";
+      return BluetoothAudioCtrlAck::FAILURE;
+    }
+    LOG(INFO) << __func__;
+    if (stream_cb_.on_suspend_()) {
+      uint8_t p_buf[AUDIO_STREAM_OUTPUT_BUFFER_SZ * 2];
+      ::bluetooth::audio::hearing_aid::read(p_buf, sizeof(p_buf));
+      return BluetoothAudioCtrlAck::SUCCESS_FINISHED;
+    } else {
+      return BluetoothAudioCtrlAck::FAILURE;
+    }
+  }
+
+  void StopRequest() override {
+    if(!IsActvie()) {
+      LOG(WARNING) << __func__ << ": Not active";
+      return;
+    }
+    LOG(INFO) << __func__;
+    if (stream_cb_.on_suspend_()) {
+      // flush
+      uint8_t p_buf[AUDIO_STREAM_OUTPUT_BUFFER_SZ * 2];
+      ::bluetooth::audio::hearing_aid::read(p_buf, sizeof(p_buf));
+    }
+  }
+
+  bool GetPresentationPosition(uint64_t* remote_delay_report_ns,
+                               uint64_t* total_bytes_read,
+                               timespec* data_position) override {
+    if(!IsActvie()) {
+      LOG(WARNING) << __func__ << ": Not active";
+      return false;
+    }
+    VLOG(2) << __func__ << ": data=" << total_bytes_read_
+            << " byte(s), timestamp=" << data_position_.tv_sec << "."
+            << data_position_.tv_nsec
+            << "s, delay report=" << remote_delay_report_ms_ << " msec.";
+    if (remote_delay_report_ns != nullptr) {
+      *remote_delay_report_ns = remote_delay_report_ms_ * 1000000u;
+    }
+    if (total_bytes_read != nullptr) *total_bytes_read = total_bytes_read_;
+    if (data_position != nullptr) *data_position = data_position_;
+
+    return true;
+  }
+
+  void ResetPresentationPosition() override {
+    VLOG(2) << __func__ << ": called.";
+    remote_delay_report_ms_ = 0;
+    total_bytes_read_ = 0;
+    data_position_ = {};
+  }
+
+  void LogBytesRead(size_t bytes_read) override {
+    if (bytes_read) {
+      total_bytes_read_ += bytes_read;
+      clock_gettime(CLOCK_MONOTONIC, &data_position_);
+    }
+  }
+
+  void SetRemoteDelay(uint16_t delay_report_ms) {
+    LOG(INFO) << __func__ << ": delay_report=" << delay_report_ms << " msec";
+    remote_delay_report_ms_ = delay_report_ms;
+  }
+
+  void Init() {
+    total_bytes_read_ = 0;
+    data_position_ = {};
+    SessionType sessionType =
+            SessionType::HEARING_AID_SOFTWARE_ENCODING_DATAPATH;
+    UpdateSessionType(sessionType);
+  }
+
+  void Cleanup() {
+    total_bytes_read_ = 0;
+    data_position_ = {};
+    SessionType sessionType = SessionType::UNKNOWN;
+    UpdateSessionType(sessionType);
+  }
+
+ private:
+  StreamCallbacks stream_cb_;
+  uint16_t remote_delay_report_ms_;
+  uint64_t total_bytes_read_;
+  timespec data_position_;
+};
 
 bool HearingAidGetSelectedHalPcmConfig(PcmParameters* hal_pcm_config) {
   if (hal_pcm_config == nullptr) return false;
@@ -161,12 +275,14 @@ bool HearingAidGetSelectedHalPcmConfig(PcmParameters* hal_pcm_config) {
 
 // Sink instance of Hearing Aids to provide call-in APIs for Bluetooth Audio Hal
 HearingAidTransport* hearing_aid_sink = nullptr;
+HearingAidTransport_2_1* hearing_aid_sink_2_1 = nullptr;
 // Common interface to call-out into Bluetooth Audio Hal
 bluetooth::audio::BluetoothAudioClientInterface*
     hearing_aid_hal_client_if = nullptr;
 bool btaudio_hearing_aid_supported = false;
 bool is_configured = false;
-
+bool is_hal_version_fetched = false;
+bool hal_2_1_enabled = false;
 // Save the value if the remote reports its delay before hearing_aid_sink is
 // initialized
 uint16_t remote_delay_ms = 0;
@@ -186,30 +302,63 @@ bool is_hal_2_0_supported() {
   return btaudio_hearing_aid_supported;
 }
 
-bool is_hal_2_0_enabled() { return (hearing_aid_sink &&
-                                hearing_aid_sink->IsActvie()); }
+bool is_hal_2_0_enabled() { return ((hearing_aid_sink &&
+                                hearing_aid_sink->IsActvie()) ||
+                                (hearing_aid_sink_2_1 &&
+                                hearing_aid_sink_2_1->IsActvie())); }
+void get_hal_version() {
+  LOG(WARNING) << __func__;
+  if (!is_hal_version_fetched) {
+    bluetooth::audio::BluetoothAudioClientInterface* hal_clientif = nullptr;
+    IBluetoothTransportInstance_2_1* sink = nullptr;
+    hal_clientif = new bluetooth::audio::BluetoothAudioClientInterface(
+     sink, nullptr, nullptr);
+    if (!strcmp(hal_clientif->GetHalVersion(),"hal_2_1")) {
+      LOG(WARNING) << __func__ << ":hal version 2.1";
+      hal_2_1_enabled = true;
+      is_hal_version_fetched = true;
+    }
+  }
+}
 
 bool init(StreamCallbacks stream_cb, thread_t *message_loop) {
   LOG(INFO) << __func__;
   std::unique_lock<std::mutex> guard(internal_mutex_);
 
   if (!is_hal_2_0_supported()) return false;
-
-  if(!hearing_aid_sink) {
-    hearing_aid_sink = new HearingAidTransport(std::move(stream_cb));
+  get_hal_version();
+  if (hal_2_1_enabled) {
+    if (!hearing_aid_sink_2_1) {
+      hearing_aid_sink_2_1 = new HearingAidTransport_2_1(std::move(stream_cb));
+    } else {
+      hearing_aid_sink_2_1->Init();
+    }
+    if(!hearing_aid_hal_client_if) {
+      hearing_aid_hal_client_if =
+      new bluetooth::audio::BluetoothAudioClientInterface(hearing_aid_sink_2_1,
+                                                message_loop, &internal_mutex_);
+    }
+    if (remote_delay_ms != 0) {
+      LOG(INFO) << __func__ << ": restore DELAY " << remote_delay_ms << " ms";
+      hearing_aid_sink_2_1->SetRemoteDelay(remote_delay_ms);
+      remote_delay_ms = 0;
+    }
   } else {
-    hearing_aid_sink->Init();
-  }
-  if(!hearing_aid_hal_client_if) {
-    hearing_aid_hal_client_if =
+    if (!hearing_aid_sink) {
+      hearing_aid_sink = new HearingAidTransport(std::move(stream_cb));
+    } else {
+      hearing_aid_sink->Init();
+    }
+    if(!hearing_aid_hal_client_if) {
+      hearing_aid_hal_client_if =
       new bluetooth::audio::BluetoothAudioClientInterface(hearing_aid_sink,
                                                 message_loop, &internal_mutex_);
-  }
-
-  if (remote_delay_ms != 0) {
-    LOG(INFO) << __func__ << ": restore DELAY " << remote_delay_ms << " ms";
-    hearing_aid_sink->SetRemoteDelay(remote_delay_ms);
-    remote_delay_ms = 0;
+    }
+    if (remote_delay_ms != 0) {
+      LOG(INFO) << __func__ << ": restore DELAY " << remote_delay_ms << " ms";
+      hearing_aid_sink->SetRemoteDelay(remote_delay_ms);
+      remote_delay_ms = 0;
+    }
   }
   return true;
 }
@@ -218,7 +367,10 @@ void cleanup() {
   LOG(INFO) << __func__;
   std::unique_lock<std::mutex> guard(internal_mutex_);
   if (!is_hal_2_0_enabled()) return;
-  hearing_aid_sink->Cleanup();
+  if (hearing_aid_sink_2_1)
+    hearing_aid_sink_2_1->Cleanup();
+  else
+    hearing_aid_sink->Cleanup();
   hearing_aid_hal_client_if->EndSession();
   remote_delay_ms = 0;
 }
@@ -227,17 +379,33 @@ void start_session() {
   LOG(INFO) << __func__;
   std::unique_lock<std::mutex> guard(internal_mutex_);
   if (!is_hal_2_0_enabled()) return;
-  AudioConfiguration audio_config;
+
+  //AudioConfiguration audio_config;
   PcmParameters pcm_config{};
   if (!HearingAidGetSelectedHalPcmConfig(&pcm_config)) {
     LOG(ERROR) << __func__ << ": cannot get PCM config";
     return;
   }
-  audio_config.pcmConfig = pcm_config;
-  if (!hearing_aid_hal_client_if->UpdateAudioConfig(audio_config)) {
-    LOG(ERROR) << __func__ << ": cannot update audio config to HAL";
-    return;
+  if (hearing_aid_sink_2_1) {
+    AudioConfiguration_2_1 audio_config;
+    audio_config.pcmConfig = pcm_config;
+    if (!hearing_aid_hal_client_if->UpdateAudioConfig_2_1(audio_config)) {
+      LOG(ERROR) << __func__ << ": cannot update audio config to HAL";
+      return;
+    }
+  } else {
+    AudioConfiguration audio_config;
+    audio_config.pcmConfig = pcm_config;
+    if (!hearing_aid_hal_client_if->UpdateAudioConfig(audio_config)) {
+      LOG(ERROR) << __func__ << ": cannot update audio config to HAL";
+      return;
+    }
   }
+  //audio_config.pcmConfig = pcm_config;
+  //if (!hearing_aid_hal_client_if->UpdateAudioConfig(audio_config)) {
+  //  LOG(ERROR) << __func__ << ": cannot update audio config to HAL";
+  //  return;
+  //}
   hearing_aid_hal_client_if->StartSession();
 }
 
@@ -263,7 +431,10 @@ void set_remote_delay(uint16_t delay_report_ms) {
     return;
   }
   LOG(INFO) << __func__ << ": delay_report_ms=" << delay_report_ms << " ms";
-  hearing_aid_sink->SetRemoteDelay(delay_report_ms);
+  if (hearing_aid_sink_2_1)
+    hearing_aid_sink_2_1->SetRemoteDelay(delay_report_ms);
+  else
+    hearing_aid_sink->SetRemoteDelay(delay_report_ms);
 }
 
 }  // namespace hearing_aid

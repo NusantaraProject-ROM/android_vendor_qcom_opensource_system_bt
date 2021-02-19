@@ -52,6 +52,9 @@ typedef enum {
 
 #define LOG_ID_STATS_A2DP      (0x06 << 8) | 0x00
 
+/* BLE AUDIO FEATURE MASK */
+#define ADV_AUDIO_UNICAST_FEAT_MASK 0x01
+#define ADV_AUDIO_BROADCAST_FEAT_MASK 0x02
 /*******************************************************************************
  *  Functions
  ******************************************************************************/

@@ -1299,23 +1299,19 @@ tBTM_STATUS BTM_SecResetPairingFlag(const RawAddress& bd_addr) {
  * Function         BTM_SecGetDeviceLinkKey
  *
  * Description      This function is called to obtain link key for the device
- *                  it returns BTM_SUCCESS if link key is available, or
- *                  BTM_UNKNOWN_ADDR if Security Manager does not know about
- *                  the device or device record does not contain link key info
  *
  * Parameters:      bd_addr      - Address of the device
- *                  link_key     - Link Key is copied into this pointer
  *
+ * Returns          LinkKey (Returns Empty Key for Unkwown device)
  ******************************************************************************/
-tBTM_STATUS BTM_SecGetDeviceLinkKey(const RawAddress& bd_addr,
-                                    LinkKey* link_key) {
+LinkKey BTM_SecGetDeviceLinkKey(const RawAddress& bd_addr) {
+  LinkKey link_key = {};
   tBTM_SEC_DEV_REC* p_dev_rec;
   p_dev_rec = btm_find_dev(bd_addr);
   if ((p_dev_rec != NULL) && (p_dev_rec->sec_flags & BTM_SEC_LINK_KEY_KNOWN)) {
-    *link_key = p_dev_rec->link_key;
-    return (BTM_SUCCESS);
+    link_key = p_dev_rec->link_key;
   }
-  return (BTM_UNKNOWN_ADDR);
+  return link_key;
 }
 
 /*******************************************************************************

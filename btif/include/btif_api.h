@@ -157,6 +157,18 @@ bool is_atv_device(void);
 
 /*******************************************************************************
  *
+ * Function         is_atv_device
+ *
+ * Description      Returns true if the local device is an Android TV
+ *                  device, false if it is not.
+ *
+ * Returns          bool
+ *
+ ******************************************************************************/
+bool is_atv_device(void);
+
+/*******************************************************************************
+ *
  * Function         btif_get_adapter_properties
  *
  * Description      Fetches all local adapter properties
@@ -506,5 +518,15 @@ void btif_debug_bond_event_dump(int fd);
  *
  ******************************************************************************/
 bt_status_t btif_set_dynamic_audio_buffer_size(int codec, int size);
+/*******************************************************************************
+ *
+ * Function         btif_register_uuid_srvc_disc
+ *
+ * Description
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void btif_register_uuid_srvc_disc(bluetooth::Uuid uuid);
 
 #endif /* BTIF_API_H */

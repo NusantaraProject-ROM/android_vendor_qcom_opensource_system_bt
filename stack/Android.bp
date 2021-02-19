@@ -131,6 +131,7 @@ cc_library_static {
         "gatt/gatt_main.cc",
         "gatt/gatt_sr.cc",
         "gatt/gatt_utils.cc",
+        "gatt/eatt_utils.cc",
         "hcic/hciblecmds.cc",
         "hcic/hcicmds.cc",
         "hid/hidh_api.cc",

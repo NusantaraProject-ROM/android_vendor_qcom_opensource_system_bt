@@ -838,4 +838,558 @@ extern void btm_ble_multi_adv_cleanup(void);
  ******************************************************************************/
 extern bool BTM_GetRemoteDeviceName(const RawAddress& bd_addr, BD_NAME bdname);
 
+/*******************************************************************************
+ *
+ * Function         BTM_BleSetCigParam
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_Set_CIG_Parameters for setting up cig parameters in
+ *                  controller.
+ *
+ * Parameters       tBTM_BLE_ISO_SET_CIG_CMD_PARAM includes all parameters of the
+ *                  HCI command.
+ *                  Note: free memory allocated to this structure after returning.
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ ******************************************************************************/
+extern uint8_t BTM_BleSetCigParam(tBTM_BLE_ISO_SET_CIG_CMD_PARAM* p_data);
+
+/*******************************************************************************
+ *
+ * Function         BTM_BleCreateCis
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_Create_CIS Command for establishing CIS connection.
+ *
+ * Parameters       tBTM_BLE_ISO_CREATE_CIS_CMD_PARAM includes all parameters of
+ *                  the HCI command.
+ *                  Note: free memory allocated to this structure after returning.
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ ******************************************************************************/
+extern uint8_t BTM_BleCreateCis(tBTM_BLE_ISO_CREATE_CIS_CMD_PARAM* p_data,
+                                tBTM_BLE_CIS_DISCONNECTED_CB* p_cb);
+
+/*******************************************************************************
+ *
+ * Function         BTM_BleRemoveCig
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_Remove_CIG Command for removing all CIS associated
+ *                  with CIG.
+ *
+ * Parameters       cig_id: CIG ID
+ *                  tBTM_BLE_REMOVE_CIG_CMPL_CB: callback to be given on completion.
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ ******************************************************************************/
+extern uint8_t BTM_BleRemoveCig(uint8_t cig_id, tBTM_BLE_REMOVE_CIG_CMPL_CB *p_cb);
+
+/*******************************************************************************
+ *
+ * Function         BTM_BleSetIsoDataPath
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_Setup_ISO_Data_Path Command to setup cis/bis data path.
+ *
+ * Parameters       tBTM_BLE_SET_ISO_DATA_PATH_PARAM includes all parameters of
+ *                  the HCI command.
+ *                  Note: free memory allocated to this structure after returning.
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ ******************************************************************************/
+extern uint8_t BTM_BleSetIsoDataPath(tBTM_BLE_SET_ISO_DATA_PATH_PARAM* p_data);
+
+/**************************************************************************************
+ *
+ * Function         BTM_BleRemoveIsoDataPath
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_Remove_ISO_Data_Path Command to setup cis data path.
+ *
+ * Parameters       conn_handle: connection handle of CIS.
+ *                  direction: direction for data path.
+ *                  tBTM_BLE_REMOVE_ISO_DATA_PATH_CMPL_CB: callback on command complete
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ **************************************************************************************/
+extern uint8_t BTM_BleRemoveIsoDataPath(uint16_t conn_handle, uint8_t direction,
+                                        tBTM_BLE_REMOVE_ISO_DATA_PATH_CMPL_CB* p_cb);
+
+/**************************************************************************************
+ *
+ * Function         BTM_BleRequestPeerSca
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_Request_Peer_SCA Command to fetch peer sca.
+ *
+ * Parameters       conn_handle: connection handle of the ACL.
+ *                  tBTM_BLE_REQUEST_PEER_SCA_COMPLETE_CB: callback on HCI EVENT
+ *                  HCI_LE_Request_Peer_SCA_Complete.
+ *
+ * Returns          void
+ *
+ **************************************************************************************/
+extern void BTM_BleRequestPeerSca(uint16_t conn_handle,
+                                  tBTM_BLE_REQUEST_PEER_SCA_COMPLETE_CB* p_cback);
+
+/**************************************************************************************
+ *
+ * Function         BTM_BleReadIsoLinkQuality
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_Read_ISO_Link_Quality Command.
+ *
+ * Parameters       conn_handle: connection handle of CIS.
+ *                  tBTM_BLE_READ_ISO_LINK_QLT_CB: callback on command complete
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ **************************************************************************************/
+extern uint8_t BTM_BleReadIsoLinkQuality(uint16_t conn_handle,
+                                         tBTM_BLE_READ_ISO_LINK_QLT_CB* p_cb);
+
+/**************************************************************************************
+ *
+ * Function         BTM_BleReadIsoTxSync
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_Read_ISO_TX_Sync Command.
+ *
+ * Parameters       conn_handle: connection handle of CIS.
+ *                  tBTM_BLE_READ_ISO_TX_SYNC_CB: callback on command complete
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ **************************************************************************************/
+extern uint8_t BTM_BleReadIsoTxSync (uint16_t conn_handle,
+                                     tBTM_BLE_READ_ISO_TX_SYNC_CB* p_cb);
+
+/**************************************************************************************
+ *
+ * Function         BTM_BleAcceptCisRequest
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_Accept_CIS_Request Command.
+ *
+ * Parameters       conn_handle: connection handle of CIS.
+ *                  tBTM_BLE_CIS_ESTABLISHED_CB: callback on CIS Established Event
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ **************************************************************************************/
+extern uint8_t BTM_BleAcceptCisRequest (uint16_t conn_handle,
+                                        tBTM_BLE_CIS_ESTABLISHED_CB* p_cb);
+
+/**************************************************************************************
+ *
+ * Function         BTM_BleRejectCisRequest
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_Reject_CIS_Request Command to reject cis request.
+ *
+ * Parameters       conn_handle: connection handle of CIS.
+ *                  reason: reason to reject cis connection
+ *                  tBTM_BLE_REJECT_CIS_CB: callback on command complete
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ **************************************************************************************/
+extern uint8_t BTM_BleRejectCisRequest (uint16_t conn_handle, uint8_t reason,
+                                        tBTM_BLE_REJECT_CIS_CB* p_cb);
+
+/**************************************************************************************
+ *
+ * Function         BTM_BleRejectCisRequest
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_Disconnect Command for cis disconnection.
+ *
+ * Parameters       conn_handle: connection handle of CIS.
+ *                  reason: reason to reject cis connection
+ *                  tBTM_BLE_REJECT_CIS_CB: callback on command complete
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ **************************************************************************************/
+extern uint8_t BTM_BleIsoCisDisconnect(uint16_t conn_handle, uint8_t reason,
+                                       tBTM_BLE_CIS_DISCONNECTED_CB* p_cb);
+
+/**************************************************************************************
+ *
+ * Function         BTM_BleEnhancedReadTransmitPowerLevel
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_Enhanced_Read_Transmit_Power_Level
+ *
+ * Parameters       conn_handle: connection handle of ACL.
+ *                  phy: LE ACL phy
+ *                  tBTM_BLE_ENHANCED_READ_TRANSMIT_POWER_LEVEL_CB: callback on
+ *                  command complete
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ **************************************************************************************/
+extern void BTM_BleEnhancedReadTransmitPowerLevel (uint16_t conn_handle, uint8_t phy,
+                                        tBTM_BLE_ENHANCED_READ_TRANSMIT_POWER_LEVEL_CB* p_cb);
+
+/**************************************************************************************
+ *
+ * Function         BTM_BleReadRemoteTransmitPowerLevel
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_Read_Remote_Transmit_Power_Level.
+ *
+ * Parameters       conn_handle: connection handle of ACL.
+ *                  phy: LE ACL phy
+ *                  tBTM_BLE_READ_REMOTE_TX_POW_LEVEL_CB: callback on
+ *                  command complete
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ **************************************************************************************/
+extern uint8_t BTM_BleReadRemoteTransmitPowerLevel(uint16_t conn_handle, uint8_t phy,
+                                        tBTM_BLE_READ_REMOTE_TX_POW_LEVEL_CB* p_cb);
+
+/**************************************************************************************
+ *
+ * Function         BTM_BleSetPathLossReportingParams
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_Set_Path_Loss_Reporting_Parameters Command..
+ *
+ * Parameters       tBTM_BLE_SET_PATH_LOSS_REPORTING_PARAM includes all parameters of
+ *                  the HCI command.
+ *                  Note: free memory allocated to this structure after returning.
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ **************************************************************************************/
+extern uint8_t BTM_BleSetPathLossReportingParams(
+                                    tBTM_BLE_SET_PATH_LOSS_REPORTING_PARAM* param);
+
+/**************************************************************************************
+ *
+ * Function         BTM_BleSetPathLossReportingEnable
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_Set_Path_Loss_Reporting_Enable.
+ *
+ * Parameters       conn_handle: connection handle of ACL.
+ *                  enable: to enable reporting
+ *                  tBTM_BLE_SET_PATH_LOSS_REPORTING_ENABLE_CB: callback on
+ *                  command complete.
+ *                  tBTM_BLE_PATH_LOSS_THRESHOLD_CB: callback on HCI Event.
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ **************************************************************************************/
+extern uint8_t BTM_BleSetPathLossReportingEnable (uint16_t conn_handle,
+                                                  uint8_t enable,
+                                                  tBTM_BLE_SET_PATH_LOSS_REPORTING_ENABLE_CB* p_cb,
+                                                  tBTM_BLE_PATH_LOSS_THRESHOLD_CB* p_event_cb);
+
+/**************************************************************************************
+ *
+ * Function         BTM_BleSetTransmitPowerReportingEnable
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_Set_Transmit_Power_Reporting_Enable.
+ *
+ * Parameters       conn_handle: connection handle of ACL.
+ *                  local_enable/remote_enable: to enable respective reporting
+ *                  tBTM_BLE_SET_TRANSMIT_POWER_REPORTING_ENABLE_CB: callback on
+ *                  command complete.
+ *                  tBTM_BLE_TRANSMIT_POWER_REPORTING_EVENT_CB: callback on HCI Event.
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ **************************************************************************************/
+extern uint8_t BTM_BleSetTransmitPowerReportingEnable(
+                            uint16_t conn_handle,
+                            uint8_t local_enable,
+                            uint8_t remote_enable,
+                            tBTM_BLE_SET_TRANSMIT_POWER_REPORTING_ENABLE_CB* p_cmd_cmpl,
+                            tBTM_BLE_TRANSMIT_POWER_REPORTING_EVENT_CB* p_cb);
+
+/**************************************************************************************
+ *
+ * Function         BTM_BleIsoTestEnd
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_ISO_Test_End .
+ *
+ * Parameters       conn_handle: connection handle of cis.
+ *                  tBTM_BLE_ISO_TEST_END_CB: callback on
+ *                  command complete.
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ **************************************************************************************/
+extern uint8_t BTM_BleIsoTestEnd(uint16_t conn_handle, tBTM_BLE_ISO_TEST_END_CB* p_cb);
+
+/**************************************************************************************
+ *
+ * Function         BTM_BleSetCigParametersTest
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_Set_CIG_Parameters_Test Command.
+ *
+ * Parameters       tBTM_BLE_SET_CIG_PARAM_TEST includes all parameters of
+ *                  the HCI command.
+ *                  Note: free memory allocated to this structure after returning.
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ **************************************************************************************/
+extern uint8_t BTM_BleSetCigParametersTest(tBTM_BLE_SET_CIG_PARAM_TEST* param);
+
+/**************************************************************************************
+ *
+ * Function         BTM_BleIsoReadTestCounters
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_ISO_Read_Test_Counters.
+ *
+ * Parameters       conn_handle: connection handle of ACL.
+ *                  tBTM_BLE_ISO_READ_TEST_COUNTERS_CB: callback on
+ *                  command complete.
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ **************************************************************************************/
+extern uint8_t BTM_BleIsoReadTestCounters(uint16_t conn_handle,
+                                          tBTM_BLE_ISO_READ_TEST_COUNTERS_CB* p_cb);
+
+/**************************************************************************************
+ *
+ * Function         BTM_BleIsoReceiveTest
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_ISO_Receive_Test.
+ *
+ * Parameters       conn_handle: connection handle of cis.
+ *                  tBTM_BLE_ISO_RECEIVE_TEST_CB: callback on command complete.
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ **************************************************************************************/
+extern uint8_t BTM_BleIsoReceiveTest(uint16_t conn_handle, uint8_t payload_type,
+                                     tBTM_BLE_ISO_RECEIVE_TEST_CB* p_cb);
+
+/**************************************************************************************
+ *
+ * Function         BTM_BleIsoTransmitTest
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_ISO_Transmit_Test .
+ *
+ * Parameters       conn_handle: connection handle of cis.
+ *                  tBTM_BLE_ISO_TRANSMIT_TEST_CB: callback on
+ *                  command complete.
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ **************************************************************************************/
+extern uint8_t BTM_BleIsoTransmitTest(uint16_t conn_handle, uint8_t payload_type,
+                                      tBTM_BLE_ISO_TRANSMIT_TEST_CB* p_cb);
+
+/**************************************************************************************
+ *
+ * Function         BTM_BleTransmitterTestV4
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_Transmitter_Test [v4] Command.
+ *
+ * Parameters       tBTM_BLE_TRANSMITTER_TEST_PARAM includes all parameters of
+ *                  the HCI command.
+ *                  Note: free memory allocated to this structure after returning.
+ *
+ * Returns          0x00 : HCI_SUCCESS if command/feature is supported in host
+ *                        and controller.
+ *                  0x11 : Unsupported Feature (HCI Error)
+ *
+ **************************************************************************************/
+extern uint8_t BTM_BleTransmitterTestV4 (tBTM_BLE_TRANSMITTER_TEST_PARAM* param);
+
+/*******************************************************************************
+ *
+ * Function         BTM_BleGetLTK
+ *
+ * Description      This function returns LTK of the LE connection.
+ *
+ * Parameter        bdaddr: remote device address.
+ *
+ * Returns         Octet16 (LTK)
+ *
+ ******************************************************************************/
+extern Octet16 BTM_BleGetLTK(const RawAddress& bd_addr);
+
+/* Below API's are used to parse parameters of HCI Events and then pass it to upper layer */
+extern void btm_ble_set_cis_req_evt_cb(tBTM_BLE_CIS_REQ_EVT_CB* p_cb);
+extern void btm_ble_cis_established_evt(uint8_t *param, uint16_t param_len);
+extern void btm_ble_cis_request_evt(uint8_t *param, uint16_t param_len);
+extern void btm_ble_peer_sca_cmpl_evt(uint8_t *param, uint16_t param_len);
+extern void btm_ble_path_loss_threshold_evt(uint8_t *param, uint16_t param_len);
+extern void btm_ble_transmit_power_reporting_event(uint8_t *param, uint16_t param_len);
+extern void btm_ble_cis_disconnected(uint8_t status, uint16_t cis_handle, uint8_t reason);
+extern bool btm_ble_is_cis_handle(uint16_t cis_handle);
+using StartSyncCb =
+               base::Callback<void(uint8_t /*status*/, uint16_t /*sync_handle*/,
+                                   uint8_t /*advertising_sid*/, uint8_t /*address_type*/,
+                                   RawAddress /*address*/, uint8_t /*phy*/, uint16_t /*interval*/)>;
+using SyncReportCb =
+                base::Callback<void(uint16_t /*sync_handle*/, int8_t /*tx_power*/, int8_t /*rssi*/,
+                                    uint8_t /*status*/, std::vector<uint8_t> /*data*/)>;
+using SyncLostCb = base::Callback<void(uint16_t /*sync_handle*/)>;
+
+extern void btm_ble_periodic_adv_sync_established(uint8_t *param, uint16_t param_len);
+extern void btm_ble_periodic_adv_report(uint8_t *param, uint16_t param_len);
+extern void btm_ble_periodic_adv_sync_lost(uint8_t *param, uint16_t param_len);
+
+extern void btm_ble_biginfo_adv_report_rcvd(uint8_t *param, uint16_t param_len);
+extern void btm_ble_periodic_adv_sync_tx_rcvd(uint8_t *param, uint16_t param_len);
+/*******************************************************************************
+ *
+ * Function         BTM_BleStartPeriodicSync
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_PERIODIC_ADVERTISING_CREATE_SYNC to synchronize to
+ *                  PA train specified in input parameters.
+ *
+ * Parameters       PA train info corresponding to particualr PA train and
+ *                  callbacks to sync established, pa report and sync lost events
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+extern void BTM_BleStartPeriodicSync(uint8_t adv_sid, RawAddress address,
+                                     uint16_t skip, uint16_t timeout,
+                                     StartSyncCb syncCb,
+                                     SyncReportCb reportCb,
+                                     SyncLostCb lostCb);
+/*******************************************************************************
+ *
+ * Function         BTM_BleStopPeriodicSync
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_PERIODIC_ADVERTISING_TERMINATE_SYNC to stop synchronising
+ *                  to PA train.
+ *
+ * Parameters       sync handle
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+extern void BTM_BleStopPeriodicSync(uint16_t handle);
+/*******************************************************************************
+ *
+ * Function         BTM_BleCancelPeriodicSync
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_PERIODIC_ADVERTISING_CREATE_SYNC_CANCEL to
+ *                  cancel pending sync to PA train.
+ *
+ * Parameters       adv sid, address corrosponds to PA train
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+extern void BTM_BleCancelPeriodicSync(uint8_t adv_sid, RawAddress address);
+
+using SyncTransferCb = base::Callback<void(uint8_t /*status*/, RawAddress)>;
+
+/*******************************************************************************
+ *
+ * Function         BTM_BlePeriodicSyncTransfer
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_SET_PERIODIC_ADVERTISING_SYNC_TRANSFER to transfer
+ *                  sync info of remote advertiser to connected remote device
+ *
+ * Parameters       PAST specific parameters
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void BTM_BlePeriodicSyncTransfer(RawAddress addr, uint16_t service_data,
+                         uint16_t sync_handle, SyncTransferCb cb);
+/*******************************************************************************
+ *
+ * Function         BTM_BlePeriodicSyncSetInfo
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_SET_PERIODIC_ADVERTISING_SET_INFO_TRANSFER to transfer
+ *                  colocated advertiser sync info to connected remote device
+ *
+ * Parameters       PAST specific parameters
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void BTM_BlePeriodicSyncSetInfo(RawAddress addr, uint16_t service_data,
+                         uint8_t adv_handle, SyncTransferCb cb);
+/*******************************************************************************
+ *
+ * Function         BTM_BlePeriodicSyncTxParameters
+ *
+ * Description      This function is called to invoke HCI Command
+ *                  HCI_LE_SET_PERIODIC_ADVERTISING_SYNC_TRANSFER_PARAMETERS,
+ *                  this command is used to specify how BT SoC will process PA
+ *                  sync information received from the remote device identified
+ *                  by the addr.
+ *
+ * Parameters       HCI command  specific parameters
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void BTM_BlePeriodicSyncTxParameters(RawAddress addr, uint8_t mode,
+                                     uint16_t skip, uint16_t timeout, StartSyncCb syncCb);
+
 #endif

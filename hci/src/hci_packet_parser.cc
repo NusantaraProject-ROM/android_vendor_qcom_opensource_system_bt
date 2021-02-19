@@ -71,15 +71,69 @@ static void parse_read_local_version_info_response(BT_HDR* response,
 }
 
 static void parse_read_local_supported_codecs_response(
-    BT_HDR* response, uint8_t* number_of_local_supported_codecs,
-    uint8_t* local_supported_codecs) {
-  uint8_t* stream = read_command_complete_header(
-      response, HCI_READ_LOCAL_SUPPORTED_CODECS, 0 /* bytes after */);
+    BT_HDR* response,
+    uint8_t* number_of_std_supported_codecs,
+    uint8_t* std_supported_codecs, uint8_t* std_codec_tx,
+    uint8_t* number_of_vs_supported_codecs,
+    uint32_t* vs_supported_codecs, uint8_t* vs_codec_tx) {
+
+  uint8_t* stream = NULL;
+  if (std_codec_tx) {
+    read_command_complete_header(
+                    response, HCI_READ_LOCAL_SUPPORTED_CODECS_V2,
+                    0 /* bytes after */);
+  } else {
+    stream = read_command_complete_header(
+                    response, HCI_READ_LOCAL_SUPPORTED_CODECS,
+                    0 /* bytes after */);
+  }
+
   if (stream) {
-    STREAM_TO_UINT8(*number_of_local_supported_codecs, stream);
-    for (uint8_t i = 0; i < *number_of_local_supported_codecs; i++) {
-      STREAM_TO_UINT8(*local_supported_codecs, stream);
-      local_supported_codecs++;
+    STREAM_TO_UINT8(*number_of_std_supported_codecs, stream);
+    for (uint8_t i = 0; i < *number_of_std_supported_codecs; i++) {
+      STREAM_TO_UINT8(*std_supported_codecs, stream);
+      std_supported_codecs++;
+      if (std_codec_tx) {
+        STREAM_TO_UINT8(*std_codec_tx, stream);
+        std_codec_tx++;
+      }
+    }
+    STREAM_TO_UINT8(*number_of_vs_supported_codecs, stream);
+    for (uint8_t i = 0; i < *number_of_vs_supported_codecs; i++) {
+      STREAM_TO_UINT32(*vs_supported_codecs, stream);
+      vs_supported_codecs++;
+      if (vs_codec_tx) {
+        STREAM_TO_UINT8(*vs_codec_tx, stream);
+        vs_codec_tx++;
+      }
+    }
+  }
+
+  buffer_allocator->free(response);
+}
+
+static void parse_ble_read_buffer_size_response(
+    BT_HDR* response,
+    uint16_t* le_acl_data_packet_length,
+    uint8_t* total_num_le_acl_data_packets,
+    uint16_t* iso_data_packet_length,
+    uint8_t* total_num_iso_data_packets) {
+
+  uint8_t* stream = NULL;
+  if (iso_data_packet_length) {
+    stream = read_command_complete_header(response, HCI_BLE_READ_BUFFER_SIZE_V2,
+                                          0 /* bytes after */);
+  } else {
+    stream = read_command_complete_header(response, HCI_BLE_READ_BUFFER_SIZE,
+                                          0 /* bytes after */);
+  }
+
+  if (stream) {
+    STREAM_TO_UINT16(*le_acl_data_packet_length, stream);
+    STREAM_TO_UINT8(*total_num_le_acl_data_packets, stream);
+    if (iso_data_packet_length && total_num_iso_data_packets) {
+      STREAM_TO_UINT16(*iso_data_packet_length, stream);
+      STREAM_TO_UINT8(*total_num_iso_data_packets, stream);
     }
   }
 
@@ -204,18 +258,6 @@ static void parse_ble_read_white_list_size_response(
   buffer_allocator->free(response);
 }
 
-static void parse_ble_read_buffer_size_response(BT_HDR* response,
-                                                uint16_t* data_size_ptr,
-                                                uint8_t* acl_buffer_count_ptr) {
-  uint8_t* stream = read_command_complete_header(
-      response, HCI_BLE_READ_BUFFER_SIZE, 3 /* bytes after */);
-  CHECK(stream != NULL);
-  STREAM_TO_UINT16(*data_size_ptr, stream);
-  STREAM_TO_UINT8(*acl_buffer_count_ptr, stream);
-
-  buffer_allocator->free(response);
-}
-
 static void parse_ble_read_supported_states_response(
     BT_HDR* response, uint8_t* supported_states, size_t supported_states_size) {
   uint8_t* stream =
@@ -265,6 +307,12 @@ static void parse_ble_read_maximum_advertising_data_length(
   assert(stream != NULL);
   STREAM_TO_UINT16(*ble_maximum_advertising_data_length_ptr, stream);
 
+  buffer_allocator->free(response);
+}
+
+static void parse_ble_set_host_feature_cmd(BT_HDR* response) {
+  read_command_complete_header(
+      response, HCI_BLE_SET_HOST_FEATURE, 0 /* bytes after */);
   buffer_allocator->free(response);
 }
 
@@ -341,6 +389,7 @@ static const hci_packet_parser_t interface = {
     parse_read_scrambling_supported_freqs_response,
     parse_read_add_on_features_supported_response,
     parse_read_local_simple_paring_options_response,
+    parse_ble_set_host_feature_cmd,
 };
 
 const hci_packet_parser_t* hci_packet_parser_get_interface() {

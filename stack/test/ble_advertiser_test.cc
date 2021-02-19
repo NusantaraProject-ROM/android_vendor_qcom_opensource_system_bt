@@ -122,6 +122,13 @@ class AdvertiserHciMock : public BleAdvertiserHciInterface {
   MOCK_METHOD8(SetParameters2, void(uint8_t, int8_t, uint8_t, uint8_t, uint8_t,
                                     uint8_t, uint8_t, parameters_cb));
 
+  MOCK_METHOD9(CreateBIG1,
+               void(uint8_t, uint8_t, uint8_t, uint32_t, uint16_t, uint16_t,
+               uint8_t, uint8_t, uint8_t));
+  MOCK_METHOD3(CreateBIG2,
+               void(uint8_t, uint8_t, std::vector<uint8_t>));
+  MOCK_METHOD2(TerminateBIG, void(uint8_t, uint8_t));
+
   void SetParameters(uint8_t handle, uint16_t properties, uint32_t adv_int_min,
                      uint32_t adv_int_max, uint8_t channel_map,
                      uint8_t own_address_type, const RawAddress& own_address,
@@ -137,6 +144,23 @@ class AdvertiserHciMock : public BleAdvertiserHciInterface {
     SetParameters2(filter_policy, tx_power, primary_phy, secondary_max_skip,
                    secondary_phy, advertising_sid, scan_request_notify_enable,
                    cmd_complete);
+  };
+
+  void CreateBIG(uint8_t big_handle,
+                 uint8_t adv_handle,
+                 uint8_t num_bis,
+                 uint32_t sdu_int, //3 octets
+                 uint16_t max_sdu,
+                 uint16_t max_transport_latency,
+                 uint8_t rtn,
+                 uint8_t phy,
+                 uint8_t packing,
+                 uint8_t framing,
+                 uint8_t encryption,
+                 std::vector<uint8_t> broadcast_code) override {
+    CreateBIG1(big_handle, adv_handle, num_bis, sdu_int, max_sdu,
+               max_transport_latency, rtn, phy, packing);
+    CreateBIG2(framing, encryption, broadcast_code);
   };
 
   bool QuirkAdvertiserZeroHandle() { return false; }

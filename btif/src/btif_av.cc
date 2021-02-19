@@ -82,6 +82,7 @@
 #include "btif_bat.h"
 #include "bta/av/bta_av_int.h"
 #include "device/include/device_iot_config.h"
+#include "btif_bap_broadcast.h"
 #if (OFF_TARGET_TEST_ENABLED == FALSE)
 #include "audio_hal_interface/a2dp_encoding.h"
 #include "audio_a2dp_hw/include/audio_a2dp_hw.h"
@@ -6162,7 +6163,9 @@ bool btif_av_is_split_a2dp_enabled() {
   } else if(isBATEnabled()) {
     BTIF_TRACE_DEBUG("%s:  going for split as BA is active", __func__);
     return true;
-  } else {
+  } else if (btif_bap_broadcast_is_active()) {
+    return true;
+  }else {
     if (!bta_av_co_is_active_peer()) {
       BTIF_TRACE_ERROR("%s:  No active peer codec config found, "
                         "by default splitmode", __func__);

@@ -25,6 +25,7 @@
 #define BTA_DM_INT_H
 
 #include <memory>
+#include <map>
 #include "bt_target.h"
 #include "bta_sys.h"
 
@@ -43,7 +44,10 @@
 
 #define BTA_DM_MSG_LEN 50
 
-#define BTA_SERVICE_ID_TO_SERVICE_MASK(id) (1 << (id))
+#define BTA_SERVICE_ID_TO_SERVICE_MASK(id) ((tBTA_SERVICE_MASK)1 << (id))
+
+#define MAJOR_LE_AUDIO_VENDOR_COD 0x4000
+
 
 /* DM events */
 enum {
@@ -551,6 +555,8 @@ typedef union {
 
   tBTA_DM_API_DI_DISC di_disc;
 
+  tBTA_DM_ADV_AUDIO_DISC_CMPL adv_audio_disc_cmpl;
+
   tBTA_DM_API_EXECUTE_CBACK exec_cback;
 
   tBTA_DM_API_SET_ENCRYPTION set_encryption;
@@ -851,6 +857,7 @@ typedef struct {
   uint8_t lmp_version;
 } tBTA_DM_LMP_VER_INFO;
 
+
 extern const uint16_t bta_service_id_to_uuid_lkup_tbl[];
 
 extern tBTA_DM_PM_CFG* p_bta_dm_pm_cfg;
@@ -967,4 +974,6 @@ extern void bta_dm_remove_all_acl(tBTA_DM_MSG* p_data);
 extern void bta_dm_hci_raw_command(tBTA_DM_MSG *p_data);
 
 extern void bta_dm_queue_service_disc(tBTA_DM_MSG* p_data);
+
+
 #endif /* BTA_DM_INT_H */

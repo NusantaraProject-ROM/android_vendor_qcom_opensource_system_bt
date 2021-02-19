@@ -77,7 +77,7 @@ void BTA_GATTS_Disable(void) {
  *
  ******************************************************************************/
 void BTA_GATTS_AppRegister(const bluetooth::Uuid& app_uuid,
-                           tBTA_GATTS_CBACK* p_cback) {
+                           tBTA_GATTS_CBACK* p_cback, bool eatt_support) {
   tBTA_GATTS_API_REG* p_buf =
       (tBTA_GATTS_API_REG*)osi_malloc(sizeof(tBTA_GATTS_API_REG));
 
@@ -88,6 +88,7 @@ void BTA_GATTS_AppRegister(const bluetooth::Uuid& app_uuid,
   p_buf->hdr.event = BTA_GATTS_API_REG_EVT;
   p_buf->app_uuid = app_uuid;
   p_buf->p_cback = p_cback;
+  p_buf->eatt_support = eatt_support;
 
   bta_sys_sendmsg(p_buf);
 }
@@ -251,6 +252,43 @@ void BTA_GATTS_HandleValueIndication(uint16_t conn_id, uint16_t attr_id,
 
 /*******************************************************************************
  *
+ * Function         BTA_GATTS_MultipleHandleValueNotification
+ *
+ * Description      This function is called to send notifications on
+ *                  multiple handles.
+ *
+ * Parameters       conn_id - connection id.
+ *                  p_multi_ntf - pointer to params for multi notifications.
+ *                  values - data to be notified.
+ *
+ *
+ * Returns          None
+ *
+ ******************************************************************************/
+void BTA_GATTS_MultipleHandleValueNotification(uint16_t conn_id, tBTA_GATTS_MULTI_NTF* p_multi_ntf,
+                                               std::vector<std::vector<uint8_t>> values) {
+  tBTA_GATTS_API_MULTI_NOTIFICATION* p_buf =
+      (tBTA_GATTS_API_MULTI_NOTIFICATION*)osi_calloc(sizeof(tBTA_GATTS_API_MULTI_NOTIFICATION));
+
+  p_buf->hdr.event = BTA_GATTS_API_MULTI_NOTIFICATION_EVT;
+  p_buf->hdr.layer_specific = conn_id;
+  p_buf->num_attr = p_multi_ntf->num_attr;
+
+  if (p_multi_ntf->num_attr > BTA_GATTS_MULTI_MAX) {
+    LOG(ERROR) << __func__ << ": num attributes exceeded the limit";
+    return;
+  }
+  for (uint8_t i=0; i < p_multi_ntf->num_attr; i++) {
+    p_buf->handles[i] = p_multi_ntf->handles[i];
+    p_buf->lens[i] = p_multi_ntf->lens[i];
+  }
+  p_buf->values = values;
+
+  bta_sys_sendmsg(p_buf);
+}
+
+/*******************************************************************************
+ *
  * Function         BTA_GATTS_SendRsp
  *
  * Description      This function is called to send a response to a request.
@@ -353,6 +391,29 @@ void BTA_GATTS_Close(uint16_t conn_id) {
 
   p_buf->event = BTA_GATTS_API_CLOSE_EVT;
   p_buf->layer_specific = conn_id;
+
+  bta_sys_sendmsg(p_buf);
+}
+
+/*******************************************************************************
+ *
+ * Function         BTA_GATTS_ConfigureMTU
+ *
+ * Description      Configure the MTU size in the GATT channel
+ *
+ * Parameters       conn_id: connection ID.
+ *                  mtu: MTU size
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void BTA_GATTS_ConfigureMTU(uint16_t conn_id, uint16_t mtu) {
+  tBTA_GATTS_API_CFG_MTU* p_buf =
+          (tBTA_GATTS_API_CFG_MTU*)osi_calloc(sizeof(tBTA_GATTS_API_CFG_MTU));
+
+  p_buf->hdr.event = BTA_GATTS_API_CFG_MTU_EVT;
+  p_buf->hdr.layer_specific = conn_id;
+  p_buf->mtu = mtu;
 
   bta_sys_sendmsg(p_buf);
 }
