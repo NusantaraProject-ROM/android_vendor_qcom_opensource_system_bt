@@ -17,10 +17,6 @@ cc_library_static {
         "vendor/qcom/opensource/commonsys/system/bt/hci/include",
         "vendor/qcom/opensource/commonsys-intf/bluetooth/include",
         "vendor/qcom/opensource/commonsys/system/bt/device/include",
-        "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/system/bt",
-        "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/system/bt/bta/include",
-        "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/system/bt/btif/include",
-        "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/vhal/include",
     ],
     srcs: [
         "a2dp_encoding.cc",
