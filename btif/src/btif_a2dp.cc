@@ -91,7 +91,7 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
         APPL_TRACE_ERROR("call in progress, do not start offload");
         if (btif_a2dp_source_is_hal_v2_enabled()) {
 #if AHIM_ENABLED
-          btif_ahim_ack_stream_started(A2DP_CTRL_ACK_INCALL_FAILURE);
+          btif_ahim_ack_stream_started(A2DP_CTRL_ACK_INCALL_FAILURE, A2DP);
 #else
           bluetooth::audio::a2dp::ack_stream_started(A2DP_CTRL_ACK_INCALL_FAILURE);
 #endif
@@ -104,7 +104,7 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
       if (pending_cmd == A2DP_CTRL_CMD_START) {
         if (btif_a2dp_source_is_hal_v2_enabled()) {
 #if AHIM_ENABLED
-          btif_ahim_ack_stream_started(A2DP_CTRL_ACK_SUCCESS);
+          btif_ahim_ack_stream_started(A2DP_CTRL_ACK_SUCCESS, A2DP);
 #else
           bluetooth::audio::a2dp::ack_stream_started(A2DP_CTRL_ACK_SUCCESS);
 #endif
@@ -144,7 +144,7 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
             if (pending_cmd == A2DP_CTRL_CMD_START) {
               if (btif_a2dp_source_is_hal_v2_enabled()) {
 #if AHIM_ENABLED
-                btif_ahim_ack_stream_started(A2DP_CTRL_ACK_SUCCESS);
+                btif_ahim_ack_stream_started(A2DP_CTRL_ACK_SUCCESS, A2DP);
 #else
                 bluetooth::audio::a2dp::ack_stream_started(A2DP_CTRL_ACK_SUCCESS);
 #endif
@@ -191,7 +191,7 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
       RawAddress addr = btif_av_get_addr_by_index(index);
       if (btif_a2dp_source_is_hal_v2_enabled()) {
 #if AHIM_ENABLED
-        btif_ahim_ack_stream_started(A2DP_CTRL_ACK_FAILURE);
+        btif_ahim_ack_stream_started(A2DP_CTRL_ACK_FAILURE, A2DP);
 #else
         bluetooth::audio::a2dp::ack_stream_started(A2DP_CTRL_ACK_FAILURE);
 #endif
@@ -211,7 +211,7 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
       if (btif_av_is_split_a2dp_enabled()) {
         if (btif_a2dp_source_is_hal_v2_enabled()) {
 #if AHIM_ENABLED
-          btif_ahim_ack_stream_started(A2DP_CTRL_ACK_LONG_WAIT_ERR);
+          btif_ahim_ack_stream_started(A2DP_CTRL_ACK_LONG_WAIT_ERR, A2DP);
 #else
           bluetooth::audio::a2dp::ack_stream_started(A2DP_CTRL_ACK_LONG_WAIT_ERR);
 #endif
@@ -222,7 +222,7 @@ bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start,
         if (pending_cmd == A2DP_CTRL_CMD_START) {
           if (btif_a2dp_source_is_hal_v2_enabled()) {
 #if AHIM_ENABLED
-            btif_ahim_ack_stream_started(A2DP_CTRL_ACK_LONG_WAIT_ERR);
+            btif_ahim_ack_stream_started(A2DP_CTRL_ACK_LONG_WAIT_ERR, A2DP);
 #else
             bluetooth::audio::a2dp::ack_stream_started(A2DP_CTRL_ACK_LONG_WAIT_ERR);
 #endif
@@ -260,14 +260,14 @@ void btif_a2dp_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
           if(p_av_suspend->status != BTA_AV_SUCCESS) {
             if(p_av_suspend->initiator) {
 #if AHIM_ENABLED
-              btif_ahim_ack_stream_suspended(A2DP_CTRL_ACK_FAILURE);
+              btif_ahim_ack_stream_suspended(A2DP_CTRL_ACK_FAILURE, A2DP);
 #else
               bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_FAILURE);
 #endif
             }
           } else {
 #if AHIM_ENABLED
-            btif_ahim_ack_stream_suspended(A2DP_CTRL_ACK_SUCCESS);
+            btif_ahim_ack_stream_suspended(A2DP_CTRL_ACK_SUCCESS, A2DP);
 #else
             bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_SUCCESS);
 #endif
@@ -321,14 +321,14 @@ void btif_a2dp_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
         if(p_av_suspend->status != BTA_AV_SUCCESS) {
           if(p_av_suspend->initiator) {
 #if AHIM_ENABLED
-            btif_ahim_ack_stream_suspended(A2DP_CTRL_ACK_FAILURE);
+            btif_ahim_ack_stream_suspended(A2DP_CTRL_ACK_FAILURE, A2DP);
 #else
             bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_FAILURE);
 #endif
           }
         } else {
 #if AHIM_ENABLED
-          btif_ahim_ack_stream_suspended(A2DP_CTRL_ACK_SUCCESS);
+          btif_ahim_ack_stream_suspended(A2DP_CTRL_ACK_SUCCESS, A2DP);
 #else
           bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_SUCCESS);
 #endif
@@ -386,7 +386,7 @@ void btif_ba_audio_on_suspended(uint8_t result) {
   APPL_TRACE_EVENT("%s result %d", __func__, result);
   if (btif_a2dp_source_is_hal_v2_enabled()) {
 #if AHIM_ENABLED
-    btif_ahim_ack_stream_suspended(ba_map_status_to_ack(result));
+    btif_ahim_ack_stream_suspended(ba_map_status_to_ack(result), A2DP);
 #else
     bluetooth::audio::a2dp::ack_stream_suspended(ba_map_status_to_ack(result));
 #endif
@@ -399,7 +399,7 @@ void btif_ba_audio_on_stopped(uint8_t result) {
   APPL_TRACE_EVENT("%s result %d", __func__, result);
   if (btif_a2dp_source_is_hal_v2_enabled()) {
 #if AHIM_ENABLED
-    btif_ahim_ack_stream_suspended(ba_map_status_to_ack(result));
+    btif_ahim_ack_stream_suspended(ba_map_status_to_ack(result), A2DP);
 #else
     bluetooth::audio::a2dp::ack_stream_suspended(ba_map_status_to_ack(result));
 #endif
@@ -412,7 +412,7 @@ void btif_ba_audio_on_started(uint8_t result) {
   APPL_TRACE_EVENT("%s result %d", __func__, result);
   if (btif_a2dp_source_is_hal_v2_enabled()) {
 #if AHIM_ENABLED
-    btif_ahim_ack_stream_started(ba_map_status_to_ack(result));
+    btif_ahim_ack_stream_started(ba_map_status_to_ack(result), A2DP);
 #else
     bluetooth::audio::a2dp::ack_stream_started(ba_map_status_to_ack(result));
 #endif
@@ -468,9 +468,9 @@ void btif_a2dp_on_offload_started(tBTA_AV_STATUS status) {
   }
   if (btif_a2dp_source_is_hal_v2_enabled()) {
 #if AHIM_ENABLED
-    btif_ahim_ack_stream_started(ack);
+    btif_ahim_ack_stream_started(ack, A2DP);
 #else
-    bluetooth::audio::a2dp::ack_stream_started(ack);
+    bluetooth::audio::a2dp::ack_stream_started(ack, A2DP);
 #endif
   } else {
     btif_a2dp_audio_on_started(status);

@@ -105,9 +105,9 @@ void btif_ahim_reset_pending_command();
 
 void btif_ahim_update_pending_command(tA2DP_CTRL_CMD cmd);
 
-void btif_ahim_ack_stream_started(const tA2DP_CTRL_ACK& ack);
+void btif_ahim_ack_stream_started(const tA2DP_CTRL_ACK& ack, uint8_t profile);
 
-void btif_ahim_ack_stream_suspended(const tA2DP_CTRL_ACK& ack);
+void btif_ahim_ack_stream_suspended(const tA2DP_CTRL_ACK& ack, uint8_t profile);
 
 size_t btif_ahim_read(uint8_t* p_buf, uint32_t len);
 
