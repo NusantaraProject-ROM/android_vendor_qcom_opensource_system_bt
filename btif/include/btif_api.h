@@ -527,6 +527,8 @@ bt_status_t btif_set_dynamic_audio_buffer_size(int codec, int size);
  * Returns          void
  *
  ******************************************************************************/
+#ifdef ADV_AUDIO_FEATURE
 void btif_register_uuid_srvc_disc(bluetooth::Uuid uuid);
+#endif
 
 #endif /* BTIF_API_H */

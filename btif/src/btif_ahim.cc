@@ -29,11 +29,10 @@
  ******************************************************************************/
 
 #include "audio_hal_interface/a2dp_encoding.h"
-#include "btif_acm_source.h"
 
 #if AHIM_ENABLED
 
-uint8_t cur_active_profile = AUDIO_GROUP_MGR;
+uint8_t cur_active_profile = A2DP;
 
 btif_ahim_client_callbacks_t* pclient_cbs[MAX_CLIENT] = {NULL};
 
