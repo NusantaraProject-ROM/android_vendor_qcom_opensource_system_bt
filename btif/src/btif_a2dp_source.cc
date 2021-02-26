@@ -127,6 +127,10 @@ extern bool is_block_hal_start;
 static void btif_a2dp_source_command_ready(fixed_queue_t* queue, void* context);
 static void btif_a2dp_source_startup_delayed(void* context);
 static void btif_a2dp_source_shutdown_delayed(void* context);
+
+static uint8_t btif_a2dp_source_dynamic_audio_buffer_size =
+    MAX_OUTPUT_A2DP_FRAME_QUEUE_SZ;
+
 static void btif_a2dp_source_audio_tx_start_event(void);
 static void btif_a2dp_source_audio_tx_stop_event(void);
 static void btif_a2dp_source_audio_tx_flush_event(BT_HDR* p_msg);
@@ -1068,11 +1072,11 @@ static bool btif_a2dp_source_enqueue_callback(BT_HDR* p_buf, size_t frames_n,
   // Check for TX queue overflow
   // TODO: Using frames_n here is probably wrong: should be "+ 1" instead.
   if (fixed_queue_length(btif_a2dp_source_cb.tx_audio_queue) + frames_n >
-      MAX_OUTPUT_A2DP_FRAME_QUEUE_SZ) {
+      btif_a2dp_source_dynamic_audio_buffer_size) {
     LOG_DEBUG(LOG_TAG, "%s: TX queue buffer size now=%u adding=%u max=%d",
              __func__,
              (uint32_t)fixed_queue_length(btif_a2dp_source_cb.tx_audio_queue),
-             (uint32_t)frames_n, MAX_OUTPUT_A2DP_FRAME_QUEUE_SZ);
+             (uint32_t)frames_n, btif_a2dp_source_dynamic_audio_buffer_size);
     // Keep track of drop-outs
     btif_a2dp_source_cb.stats.tx_queue_dropouts++;
     btif_a2dp_source_cb.stats.tx_queue_last_dropouts_us = now_us;
@@ -1447,6 +1451,11 @@ void btif_a2dp_source_update_metrics(void) {
     }
   }
   BluetoothMetricsLogger::GetInstance()->LogA2dpSession(metrics);
+}
+
+void btif_a2dp_source_set_dynamic_audio_buffer_size(
+    uint8_t dynamic_audio_buffer_size) {
+  btif_a2dp_source_dynamic_audio_buffer_size = dynamic_audio_buffer_size;
 }
 
 static void btm_read_rssi_cb(void* data) {

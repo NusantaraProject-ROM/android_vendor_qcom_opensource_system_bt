@@ -170,7 +170,21 @@ typedef struct
     bool le_extended_advertising_supported;
     bool le_periodic_advertising_supported;
     uint16_t le_maximum_advertising_data_length;
+    uint32_t dynamic_audio_buffer_supported;
 }bt_local_le_features_t;
+
+/* Stored the default/maximum/minimum buffer time for dynamic audio buffer.
+ * For A2DP offload usage, the unit is millisecond.
+ * For A2DP legacy usage, the unit is buffer queue size*/
+typedef struct {
+  uint16_t default_buffer_time;
+  uint16_t maximum_buffer_time;
+  uint16_t minimum_buffer_time;
+} bt_dynamic_audio_buffer_type_t;
+
+typedef struct {
+  bt_dynamic_audio_buffer_type_t dab_item[32];
+} bt_dynamic_audio_buffer_item_t;
 
 /* Bluetooth Adapter and Remote Device property types */
 typedef enum {
@@ -275,6 +289,8 @@ typedef enum {
    * Data Type - bt_io_cap_t.
    */
   BT_PROPERTY_LOCAL_IO_CAPS_BLE,
+
+  BT_PROPERTY_DYNAMIC_AUDIO_BUFFER,
 
   BT_PROPERTY_REMOTE_DEVICE_TIMESTAMP = 0xFF,
 } bt_property_type_t;
@@ -641,6 +657,8 @@ typedef struct {
     * @return a string of uint8_t that is unique to this MAC address
     */
     std::string (*obfuscate_address)(const RawAddress& address);
+
+    int (*set_dynamic_audio_buffer_size)(int codec, int size);
 } bt_interface_t;
 
 #define BLUETOOTH_INTERFACE_STRING "bluetoothInterface"

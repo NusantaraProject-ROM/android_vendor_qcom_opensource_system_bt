@@ -206,7 +206,7 @@ void bta_cback(tBTA_GATTC_EVT, tBTA_GATTC*) {}
 class BleScannerInterfaceImpl : public BleScannerInterface {
   ~BleScannerInterfaceImpl(){};
 
-  void RegisterScanner(RegisterCallback cb) override {
+  void RegisterScanner(const bluetooth::Uuid& app_uuid, RegisterCallback cb) override {
     if (!stack_manager_get_interface()->get_stack_is_running()) return;
 
     do_in_bta_thread(FROM_HERE,
@@ -222,6 +222,10 @@ class BleScannerInterfaceImpl : public BleScannerInterface {
   void Unregister(int scanner_id) override {
     if (!stack_manager_get_interface()->get_stack_is_running()) return;
     do_in_bta_thread(FROM_HERE, Bind(&BTA_GATTC_AppDeregister, scanner_id));
+  }
+
+  void RegisterCallbacks(ScanningCallbacks* callbacks) {
+    // For GD only
   }
 
   void Scan(bool start) override {

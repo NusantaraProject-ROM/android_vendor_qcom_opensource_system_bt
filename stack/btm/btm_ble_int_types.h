@@ -105,6 +105,7 @@ inline bool BTM_BLE_IS_RANDOM_STATIC_BDA(const RawAddress& x) {
 
 #define BTM_VSC_CHIP_CAPABILITY_L_VERSION 55
 #define BTM_VSC_CHIP_CAPABILITY_M_VERSION 95
+#define BTM_VSC_CHIP_CAPABILITY_S_VERSION 98
 
 typedef struct {
   uint16_t data_mask;
