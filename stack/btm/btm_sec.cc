@@ -4277,8 +4277,7 @@ void btm_sec_encrypt_change(uint16_t handle, uint8_t status,
       (p_dev_rec->hci_handle == handle)) {
     /* if BR key is temporary no need for LE LTK derivation */
     bool derive_ltk = true;
-    if (p_dev_rec->rmt_auth_req == BTM_AUTH_SP_NO &&
-        btm_cb.devcb.loc_auth_req == BTM_AUTH_SP_NO) {
+    if (p_dev_rec->bond_type == BOND_TYPE_TEMPORARY) {
       derive_ltk = false;
       BTM_TRACE_DEBUG("%s: BR key is temporary, skip derivation of LE LTK",
                       __func__);
