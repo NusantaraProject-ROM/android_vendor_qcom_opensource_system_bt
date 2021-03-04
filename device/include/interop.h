@@ -276,6 +276,9 @@ typedef enum {
   // call on the phone
   INTEROP_SETUP_SCO_WITH_NO_DELAY_AFTER_SLC_DURING_CALL,
 
+  //Some LE mouses want to use preferred connection parameters
+  INTEROP_ENABLE_PREFERRED_CONN_PARAMETER,
+
   END_OF_INTEROP_LIST
 } interop_feature_t;
 
