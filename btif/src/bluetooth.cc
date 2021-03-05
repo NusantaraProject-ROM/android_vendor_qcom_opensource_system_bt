@@ -70,6 +70,7 @@
 #include "btsnoop.h"
 #include "btsnoop_mem.h"
 #include "common/address_obfuscator.h"
+#include "common/os_utils.h"
 #include "device/include/interop.h"
 #include "osi/include/alarm.h"
 #include "osi/include/allocation_tracker.h"
@@ -200,12 +201,14 @@ static int disable(void) {
 static void cleanup(void) { stack_manager_get_interface()->clean_up_stack(); }
 
 bool is_restricted_mode() { return restricted_mode; }
-bool is_common_criteria_mode() { return common_criteria_mode; }
+bool is_common_criteria_mode() {
+  return is_bluetooth_uid() && common_criteria_mode;
+}
 // if common criteria mode disable, will always return
 // CONFIG_COMPARE_ALL_PASS(0b11) indicate don't check config checksum.
 int get_common_criteria_config_compare_result() {
-  return common_criteria_mode ? common_criteria_config_compare_result
-                              : CONFIG_COMPARE_ALL_PASS;
+  return is_common_criteria_mode() ? common_criteria_config_compare_result
+                                   : CONFIG_COMPARE_ALL_PASS;
 }
 
 bool is_atv_device() { return is_local_device_atv; }
