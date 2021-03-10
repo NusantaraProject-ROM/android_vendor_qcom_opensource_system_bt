@@ -51,6 +51,20 @@ typedef struct btsnoop_t {
   // Clear an L2CAP channel from being filtered.
   void (*clear_l2cap_whitelist)(uint16_t conn_handle, uint16_t local_cid,
                                 uint16_t remote_cid);
+
+  // New RFCOMM port is opened.
+  void (*set_rfc_port_open)(uint16_t handle, uint16_t local_cid,
+                            uint8_t dlci, uint16_t uuid, bool flow);
+
+  // RFCOMM port is closed.
+  void (*set_rfc_port_close)(uint16_t handle, uint16_t local_cid,
+                             uint8_t dlci, uint16_t uuid);
+
+  // New L2CAP channel is opened.
+  void (*set_l2cap_channel_open)(uint16_t handle, uint16_t local_cid,
+                               uint16_t remote_cid, uint16_t psm, bool flow);
+  // L2CAP channel is closed.
+  void (*set_l2cap_channel_close)(uint16_t handle, uint16_t local_cid, uint16_t remote_cid);
 } btsnoop_t;
 
 const btsnoop_t* btsnoop_get_interface(void);
