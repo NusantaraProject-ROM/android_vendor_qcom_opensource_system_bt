@@ -792,7 +792,7 @@ void btif_a2dp_source_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
                 (pending_cmd == A2DP_CTRL_CMD_SUSPEND)) {
           if (btif_a2dp_source_is_hal_v2_enabled()) {
 #if AHIM_ENABLED
-            btif_ahim_ack_stream_suspended(A2DP_CTRL_ACK_FAILURE);
+            btif_ahim_ack_stream_suspended(A2DP_CTRL_ACK_FAILURE, A2DP);
 #else
             bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_FAILURE);
 #endif
@@ -871,7 +871,7 @@ void btif_a2dp_source_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
                 (pending_cmd == A2DP_CTRL_CMD_SUSPEND)) {
           if (btif_a2dp_source_is_hal_v2_enabled()) {
 #if AHIM_ENABLED
-            btif_ahim_ack_stream_suspended(A2DP_CTRL_ACK_FAILURE);
+            btif_ahim_ack_stream_suspended(A2DP_CTRL_ACK_FAILURE, A2DP);
 #else
             bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_FAILURE);
 #endif
@@ -1016,7 +1016,7 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
     APPL_TRACE_DEBUG("%s, Ack for pending Stop/Suspend", __func__);
     if (btif_a2dp_source_is_hal_v2_enabled()) {
 #if AHIM_ENABLED
-      btif_ahim_ack_stream_suspended(A2DP_CTRL_ACK_SUCCESS);
+      btif_ahim_ack_stream_suspended(A2DP_CTRL_ACK_SUCCESS, A2DP);
 #else
       bluetooth::audio::a2dp::ack_stream_suspended(A2DP_CTRL_ACK_SUCCESS);
 #endif
@@ -1027,7 +1027,7 @@ static void btif_a2dp_source_audio_tx_stop_event(void) {
     BTIF_TRACE_ERROR("Ack Pending Start while Disconnect in Progress");
     if (btif_a2dp_source_is_hal_v2_supported()) {
 #if AHIM_ENABLED
-      btif_ahim_ack_stream_started(A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS);
+      btif_ahim_ack_stream_started(A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS, A2DP);
 #else
       bluetooth::audio::a2dp::ack_stream_started(A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS);
 #endif
@@ -1764,7 +1764,7 @@ void btif_a2dp_source_command_ack(tA2DP_CTRL_CMD cmd, tA2DP_CTRL_ACK status) {
   switch (cmd) {
     case A2DP_CTRL_CMD_START:
 #if AHIM_ENABLED
-      btif_ahim_ack_stream_started(status);
+      btif_ahim_ack_stream_started(status, A2DP);
 #else
       bluetooth::audio::a2dp::ack_stream_started(status);
 #endif
@@ -1772,7 +1772,7 @@ void btif_a2dp_source_command_ack(tA2DP_CTRL_CMD cmd, tA2DP_CTRL_ACK status) {
     case A2DP_CTRL_CMD_SUSPEND:
     case A2DP_CTRL_CMD_STOP:
 #if AHIM_ENABLED
-      btif_ahim_ack_stream_suspended(status);
+      btif_ahim_ack_stream_suspended(status, A2DP);
 #else
       bluetooth::audio::a2dp::ack_stream_suspended(status);
 #endif
@@ -2092,7 +2092,7 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
   switch (cmd) {
     case A2DP_CTRL_CMD_START:
 #if AHIM_ENABLED
-      btif_ahim_ack_stream_started(status);
+      btif_ahim_ack_stream_started(status, A2DP);
 #else
       bluetooth::audio::a2dp::ack_stream_started(status);
 #endif
@@ -2103,7 +2103,7 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
     case A2DP_CTRL_CMD_SUSPEND:
     case A2DP_CTRL_CMD_STOP:
 #if AHIM_ENABLED
-      btif_ahim_ack_stream_suspended(status);
+      btif_ahim_ack_stream_suspended(status, A2DP);
 #else
       bluetooth::audio::a2dp::ack_stream_suspended(status);
 #endif
