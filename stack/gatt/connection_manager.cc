@@ -165,9 +165,12 @@ void on_app_deregistered(uint8_t app_id) {
   /* update the BG conn device list */
   while (it != end) {
     it->second.doing_bg_conn.erase(app_id);
-
-    it->second.doing_direct_conn.erase(app_id);
-
+   if (it->second.doing_direct_conn.count(app_id)) {
+     LOG(INFO) << "on_app_deregistered, direct connect is present from app_id="
+        << loghex(app_id);
+     on_connection_cancelled(app_id, it->first);
+     it->second.doing_direct_conn.erase(app_id);
+    }
     if (anyone_connecting(it)) {
       it++;
       continue;
