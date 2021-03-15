@@ -30,6 +30,7 @@
 #include <base/logging.h>
 #include <string.h>
 
+#include "utils/include/bt_features.h"
 #include "bt_common.h"
 #include "bt_target.h"
 #include "bt_types.h"
@@ -60,6 +61,11 @@
 #include "device/include/device_iot_config.h"
 #include <btcommon_interface_defs.h>
 #include <controller.h>
+#include "bta_gatt_queue.h"
+#ifdef ADV_AUDIO_FEATURE
+#include "bta_dm_adv_audio.h"
+#endif
+
 
 #if (GAP_INCLUDED == TRUE)
 #include "gap_api.h"
@@ -136,6 +142,7 @@ static void bta_dm_gattc_register(void);
 static void btm_dm_start_gatt_discovery(const RawAddress& bd_addr);
 static void bta_dm_cancel_gatt_discovery(const RawAddress& bd_addr);
 static void bta_dm_gattc_callback(tBTA_GATTC_EVT event, tBTA_GATTC* p_data);
+
 extern tBTA_DM_CONTRL_STATE bta_dm_pm_obtain_controller_state(void);
 
 #if (BLE_VND_INCLUDED == TRUE)
@@ -263,6 +270,7 @@ const uint32_t bta_service_id_to_btm_srv_id_lkup_tbl[BTA_MAX_SERVICE_ID] = {
     BTM_SEC_SERVICE_ATT            /* BTA_GATT_SERVICE_ID */
 };
 
+
 /* bta security callback */
 const tBTM_APPL_INFO bta_security = {&bta_dm_authorize_cback,
                                      &bta_dm_pin_cback,
@@ -275,6 +283,11 @@ const tBTM_APPL_INFO bta_security = {&bta_dm_authorize_cback,
                                      NULL,
 #endif
                                      &bta_dm_ble_smp_cback,
+#ifdef ADV_AUDIO_FEATURE
+                                     &bta_dm_ble_adv_audio_idaddr_map,
+#else
+                                     NULL,
+#endif
                                      &bta_dm_ble_id_key_cback};
 
 #define MAX_DISC_RAW_DATA_BUF (4096)
@@ -907,6 +920,7 @@ void bta_dm_remove_device(tBTA_DM_MSG* p_data) {
   if (p_dev == NULL) return;
 
   RawAddress other_address = p_dev->bd_addr;
+  RawAddress peer_id_addr = p_dev->bd_addr;
 
   /* If ACL exists for the device in the remove_bond message*/
   bool continue_delete_dev = false;
@@ -958,6 +972,13 @@ void bta_dm_remove_device(tBTA_DM_MSG* p_data) {
     for (int i = 0; i < bta_dm_cb.device_list.count; i++) {
       auto& peer_device = bta_dm_cb.device_list.peer_device[i];
       if (peer_device.peer_bdaddr == other_address) {
+       /* If the same remote address having two different transport links, then
+        * need to disconnect the other link with same address. so need to fetch
+        * correct control block of that address */
+       if ((peer_device.transport != other_transport) &&
+           (peer_device.peer_bdaddr == peer_id_addr)) {
+          continue;
+       }
         peer_device.conn_state = BTA_DM_UNPAIRING;
 
         /* Make sure device is not in white list before we disconnect */
@@ -5276,7 +5297,7 @@ static void bta_dm_gattc_register(void) {
                             else
                               bta_dm_search_cb.client_if = BTA_GATTS_INVALID_IF;
 
-                          }));
+                          }), false);
   }
 }
 
@@ -5406,6 +5427,23 @@ static void bta_dm_gatt_disc_complete(uint16_t conn_id, tGATT_STATUS status) {
 
     bta_sys_sendmsg(p_msg);
 
+#ifdef ADV_AUDIO_FEATURE
+    if (!(is_remote_support_adv_audio(bta_dm_search_cb.peer_bdaddr) &&
+         (status == GATT_SUCCESS))) {
+
+      if (conn_id != GATT_INVALID_CONN_ID) {
+        /* start a GATT channel close delay timer */
+        bta_sys_start_timer(bta_dm_search_cb.gatt_close_timer,
+                            BTA_DM_GATT_CLOSE_DELAY_TOUT,
+                            BTA_DM_DISC_CLOSE_TOUT_EVT, 0);
+        bta_dm_search_cb.pending_close_bda = bta_dm_search_cb.peer_bdaddr;
+      }
+    } else {
+      APPL_TRACE_DEBUG("%s Addr %s", __func__,
+        bta_dm_search_cb.pending_close_bda.ToString().c_str());
+      bta_dm_search_cb.pending_close_bda = bta_dm_search_cb.peer_bdaddr;
+    }
+#else
     if (conn_id != GATT_INVALID_CONN_ID) {
       /* start a GATT channel close delay timer */
       bta_sys_start_timer(bta_dm_search_cb.gatt_close_timer,
@@ -5413,6 +5451,7 @@ static void bta_dm_gatt_disc_complete(uint16_t conn_id, tGATT_STATUS status) {
                           BTA_DM_DISC_CLOSE_TOUT_EVT, 0);
       bta_dm_search_cb.pending_close_bda = bta_dm_search_cb.peer_bdaddr;
     }
+#endif
     bta_dm_search_cb.gatt_disc_active = false;
   }
 }
@@ -5428,8 +5467,11 @@ static void bta_dm_gatt_disc_complete(uint16_t conn_id, tGATT_STATUS status) {
  *
  ******************************************************************************/
 void bta_dm_close_gatt_conn(UNUSED_ATTR tBTA_DM_MSG* p_data) {
-  if (bta_dm_search_cb.conn_id != GATT_INVALID_CONN_ID)
+  APPL_TRACE_DEBUG("bta_dm_close_gatt_conn conn id %d ",
+    bta_dm_search_cb.conn_id);
+  if (bta_dm_search_cb.conn_id != GATT_INVALID_CONN_ID) {
     BTA_GATTC_Close(bta_dm_search_cb.conn_id);
+  }
 
   bta_dm_search_cb.pending_close_bda = RawAddress::kEmpty;
   bta_dm_search_cb.conn_id = GATT_INVALID_CONN_ID;
@@ -5548,24 +5590,59 @@ static void bta_dm_gattc_callback(tBTA_GATTC_EVT event, tBTA_GATTC* p_data) {
 
   switch (event) {
     case BTA_GATTC_OPEN_EVT:
+#ifdef ADV_AUDIO_FEATURE
+      if (is_remote_support_adv_audio(bta_dm_search_cb.peer_bdaddr)) {
+        bta_dm_set_adv_audio_dev_info(&p_data->open);
+      }
+#endif
+      //TODO reset the discovery parameters before triggering it open evt
       bta_dm_proc_open_evt(&p_data->open);
       break;
 
     case BTA_GATTC_SEARCH_RES_EVT:
+#ifdef ADV_AUDIO_FEATURE
+      if (is_remote_support_adv_audio(bta_dm_search_cb.peer_bdaddr)) {
+        bta_add_adv_audio_uuid(bta_dm_search_cb.peer_bdaddr,
+                           p_data->srvc_res.service_uuid);
+      }
+#endif
       bta_dm_gatt_disc_result(p_data->srvc_res.service_uuid);
       break;
 
     case BTA_GATTC_SEARCH_CMPL_EVT:
-      if (bta_dm_search_cb.state != BTA_DM_SEARCH_IDLE)
+      if (bta_dm_search_cb.state != BTA_DM_SEARCH_IDLE) {
         bta_dm_gatt_disc_complete(p_data->search_cmpl.conn_id,
                                   p_data->search_cmpl.status);
+#ifdef ADV_AUDIO_FEATURE
+        if (is_remote_support_adv_audio(bta_dm_search_cb.peer_bdaddr)) {
+          if (p_data->search_cmpl.status == 0) {
+            bta_get_adv_audio_role(bta_dm_search_cb.peer_bdaddr,
+              p_data->search_cmpl.conn_id,
+              p_data->search_cmpl.status);
+            if (is_adv_audio_group_supported(bta_dm_search_cb.peer_bdaddr)) {
+              bta_find_adv_audio_group_instance(p_data->search_cmpl.conn_id,
+                  p_data->search_cmpl.status, bta_dm_search_cb.peer_bdaddr);
+            }
+          } else {
+            APPL_TRACE_DEBUG("%s Discovery Failure ", __func__);
+          }
+        }
+#endif
+      }
       break;
 
     case BTA_GATTC_CLOSE_EVT:
-      APPL_TRACE_DEBUG("BTA_GATTC_CLOSE_EVT reason = %d, data conn_id %d, search conn_id %d",
-                       p_data->close.reason,p_data->close.conn_id,bta_dm_search_cb.conn_id);
-       if(p_data->close.conn_id == bta_dm_search_cb.conn_id)
+      APPL_TRACE_DEBUG("BTA_GATTC_CLOSE_EVT reason = %d,"
+        "p_data conn_id %d, search conn_id %d", p_data->close.reason,
+        p_data->close.conn_id,bta_dm_search_cb.conn_id);
+
+      if(p_data->close.conn_id == bta_dm_search_cb.conn_id)
           bta_dm_search_cb.conn_id = GATT_INVALID_CONN_ID;
+#ifdef ADV_AUDIO_FEATURE
+      if (is_remote_support_adv_audio(bta_dm_search_cb.peer_bdaddr)) {
+        bta_dm_reset_adv_audio_dev_info(bta_dm_search_cb.peer_bdaddr);
+      }
+#endif
       /* in case of disconnect before search is completed */
       if ((bta_dm_search_cb.state != BTA_DM_SEARCH_IDLE) &&
           (bta_dm_search_cb.state != BTA_DM_SEARCH_ACTIVE) &&
@@ -5637,3 +5714,4 @@ static void bta_dm_bond_retrail_cback(void* data) {
   }
   osi_free(data);
 }
+

@@ -21,6 +21,7 @@
 
 #include "bt_target.h"
 #include "bt_types.h"
+#include "btm_ble_api_types.h"
 #include "device/include/esco_parameters.h"
 #include "hcidefs.h"
 
@@ -921,4 +922,159 @@ extern void btsnd_hcic_set_csb(uint8_t enable, uint8_t lt_addr, uint8_t lpo_allo
 extern void btsnd_hcic_start_synch_train();
 extern void btsnd_hcic_delete_reserved_lt_addr(uint8_t lt_addr);
 extern void btsnd_hcic_set_reserved_lt_addr(uint8_t lt_addr);
+
+/* LE Audio - Isochronous channels */
+/* Constants for HCI Command length */
+#define HCI_PARAM_SIZE_SET_CIG_PARAM_FIXED 15
+#define HCI_PARAM_SIZE_SET_CIG_PARAM_TEST_FIXED 15
+#define HCI_PARAM_SIZE_SET_ISO_DATA_PATH 13
+#define HCI_PARAM_SIZE_REMOVE_ISO_DATA_PATH 3
+#define HCI_PARAM_SIZE_SET_BLE_HOST_FEATURE 2
+
+/*Command API*/
+extern void btsnd_hcic_ble_set_cig_param(uint8_t cig_id,
+                                    const SDU_INTERVAL sdu_int_m_to_s,
+                                    const SDU_INTERVAL sdu_int_s_to_m,
+                                    uint8_t slave_clock_accuracy,
+                                    uint8_t packing,
+                                    uint8_t framing,
+                                    uint16_t max_transport_latency_m_to_s,
+                                    uint16_t max_transport_latency_s_to_m,
+                                    uint8_t cis_count,
+                                    std::vector<tBTM_BLE_CIS_CONFIG> cis_config,
+                                    base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_ble_set_cig_param_test(uint8_t cig_id,
+                                    const SDU_INTERVAL sdu_int_m_to_s,
+                                    const SDU_INTERVAL sdu_int_s_to_m,
+                                    uint8_t ft_m_to_s,
+                                    uint8_t ft_s_to_m,
+                                    uint16_t iso_interval,
+                                    uint8_t slave_clock_accuracy,
+                                    uint8_t packing,
+                                    uint8_t framing,
+                                    uint8_t cis_count,
+                                    std::vector<tBTM_BLE_CIS_TEST_CONFIG> cis_configs,
+                                    base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_ble_create_cis(uint8_t cis_count,
+                                   std::vector<tBTM_BLE_CHANNEL_MAP> link_conn_handles,
+                                   base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_ble_remove_cig(uint8_t cig_id,
+                                      base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_ble_set_iso_data_path(uint16_t connection_handle,
+                                   uint8_t data_path_direction,
+                                   uint8_t data_path_id,
+                                   const CODEC_ID codec_id,
+                                   const CONTROLLER_DELAY cont_delay,
+                                   uint8_t codec_configuration_length,
+                                   uint8_t* codec_configuration,
+                                   base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_ble_remove_iso_data_path(uint16_t connection_handle,
+                                   uint8_t data_path_direction,
+                                   base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_ble_accept_cis(uint16_t conn_handle);
+
+extern void btsnd_hcic_ble_reject_cis(uint16_t conn_handle, uint8_t reason,
+                                      base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_ble_req_peer_sca(uint16_t conn_handle);
+
+extern void btsnd_hcic_read_local_sup_codec_cap(CODEC_ID codec_id,
+                                         uint8_t logical_tx_type,
+                                         uint8_t direction,
+                                         base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_read_local_sup_controller_delay(CODEC_ID codec_id,
+                                         uint8_t logical_tx_type,
+                                         uint8_t direction,
+                                         uint8_t codec_conf_length,
+                                         uint8_t* codec_conf,
+                                         base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_configure_data_path(uint8_t data_path_direction,
+                                          uint8_t data_path_id,
+                                          uint8_t vs_config_length,
+                                          uint8_t* vs_config,
+                                          base::Callback<void(uint8_t *, uint16_t)> cb);
+
+extern void btsnd_hcic_set_ecosystem_base_interval(uint16_t interval,
+                                          base::Callback<void(uint8_t *, uint16_t)> cb);
+
+extern void btsnd_hcic_ble_read_iso_tx_sync(uint16_t conn_handle,
+                                     base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_ble_read_iso_link_quality(uint16_t conn_handle,
+                                     base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_ble_read_enhanced_pow_level(uint16_t conn_handle, uint8_t phy,
+                                     base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_ble_read_remote_tx_pow_level(uint16_t conn_handle, uint8_t phy);
+
+
+extern void btsnd_hcic_ble_set_path_loss_prt_param(uint16_t conn_handle,
+                                                   uint8_t high_threshold,
+                                                   uint8_t high_hysteresis,
+                                                   uint8_t low_threshold,
+                                                   uint8_t low_hysteresis,
+                                                   uint16_t min_time_spent,
+                                                   base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_ble_set_path_loss_rpt_enable(uint16_t conn_handle, uint8_t enable,
+                                             base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_ble_set_tx_pow_rpt_enable(uint16_t conn_handle, uint8_t local_enable,
+                                          uint8_t remote_enable,
+                                          base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_ble_iso_transmit_test(uint16_t conn_handle,
+                                             uint8_t payload_type,
+                                             base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_ble_iso_receive_test(uint16_t conn_handle,
+                                            uint8_t payload_type,
+                                            base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_ble_iso_read_test_counters(uint16_t conn_handle,
+                                 base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_ble_iso_test_end(uint16_t conn_handle,
+                                 base::Callback<void(uint8_t*, uint16_t)> cb);
+
+extern void btsnd_hcic_ble_transmitter_test_v4(uint8_t tx_channel,
+                                               uint8_t test_data_length,
+                                               uint8_t packet_payload,
+                                               uint8_t phy,
+                                               uint8_t cte_length,
+                                               uint8_t type,
+                                               uint8_t switching_pattern_length,
+                                               uint8_t *antenna_ids,
+                                               uint8_t transmit_power_level,
+                                               base::Callback<void(uint8_t*, uint16_t)> cb);
+/*******PAST & PS **********************************/
+extern void btsnd_hcic_ble_create_periodic_sync(uint8_t options, uint8_t adv_sid,
+                                                uint8_t address_type, const RawAddress& bda_peer,
+                                                uint16_t skip, uint16_t sync_timeout,
+                                                uint8_t sync_cte_type);
+extern void btsnd_hcic_ble_terminate_periodic_sync(uint16_t sync_handle);
+extern void btsnd_hci_ble_cancel_period_sync();
+extern void btsnd_hcic_ble_pa_sync_tx(uint16_t conn_handle,
+                                      uint16_t service_data,
+                                      uint16_t sync_handle,
+                                      base::Callback<void(uint8_t*, uint16_t)> cb);
+extern void btsnd_hcic_ble_pa_set_info_tx(uint16_t conn_handle,
+                                          uint16_t service_data,
+                                          uint8_t adv_handle,
+                                          base::Callback<void(uint8_t*, uint16_t)> cb);
+extern void btsnd_hcic_ble_pa_sync_tx_parameters(uint16_t conn_handle,
+                                                 uint8_t mode,
+                                                 uint16_t skip,
+                                                 uint16_t timeout,
+                                                 uint8_t cte_type);
+
 #endif

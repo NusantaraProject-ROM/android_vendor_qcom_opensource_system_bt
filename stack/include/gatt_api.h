@@ -105,10 +105,13 @@ typedef uint8_t tGATT_STATUS;
 #define GATT_HANDLE_VALUE_NOTIF 0x1B
 #define GATT_HANDLE_VALUE_IND 0x1D
 #define GATT_HANDLE_VALUE_CONF 0x1E
+#define GATT_REQ_READ_MULTI_VARIABLE 0x20
+#define GATT_RSP_READ_MULTI_VARIABLE 0x21
+#define GATT_MULTI_HANDLE_VALUE_NOTIF 0x23
 /* changed in V4.0 1101-0010 (signed write)  see write cmd above*/
 #define GATT_SIGN_CMD_WRITE 0xD2
 /* 0x1E = 30 + 1 = 31*/
-#define GATT_OP_CODE_MAX (GATT_HANDLE_VALUE_CONF + 1)
+#define GATT_OP_CODE_MAX (GATT_MULTI_HANDLE_VALUE_NOTIF + 1)
 
 #define GATT_HANDLE_IS_VALID(x) ((x) != 0)
 
@@ -141,9 +144,19 @@ typedef uint16_t tGATT_DISCONN_REASON;
 #define GATT_MAX_ATTR_LEN 600
 #endif
 
+#ifndef ATT_MAX_MTU_SIZE
+#define ATT_MAX_MTU_SIZE 512
+#endif
+
+
 /* default GATT MTU size over LE link
 */
 #define GATT_DEF_BLE_MTU_SIZE 23
+
+/* default GATT MTU size over EATT link
+*/
+#define GATT_DEF_EATT_MTU_SIZE 64
+
 
 /* invalid connection ID
 */
@@ -316,6 +329,12 @@ typedef uint16_t tGATT_SVR_CHAR_CONFIG;
 #define GATT_AUTH_REQ_SIGNED_MITM 4
 typedef uint8_t tGATT_AUTH_REQ;
 
+/*
+ * EATT Supported value
+ */
+#define GATT_WRITE_EATT_SUPPORT_VALUE 0x02
+#define GATT_WRITE_MULTI_NOTIF_SUPPORT 0x04
+
 /* Attribute Value structure
 */
 typedef struct {
@@ -326,6 +345,7 @@ typedef struct {
   uint16_t len;    /* length of attribute value */
   tGATT_AUTH_REQ auth_req;          /*  authentication request */
   uint8_t value[GATT_MAX_ATTR_LEN]; /* the actual attribute value */
+  uint8_t read_sub_type; /* This is for Read multiple rsp and Read multi var rsp */
 } tGATT_VALUE;
 
 /* Union of the event data which is used in the server respond API to carry the
@@ -418,6 +438,7 @@ enum {
   GATT_READ_MULTIPLE,
   GATT_READ_CHAR_VALUE,
   GATT_READ_PARTIAL,
+  GATT_READ_MULTIPLE_VARIABLE,
   GATT_READ_MAX
 };
 typedef uint8_t tGATT_READ_TYPE;
@@ -435,10 +456,26 @@ typedef struct {
 */
 #define GATT_MAX_READ_MULTI_HANDLES \
   10 /* Max attributes to read in one request */
+
+/* Max attributes to send notifications in one request */
+#define GATT_MAX_MULTI_HANDLE_NOTIF  10
+
+/* Multi Notification structure
+*/
+typedef struct {
+  uint16_t conn_id;
+  uint8_t num_attr;
+  uint16_t handles[GATT_MAX_MULTI_HANDLE_NOTIF];
+  uint16_t lens[GATT_MAX_MULTI_HANDLE_NOTIF];
+  std::vector<std::vector<uint8_t>> values;
+  tGATT_AUTH_REQ auth_req;          /*  authentication request */
+} tGATT_MULTI_NOTIF;
+
 typedef struct {
   tGATT_AUTH_REQ auth_req;
   uint16_t num_handles;                          /* number of handles to read */
   uint16_t handles[GATT_MAX_READ_MULTI_HANDLES]; /* handles list to be read */
+  bool is_variable_len;
 } tGATT_READ_MULTI;
 
 /*   Read By Handle Request (GATT_READ_BY_HANDLE) data */
@@ -552,7 +589,8 @@ typedef void(tGATT_DISC_CMPL_CB)(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
 /* Define a callback function for when read/write/disc/config operation is
  * completed. */
 typedef void(tGATT_CMPL_CBACK)(uint16_t conn_id, tGATTC_OPTYPE op,
-                               tGATT_STATUS status, tGATT_CL_COMPLETE* p_data);
+                               tGATT_STATUS status, tGATT_CL_COMPLETE* p_data,
+                               uint32_t trans_id);
 
 /* Define a callback function when an initialized connection is established. */
 typedef void(tGATT_CONN_CBACK)(tGATT_IF gatt_if, const RawAddress& bda,
@@ -774,6 +812,26 @@ extern tGATT_STATUS GATTS_HandleValueNotification(uint16_t conn_id,
 
 /*******************************************************************************
  *
+ * Function        GATTS_MultiHandleValueNotifications
+ *
+ * Description     This function sends multiple handle value notifications to a client.
+ *
+ * Parameter       conn_id: connection identifier.
+ *                 num_attr: num of attribute handles notified.
+ *                 handles: array of handles to be notified.
+ *                 lens: array of lengths of the char values notified.
+ *
+ * Returns         GATT_SUCCESS if sucessfully sent; otherwise error code.
+ *
+ ******************************************************************************/
+extern tGATT_STATUS GATTS_MultiHandleValueNotifications(uint16_t conn_id,
+                                                        uint8_t num_attr,
+                                                        uint16_t handles[],
+                                                        uint16_t lens[],
+                                                        std::vector<std::vector<uint8_t>> values);
+
+/*******************************************************************************
+ *
  * Function         GATTS_SendRsp
  *
  * Description      This function sends the server response to client.
@@ -894,7 +952,8 @@ extern tGATT_STATUS GATTC_ExecuteWrite(uint16_t conn_id, bool is_execute);
  *
  ******************************************************************************/
 extern tGATT_STATUS GATTC_SendHandleValueConfirm(uint16_t conn_id,
-                                                 uint16_t handle);
+                                                 uint16_t handle,
+                                                 uint32_t trans_id);
 
 /*******************************************************************************
  *
@@ -906,12 +965,13 @@ extern tGATT_STATUS GATTC_SendHandleValueConfirm(uint16_t conn_id,
  * Parameter        bd_addr:   target device bd address.
  *                  idle_tout: timeout value in seconds.
  *                  transport: trasnport option.
+ *                  lcid: cid of the L2CAP channel
  *
  * Returns          void
  *
  ******************************************************************************/
 extern void GATT_SetIdleTimeout(const RawAddress& bd_addr, uint16_t idle_tout,
-                                tGATT_TRANSPORT transport);
+                                tGATT_TRANSPORT transport, uint16_t lcid);
 
 /*******************************************************************************
  *
@@ -922,13 +982,15 @@ extern void GATT_SetIdleTimeout(const RawAddress& bd_addr, uint16_t idle_tout,
  *
  * Parameter        p_app_uuid128: Application UUID
  *                  p_cb_info: callback functions.
+ *                  eatt_support: EATT support requested by app.
  *
  * Returns          0 for error, otherwise the index of the client registered
  *                  with GATT
  *
  ******************************************************************************/
 extern tGATT_IF GATT_Register(const bluetooth::Uuid& p_app_uuid128,
-                              tGATT_CBACK* p_cb_info);
+                              tGATT_CBACK* p_cb_info,
+                              bool eatt_support);
 
 /*******************************************************************************
  *
@@ -1061,6 +1123,26 @@ extern bool GATT_GetConnIdIfConnected(tGATT_IF gatt_if,
 
 /*******************************************************************************
  *
+ * Function         GATT_GetEattSupportIfConnected
+ *
+ * Description      Checks if the gatt_if is using EATT or not.
+ *
+ * Parameters        gatt_if: applicaiton interface (input)
+ *                   bd_addr: peer device address. (input)
+ *                   transport :  physical transport of the GATT connection
+ *                               (BR/EDR or LE)
+ *
+ * Returns          true, if local and remote support EATT and gatt_if also
+ *                  requested for EATT.
+ *                  false, otherwise.
+ *
+ ******************************************************************************/
+extern bool GATT_GetEattSupportIfConnected(tGATT_IF gatt_if,
+                                           const RawAddress& bd_addr,
+                                           tBT_TRANSPORT transport);
+
+/*******************************************************************************
+ *
  * Function         GATT_ConfigServiceChangeCCC
  *
  * Description      Configure service change indication on remote device
@@ -1070,6 +1152,52 @@ extern bool GATT_GetConnIdIfConnected(tGATT_IF gatt_if,
  ******************************************************************************/
 extern void GATT_ConfigServiceChangeCCC(const RawAddress& remote_bda,
                                         bool enable, tBT_TRANSPORT transport);
+
+/*******************************************************************************
+ *
+ * Function         GATT_CheckEATTSupport
+ *
+ * Description      Perform EATT support discovery procedure on remote device
+ *
+ * Returns          None.
+ *
+ ******************************************************************************/
+extern void GATT_CheckEATTSupport(const RawAddress& remote_bda,
+                                  tBT_TRANSPORT transport);
+
+/*******************************************************************************
+ *
+ * Function         GATT_Config
+ *
+ * Description      Configure MTU over ATT on remote device
+ *
+ * Returns          None.
+ *
+ ******************************************************************************/
+extern void GATT_Config(const RawAddress& remote_bda, tBT_TRANSPORT transport);
+
+/*******************************************************************************
+ *
+ * Function         GATT_GetMtuSize
+ *
+ * Description      Get MTU size
+ *
+ * Returns          None.
+ *
+ ******************************************************************************/
+extern uint16_t GATT_GetMtuSize(uint16_t conn_id, const RawAddress& bd_addr,
+                                tBT_TRANSPORT transport);
+
+/*******************************************************************************
+ *
+ * Function         GATTS_ConfigureMTU
+ *
+ * Description      Configure MTU size
+ *
+ * Returns          None.
+ *
+ ******************************************************************************/
+extern tGATT_STATUS GATTS_ConfigureMTU(uint16_t conn_id, uint16_t mtu);
 
 // Enables the GATT profile on the device.
 // It clears out the control blocks, and registers with L2CAP.

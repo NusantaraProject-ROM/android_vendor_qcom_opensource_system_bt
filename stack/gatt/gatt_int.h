@@ -99,6 +99,8 @@ typedef uint8_t tGATT_SEC_FLAG;
 #define GATT_INFO_TYPE_PAIR_16 0x01
 #define GATT_INFO_TYPE_PAIR_128 0x02
 
+#define CL_MULTI_NOTIF_SUPPORTED 0x04
+
 /*  GATT client FIND_TYPE_VALUE_Request data */
 typedef struct {
   bluetooth::Uuid uuid; /* type of attribute to be found */
@@ -193,6 +195,7 @@ typedef struct {
   tGATT_IF gatt_if; /* one based */
   bool in_use;
   uint8_t listening; /* if adv for all has been enabled */
+  bool eatt_support;
 } tGATT_REG;
 
 struct tGATT_CLCB;
@@ -270,6 +273,8 @@ typedef struct {
   tBT_TRANSPORT transport;
   uint32_t trans_id;
 
+  uint32_t cl_trans_id;
+
   uint16_t att_lcid; /* L2CAP channel ID for ATT */
   uint16_t payload_size;
 
@@ -294,7 +299,67 @@ typedef struct {
 
   bool in_use;
   uint8_t tcb_idx;
+
+  bool is_eatt_supported;
+  bool is_eatt_upgrade_done;
+  std::deque<tGATT_IF> apps_needing_eatt;
+  uint16_t mtu_for_eatt;
+  bool is_conn_cb_sent_eatt_sr_apps;
+  std::vector<tGATT_IF> sr_eatt_apps;
+  bool is_att_rsp_tout;
 } tGATT_TCB;
+
+typedef struct {
+  uint16_t cid; /* L2CAP channel ID */
+  uint16_t payload_size; /*MTU size */
+  uint16_t local_rx_mtu;
+  uint16_t remote_rx_mtu;
+
+  uint32_t trans_id;
+
+  /* Client */
+  std::queue<tGATT_CMD_Q> cl_cmd_q;
+  alarm_t* ind_ack_timer;
+
+  uint32_t cl_trans_id;
+
+  /* server */
+  tGATT_SR_CMD sr_cmd;
+  uint16_t indicate_handle;
+  fixed_queue_t* pending_ind_q;
+  alarm_t* conf_timer;
+
+  std::vector<tGATT_IF> apps;
+  std::vector<tGATT_IF> opportunistic_apps;
+
+  tGATT_TCB* p_tcb; /* associated TCB */
+  bool in_use;
+  bool create_in_prg;
+  bool disconn_in_prg;
+  bool is_remote_initiated;
+} tGATT_EBCB;
+
+typedef struct {
+  uint16_t lcid;
+  uint8_t num_apps;
+} tGATT_APPS_EBCB;
+
+typedef struct {
+  uint16_t conn_id;
+  uint16_t lcid;
+} tGATT_CONN;
+
+typedef struct {
+  uint16_t conn_id;
+  uint16_t lcid;
+  bool cl_to_send;
+  bool sr_to_send;
+} tGATT_APPS_Q;
+
+typedef struct {
+  tGATT_IF gatt_if;
+  bool opportunistic;
+} tGATT_APP_INFO;
 
 /* logic channel */
 typedef struct {
@@ -325,6 +390,9 @@ struct tGATT_CLCB {
   uint8_t retry_count;
   uint16_t read_req_current_mtu; /* This is the MTU value that the read was
                                     initiated with */
+
+  uint8_t notif_ind_opcode;
+  uint16_t notif_ind_handle;
 };
 
 typedef struct {
@@ -339,6 +407,13 @@ typedef struct {
 #define GATT_SVC_CHANGED_DESCRIPTOR 4     /* service change CCC discoery */
 #define GATT_SVC_CHANGED_CONFIGURE_CCCD 5 /* config CCC */
 
+#define GATT_SR_SUPP_FEAT_CONNECTING 6     /* wait for connection */
+#define GATT_SR_SUPP_FEAT_SERVICE 7        /* GATT service discovery */
+#define GATT_SR_SUPP_FEAT_READ 8 /* Read Server supported features char */
+#define GATT_CL_SUPP_FEAT_READ 9 /*Read client supported features char */
+#define GATT_CL_SUPP_FEAT_WRITE 10 /* Write client supported features char */
+
+
 typedef struct {
   uint16_t conn_id;
   bool in_use;
@@ -351,6 +426,18 @@ typedef struct {
   uint8_t ccc_result;
   uint16_t s_handle;
   uint16_t e_handle;
+
+  /* GATT server supported features char variables */
+  uint8_t sr_supp_feat_stage;
+  uint8_t sr_supp_feat_result;
+  uint16_t sr_supp_feat_s_handle;
+  uint16_t sr_supp_feat_e_handle;
+
+  /* GATT client supported features char variables */
+  uint8_t cl_supp_feat_stage;
+  uint8_t cl_supp_feat_result;
+  uint16_t cl_supp_feat_s_handle;
+  uint16_t cl_supp_feat_e_handle;
 } tGATT_PROFILE_CLCB;
 
 typedef struct {
@@ -383,6 +470,11 @@ typedef struct {
   tGATT_APPL_INFO cb_info;
 
   tGATT_HDL_CFG hdl_cfg;
+
+  bool eatt_enabled;
+  std::vector<RawAddress> eatt_devices_list;
+  tGATT_EBCB eatt_bcb[GATT_MAX_EATT_CHANNELS]; /* EATT Bearer control block */
+  std::vector<tGATT_CONN> gatt_conn_list;
 } tGATT_CB;
 
 #define GATT_SIZE_OF_SRV_CHG_HNDL_RANGE 4
@@ -396,13 +488,13 @@ extern void gatt_set_err_rsp(bool enable, uint8_t req_op_code,
 #endif
 
 /* from gatt_main.cc */
-extern bool gatt_disconnect(tGATT_TCB* p_tcb);
+extern bool gatt_disconnect(tGATT_TCB* p_tcb, uint16_t lcid);
 extern bool gatt_act_connect(tGATT_REG* p_reg, const RawAddress& bd_addr,
                              tBT_TRANSPORT transport, int8_t initiating_phys);
 extern bool gatt_connect(const RawAddress& rem_bda, tGATT_TCB* p_tcb,
                          tBT_TRANSPORT transport, uint8_t initiating_phys,
                          tGATT_IF gatt_if);
-extern void gatt_data_process(tGATT_TCB& p_tcb, BT_HDR* p_buf);
+extern void gatt_data_process(tGATT_TCB& p_tcb, uint16_t lcid, BT_HDR* p_buf);
 extern void gatt_update_app_use_link_flag(tGATT_IF gatt_if, tGATT_TCB* p_tcb,
                                           bool is_add, bool check_acl_link);
 extern bool gatt_is_app_holding_link ( tGATT_IF gatt_if, tGATT_TCB *p_tcb);
@@ -415,17 +507,21 @@ extern void gatt_proc_srv_chg(void);
 extern void gatt_send_srv_chg_ind(const RawAddress& peer_bda);
 extern void gatt_chk_srv_chg(tGATTS_SRV_CHG* p_srv_chg_clt);
 extern void gatt_add_a_bonded_dev_for_srv_chg(const RawAddress& bda);
+extern void gatt_establish_eatt_connect(tGATT_TCB* p_tcb, uint8_t num_chnls);
 
 /* from gatt_attr.cc */
 extern uint16_t gatt_profile_find_conn_id_by_bd_addr(const RawAddress& bda);
 
 /* Functions provided by att_protocol.cc */
-extern tGATT_STATUS attp_send_cl_msg(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
+extern tGATT_STATUS attp_send_cl_msg(tGATT_TCB& tcb, tGATT_CLCB* p_clcb, uint16_t lcid,
                                      uint8_t op_code, tGATT_CL_MSG* p_msg);
-extern BT_HDR* attp_build_sr_msg(tGATT_TCB& tcb, uint8_t op_code,
+extern BT_HDR* attp_build_sr_msg(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_code,
                                  tGATT_SR_MSG* p_msg);
-extern tGATT_STATUS attp_send_sr_msg(tGATT_TCB& tcb, BT_HDR* p_msg);
-extern tGATT_STATUS attp_send_msg_to_l2cap(tGATT_TCB& tcb, BT_HDR* p_toL2CAP);
+extern tGATT_STATUS attp_send_sr_msg(tGATT_TCB& tcb, uint16_t lcid, BT_HDR* p_msg);
+extern tGATT_STATUS attp_send_msg_to_l2cap(tGATT_TCB& tcb, uint16_t lcid, BT_HDR* p_toL2CAP);
+
+extern BT_HDR* attp_build_multi_ntf_cmd(uint16_t payload_size, tGATT_MULTI_NOTIF multi_ntf);
+
 
 /* utility functions */
 extern uint8_t* gatt_dbg_op_name(uint8_t op_code);
@@ -440,12 +536,14 @@ extern void gatt_sr_get_sec_info(const RawAddress& rem_bda,
                                  tBT_TRANSPORT transport, uint8_t* p_sec_flag,
                                  uint8_t* p_key_size);
 extern void gatt_start_rsp_timer(tGATT_CLCB* p_clcb);
-extern void gatt_start_conf_timer(tGATT_TCB* p_tcb);
+extern void gatt_start_conf_timer(tGATT_TCB* p_tcb, uint16_t lcid);
 extern void gatt_rsp_timeout(void* data);
 extern void gatt_indication_confirmation_timeout(void* data);
+extern void gatt_indication_confirmation_eatt_timeout(void* data);
+extern void gatt_ind_ack_eatt_timeout(void* data);
 extern void gatt_ind_ack_timeout(void* data);
-extern void gatt_start_ind_ack_timer(tGATT_TCB& tcb);
-extern tGATT_STATUS gatt_send_error_rsp(tGATT_TCB& tcb, uint8_t err_code,
+extern void gatt_start_ind_ack_timer(tGATT_TCB& tcb, uint16_t lcid);
+extern tGATT_STATUS gatt_send_error_rsp(tGATT_TCB& tcb, uint16_t lcid, uint8_t err_code,
                                         uint8_t op_code, uint16_t handle,
                                         bool deq);
 
@@ -458,9 +556,9 @@ extern bool gatt_find_the_connected_bda(uint8_t start_idx, RawAddress& bda,
                                         tBT_TRANSPORT* p_transport);
 extern void gatt_set_srv_chg(void);
 extern void gatt_delete_dev_from_srv_chg_clt_list(const RawAddress& bd_addr);
-extern void gatt_add_pending_ind(tGATT_TCB* p_tcb, tGATT_VALUE* p_ind);
+extern void gatt_add_pending_ind(tGATT_TCB* p_tcb, uint16_t lcid, tGATT_VALUE* p_ind);
 extern void gatt_free_srvc_db_buffer_app_id(const bluetooth::Uuid& app_id);
-extern bool gatt_cl_send_next_cmd_inq(tGATT_TCB& tcb);
+extern bool gatt_cl_send_next_cmd_inq(tGATT_TCB& tcb, uint16_t lcid);
 
 /* reserved handle list */
 extern std::list<tGATT_HDL_LIST_ELEM>::iterator gatt_find_hdl_buffer_by_app_id(
@@ -480,11 +578,11 @@ extern tGATT_STATUS gatt_sr_process_app_rsp(tGATT_TCB& tcb, tGATT_IF gatt_if,
                                             uint32_t trans_id, uint8_t op_code,
                                             tGATT_STATUS status,
                                             tGATTS_RSP* p_msg);
-extern void gatt_server_handle_client_req(tGATT_TCB& p_tcb, uint8_t op_code,
-                                          uint16_t len, uint8_t* p_data);
+extern void gatt_server_handle_client_req(tGATT_TCB& p_tcb, uint16_t lcid,
+                                          uint8_t op_code, uint16_t len, uint8_t* p_data);
 extern void gatt_sr_send_req_callback(uint16_t conn_id, uint32_t trans_id,
                                       uint8_t op_code, tGATTS_DATA* p_req_data);
-extern uint32_t gatt_sr_enqueue_cmd(tGATT_TCB& tcb, uint8_t op_code,
+extern uint32_t gatt_sr_enqueue_cmd(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_code,
                                     uint16_t handle);
 extern bool gatt_cancel_open(tGATT_IF gatt_if, const RawAddress& bda);
 extern void gatt_notify_phy_updated(uint8_t status, uint16_t handle,
@@ -497,7 +595,7 @@ extern tGATT_CLCB* gatt_clcb_alloc(uint16_t conn_id);
 extern void gatt_clcb_dealloc(tGATT_CLCB* p_clcb);
 
 extern void gatt_sr_copy_prep_cnt_to_cback_cnt(tGATT_TCB& p_tcb);
-extern bool gatt_sr_is_cback_cnt_zero(tGATT_TCB& p_tcb);
+extern bool gatt_sr_is_cback_cnt_zero(tGATT_TCB& p_tcb, uint16_t lcid);
 extern bool gatt_sr_is_prep_cnt_zero(tGATT_TCB& p_tcb);
 extern void gatt_sr_reset_cback_cnt(tGATT_TCB& p_tcb);
 extern void gatt_sr_reset_prep_cnt(tGATT_TCB& tcb);
@@ -517,7 +615,7 @@ extern bool gatt_send_ble_burst_data(const RawAddress& remote_bda,
                                      BT_HDR* p_buf);
 
 /* GATT client functions */
-extern void gatt_dequeue_sr_cmd(tGATT_TCB& tcb);
+extern void gatt_dequeue_sr_cmd(tGATT_TCB& tcb, uint16_t lcid);
 extern uint8_t gatt_send_write_msg(tGATT_TCB& p_tcb, tGATT_CLCB* p_clcb,
                                    uint8_t op_code, uint16_t handle,
                                    uint16_t len, uint16_t offset,
@@ -530,10 +628,10 @@ extern void gatt_end_operation(tGATT_CLCB* p_clcb, tGATT_STATUS status,
 extern void gatt_act_discovery(tGATT_CLCB* p_clcb);
 extern void gatt_act_read(tGATT_CLCB* p_clcb, uint16_t offset);
 extern void gatt_act_write(tGATT_CLCB* p_clcb, uint8_t sec_act);
-extern tGATT_CLCB* gatt_cmd_dequeue(tGATT_TCB& tcb, uint8_t* p_opcode);
-extern void gatt_cmd_enq(tGATT_TCB& tcb, tGATT_CLCB* p_clcb, bool to_send,
-                         uint8_t op_code, BT_HDR* p_buf);
-extern void gatt_client_handle_server_rsp(tGATT_TCB& tcb, uint8_t op_code,
+extern tGATT_CLCB* gatt_cmd_dequeue(tGATT_TCB& tcb, uint16_t lcid, uint8_t* p_opcode);
+extern void gatt_cmd_enq(tGATT_TCB& tcb, tGATT_CLCB* p_clcb, tGATT_EBCB* p_eatt_bcb,
+                         bool to_send, uint8_t op_code, BT_HDR* p_buf);
+extern void gatt_client_handle_server_rsp(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_code,
                                           uint16_t len, uint8_t* p_data);
 extern void gatt_send_queue_write_cancel(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
                                          tGATT_EXEC_FLAG flag);
@@ -558,12 +656,12 @@ extern uint16_t gatts_add_characteristic(tGATT_SVC_DB& db, tGATT_PERM perm,
 extern uint16_t gatts_add_char_descr(tGATT_SVC_DB& db, tGATT_PERM perm,
                                      const bluetooth::Uuid& dscp_uuid);
 extern tGATT_STATUS gatts_db_read_attr_value_by_type(
-    tGATT_TCB& tcb, tGATT_SVC_DB* p_db, uint8_t op_code, BT_HDR* p_rsp,
+    tGATT_TCB& tcb, uint16_t lcid, tGATT_SVC_DB* p_db, uint8_t op_code, BT_HDR* p_rsp,
     uint16_t s_handle, uint16_t e_handle, const bluetooth::Uuid& type,
     uint16_t* p_len, tGATT_SEC_FLAG sec_flag, uint8_t key_size,
     uint32_t trans_id, uint16_t* p_cur_handle);
 extern tGATT_STATUS gatts_read_attr_value_by_handle(
-    tGATT_TCB& tcb, tGATT_SVC_DB* p_db, uint8_t op_code, uint16_t handle,
+    tGATT_TCB& tcb, uint16_t lcid, tGATT_SVC_DB* p_db, uint8_t op_code, uint16_t handle,
     uint16_t offset, uint8_t* p_value, uint16_t* p_len, uint16_t mtu,
     tGATT_SEC_FLAG sec_flag, uint8_t key_size, uint32_t trans_id);
 extern tGATT_STATUS gatts_write_attr_perm_check(
@@ -574,5 +672,8 @@ extern tGATT_STATUS gatts_read_attr_perm_check(tGATT_SVC_DB* p_db, bool is_long,
                                                tGATT_SEC_FLAG sec_flag,
                                                uint8_t key_size);
 extern bluetooth::Uuid* gatts_get_service_uuid(tGATT_SVC_DB* p_db);
+extern void gatt_free_pending_ind(tGATT_TCB* p_tcb, uint16_t lcid);
+
+extern bool gatt_profile_sr_is_eatt_supported(uint16_t conn_id, uint16_t handle);
 
 #endif

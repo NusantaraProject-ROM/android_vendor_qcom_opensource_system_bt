@@ -65,7 +65,8 @@
 
 /* Attribute Profile Attribute UUID */
 #define GATT_UUID_GATT_SRV_CHGD 0x2A05
-/* Attribute Protocol Test */
+#define GATT_UUID_GATT_CL_SUPP_FEATURES 0x2B29
+#define GATT_UUID_GATT_SR_SUPP_FEATURES 0x2B3A
 
 /* Link Loss Service */
 #define GATT_UUID_ALERT_LEVEL 0x2A06    /* Alert Level */

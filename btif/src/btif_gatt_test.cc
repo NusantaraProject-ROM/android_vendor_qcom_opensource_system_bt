@@ -76,7 +76,8 @@ static void btif_test_connect_cback(tGATT_IF, const RawAddress&,
 
 static void btif_test_command_complete_cback(uint16_t conn_id, tGATTC_OPTYPE op,
                                              tGATT_STATUS status,
-                                             tGATT_CL_COMPLETE* p_data) {
+                                             tGATT_CL_COMPLETE* p_data,
+                                             uint32_t trans_id) {
   LOG_DEBUG(LOG_TAG, "%s: op_code=0x%02x, conn_id=0x%x. status=0x%x", __func__,
             op, conn_id, status);
 
@@ -89,7 +90,7 @@ static void btif_test_command_complete_cback(uint16_t conn_id, tGATTC_OPTYPE op,
       break;
 
     case GATTC_OPTYPE_INDICATION:
-      GATTC_SendHandleValueConfirm(conn_id, p_data->handle);
+      GATTC_SendHandleValueConfirm(conn_id, p_data->handle, trans_id);
       break;
 
     default:
@@ -183,7 +184,7 @@ bt_status_t btif_gattc_test_command_impl(int command,
         std::array<uint8_t, Uuid::kNumBytes128> tmp;
         tmp.fill(0xAE);
         test_cb.gatt_if = GATT_Register(bluetooth::Uuid::From128BitBE(tmp),
-                                        &btif_test_callbacks);
+                                        &btif_test_callbacks, false);
       } else {
         GATT_Deregister(test_cb.gatt_if);
         test_cb.gatt_if = 0;

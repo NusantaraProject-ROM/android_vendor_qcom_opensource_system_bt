@@ -29,7 +29,7 @@ std::shared_ptr<FakeBluetoothGattInterface::TestClientHandler> g_client_handler;
 std::shared_ptr<FakeBluetoothGattInterface::TestServerHandler> g_server_handler;
 
 bt_status_t FakeRegisterClient(const bluetooth::Uuid& app_uuid) {
-  if (g_client_handler) return g_client_handler->RegisterClient(app_uuid);
+  if (g_client_handler) return g_client_handler->RegisterClient(app_uuid, false);
 
   return BT_STATUS_FAIL;
 }

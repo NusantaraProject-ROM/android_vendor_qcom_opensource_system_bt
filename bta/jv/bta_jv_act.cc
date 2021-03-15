@@ -745,7 +745,7 @@ void bta_jv_get_channel_id(tBTA_JV_MSG* p_data) {
       }
       break;
     case BTA_JV_CONN_TYPE_L2CAP_LE:
-      psm = L2CA_AllocateLePSM();
+      psm = L2CA_AllocateCocPSM();
       if (psm == 0) {
         LOG(ERROR) << __func__ << ": Error: No free LE PSM available";
       }
@@ -788,7 +788,7 @@ void bta_jv_free_scn(tBTA_JV_MSG* p_data) {
       break;
     case BTA_JV_CONN_TYPE_L2CAP_LE:
       VLOG(2) << __func__ << ": type=BTA_JV_CONN_TYPE_L2CAP_LE. psm=" << scn;
-      L2CA_FreeLePSM(scn);
+      L2CA_FreeCocPSM(scn);
       break;
     default:
       break;

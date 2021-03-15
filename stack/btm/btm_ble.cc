@@ -52,6 +52,13 @@ extern void gatt_notify_phy_updated(uint8_t status, uint16_t handle,
                                     uint8_t tx_phy, uint8_t rx_phy);
 extern void btm_send_link_key_notif(tBTM_SEC_DEV_REC* p_dev_rec);
 
+//HCI Command or Event callbacks
+tBTM_BLE_HCI_CMD_CB hci_cmd_cmpl;
+// Key: cis_handle, Value: cig_id
+std::map<uint16_t, uint8_t> cis_map;
+// pending CIS connection
+std::map<uint16_t, tBTM_BLE_PENDING_CIS_CONN> pending_cis_map;
+uint16_t last_pending_cis_handle = 0;
 /******************************************************************************/
 /* External Function to be called by other modules                            */
 /******************************************************************************/
@@ -1059,6 +1066,39 @@ void BTM_BleSetPhy(const RawAddress& bd_addr, uint8_t tx_phys, uint8_t rx_phys,
 
 /*******************************************************************************
  *
+ * Function         BTM_BleGetLTK
+ *
+ * Description      This function returns LTK of the LE connection.
+ *
+ * Parameter        bdaddr: remote device address
+ *
+ * Returns          Octet16 (LTK)
+ *
+ ******************************************************************************/
+Octet16 BTM_BleGetLTK(const RawAddress& bd_addr) {
+  Octet16 ltk = {};
+  tBTM_SEC_DEV_REC* p_rec = btm_find_dev(bd_addr);
+
+  if (p_rec == NULL) {
+    BTM_TRACE_ERROR("BTM_BleGetLTK: request received for unknown device");
+    return ltk;
+  }
+
+  tACL_CONN* p_acl = btm_bda_to_acl(bd_addr, BT_TRANSPORT_LE);
+
+  if (p_acl == NULL || p_acl->transport != BT_TRANSPORT_LE) {
+    BTM_TRACE_ERROR("%s: no LE link exist or not a LE link", __func__);
+    return ltk;
+  }
+
+  if (p_rec->ble.key_type && (p_rec->sec_flags & BTM_SEC_LE_LINK_KEY_KNOWN)) {
+    ltk = p_rec->ble.keys.lltk;
+  }
+  return ltk;
+}
+
+/*******************************************************************************
+ *
  * Function         btm_ble_determine_security_act
  *
  * Description      This function checks the security of current LE link
@@ -1222,6 +1262,7 @@ tL2CAP_LE_RESULT_CODE btm_ble_start_sec_check(const RawAddress& bd_addr,
 
     case BTM_SEC_ENC_PENDING:
       BTM_TRACE_DEBUG("%s Ecryption pending", __func__);
+      ble_sec_act = BTM_BLE_SEC_ENCRYPT;
       break;
   }
 
@@ -1407,6 +1448,10 @@ void btm_sec_save_le_key(const RawAddress& bd_addr, tBTM_LE_KEY_TYPE key_type,
             __func__, p_rec->ble.key_type, p_rec->bd_addr.ToString().c_str(),
             p_keys->pid_key.identity_addr.ToString().c_str(),
             p_keys->pid_key.identity_addr_type);
+#ifdef ADV_AUDIO_FEATURE
+        (*btm_cb.api.p_le_id_addr_callback)
+          (p_rec->bd_addr, p_keys->pid_key.identity_addr);
+#endif
         /* update device record address as identity address */
         p_rec->bd_addr = p_keys->pid_key.identity_addr;
         /* combine DUMO device security record if needed */
@@ -2556,3 +2601,1072 @@ void btm_ble_set_keep_rfu_in_auth_req(bool keep_rfu) {
 }
 
 #endif /* BTM_BLE_CONFORMANCE_TESTING */
+
+/* Checks if this is a CIS Connection handle*/
+bool btm_ble_is_cis_handle(uint16_t cis_handle) {
+  std::map<uint16_t, uint8_t>::iterator it = cis_map.find(cis_handle);
+  if (it != cis_map.end()) {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/* removes CIS connection handle from map*/
+void btm_ble_remove_cis_handle(uint16_t cis_handle) {
+  std::map<uint16_t, uint8_t>::iterator it = cis_map.find(cis_handle);
+  if (it != cis_map.end()) {
+    cis_map.erase(it);
+  } else {
+    BTM_TRACE_WARNING("%s: CIS handle %x is not present", __func__, cis_handle);
+  }
+}
+
+/* removes all CIS connection handles corresponding to mentioned CIG*/
+void btm_ble_remove_cis_handles_for_cig(uint8_t cig_id) {
+  BTM_TRACE_API("%s: CIG ID: %x ", __func__, cig_id);
+  std::map<uint16_t, uint8_t>::iterator it;
+  for (it = cis_map.begin(); it != cis_map.end(); ) {
+    if (it->second == cig_id) {
+      BTM_TRACE_WARNING("%s: removed CIS Handle %x for cig_id %d", __func__, it->first, cig_id);
+      cis_map.erase(it++);
+    } else {
+      it++;
+    }
+  }
+}
+
+/* -------------------------------------------------------------------------------
+ * Bluetooth Spec 5.2 HCI Commands: Parsing Command Complete Events and HCI Events
+ *--------------------------------------------------------------------------------*/
+void btm_ble_set_cig_param_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  tBTM_BLE_SET_CIG_RET_PARAM ret_param = {};
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(ret_param.status, param);
+  if (ret_param.status == HCI_SUCCESS) {
+    STREAM_TO_UINT8(ret_param.cig_id, param);
+    STREAM_TO_UINT8(ret_param.cis_count, param);
+    ret_param.conn_handle = (uint16_t*)osi_malloc(ret_param.cis_count * sizeof(uint16_t));
+    STREAM_TO_ARRAY(ret_param.conn_handle, param,
+                    (uint8_t)(ret_param.cis_count * sizeof(uint16_t)));
+  }
+
+  if (hci_cmd_cmpl.set_cig_param) {
+    (*hci_cmd_cmpl.set_cig_param) (&ret_param);
+  }
+
+  //store cis handles
+  if (ret_param.status == HCI_SUCCESS) {
+    for(int i = 0; i < ret_param.cis_count; i++) {
+      cis_map.insert(std::make_pair(ret_param.conn_handle[i], ret_param.cig_id));
+    }
+  }
+
+  // deallocate dynamic memory for connection handles
+  osi_free(ret_param.conn_handle);
+}
+
+void btm_ble_setup_iso_datapath_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  uint8_t status;
+  uint16_t conn_handle = 0;
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(status, param);
+  STREAM_TO_UINT16(conn_handle, param);
+
+  if (hci_cmd_cmpl.setup_iso_datapath) {
+    (*hci_cmd_cmpl.setup_iso_datapath) (status, conn_handle);
+  }
+
+}
+
+void btm_ble_remove_iso_datapath_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  uint8_t status;
+  uint16_t conn_handle = 0;
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(status, param);
+  STREAM_TO_UINT16(conn_handle, param);
+
+  if (hci_cmd_cmpl.remove_iso_datapath) {
+    (*hci_cmd_cmpl.remove_iso_datapath) (status, conn_handle);
+  }
+
+}
+
+void btm_ble_create_cis_status_cb (uint8_t* status, uint16_t len) {
+  BTM_TRACE_API("%s: status = %d", __func__, *status);
+  std::map<uint16_t, tBTM_BLE_PENDING_CIS_CONN>::iterator it;
+  tBTM_BLE_CREATE_CIS_CB* create_cis_status_cb = NULL;
+
+  it = pending_cis_map.find(last_pending_cis_handle);
+  create_cis_status_cb = it->second.create_cis_status_cb;
+
+  // Give callback to uppeer layers
+  if (create_cis_status_cb) {
+    (*create_cis_status_cb) (*status);
+  }
+
+  // remove CIS Connection handles from pending connections
+  if (*status != HCI_SUCCESS) {
+    // cancel connection timeout alarm for unsuccessful request
+    alarm_t* conn_timeout_alarm = it->second.conn_timeout_alarm;
+    if (alarm_is_scheduled(conn_timeout_alarm)) {
+      alarm_cancel(conn_timeout_alarm);
+      alarm_free(conn_timeout_alarm);
+    }
+
+    // remove all entries from pending cis connection map
+    std::vector<uint16_t> *cis_handles = (std::vector<uint16_t> *)it->second.cis_handles;
+    int size = (int)cis_handles->size();
+    std::map<uint16_t, tBTM_BLE_PENDING_CIS_CONN>::iterator it1;
+
+    for(int i = 0; i < size; i++) {
+      it1 = pending_cis_map.find((*cis_handles)[i]);
+      if (it1 != pending_cis_map.end()) {
+        BTM_TRACE_API("%s: removing pending connection entry for handle : %02x",
+                          __func__, (*cis_handles)[i]);
+        pending_cis_map.erase(it1);
+      }
+    }
+    delete cis_handles;
+    last_pending_cis_handle = 0;
+  }
+}
+
+/* when CIS connection is not established in 30 sec, send HCI disconnect */
+void btm_ble_create_cis_timeout (void* p_data) {
+  BTM_TRACE_API("%s: ", __func__);
+  std::vector<uint16_t> *cis_handles = (std::vector<uint16_t> *)p_data;
+  int size = (int)cis_handles->size();
+
+  for(int i = 0; i < size; i++) {
+    std::map<uint16_t, tBTM_BLE_PENDING_CIS_CONN>::iterator it
+        = pending_cis_map.find((*cis_handles)[i]);
+    if (it == pending_cis_map.end()) {
+      // This CIS is already established
+      continue;
+    }
+    BTM_TRACE_API("%s: handle = %02x", __func__, (*cis_handles)[i]);
+
+    // send HCI Disconnection to this handle
+    BTM_BleIsoCisDisconnect((*cis_handles)[i], HCI_ERR_CONNECTION_TOUT, NULL);
+
+    // send CIS Established cb with connection timeout status
+    tBTM_BLE_PENDING_CIS_CONN params = it->second;
+    tBTM_BLE_CIS_ESTABLISHED_EVT_PARAM ret_param = {};
+    ret_param.status = HCI_ERR_CONNECTION_TOUT;
+    ret_param.connection_handle = it->first;
+    if (params.cis_established_evt_cb) {
+      (*params.cis_established_evt_cb)(&ret_param);
+    }
+
+    // erase the pending connection entry from map
+    pending_cis_map.erase(it);
+    delete cis_handles;
+  }
+}
+
+void btm_ble_cis_established_evt(uint8_t *param, uint16_t param_len) {
+  tBTM_BLE_CIS_ESTABLISHED_EVT_PARAM ret_param = {};
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(ret_param.status, param);
+  // TODO: Validate that connection handle is received for any status.
+  STREAM_TO_UINT16(ret_param.connection_handle, param);
+  if (ret_param.status == HCI_SUCCESS) {
+    STREAM_TO_ARRAY(ret_param.cig_sync_delay, param, SYNC_DELAY_LEN);
+    STREAM_TO_ARRAY(ret_param.cis_sync_delay, param, SYNC_DELAY_LEN);
+    STREAM_TO_ARRAY(ret_param.transport_latency_m_to_s, param, TRANSPORT_LATENCY_LEN);
+    STREAM_TO_ARRAY(ret_param.transport_latency_s_to_m, param, TRANSPORT_LATENCY_LEN);
+    STREAM_TO_UINT8(ret_param.phy_m_to_s, param);
+    STREAM_TO_UINT8(ret_param.phy_s_to_m, param);
+    STREAM_TO_UINT8(ret_param.nse, param);
+    STREAM_TO_UINT8(ret_param.bn_m_to_s, param);
+    STREAM_TO_UINT8(ret_param.bn_s_to_m, param);
+    STREAM_TO_UINT8(ret_param.ft_m_to_s, param);
+    STREAM_TO_UINT8(ret_param.ft_s_to_m, param);
+    STREAM_TO_UINT16(ret_param.max_pdu_m_to_s, param);
+    STREAM_TO_UINT16(ret_param.max_pdu_s_to_m, param);
+    STREAM_TO_UINT16(ret_param.iso_interval, param);
+  }
+
+  std::map<uint16_t, tBTM_BLE_PENDING_CIS_CONN>::iterator it
+      = pending_cis_map.find(ret_param.connection_handle);
+  if (it == pending_cis_map.end()) {
+    BTM_TRACE_API("%s: CIS for connection handle (%x) is not pending",
+        __func__, ret_param.connection_handle);
+    return;
+  }
+
+  alarm_t* conn_timeout_alarm = it->second.conn_timeout_alarm;
+  tBTM_BLE_CIS_ESTABLISHED_CB* cback = it->second.cis_established_evt_cb;
+
+  // Give callback to upper layer
+  if (cback) {
+    (*cback) (&ret_param);
+  }
+
+  // cancel the alarm if CIS established event is received for all handles
+  std::vector<uint16_t> *cis_handles = (std::vector<uint16_t> *)it->second.cis_handles;
+  int size = (int)cis_handles->size();
+  uint8_t pending_cis_count  = 0 ;
+  std::map<uint16_t, tBTM_BLE_PENDING_CIS_CONN>::iterator it1;
+  for(int i = 0; i < size; i++) {
+    it1 = pending_cis_map.find((*cis_handles)[i]);
+    if (it1 != pending_cis_map.end()) {
+      // This CIS is already established
+      continue;
+    }
+    pending_cis_count++;
+  }
+
+  if (pending_cis_count <= 1) {
+    if (alarm_is_scheduled(conn_timeout_alarm)) {
+      alarm_cancel(conn_timeout_alarm);
+      alarm_free(conn_timeout_alarm);
+    }
+  }
+
+  // remove the entry from map
+  pending_cis_map.erase(it);
+}
+
+void btm_ble_cis_request_evt(uint8_t *param, uint16_t param_len) {
+  tBTM_BLE_CIS_REQ_EVT_PARAM evt_param = {};
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT16(evt_param.acl_conn_handle, param);
+  STREAM_TO_UINT16(evt_param.cis_conn_handle, param);
+  STREAM_TO_UINT8(evt_param.cig_id, param);
+  STREAM_TO_UINT8(evt_param.cis_id, param);
+
+  if (hci_cmd_cmpl.cis_request_evt_cb) {
+    (*hci_cmd_cmpl.cis_request_evt_cb) (&evt_param);
+  }
+
+  // store cis handle
+  cis_map.insert(std::make_pair(evt_param.cis_conn_handle, evt_param.cig_id));
+}
+
+void btm_ble_remove_cig_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  uint8_t status;
+  uint8_t cig_id = 0;
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(status, param);
+  if (status == HCI_SUCCESS) {
+    STREAM_TO_UINT8(cig_id, param);
+  }
+  if (hci_cmd_cmpl.remove_cig) {
+    (*hci_cmd_cmpl.remove_cig) (status, cig_id);
+  }
+
+  // clear all cis handles corresponding to cig_id
+  if (status == HCI_SUCCESS) {
+    btm_ble_remove_cis_handles_for_cig(cig_id);
+  }
+}
+
+void btm_ble_reject_cis_req_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  uint8_t status;
+  uint16_t conn_handle = 0;
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(status, param);
+  STREAM_TO_UINT16(conn_handle, param);
+
+  if (hci_cmd_cmpl.reject_cis_cb) {
+    (*hci_cmd_cmpl.reject_cis_cb) (status, conn_handle);
+  }
+
+}
+
+void btm_ble_peer_sca_cmpl_evt(uint8_t *param, uint16_t param_len) {
+  tBTM_BLE_PEER_SCA_PARAM evt_param = {};
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(evt_param.status, param);
+  // TODO: to validate if below parameters are received for all result codes
+  STREAM_TO_UINT16(evt_param.conn_handle, param);
+  STREAM_TO_UINT8(evt_param.sca, param);
+
+  if (hci_cmd_cmpl.peer_sca_cmpl ) {
+    (*hci_cmd_cmpl.peer_sca_cmpl ) (&evt_param);
+  }
+}
+
+void btm_ble_read_iso_link_qlt_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  tBTM_BLE_ISO_LINK_QLT ret_param = {};
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(ret_param.status, param);
+  STREAM_TO_UINT16(ret_param.conn_handle, param);
+  if (ret_param.status == HCI_SUCCESS) {
+    STREAM_TO_UINT32(ret_param.tx_unacked_packets, param);
+    STREAM_TO_UINT32(ret_param.tx_flushed_packets, param);
+    STREAM_TO_UINT32(ret_param.tx_last_subevent_packets, param);
+    STREAM_TO_UINT32(ret_param.retransmitted_packets, param);
+    STREAM_TO_UINT32(ret_param.crc_error_packets, param);
+    STREAM_TO_UINT32(ret_param.rx_unreceived_packets, param);
+    STREAM_TO_UINT32(ret_param.duplicate_packets, param);
+  }
+
+  if (hci_cmd_cmpl.iso_link_qly_cb) {
+    (*hci_cmd_cmpl.iso_link_qly_cb) (&ret_param);
+  }
+
+}
+
+void btm_ble_enh_read_tx_pow_level_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  tBTM_BLE_ENH_READ_TX_POWER_LEVEL ret_param = {};
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(ret_param.status, param);
+  STREAM_TO_UINT16(ret_param.conn_handle, param);
+  if (ret_param.status == HCI_SUCCESS) {
+    STREAM_TO_UINT8(ret_param.phy, param);
+    STREAM_TO_UINT8(ret_param.current_transmit_power_level, param);
+    STREAM_TO_UINT8(ret_param.max_transmit_power_level, param);
+  }
+
+  if (hci_cmd_cmpl.tx_pow_level_cb) {
+    (*hci_cmd_cmpl.tx_pow_level_cb) (&ret_param);
+  }
+
+}
+
+void btm_ble_read_iso_tx_sync_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  tBTM_BLE_READ_ISO_TX_SYNC_PARAM ret_param = {};
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(ret_param.status, param);
+  STREAM_TO_UINT16(ret_param.conn_handle, param);
+  if (ret_param.status == HCI_SUCCESS) {
+    STREAM_TO_UINT16(ret_param.packet_sequence_number, param);
+    STREAM_TO_UINT32(ret_param.time_stamp, param);
+    STREAM_TO_ARRAY(ret_param.time_offset, param, TIME_OFFSET_LEN);
+  }
+
+  if (hci_cmd_cmpl.iso_tx_sync_cb) {
+    (*hci_cmd_cmpl.iso_tx_sync_cb) (&ret_param);
+  }
+
+}
+
+void btm_ble_read_remote_tx_pow_level_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  tBTM_BLE_READ_REMOTE_TX_POWER_LEVEL ret_param = {};
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(ret_param.status, param);
+  STREAM_TO_UINT16(ret_param.conn_handle, param);
+  if (ret_param.status == HCI_SUCCESS) {
+    STREAM_TO_UINT8(ret_param.phy, param);
+    STREAM_TO_UINT8(ret_param.current_transmit_power_level, param);
+    STREAM_TO_UINT8(ret_param.max_transmit_power_level, param);
+    STREAM_TO_UINT8(ret_param.delta, param);
+  }
+
+  if (hci_cmd_cmpl.remote_tx_pow_cb) {
+    (*hci_cmd_cmpl.remote_tx_pow_cb) (&ret_param);
+  }
+
+}
+
+void btm_ble_set_pathloss_param_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  uint8_t status;
+  uint16_t conn_handle = 0;
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(status, param);
+  STREAM_TO_UINT16(conn_handle, param);
+
+  if (hci_cmd_cmpl.pathloss_rpt_cb) {
+    (*hci_cmd_cmpl.pathloss_rpt_cb) (status, conn_handle);
+  }
+
+}
+
+void btm_ble_set_pathloss_rpt_enable_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  uint8_t status;
+  uint16_t conn_handle = 0;
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(status, param);
+  STREAM_TO_UINT16(conn_handle, param);
+
+  if (hci_cmd_cmpl.pathloss_rpt_enable_cb) {
+    (*hci_cmd_cmpl.pathloss_rpt_enable_cb) (status, conn_handle);
+  }
+
+}
+
+void btm_ble_path_loss_threshold_evt(uint8_t *param, uint16_t param_len) {
+  tBTM_BLE_PATHLOSS_THRESHOLD_RET evt_param = {};
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT16(evt_param.conn_handle, param);
+  STREAM_TO_UINT8(evt_param.current_path_loss, param);
+  STREAM_TO_UINT8(evt_param.zone_entered, param);
+
+  if (hci_cmd_cmpl.pathloss_threshold_evt_cb) {
+    (*hci_cmd_cmpl.pathloss_threshold_evt_cb) (&evt_param);
+  }
+}
+
+void btm_ble_set_tx_pow_rpt_enable_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  uint8_t status;
+  uint16_t conn_handle = 0;
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(status, param);
+  STREAM_TO_UINT16(conn_handle, param);
+
+  if (hci_cmd_cmpl.tx_pow_rpt_enable_cb) {
+    (*hci_cmd_cmpl.tx_pow_rpt_enable_cb) (status, conn_handle);
+  }
+
+}
+
+void btm_ble_transmit_power_reporting_event(uint8_t *param, uint16_t param_len) {
+  tBTM_BLE_TX_POW_EVT_PARAM evt_param = {};
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(evt_param.status, param);
+  STREAM_TO_UINT16(evt_param.conn_handle, param);
+  STREAM_TO_UINT8(evt_param.reason, param);
+  STREAM_TO_UINT8(evt_param.phy, param);
+  STREAM_TO_UINT8(evt_param.tx_pow_level, param);
+  STREAM_TO_UINT8(evt_param.tx_pow_level_flag, param);
+  STREAM_TO_UINT8(evt_param.delta, param);
+
+  if (hci_cmd_cmpl.tx_pow_rpt_evt_cb) {
+    (*hci_cmd_cmpl.tx_pow_rpt_evt_cb) (&evt_param);
+  }
+}
+
+void btm_ble_set_cig_param_test_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  tBTM_BLE_SET_CIG_PARAM_TEST_RET ret_param = {};
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(ret_param.status, param);
+  if (ret_param.status == HCI_SUCCESS) {
+    STREAM_TO_UINT8(ret_param.cig_id, param);
+    STREAM_TO_UINT8(ret_param.cis_count, param);
+    ret_param.conn_handle = (uint16_t*)osi_malloc(ret_param.cis_count * sizeof(uint16_t));
+    STREAM_TO_ARRAY(ret_param.conn_handle, param,
+                    (uint8_t)(ret_param.cis_count * sizeof(uint16_t)));
+  }
+
+  if (hci_cmd_cmpl.cig_param_test_cmpl) {
+    (*hci_cmd_cmpl.cig_param_test_cmpl) (&ret_param);
+  }
+
+  // free memory conn_handle memory
+  osi_free(ret_param.conn_handle);
+}
+
+void btm_ble_iso_test_end_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  tBTM_BLE_ISO_TEST_END_RET ret_param = {};
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(ret_param.status, param);
+  if (ret_param.status == HCI_SUCCESS) {
+    STREAM_TO_UINT16(ret_param.conn_handle, param);
+    STREAM_TO_UINT32(ret_param.received_packet_count, param);
+    STREAM_TO_UINT32(ret_param.missed_packet_count, param);
+    STREAM_TO_UINT32(ret_param.failed_packet_count, param);
+  }
+
+  if (hci_cmd_cmpl.iso_test_end_cmpl) {
+    (*hci_cmd_cmpl.iso_test_end_cmpl) (&ret_param);
+  }
+
+}
+
+void btm_ble_iso_read_test_cnt_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  tBTM_BLE_ISO_TEST_COUNTERS_RET ret_param = {};
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(ret_param.status, param);
+  if (ret_param.status == HCI_SUCCESS) {
+    STREAM_TO_UINT16(ret_param.conn_handle, param);
+    STREAM_TO_UINT32(ret_param.received_packet_count, param);
+    STREAM_TO_UINT32(ret_param.missed_packet_count, param);
+    STREAM_TO_UINT32(ret_param.failed_packet_count, param);
+  }
+
+  if (hci_cmd_cmpl.read_test_cnt_cmpl) {
+    (*hci_cmd_cmpl.read_test_cnt_cmpl) (&ret_param);
+  }
+
+}
+
+void btm_ble_iso_receive_test_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  uint8_t status;
+  uint16_t conn_handle = 0;
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(status, param);
+  if (status == HCI_SUCCESS) {
+    STREAM_TO_UINT16(conn_handle, param);
+  }
+  if (hci_cmd_cmpl.iso_rcv_test_cmpl) {
+    (*hci_cmd_cmpl.iso_rcv_test_cmpl) (status, conn_handle);
+  }
+
+}
+
+void btm_ble_iso_transmit_test_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  uint8_t status;
+  uint16_t conn_handle = 0;
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(status, param);
+  if (status == HCI_SUCCESS) {
+    STREAM_TO_UINT16(conn_handle, param);
+  }
+  if (hci_cmd_cmpl.iso_tx_test_cmpl) {
+    (*hci_cmd_cmpl.iso_tx_test_cmpl) (status, conn_handle);
+  }
+
+}
+
+void btm_ble_transmitter_testv4_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  uint8_t status;
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(status, param);
+
+  if (hci_cmd_cmpl.tx_test_v4_cmpl) {
+    (*hci_cmd_cmpl.tx_test_v4_cmpl) (status);
+  }
+
+}
+
+/* ------------------------------------------------------------------------------
+ *           Bluetooth Spec 5.2 HCI Commands API Implementation
+ *-------------------------------------------------------------------------------*/
+uint8_t BTM_BleSetCigParam(tBTM_BLE_ISO_SET_CIG_CMD_PARAM* p_data) {
+  BTM_TRACE_API("%s", __func__);
+
+  if (!controller_get_interface()->is_host_iso_channel_supported()
+        && !controller_get_interface()->is_cis_master_role_supported()) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.set_cig_param = p_data->p_cb;
+  btsnd_hcic_ble_set_cig_param(p_data->cig_id,
+                               p_data->sdu_int_m_to_s,
+                               p_data->sdu_int_s_to_m,
+                               p_data->slave_clock_accuracy,
+                               p_data->packing,
+                               p_data->framing,
+                               p_data->max_transport_latency_m_to_s,
+                               p_data->max_transport_latency_s_to_m,
+                               p_data->cis_count,
+                               p_data->cis_config,
+                               base::Bind(&btm_ble_set_cig_param_cmd_cmpl));
+  return HCI_SUCCESS;
+}
+
+uint8_t BTM_BleCreateCis(tBTM_BLE_ISO_CREATE_CIS_CMD_PARAM* p_data,
+                         tBTM_BLE_CIS_DISCONNECTED_CB* p_cb) {
+  BTM_TRACE_API("%s", __func__);
+
+  if (!controller_get_interface()->is_host_iso_channel_supported()
+        && !controller_get_interface()->is_cis_master_role_supported()) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.cis_disconnected_cb = p_cb;
+
+  /* New Logic to start alarm and preserve handles */
+  tBTM_BLE_PENDING_CIS_CONN pending_conn;
+  int size = (int)p_data->link_conn_handles.size();
+
+  if (size == 0) {
+    BTM_TRACE_ERROR("%s: No connection handles provided", __func__);
+    return HCI_ERR_ILLEGAL_COMMAND;
+  }
+
+  btsnd_hcic_ble_create_cis(p_data->cis_count,
+                            p_data->link_conn_handles,
+                            base::Bind(&btm_ble_create_cis_status_cb));
+
+  last_pending_cis_handle = p_data->link_conn_handles[0].cis_conn_handle;
+  std::vector<uint16_t> *cis_handles = new std::vector<uint16_t>(size);
+
+  for(int i = 0; i < size; i++) {
+    (*cis_handles)[i] = p_data->link_conn_handles[i].cis_conn_handle;
+  }
+
+  pending_conn.cis_handles = cis_handles;
+  pending_conn.create_cis_status_cb = p_data->p_cb;
+  pending_conn.cis_established_evt_cb = p_data->p_evt_cb;
+  alarm_t *conn_timeout_alarm = alarm_new("cis_timeout_alarm");
+  pending_conn.conn_timeout_alarm = conn_timeout_alarm;
+  alarm_set_on_mloop(pending_conn.conn_timeout_alarm, HCI_CIS_CONNECTION_TIMEOUT,
+                     btm_ble_create_cis_timeout, cis_handles);
+
+  for(int i = 0; i < size; i++) {
+    BTM_TRACE_API("%s: inserting %02x handle into the pending connection map",
+                      __func__, (*cis_handles)[i]);
+    pending_cis_map.insert(std::make_pair((*cis_handles)[i], pending_conn));
+  }
+
+  return HCI_SUCCESS;
+}
+
+uint8_t BTM_BleRemoveCig(uint8_t cig_id, tBTM_BLE_REMOVE_CIG_CMPL_CB *p_cb) {
+  BTM_TRACE_API("%s", __func__);
+
+  if (!controller_get_interface()->is_host_iso_channel_supported()
+        && !controller_get_interface()->is_cis_master_role_supported()) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.remove_cig = p_cb;
+  btsnd_hcic_ble_remove_cig(cig_id,
+                            base::Bind(&btm_ble_remove_cig_cmd_cmpl));
+  return HCI_SUCCESS;
+}
+
+uint8_t BTM_BleSetIsoDataPath(tBTM_BLE_SET_ISO_DATA_PATH_PARAM* p_data) {
+  BTM_TRACE_API("%s", __func__);
+
+  if (!controller_get_interface()->is_cis_master_role_supported() &&
+      !controller_get_interface()->supports_ble_iso_broadcaster()) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.setup_iso_datapath = p_data->p_cb;
+  btsnd_hcic_ble_set_iso_data_path(p_data->conn_handle,
+                                   p_data->data_path_dir,
+                                   p_data->data_path_id,
+                                   p_data->codec_id,
+                                   p_data->cont_delay,
+                                   p_data->codec_config_length,
+                                   p_data->codec_config,
+                                   base::Bind(&btm_ble_setup_iso_datapath_cmd_cmpl));
+  return HCI_SUCCESS;
+}
+
+uint8_t BTM_BleRemoveIsoDataPath(uint16_t conn_handle, uint8_t direction,
+                                 tBTM_BLE_REMOVE_ISO_DATA_PATH_CMPL_CB* p_cb) {
+  BTM_TRACE_API("%s", __func__);
+
+  if (!controller_get_interface()->is_cis_master_role_supported() &&
+      !controller_get_interface()->supports_ble_iso_broadcaster()) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.remove_iso_datapath = p_cb;
+  btsnd_hcic_ble_remove_iso_data_path(conn_handle, direction,
+                                      base::Bind(&btm_ble_remove_iso_datapath_cmd_cmpl));
+  return HCI_SUCCESS;
+}
+
+void BTM_BleRequestPeerSca(uint16_t conn_handle,
+                           tBTM_BLE_REQUEST_PEER_SCA_COMPLETE_CB* p_cb) {
+  BTM_TRACE_API("%s", __func__);
+
+  hci_cmd_cmpl.peer_sca_cmpl = p_cb;
+  btsnd_hcic_ble_req_peer_sca(conn_handle);
+}
+
+uint8_t BTM_BleReadIsoLinkQuality(uint16_t conn_handle,
+                                  tBTM_BLE_READ_ISO_LINK_QLT_CB* p_cb) {
+  BTM_TRACE_API("%s", __func__);
+
+    if (!controller_get_interface()->is_host_iso_channel_supported() &&
+        !(controller_get_interface()->is_cis_master_role_supported()
+            || controller_get_interface()->is_cis_slave_role_supported())) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.iso_link_qly_cb = p_cb;
+  btsnd_hcic_ble_read_iso_link_quality(conn_handle,
+                                       base::Bind(&btm_ble_read_iso_link_qlt_cmd_cmpl));
+  return HCI_SUCCESS;
+}
+
+uint8_t BTM_BleReadIsoTxSync (uint16_t conn_handle,
+                               tBTM_BLE_READ_ISO_TX_SYNC_CB* p_cb) {
+  BTM_TRACE_API("%s", __func__);
+
+    if (!controller_get_interface()->is_host_iso_channel_supported() &&
+        !(controller_get_interface()->is_cis_master_role_supported()
+            || controller_get_interface()->is_cis_slave_role_supported())) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.iso_tx_sync_cb = p_cb;
+  btsnd_hcic_ble_read_iso_tx_sync(conn_handle,
+                                  base::Bind(&btm_ble_read_iso_tx_sync_cmd_cmpl));
+  return HCI_SUCCESS;
+}
+
+uint8_t BTM_BleAcceptCisRequest (uint16_t conn_handle,
+                                 tBTM_BLE_CIS_ESTABLISHED_CB* p_cb) {
+  BTM_TRACE_API("%s", __func__);
+
+  if (!controller_get_interface()->is_host_iso_channel_supported()
+          && !controller_get_interface()->is_cis_slave_role_supported()) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.cis_established_evt_cb = p_cb;
+  btsnd_hcic_ble_accept_cis(conn_handle);
+  return HCI_SUCCESS;
+}
+
+uint8_t BTM_BleRejectCisRequest (uint16_t conn_handle, uint8_t reason,
+                                 tBTM_BLE_REJECT_CIS_CB* p_cb) {
+  BTM_TRACE_API("%s", __func__);
+
+  if (!controller_get_interface()->is_host_iso_channel_supported()
+          && !controller_get_interface()->is_cis_slave_role_supported()) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.reject_cis_cb = p_cb;
+  btsnd_hcic_ble_reject_cis(conn_handle, reason,
+                            base::Bind(&btm_ble_reject_cis_req_cmd_cmpl));
+  return HCI_SUCCESS;
+}
+
+void BTM_BleEnhancedReadTransmitPowerLevel (uint16_t conn_handle, uint8_t phy,
+                                 tBTM_BLE_ENHANCED_READ_TRANSMIT_POWER_LEVEL_CB* p_cb) {
+  BTM_TRACE_API("%s", __func__);
+
+  hci_cmd_cmpl.tx_pow_level_cb = p_cb;
+  btsnd_hcic_ble_read_enhanced_pow_level(conn_handle, phy,
+                                         base::Bind(&btm_ble_enh_read_tx_pow_level_cmd_cmpl));
+}
+
+uint8_t BTM_BleReadRemoteTransmitPowerLevel(uint16_t conn_handle, uint8_t phy,
+                                 tBTM_BLE_READ_REMOTE_TX_POW_LEVEL_CB* p_cb) {
+  BTM_TRACE_API("%s", __func__);
+
+  if (!controller_get_interface()->is_pow_ctr_req_supported()) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.remote_tx_pow_cb = p_cb;
+  btsnd_hcic_ble_read_remote_tx_pow_level(conn_handle, phy);
+  return HCI_SUCCESS;
+}
+
+uint8_t BTM_BleSetPathLossReportingParams(tBTM_BLE_SET_PATH_LOSS_REPORTING_PARAM* p_data) {
+  BTM_TRACE_API("%s", __func__);
+
+  if (!controller_get_interface()->is_pathloss_monitoring_supported()) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.pathloss_rpt_cb = p_data->p_cb;
+  btsnd_hcic_ble_set_path_loss_prt_param(p_data->conn_handle,
+                                         p_data->high_threshold,
+                                         p_data->high_hysteresis,
+                                         p_data->low_threshold,
+                                         p_data->low_hysteresis,
+                                         p_data->min_time_spent,
+                                         base::Bind(&btm_ble_set_pathloss_param_cmd_cmpl));
+  return HCI_SUCCESS;
+}
+
+uint8_t BTM_BleSetPathLossReportingEnable (uint16_t conn_handle,
+                                           uint8_t enable,
+                                           tBTM_BLE_SET_PATH_LOSS_REPORTING_ENABLE_CB* p_cb,
+                                           tBTM_BLE_PATH_LOSS_THRESHOLD_CB* p_event_cb) {
+  BTM_TRACE_API("%s", __func__);
+
+  if (!controller_get_interface()->is_pathloss_monitoring_supported()) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.pathloss_rpt_enable_cb = p_cb;
+  hci_cmd_cmpl.pathloss_threshold_evt_cb = p_event_cb;
+  btsnd_hcic_ble_set_path_loss_rpt_enable(conn_handle, enable,
+                                          base::Bind(&btm_ble_set_pathloss_rpt_enable_cmd_cmpl));
+  return HCI_SUCCESS;
+}
+
+uint8_t BTM_BleSetTransmitPowerReportingEnable(
+                                uint16_t conn_handle,
+                                uint8_t local_enable,
+                                uint8_t remote_enable,
+                                tBTM_BLE_SET_TRANSMIT_POWER_REPORTING_ENABLE_CB* p_cmd_cmpl,
+                                tBTM_BLE_TRANSMIT_POWER_REPORTING_EVENT_CB* p_cb) {
+  BTM_TRACE_API("%s", __func__);
+
+  if (!controller_get_interface()->is_pow_ctr_req_supported()) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.tx_pow_rpt_enable_cb = p_cmd_cmpl;
+  hci_cmd_cmpl.tx_pow_rpt_evt_cb = p_cb;
+  btsnd_hcic_ble_set_tx_pow_rpt_enable(conn_handle, local_enable, remote_enable,
+                                       base::Bind(&btm_ble_set_tx_pow_rpt_enable_cmd_cmpl));
+  return HCI_SUCCESS;
+}
+
+uint8_t BTM_BleIsoTestEnd (uint16_t conn_handle, tBTM_BLE_ISO_TEST_END_CB* p_cb) {
+  BTM_TRACE_API("%s", __func__);
+
+  if (!controller_get_interface()->is_host_iso_channel_supported()) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.iso_test_end_cmpl = p_cb;
+  btsnd_hcic_ble_iso_test_end(conn_handle,
+                              base::Bind(&btm_ble_iso_test_end_cmd_cmpl));
+  return HCI_SUCCESS;
+}
+
+uint8_t BTM_BleSetCigParametersTest(tBTM_BLE_SET_CIG_PARAM_TEST* p_data) {
+  BTM_TRACE_API("%s", __func__);
+
+  if (!controller_get_interface()->is_host_iso_channel_supported()) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.cig_param_test_cmpl = p_data->p_cb;
+  btsnd_hcic_ble_set_cig_param_test(p_data->cig_id,
+                                    p_data->sdu_int_m_to_s,
+                                    p_data->sdu_int_s_to_m,
+                                    p_data->ft_m_to_s,
+                                    p_data->ft_s_to_m,
+                                    p_data->iso_interval,
+                                    p_data->slave_clock_accuracy,
+                                    p_data->packing,
+                                    p_data->framing,
+                                    p_data->cis_count,
+                                    p_data->cis_config,
+                                    base::Bind(&btm_ble_set_cig_param_test_cmd_cmpl));
+  return HCI_SUCCESS;
+}
+
+uint8_t BTM_BleIsoReadTestCounters(uint16_t conn_handle,
+                                    tBTM_BLE_ISO_READ_TEST_COUNTERS_CB* p_cb) {
+  BTM_TRACE_API("%s", __func__);
+
+  if (!controller_get_interface()->is_host_iso_channel_supported()) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.read_test_cnt_cmpl = p_cb;
+  btsnd_hcic_ble_iso_read_test_counters(conn_handle,
+                                        base::Bind(&btm_ble_iso_read_test_cnt_cmd_cmpl));
+  return HCI_SUCCESS;
+}
+
+uint8_t BTM_BleIsoReceiveTest(uint16_t conn_handle,
+                              uint8_t payload_type, tBTM_BLE_ISO_RECEIVE_TEST_CB* p_cb) {
+  BTM_TRACE_API("%s", __func__);
+
+  if (!controller_get_interface()->is_host_iso_channel_supported()) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.iso_rcv_test_cmpl = p_cb;
+  btsnd_hcic_ble_iso_receive_test(conn_handle, payload_type,
+                                  base::Bind(&btm_ble_iso_receive_test_cmd_cmpl));
+  return HCI_SUCCESS;
+}
+
+uint8_t BTM_BleIsoTransmitTest(uint16_t conn_handle,
+                               uint8_t payload_type, tBTM_BLE_ISO_TRANSMIT_TEST_CB* p_cb) {
+  BTM_TRACE_API("%s", __func__);
+
+  if (!controller_get_interface()->is_host_iso_channel_supported()) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.iso_tx_test_cmpl = p_cb;
+  btsnd_hcic_ble_iso_transmit_test(conn_handle, payload_type,
+                                  base::Bind(&btm_ble_iso_transmit_test_cmd_cmpl));
+  return HCI_SUCCESS;
+}
+
+uint8_t BTM_BleTransmitterTestV4(tBTM_BLE_TRANSMITTER_TEST_PARAM* p_data) {
+  BTM_TRACE_API("%s", __func__);
+
+  if (!controller_get_interface()->is_host_iso_channel_supported()) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.tx_test_v4_cmpl = p_data->p_cb;
+  btsnd_hcic_ble_transmitter_test_v4(p_data->tx_channel,
+                                     p_data->test_data_length,
+                                     p_data->packet_payload,
+                                     p_data->phy,
+                                     p_data->cte_length,
+                                     p_data->cte_type,
+                                     p_data->switching_pattern_length,
+                                     p_data->antenna_ids,
+                                     p_data->transmit_power_level,
+                                     base::Bind(&btm_ble_transmitter_testv4_cmd_cmpl));
+  return HCI_SUCCESS;
+}
+
+void btm_ble_set_cis_req_evt_cb(tBTM_BLE_CIS_REQ_EVT_CB* p_cb) {
+  hci_cmd_cmpl.cis_request_evt_cb = p_cb;
+}
+
+uint8_t BTM_BleIsoCisDisconnect(uint16_t conn_handle, uint8_t reason,
+                                tBTM_BLE_CIS_DISCONNECTED_CB* p_cb) {
+  BTM_TRACE_API("%s", __func__);
+
+  if (!controller_get_interface()->is_host_iso_channel_supported()) {
+    BTM_TRACE_ERROR("%s: Unsupported feature. Return.", __func__);
+    return HCI_ERR_UNSUPPORTED_VALUE;
+  }
+
+  hci_cmd_cmpl.cis_disconnected_cb = p_cb;
+  btsnd_hcic_disconnect(conn_handle, reason);
+  return HCI_SUCCESS;
+}
+
+void btm_ble_cis_disconnected(uint8_t status, uint16_t cis_handle, uint8_t reason) {
+  BTM_TRACE_WARNING("%s", __func__);
+
+  if (hci_cmd_cmpl.cis_disconnected_cb) {
+    (*hci_cmd_cmpl.cis_disconnected_cb)(status, cis_handle, reason);
+  }
+}

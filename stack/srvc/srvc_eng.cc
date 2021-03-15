@@ -35,7 +35,8 @@ static void srvc_eng_connect_cback(UNUSED_ATTR tGATT_IF gatt_if,
                                    tBT_TRANSPORT transport);
 static void srvc_eng_c_cmpl_cback(uint16_t conn_id, tGATTC_OPTYPE op,
                                   tGATT_STATUS status,
-                                  tGATT_CL_COMPLETE* p_data);
+                                  tGATT_CL_COMPLETE* p_data,
+                                  uint32_t trans_id);
 
 static tGATT_CBACK srvc_gatt_cback = {srvc_eng_connect_cback,
                                       srvc_eng_c_cmpl_cback,
@@ -314,7 +315,8 @@ static void srvc_eng_s_request_cback(uint16_t conn_id, uint32_t trans_id,
  ******************************************************************************/
 static void srvc_eng_c_cmpl_cback(uint16_t conn_id, tGATTC_OPTYPE op,
                                   tGATT_STATUS status,
-                                  tGATT_CL_COMPLETE* p_data) {
+                                  tGATT_CL_COMPLETE* p_data,
+                                  uint32_t trans_id) {
   tSRVC_CLCB* p_clcb = srvc_eng_find_clcb_by_conn_id(conn_id);
 
   VLOG(1) << StringPrintf(
@@ -416,7 +418,7 @@ tGATT_STATUS srvc_eng_init(void) {
     /* Create a GATT profile service */
     bluetooth::Uuid app_uuid =
         bluetooth::Uuid::From16Bit(UUID_SERVCLASS_DEVICE_INFO);
-    srvc_eng_cb.gatt_if = GATT_Register(app_uuid, &srvc_gatt_cback);
+    srvc_eng_cb.gatt_if = GATT_Register(app_uuid, &srvc_gatt_cback, false);
     GATT_StartIf(srvc_eng_cb.gatt_if);
 
     VLOG(1) << "Srvc_Init:  gatt_if=" << +srvc_eng_cb.gatt_if;

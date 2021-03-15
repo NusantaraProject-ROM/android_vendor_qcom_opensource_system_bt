@@ -76,11 +76,17 @@
 #include "osi/include/osi.h"
 #include "osi/include/properties.h"
 #include "btif/include/btif_a2dp_source.h"
+#include "btif/include/btif_config.h"
 #include "device/include/interop.h"
 #include "device/include/controller.h"
 #include "btif_bat.h"
 #include "bta/av/bta_av_int.h"
 #include "device/include/device_iot_config.h"
+
+#ifdef ADV_AUDIO_FEATURE
+#include "btif_bap_broadcast.h"
+#endif
+
 #if (OFF_TARGET_TEST_ENABLED == FALSE)
 #include "audio_hal_interface/a2dp_encoding.h"
 #include "audio_a2dp_hw/include/audio_a2dp_hw.h"
@@ -3526,6 +3532,13 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
     case BTA_AV_COLL_DETECTED_EVT: {
         BTIF_TRACE_WARNING("Collission evt received in btif");
         RawAddress bt_addr = p_bta_data->av_col_detected.peer_addr;
+        uint16_t version = 0;
+        bool a2dp_supported = btif_config_get_uint16(bt_addr.ToString().c_str(),
+                              AVDTP_VERSION_CONFIG_KEY, (uint16_t*)&version);
+        if (!a2dp_supported) {
+          BTIF_TRACE_WARNING("Peer not have A2DP support, don't try Collision recovery, drop off");
+          return;
+        }
         index = btif_av_idx_by_bdaddr(&bt_addr);
         if (index == btif_max_av_clients) {
           BTIF_TRACE_WARNING("Collision happen even before conncet and index allocation");
@@ -6154,7 +6167,11 @@ bool btif_av_is_split_a2dp_enabled() {
   } else if(isBATEnabled()) {
     BTIF_TRACE_DEBUG("%s:  going for split as BA is active", __func__);
     return true;
-  } else {
+#ifdef ADV_AUDIO_FEATURE
+  } else if (btif_bap_broadcast_is_active()) {
+    return true;
+#endif
+  }else {
     if (!bta_av_co_is_active_peer()) {
       BTIF_TRACE_ERROR("%s:  No active peer codec config found, "
                         "by default splitmode", __func__);

@@ -24,9 +24,14 @@
 #include <base/bind_helpers.h>
 #include <string.h>
 
+#include "utils/include/bt_features.h"
+#include "advertise_data_parser.h"
 #include "bt_common.h"
 #include "bta_api.h"
 #include "bta_closure_api.h"
+#ifdef ADV_AUDIO_FEATURE
+#include "bta_dm_adv_audio.h"
+#endif
 #include "bta_dm_int.h"
 #include "bta_sys.h"
 #include "bta_sys_int.h"
@@ -1325,6 +1330,31 @@ void BTA_VendorCleanup(void) {
   if (cmn_ble_vsc_cb.tot_scan_results_strg > 0) btm_ble_batchscan_cleanup();
 
   if (cmn_ble_vsc_cb.adv_inst_max > 0) btm_ble_multi_adv_cleanup();
+}
+
+/*******************************************************************************
+ *
+ * Function         BTA_GetGroupData
+ *
+ * Description      This function fetches group identifier data from EIR.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void BTA_GetGroupData(uint8_t* p_eir, size_t eir_len, uint8_t* gid_data,
+                      bool* found) {
+  uint8_t len = 0;
+  const uint8_t* g_data = NULL;
+#ifdef ADV_AUDIO_FEATURE
+  g_data = AdvertiseDataParser::GetFieldByType(p_eir, eir_len,
+                                               BTA_DM_GROUP_DATA_TYPE, &len);
+#endif
+  if (g_data && len == GROUP_DATA_LEN) {
+    APPL_TRACE_DEBUG("%s: %02x%02x%02x%02x%02x%02x", __func__, g_data[0], g_data[1]
+      , g_data[2], g_data[3], g_data[4], g_data[5]);
+    memcpy(gid_data, g_data, GROUP_DATA_LEN);
+    *found = true;
+  }
 }
 
 /*******************************************************************************

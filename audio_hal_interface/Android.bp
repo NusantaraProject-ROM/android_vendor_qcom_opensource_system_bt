@@ -5,6 +5,7 @@ cc_library_static {
     defaults: ["fluoride_defaults_qti"],
     include_dirs: [
         "vendor/qcom/opensource/commonsys/system/bt",
+        "vendor/qcom/opensource/commonsys/system/bt/internal_include",
         "vendor/qcom/opensource/commonsys/system/bt/bta/include",
         "vendor/qcom/opensource/commonsys/system/bt/bta/sys",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include/",
@@ -15,7 +16,7 @@ cc_library_static {
         "vendor/qcom/opensource/commonsys/system/bt/btcore/include",
         "vendor/qcom/opensource/commonsys/system/bt/hci/include",
         "vendor/qcom/opensource/commonsys-intf/bluetooth/include",
-        "vendor/qcom/opensource/commonsys/system/bt/device/include"
+        "vendor/qcom/opensource/commonsys/system/bt/device/include",
     ],
     srcs: [
         "a2dp_encoding.cc",
@@ -23,6 +24,7 @@ cc_library_static {
         "hearing_aid_software_encoding.cc",
     ],
     shared_libs: [
+        "vendor.qti.hardware.bluetooth_audio@2.1",
         "vendor.qti.hardware.bluetooth_audio@2.0",
         "libfmq",
         "libhidlbase",

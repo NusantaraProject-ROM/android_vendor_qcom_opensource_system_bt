@@ -33,6 +33,7 @@
 #include "gatt_int.h"
 #include "l2c_api.h"
 #include "osi/include/osi.h"
+#include "stack/gatt/eatt_int.h"
 
 using base::StringPrintf;
 using bluetooth::Uuid;
@@ -43,7 +44,7 @@ using bluetooth::Uuid;
 static tGATT_ATTR& allocate_attr_in_db(tGATT_SVC_DB& db, const Uuid& uuid,
                                        tGATT_PERM perm);
 static tGATT_STATUS gatts_send_app_read_request(
-    tGATT_TCB& tcb, uint8_t op_code, uint16_t handle, uint16_t offset,
+    tGATT_TCB& tcb, uint16_t lcid, uint8_t op_code, uint16_t handle, uint16_t offset,
     uint32_t trans_id, bt_gatt_db_attribute_type_t gatt_type);
 
 /**
@@ -252,7 +253,7 @@ static tGATT_STATUS read_attr_value(tGATT_ATTR& attr16, uint16_t offset,
  *
  ******************************************************************************/
 tGATT_STATUS gatts_db_read_attr_value_by_type(
-    tGATT_TCB& tcb, tGATT_SVC_DB* p_db, uint8_t op_code, BT_HDR* p_rsp,
+    tGATT_TCB& tcb, uint16_t lcid, tGATT_SVC_DB* p_db, uint8_t op_code, BT_HDR* p_rsp,
     uint16_t s_handle, uint16_t e_handle, const Uuid& type, uint16_t* p_len,
     tGATT_SEC_FLAG sec_flag, uint8_t key_size, uint32_t trans_id,
     uint16_t* p_cur_handle) {
@@ -274,7 +275,7 @@ tGATT_STATUS gatts_db_read_attr_value_by_type(
                                  &len, sec_flag, key_size);
 
         if (status == GATT_PENDING) {
-          status = gatts_send_app_read_request(tcb, op_code, attr.handle, 0,
+          status = gatts_send_app_read_request(tcb, lcid, op_code, attr.handle, 0,
                                                trans_id, attr.gatt_type);
 
           /* one callback at a time */
@@ -440,7 +441,7 @@ tGATT_ATTR* find_attr_by_handle(tGATT_SVC_DB* p_db, uint16_t handle) {
  *
  ******************************************************************************/
 tGATT_STATUS gatts_read_attr_value_by_handle(
-    tGATT_TCB& tcb, tGATT_SVC_DB* p_db, uint8_t op_code, uint16_t handle,
+    tGATT_TCB& tcb, uint16_t lcid, tGATT_SVC_DB* p_db, uint8_t op_code, uint16_t handle,
     uint16_t offset, uint8_t* p_value, uint16_t* p_len, uint16_t mtu,
     tGATT_SEC_FLAG sec_flag, uint8_t key_size, uint32_t trans_id) {
   tGATT_ATTR* p_attr = find_attr_by_handle(p_db, handle);
@@ -452,7 +453,7 @@ tGATT_STATUS gatts_read_attr_value_by_handle(
                                         mtu, p_len, sec_flag, key_size);
 
   if (status == GATT_PENDING) {
-    status = gatts_send_app_read_request(tcb, op_code, p_attr->handle, offset,
+    status = gatts_send_app_read_request(tcb, lcid, op_code, p_attr->handle, offset,
                                          trans_id, p_attr->gatt_type);
   }
   return status;
@@ -676,13 +677,13 @@ static tGATT_ATTR& allocate_attr_in_db(tGATT_SVC_DB& db, const Uuid& uuid,
  *
  ******************************************************************************/
 static tGATT_STATUS gatts_send_app_read_request(
-    tGATT_TCB& tcb, uint8_t op_code, uint16_t handle, uint16_t offset,
+    tGATT_TCB& tcb, uint16_t lcid, uint8_t op_code, uint16_t handle, uint16_t offset,
     uint32_t trans_id, bt_gatt_db_attribute_type_t gatt_type) {
   tGATT_SRV_LIST_ELEM& el = *gatt_sr_find_i_rcb_by_handle(handle);
   uint16_t conn_id = GATT_CREATE_CONN_ID(tcb.tcb_idx, el.gatt_if);
 
   if (trans_id == 0) {
-    trans_id = gatt_sr_enqueue_cmd(tcb, op_code, handle);
+    trans_id = gatt_sr_enqueue_cmd(tcb, lcid, op_code, handle);
     gatt_sr_update_cback_cnt(tcb, el.gatt_if, true, true);
   }
 

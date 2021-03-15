@@ -275,17 +275,27 @@ static void btapp_gatts_cback(tBTA_GATTS_EVT event, tBTA_GATTS* p_data) {
 /*******************************************************************************
  *  Server API Functions
  ******************************************************************************/
-static bt_status_t btif_gatts_register_app(const Uuid& bt_uuid, bool eatt_support) {
-  CHECK_BTGATT_INIT();
+#if (EATT_IF_SUPPORTED == TRUE)
+  static bt_status_t btif_gatts_register_app(const Uuid& bt_uuid, bool eatt_support) {
+    CHECK_BTGATT_INIT();
 
-  if (eatt_support) {
-    LOG_ERROR(LOG_TAG, "%s: EATT not supported", __func__);
-    return BT_STATUS_UNSUPPORTED;
+    if (eatt_support) {
+      LOG_ERROR(LOG_TAG, "%s: EATT not supported", __func__);
+      return BT_STATUS_UNSUPPORTED;
+    }
+
+    return do_in_jni_thread(
+        Bind(&BTA_GATTS_AppRegister, bt_uuid, &btapp_gatts_cback, eatt_support));
   }
+#else
+  static bt_status_t btif_gatts_register_app(const Uuid& bt_uuid) {
+    CHECK_BTGATT_INIT();
 
-  return do_in_jni_thread(
-      Bind(&BTA_GATTS_AppRegister, bt_uuid, &btapp_gatts_cback));
-}
+    bool eatt_support = false;
+    return do_in_jni_thread(
+        Bind(&BTA_GATTS_AppRegister, bt_uuid, &btapp_gatts_cback, eatt_support));
+  }
+#endif
 
 static bt_status_t btif_gatts_unregister_app(int server_if) {
   CHECK_BTGATT_INIT();

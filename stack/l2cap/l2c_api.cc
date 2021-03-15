@@ -199,76 +199,76 @@ uint16_t L2CA_AllocatePSM(void) {
 
 /*******************************************************************************
  *
- * Function         L2CA_AllocateLePSM
+ * Function         L2CA_AllocateCocPSM
  *
  * Description      To find an unused LE PSM for L2CAP services.
  *
  * Returns          LE_PSM to use if success. Otherwise returns 0.
  *
  ******************************************************************************/
-uint16_t L2CA_AllocateLePSM(void) {
+uint16_t L2CA_AllocateCocPSM(void) {
   bool done = false;
-  uint16_t psm = l2cb.le_dyn_psm;
+  uint16_t psm = l2cb.coc_dyn_psm;
   uint16_t count = 0;
 
   L2CAP_TRACE_API("%s: last psm=%d", __func__, psm);
   while (!done) {
     count++;
-    if (count > LE_DYNAMIC_PSM_RANGE) {
-      L2CAP_TRACE_ERROR("%s: Out of free BLE PSM", __func__);
+    if (count > L2CAP_COC_DYNAMIC_PSM_RANGE) {
+      L2CAP_TRACE_ERROR("%s: Out of free Coc PSM", __func__);
       return 0;
     }
 
     psm++;
-    if (psm < LE_DYNAMIC_PSM_START) {
+    if (psm < L2CAP_COC_DYNAMIC_PSM_START) {
       L2CAP_TRACE_ERROR("%s: Invalid BLE PSM", __func__);
       return 0;
     }
 
-    if (psm > LE_DYNAMIC_PSM_END) {
-      psm = LE_DYNAMIC_PSM_START;
+    if (psm > L2CAP_COC_DYNAMIC_PSM_END) {
+      psm = L2CAP_COC_DYNAMIC_PSM_START;
     }
 
-    if (!l2cb.le_dyn_psm_assigned[psm - LE_DYNAMIC_PSM_START]) {
+    if (!l2cb.coc_dyn_psm_assigned[psm - L2CAP_COC_DYNAMIC_PSM_START]) {
       /* make sure the newly allocated psm is not used right now */
-      if (l2cu_find_ble_rcb_by_psm(psm)) {
+      if (l2cu_find_coc_rcb_by_psm(psm)) { //TODO change it coc pool
         L2CAP_TRACE_WARNING("%s: supposedly-free PSM=%d have allocated rcb!",
                             __func__, psm);
         continue;
       }
 
-      l2cb.le_dyn_psm_assigned[psm - LE_DYNAMIC_PSM_START] = true;
+      l2cb.coc_dyn_psm_assigned[psm - L2CAP_COC_DYNAMIC_PSM_START] = true;
       L2CAP_TRACE_DEBUG("%s: assigned PSM=%d", __func__, psm);
       done = true;
       break;
     }
   }
-  l2cb.le_dyn_psm = psm;
+  l2cb.coc_dyn_psm = psm;
 
   return (psm);
 }
 
 /*******************************************************************************
  *
- * Function         L2CA_FreeLePSM
+ * Function         L2CA_FreeCocPSM
  *
- * Description      Free an assigned LE PSM.
+ * Description      Free an assigned COC PSM.
  *
  * Returns          void
  *
  ******************************************************************************/
-void L2CA_FreeLePSM(uint16_t psm) {
+void L2CA_FreeCocPSM(uint16_t psm) {
   L2CAP_TRACE_API("%s: to free psm=%d", __func__, psm);
 
-  if ((psm < LE_DYNAMIC_PSM_START) || (psm > LE_DYNAMIC_PSM_END)) {
+  if ((psm < L2CAP_COC_DYNAMIC_PSM_START) || (psm > L2CAP_COC_DYNAMIC_PSM_END)) {
     L2CAP_TRACE_ERROR("%s: Invalid PSM=%d value!", __func__, psm);
     return;
   }
 
-  if (!l2cb.le_dyn_psm_assigned[psm - LE_DYNAMIC_PSM_START]) {
+  if (!l2cb.coc_dyn_psm_assigned[psm - L2CAP_COC_DYNAMIC_PSM_START]) {
     L2CAP_TRACE_WARNING("%s: PSM=%d was not allocated!", __func__, psm);
   }
-  l2cb.le_dyn_psm_assigned[psm - LE_DYNAMIC_PSM_START] = false;
+  l2cb.coc_dyn_psm_assigned[psm - L2CAP_COC_DYNAMIC_PSM_START] = false;
 }
 
 /*******************************************************************************
@@ -428,7 +428,7 @@ uint16_t L2CA_RegisterLECoc(uint16_t psm, tL2CAP_APPL_INFO* p_cb_info) {
   }
 
   /* Verify PSM is valid */
-  if (!L2C_IS_VALID_LE_PSM(psm)) {
+  if (!L2C_IS_VALID_COC_PSM(psm)) {
     L2CAP_TRACE_ERROR("%s Invalid BLE PSM value, PSM: 0x%04x", __func__, psm);
     return 0;
   }
@@ -438,9 +438,9 @@ uint16_t L2CA_RegisterLECoc(uint16_t psm, tL2CAP_APPL_INFO* p_cb_info) {
 
   /* Check if this is a registration for an outgoing-only connection to */
   /* a dynamic PSM. If so, allocate a "virtual" PSM for the app to use. */
-  if ((psm >= LE_DYNAMIC_PSM_START) &&
+  if ((psm >= L2CAP_COC_DYNAMIC_PSM_START) &&
       (p_cb_info->pL2CA_ConnectInd_Cb == NULL)) {
-    vpsm = L2CA_AllocateLePSM();
+    vpsm = L2CA_AllocateCocPSM();
     if (vpsm == 0) {
       L2CAP_TRACE_ERROR("%s: Out of free BLE PSM", __func__);
       return 0;
@@ -451,10 +451,10 @@ uint16_t L2CA_RegisterLECoc(uint16_t psm, tL2CAP_APPL_INFO* p_cb_info) {
   }
 
   /* If registration block already there, just overwrite it */
-  p_rcb = l2cu_find_ble_rcb_by_psm(vpsm);
+  p_rcb = l2cu_find_coc_rcb_by_psm(vpsm);
   if (p_rcb == NULL) {
     L2CAP_TRACE_API("%s Allocate rcp for Virtual PSM: 0x%04x", __func__, vpsm);
-    p_rcb = l2cu_allocate_ble_rcb(vpsm);
+    p_rcb = l2cu_allocate_coc_rcb(vpsm);
     if (p_rcb == NULL) {
       L2CAP_TRACE_WARNING("%s No BLE RCB available, PSM: 0x%04x  vPSM: 0x%04x",
                           __func__, psm, vpsm);
@@ -470,7 +470,85 @@ uint16_t L2CA_RegisterLECoc(uint16_t psm, tL2CAP_APPL_INFO* p_cb_info) {
 
 /*******************************************************************************
  *
- * Function         L2CA_DeregisterLECoc
+ * Function         L2CA_RegisterCoc
+ *
+ * Description      Other layers call this function to register for L2CAP
+ *                  Connection Oriented Channel.
+ *
+ * Returns          PSM to use or zero if error. Typically, the PSM returned
+ *                  is the same as was passed in, but for an outgoing-only
+ *                  connection to a dynamic PSM, a "virtual" PSM is returned
+ *                  and should be used in the calls to L2CA_ConnectLECocReq()
+ *                  and L2CA_DeregisterLECoc()
+ *
+ ******************************************************************************/
+uint16_t L2CA_RegisterCoc(uint16_t psm, tL2CAP_COC_APPL_INFO *p_coc_cb_info,
+                          bool enable_snoop) {
+  L2CAP_TRACE_API("%s called for PSM: 0x%04x", __func__, psm);
+
+  /* Verify that the required callback info has been filled in
+  **      Note:  Connection callbacks are required but not checked
+  **             for here because it is possible to be only a client
+  **             or only a server.
+  */
+
+  if (!p_coc_cb_info) {
+    L2CAP_TRACE_ERROR("%s Invalid CB for registering COC PSM: 0x%04x",
+                      __func__, psm);
+    return 0;
+  }
+
+  if ((!p_coc_cb_info->pL2CA_CocDataInd_Cb) ||
+      (!p_coc_cb_info->pL2CA_DisconnectInd_Cb)) {
+    L2CAP_TRACE_ERROR("%s No cb registering COC PSM: 0x%04x", __func__, psm);
+    return 0;
+  }
+
+  /* Verify PSM is valid */
+  if (!L2C_IS_VALID_COC_PSM(psm)) {
+    L2CAP_TRACE_ERROR("%s Invalid COC PSM value, PSM: 0x%04x", __func__, psm);
+    return 0;
+  }
+
+  tL2C_RCB* p_rcb;
+  uint16_t vpsm = psm;
+
+  /* Check if this is a registration for an outgoing-only connection to */
+  /* a dynamic PSM. If so, allocate a "virtual" PSM for the app to use. */
+  if ((psm >= L2CAP_COC_DYNAMIC_PSM_START) &&
+      (p_coc_cb_info->pL2CA_CocConnectInd_Cb == NULL)) {
+    vpsm = L2CA_AllocateCocPSM();
+    if (vpsm == 0) {
+      L2CAP_TRACE_ERROR("%s: Out of free Dynamic PSM", __func__);
+      return 0;
+    }
+
+    L2CAP_TRACE_API("%s Real PSM: 0x%04x  Virtual PSM: 0x%04x", __func__, psm,
+                    vpsm);
+  }
+
+  /* If registration block already there, just overwrite it */
+  p_rcb = l2cu_find_coc_rcb_by_psm(vpsm);
+  if (p_rcb == NULL) {
+    L2CAP_TRACE_API("%s Allocate rcp for Virtual PSM: 0x%04x", __func__, vpsm);
+    p_rcb = l2cu_allocate_coc_rcb(vpsm);
+    if (p_rcb == NULL) {
+      L2CAP_TRACE_WARNING("%s No COC RCB available, PSM: 0x%04x  vPSM: 0x%04x",
+                          __func__, psm, vpsm);
+      return 0;
+    }
+  }
+
+  p_rcb->log_packets = enable_snoop;
+  p_rcb->coc_api = *p_coc_cb_info;
+  p_rcb->real_psm = psm;
+
+  return vpsm;
+}
+
+/*******************************************************************************
+ *
+ * Function         L2CA_DeregisterCoc
  *
  * Description      Other layers call this function to de-register for L2CAP
  *                  Connection Oriented Channel.
@@ -478,10 +556,10 @@ uint16_t L2CA_RegisterLECoc(uint16_t psm, tL2CAP_APPL_INFO* p_cb_info) {
  * Returns          void
  *
  ******************************************************************************/
-void L2CA_DeregisterLECoc(uint16_t psm) {
+void L2CA_DeregisterCoc(uint16_t psm) {
   L2CAP_TRACE_API("%s called for PSM: 0x%04x", __func__, psm);
 
-  tL2C_RCB* p_rcb = l2cu_find_ble_rcb_by_psm(psm);
+  tL2C_RCB* p_rcb = l2cu_find_coc_rcb_by_psm(psm);
   if (p_rcb == NULL) {
     L2CAP_TRACE_WARNING("%s PSM: 0x%04x not found for deregistration", __func__,
                         psm);
@@ -503,7 +581,7 @@ void L2CA_DeregisterLECoc(uint16_t psm) {
       l2c_csm_execute(p_ccb, L2CEVT_L2CA_DISCONNECT_REQ, NULL);
   }
 
-  l2cu_release_ble_rcb(p_rcb);
+  l2cu_release_coc_rcb(p_rcb);
 }
 
 /*******************************************************************************
@@ -524,7 +602,7 @@ void L2CA_DeregisterLECoc(uint16_t psm) {
  *
  ******************************************************************************/
 uint16_t L2CA_ConnectLECocReq(uint16_t psm, const RawAddress& p_bd_addr,
-                              tL2CAP_LE_CFG_INFO* p_cfg) {
+                              tL2CAP_COC_CFG_INFO* p_cfg) {
   VLOG(1) << __func__ << " BDA: " << p_bd_addr
           << StringPrintf(" PSM: 0x%04x", psm);
 
@@ -535,7 +613,7 @@ uint16_t L2CA_ConnectLECocReq(uint16_t psm, const RawAddress& p_bd_addr,
   }
 
   /* Fail if the PSM is not registered */
-  tL2C_RCB* p_rcb = l2cu_find_ble_rcb_by_psm(psm);
+  tL2C_RCB* p_rcb = l2cu_find_coc_rcb_by_psm(psm);
   if (p_rcb == NULL) {
     L2CAP_TRACE_WARNING("%s No BLE RCB, PSM: 0x%04x", __func__, psm);
     return 0;
@@ -567,7 +645,7 @@ uint16_t L2CA_ConnectLECocReq(uint16_t psm, const RawAddress& p_bd_addr,
 
   /* Save the configuration */
   if (p_cfg) {
-    memcpy(&p_ccb->local_conn_cfg, p_cfg, sizeof(tL2CAP_LE_CFG_INFO));
+    memcpy(&p_ccb->local_conn_cfg, p_cfg, sizeof(tL2CAP_COC_CFG_INFO));
     p_ccb->remote_credit_count = p_cfg->credits;
   }
 
@@ -612,7 +690,7 @@ uint16_t L2CA_ConnectLECocReq(uint16_t psm, const RawAddress& p_bd_addr,
  ******************************************************************************/
 bool L2CA_ConnectLECocRsp(const RawAddress& p_bd_addr, uint8_t id,
                           uint16_t lcid, uint16_t result, uint16_t status,
-                          tL2CAP_LE_CFG_INFO* p_cfg) {
+                          tL2CAP_COC_CFG_INFO* p_cfg) {
   VLOG(1) << __func__ << " BDA: " << p_bd_addr
           << StringPrintf(" CID: 0x%04x Result: %d Status: %d", lcid, result,
                           status);
@@ -640,7 +718,7 @@ bool L2CA_ConnectLECocRsp(const RawAddress& p_bd_addr, uint8_t id,
   }
 
   if (p_cfg) {
-    memcpy(&p_ccb->local_conn_cfg, p_cfg, sizeof(tL2CAP_LE_CFG_INFO));
+    memcpy(&p_ccb->local_conn_cfg, p_cfg, sizeof(tL2CAP_COC_CFG_INFO));
     p_ccb->remote_credit_count = p_cfg->credits;
   }
 
@@ -659,6 +737,264 @@ bool L2CA_ConnectLECocRsp(const RawAddress& p_bd_addr, uint8_t id,
 
 /*******************************************************************************
  *
+ * Function         L2CA_ConnectCocReq
+ *
+ * Description      Higher layers call this function to create an L2CAP ECFC
+ *                  connection. Note that the connection is not established at
+ *                  this time, but connection establishment gets started. The
+ *                  callback function will be invoked when connection
+ *                  establishes or fails.
+ *
+ * Returns          0 - L2C_COC_CONNECT_REQ_SUCCESS
+ *                  1 - L2C_PSM_NOT_REGISTERED
+ *                  2 - L2C_LCB_NOT_ALLOCATED
+ *                  3 - L2C_CONTROLLER_NOT_READY
+ *                  4 - L2C_NO_RESOURCE_AVALIABLE
+ *                  5 - L2C_SOME_CONNS_ACCEPTED
+ *                  6 - L2C_INVALID_CONNECTION_PARAMS
+ * Note             Upper layer should refer conn_req->sr_cids[i]
+ *                  to know the local CID's which are created.
+ ******************************************************************************/
+int8_t L2CA_ConnectCocReq(tL2CAP_COC_CONN_REQ* conn_req) {
+  VLOG(1) << __func__ << " BDA: " << conn_req->p_bd_addr
+          << StringPrintf(" PSM: 0x%04x", conn_req->psm);
+
+  /* Fail if we have not established communications with the controller */
+  if (!BTM_IsDeviceUp()) {
+    L2CAP_TRACE_WARNING("%s BTU not ready", __func__);
+    return L2C_CONTROLLER_NOT_READY;
+  }
+
+  /* Fail if the PSM is not registered */
+  tL2C_RCB* p_rcb = l2cu_find_coc_rcb_by_psm(conn_req->psm);
+  if (p_rcb == NULL) {
+    L2CAP_TRACE_WARNING("%s No RCB, PSM: 0x%04x", __func__, conn_req->psm);
+    return L2C_PSM_NOT_REGISTERED;
+  }
+
+  /* First, see if we already have a le link to the remote */
+  tL2C_LCB* p_lcb = l2cu_find_lcb_by_bd_addr(conn_req->p_bd_addr,
+                                              conn_req->transport);
+  if (p_lcb == NULL) {
+    /* No link. Get an LCB and start link establishment */
+    p_lcb = l2cu_allocate_lcb(conn_req->p_bd_addr, false, conn_req->transport);
+    if ((p_lcb == NULL)
+        || (l2cu_create_conn(p_lcb, conn_req->transport) == false)) {
+      L2CAP_TRACE_WARNING("%s conn not started for PSM: 0x%04x  p_lcb: 0x%08x",
+                          __func__, conn_req->psm, p_lcb);
+      return L2C_LCB_NOT_ALLOCATED;
+    }
+  }
+
+  if ((conn_req->mtu < L2CAP_COC_MIN_MTU) ||
+     (conn_req->num_chnls > L2C_MAX_ECFC_CHNLS_PER_CONN) ||
+     (conn_req->num_chnls <= 0)) {
+    return L2C_INVALID_CONNECTION_PARAMS;
+  }
+  /* Allocate a channel control block */
+  tL2C_CCB* p_ccb[L2C_MAX_ECFC_CHNLS_PER_CONN];
+  uint8_t chnls_allocated = conn_req->num_chnls;
+  //TODO l2cu_allocate_coc_ccbs can be changed to lamda function
+  uint8_t chnl_status = l2cu_allocate_coc_ccbs(p_lcb, &p_ccb[0],
+                                               &chnls_allocated);
+
+  if (chnl_status == L2C_NO_RESOURCE_AVALIABLE) {
+    L2CAP_TRACE_WARNING("%s no CCB, PSM: 0x%04x", __func__, conn_req->psm);
+    return L2C_NO_RESOURCE_AVALIABLE;
+  }
+
+  conn_req->num_chnls = chnls_allocated;
+  uint16_t mps;
+  if (conn_req->transport == BT_TRANSPORT_LE) {
+    mps = controller_get_interface()->get_acl_data_size_ble();
+  } else {
+    mps = controller_get_interface()->get_acl_data_size_classic();
+  }
+
+  for (int i = 0; i < chnls_allocated; i++) {
+    if(p_ccb[i]) {
+      /* Save registration info */
+      p_ccb[i]->p_rcb = p_rcb;
+
+      /* Save the configuration */
+      p_ccb[i]->local_conn_cfg.mtu = conn_req->mtu;
+      p_ccb[i]->local_conn_cfg.mps = mps;
+      p_ccb[i]->local_conn_cfg.credits = L2CAP_COC_CREDIT_DEFAULT;
+      p_ccb[i]->coc_cmd_info.num_coc_chnls = chnls_allocated;
+      p_ccb[i]->peer_cfg.fcr.mode = L2CAP_FCR_ECFC_MODE;
+      conn_req->sr_cids[i] = p_ccb[i]->local_cid;
+    }
+  }
+
+  /* If link is up, start the L2CAP connection */
+  if (p_lcb->link_state == LST_CONNECTED) {
+    L2CAP_TRACE_DEBUG("%s Link is up", __func__);
+    l2c_csm_execute(p_ccb[0], L2CEVT_L2CA_COC_CONNECT_REQ, NULL);
+  }
+
+  /* If link is disconnecting, save link info to retry after disconnect
+   * Possible Race condition when a reconnect occurs
+   * on the channel during a disconnect of link. This
+   * ccb will be automatically retried after link disconnect
+   * arrives
+   */
+  else if (p_lcb->link_state == LST_DISCONNECTING) {
+    L2CAP_TRACE_DEBUG("%s link disconnecting: RETRY LATER %s ", __func__,
+                     p_lcb->remote_bd_addr.ToString().c_str());
+
+    /* Save ccb so it can be started after disconnect is finished */
+    p_lcb->p_pending_ccb = p_ccb[0];
+  }
+
+  /* Return status for connection establishment procedure */
+  return chnl_status;
+}
+
+/*******************************************************************************
+ *
+ *  Function         L2CA_ConnectCocRsp
+ *
+ *  Description     Higher layers call this function to send the response to
+ *                  ecfc connection request.
+ *
+ *  Return value:    true or false
+ *
+ ******************************************************************************/
+bool L2CA_ConnectCocRsp(tL2CAP_COC_CONN_REQ *p_conn_req,
+                        uint16_t l2cap_id,
+                        uint16_t result,
+                        uint16_t status) {
+  VLOG(1) << __func__ << " BDA: " << p_conn_req->p_bd_addr
+          << StringPrintf(" Result: %d Status: %d", result, status);
+  uint16_t ecfc_conn_result = 0;
+  /* First, find the link control block */
+  tL2C_LCB* p_lcb = l2cu_find_lcb_by_bd_addr(p_conn_req->p_bd_addr,
+                                             p_conn_req->transport);
+  if (p_lcb == NULL) {
+    /* No link. Get an LCB and start link establishment */
+    L2CAP_TRACE_WARNING("%s no Active link for Bd_addr %s", __func__,
+                        p_conn_req->p_bd_addr.ToString().c_str());
+    return false;
+  }
+
+  if (!l2cu_is_unaccepted_coc_result_code(result)) {
+
+    /* Now, find the channel control block */
+    tL2C_CCB* p_ccb[L2C_MAX_ECFC_CHNLS_PER_CONN];
+    tL2C_CCB* p_actual_ccb[L2C_MAX_ECFC_CHNLS_PER_CONN];
+    uint16_t valid_chnls = 0;
+    for (int i = 0; i < p_conn_req->num_chnls; i++) {
+      p_ccb[i] = l2cu_find_ccb_by_cid(p_lcb, p_conn_req->sr_cids[i]);
+      if (p_ccb[i] == NULL) {
+        L2CAP_TRACE_WARNING("%s channel closed for CID %d ", __func__,
+                            p_conn_req->sr_cids[i]);
+        ecfc_conn_result = L2CAP_ECFC_SOME_CONNS_REFUSED_INSUFF_RESOURCES;
+      } else {
+        p_actual_ccb[valid_chnls]  = p_ccb[i];
+        L2CAP_TRACE_WARNING("%s chnl_index channel CID %d %d", __func__, valid_chnls,
+                        p_conn_req->sr_cids[i], p_actual_ccb[valid_chnls]->local_cid);
+        valid_chnls++;
+      }
+    }
+
+    if (valid_chnls == 0) {
+      L2CAP_TRACE_WARNING("%s All channels in the ECFC Connect request are closed ",
+                          __func__);
+      return false;
+    }
+    if (valid_chnls < p_conn_req->num_chnls) {
+      p_conn_req->num_chnls = valid_chnls;
+    } else {
+      if (result == L2CAP_ECFC_SOME_CONNS_REFUSED_INSUFF_RESOURCES) {
+        L2CAP_TRACE_WARNING("%s upper layer rejected the some channels ",
+                          __func__);
+        uint16_t sr_cids[L2C_MAX_ECFC_CHNLS_PER_CONN] = {0};
+        for (int i = 0; i < p_conn_req->num_chnls; i++) {
+          sr_cids[i] = p_actual_ccb[i]->local_cid;
+          p_ccb[i] = p_actual_ccb[i];
+        }
+        for (int i = p_conn_req->num_chnls;
+          i < p_actual_ccb[0]->coc_cmd_info.requested_ecfc_chnls; i++) {
+          sr_cids[i] = 0;
+          if (p_actual_ccb[i] != NULL) {
+            l2cu_release_ccb(p_actual_ccb[i]);
+          }
+          p_ccb[i] = NULL;
+        }
+        l2cu_set_coc_conn_rsp_cids(sr_cids, p_ccb[0], p_conn_req->num_chnls);
+        for (int i = 0; i < p_actual_ccb[0]->coc_cmd_info.requested_ecfc_chnls;
+          i++) {
+          L2CAP_TRACE_WARNING("%s peer_rsp_cid %d", __func__,
+            p_ccb[0]->coc_cmd_info.peer_rsp_cids[i]);
+        }
+      } else {
+        p_conn_req->num_chnls = valid_chnls;
+      }
+    }
+
+    //TODO move below to separate API
+    for (int i = 0; i < p_conn_req->num_chnls; i++) {
+      /* The IDs must match */
+      if (p_ccb[i]!= NULL) {
+        if (p_ccb[i]->remote_id != l2cap_id) {
+          L2CAP_TRACE_WARNING("%s bad id. Expected: %d  Got: %d", __func__,
+                            p_ccb[i]->remote_id, l2cap_id);
+          ecfc_conn_result = L2CAP_ECFC_SOME_CONNS_REFUSED_INSUFF_RESOURCES;
+          valid_chnls--;
+        }
+      }
+    }
+    if (valid_chnls == 0) {
+      return false;
+    }
+
+    uint16_t mps;
+    if (p_conn_req->transport == BT_TRANSPORT_LE) {
+      mps = controller_get_interface()->get_acl_data_size_ble();
+    } else {
+      mps = controller_get_interface()->get_acl_data_size_classic();
+    }
+    if (ecfc_conn_result && (result != L2CAP_ECFC_SOME_CONNS_REFUSED_INSUFF_RESOURCES))
+      result = ecfc_conn_result;
+
+    for (int i = 0; i < valid_chnls; i++) {
+      if (p_ccb[i] != NULL) {
+        p_ccb[i]->local_conn_cfg.mtu = p_conn_req->mtu;
+        p_ccb[i]->local_conn_cfg.mps = mps;
+        p_ccb[i]->local_conn_cfg.credits = L2CAP_COC_CREDIT_DEFAULT;
+        p_ccb[i]->coc_cmd_info.ecfc_conn_result = result;
+      }
+    }
+
+    switch(result) {
+      case L2CAP_ECFC_ALL_CONNS_SUCCESSFUL:
+      case L2CAP_ECFC_SOME_CONNS_REFUSED_INSUFF_RESOURCES:
+      case L2CAP_ECFC_SOME_CONNS_REFUSED_INVALID_SOURCE_CID:
+      case L2CAP_ECFC_SOME_CONNS_REFUSED_SOURCE_CID_ALREADY_ALLOCATED:
+        l2c_csm_execute(p_ccb[0], L2CEVT_L2CA_COC_CONNECT_RSP, NULL);
+        break;
+      default:
+        l2c_csm_execute(p_ccb[0], L2CEVT_L2CA_COC_CONNECT_NEG_RSP, NULL);
+    }
+  } else {
+    tL2C_CCB* tmp_ccb = l2cu_find_ccb_by_l2cap_id(p_lcb, l2cap_id);
+    if (tmp_ccb != NULL) {
+      L2CAP_TRACE_API("%s CID: 0x%04x Result %d", __func__,
+        tmp_ccb->local_cid, result);
+      tmp_ccb->coc_cmd_info.ecfc_conn_result = result;
+      tmp_ccb->coc_cmd_info.num_coc_chnls =
+        tmp_ccb->coc_cmd_info.requested_ecfc_chnls;
+      l2c_csm_execute(tmp_ccb, L2CEVT_L2CA_COC_CONNECT_NEG_RSP, NULL);
+    } else {
+      L2CAP_TRACE_API("%s Invalid Channel and result %d", __func__, result);
+      return false;
+    }
+  }
+  return true;
+}
+
+/*******************************************************************************
+ *
  *  Function         L2CA_GetPeerLECocConfig
  *
  *  Description      Get a peers configuration for LE Connection Oriented
@@ -670,7 +1006,7 @@ bool L2CA_ConnectLECocRsp(const RawAddress& p_bd_addr, uint8_t id,
  *  Return value:    true if peer is connected
  *
  ******************************************************************************/
-bool L2CA_GetPeerLECocConfig(uint16_t lcid, tL2CAP_LE_CFG_INFO* peer_cfg) {
+bool L2CA_GetPeerLECocConfig(uint16_t lcid, tL2CAP_COC_CFG_INFO* peer_cfg) {
   L2CAP_TRACE_API("%s CID: 0x%04x", __func__, lcid);
 
   tL2C_CCB* p_ccb = l2cu_find_ccb_by_cid(NULL, lcid);
@@ -680,7 +1016,7 @@ bool L2CA_GetPeerLECocConfig(uint16_t lcid, tL2CAP_LE_CFG_INFO* peer_cfg) {
   }
 
   if (peer_cfg != NULL)
-    memcpy(peer_cfg, &p_ccb->peer_conn_cfg, sizeof(tL2CAP_LE_CFG_INFO));
+    memcpy(peer_cfg, &p_ccb->peer_conn_cfg, sizeof(tL2CAP_COC_CFG_INFO));
 
   return true;
 }
@@ -870,6 +1206,67 @@ bool L2CA_ConfigReq(uint16_t cid, tL2CAP_CFG_INFO* p_cfg) {
   return (true);
 }
 
+/*********************************************************************************
+ *
+ * Function         L2CA_ReconfigCocReq
+ *
+ * Description      Upper layer call this function to reconfigure l2cap channel
+ *                  in Enhanced Credit Based Flow Control mode. Upper layer
+ *                  can only update MTU value. L2CAP layer assigns MPS.
+ *
+ * Parameters       chmap_info: info of the channels to be reconfigured.
+ *                  mtu: Maximum transmission unit as required by upper layer.
+ *
+ * Returns          true if reconfiguration request sent, otherwise false
+ *
+ ******************************************************************************/
+bool L2CA_ReconfigCocReq(tL2CAP_COC_CHMAP_INFO* chmap_info, uint16_t mtu) {
+  L2CAP_TRACE_API("%s, mtu = %d", __func__, mtu);
+
+  if (!chmap_info || !chmap_info->num_chnls) {
+    L2CAP_TRACE_WARNING("%s: Incomplete channel information", __func__);
+    return (false);
+  }
+
+  //check if MTU value is acceptable
+  if (l2cu_validate_mtu_for_chnls(mtu, chmap_info->sr_cids, chmap_info->num_chnls, true)) {
+    return (false);
+  }
+
+  // upper layer has no control over mps.
+  return l2cu_reconfig_coc_req(chmap_info, mtu, 0);
+}
+
+/*********************************************************************************
+ *
+ * Function         L2CA_ReconfigCocReq
+ *
+ * Description      Upper layer call this function to reconfigure l2cap channel
+ *                  in Enhanced Credit Based Floe Control mode. Upper layer
+ *                  can only update mtu value. L2CAP layer assigns for mps.
+ *
+ * Parameters       chmap_info: info of the channels to be reconfigured.
+ *                  mtu: Maximum transmission unit as required by upper layer.
+ *
+ * Returns          true if reconfiguration request sent, otherwise false
+ *
+ ******************************************************************************/
+bool L2CA_ReconfigCocReqMps(tL2CAP_COC_CHMAP_INFO* chmap_info, uint16_t mps) {
+  L2CAP_TRACE_API("%s, mps = %d", __func__, mps);
+
+  if (!chmap_info || !chmap_info->num_chnls) {
+    L2CAP_TRACE_WARNING("%s: Incomplete channel information", __func__);
+    return (false);
+  }
+
+  //check if MTU value is acceptable
+  if (l2cu_validate_mps_for_chnls(mps, chmap_info->sr_cids, chmap_info->num_chnls, true)) {
+    return (false);
+  }
+
+  return l2cu_reconfig_coc_req(chmap_info, 0, mps); // upper layer has no control over mps
+}
+
 /*******************************************************************************
  *
  * Function         L2CA_ConfigRsp
@@ -911,6 +1308,43 @@ bool L2CA_ConfigRsp(uint16_t cid, tL2CAP_CFG_INFO* p_cfg) {
     l2c_csm_execute(p_ccb, L2CEVT_L2CA_CONFIG_RSP_NEG, p_cfg);
   }
 
+  return (true);
+}
+
+/*******************************************************************************
+ *
+ * Function         L2CA_ReconfigCocRsp
+ *
+ * Description      Upper layer calls this function to send reconfiguration
+ *                  response in Enhanced Credit based flow control mode.
+ *
+ * Parameters       chmap_info : information about l2cap channels in response
+ *                  result : Result code for the response.
+ *
+ * Returns          true if Reconfiguration response is sent, else false
+ *
+ ******************************************************************************/
+bool L2CA_ReconfigCocRsp(tL2CAP_COC_CHMAP_INFO* chmap_info, uint16_t result) {
+  tL2C_CCB* p_ccb = NULL;
+
+  if (!chmap_info || !chmap_info->num_chnls) {
+    L2CAP_TRACE_WARNING("%s: Incomplete channel information.", __func__);
+    return (false);
+  }
+
+  if (!l2cu_validate_cids_in_use_status(chmap_info, &p_ccb)) {
+    if (p_ccb) {
+      L2CAP_TRACE_WARNING("L2CAP - some of ccb's are not active");
+      p_ccb->pending_inc_cfg->result = L2CAP_RCFG_INVALID_DCID;
+    } else {
+      L2CAP_TRACE_WARNING("L2CAP - all channels are closed, ignore response");
+      return (false);
+    }
+  } else {
+    p_ccb->pending_inc_cfg->result = result;
+  }
+
+  l2c_csm_execute(p_ccb, L2CEVT_L2CA_COC_RECONFIG_RSP, p_ccb->pending_inc_cfg);
   return (true);
 }
 
@@ -2371,4 +2805,43 @@ bool L2CA_isMediaChannel(uint16_t handle, uint16_t channel_id, bool is_local_cid
     }
 
     return ret;
+}
+
+/*******************************************************************************
+**
+** Function         L2CA_ReadData
+**
+** Description      Upper layer should call this api to read data from L2CAP which
+**                  remote has sent. This API should be called on receiving
+**                  pL2CA_DataInd_Cb callback in Enhanced Credit Based Flow Control
+**                  mode.
+**
+** Parameters:      cid: channel id of the local l2cap channel
+**
+** Returns          pointer to SDU data to be given to upper layer.
+**
+*******************************************************************************/
+BT_HDR* L2CA_ReadData (uint16_t cid) {
+  BT_HDR* p_data = NULL;
+  tL2C_CCB* p_ccb = l2cu_find_ccb_by_cid(NULL, cid);
+
+  if (p_ccb == NULL) {
+    L2CAP_TRACE_WARNING("L2CAP - CCB not present, CID: %x", cid);
+    return (NULL);
+  }
+
+  if (fixed_queue_is_empty(p_ccb->rx_buf.rcv_data_q)) {
+    L2CAP_TRACE_WARNING("L2CAP - No data to fetch from CID: %x Rx queue", cid);
+    return (NULL);
+  }
+
+  /* mark that upper layer is fetching data properly (is_dequeued flag is set)
+     if data is fetched after reaching threshold limit. after next timeout,
+     this flag is checked and credit indication is sent to remote by l2cap */
+  if (p_ccb->remote_credit_count <= L2CAP_LE_CREDIT_THRESHOLD) {
+    p_ccb->rx_buf.is_dequeued = true;
+  }
+
+  p_data = (BT_HDR *)fixed_queue_dequeue(p_ccb->rx_buf.rcv_data_q);
+  return (p_data);
 }

@@ -114,4 +114,11 @@ void btif_vendor_update_whitelisted_media_players();
 
 bool fetch_whitelisted_media_players(list_t** bl_devices);
 
+void btif_get_pairing_cb_info(bt_bond_state_t* state, uint8_t* sdp_attempts,
+                             RawAddress* bd_addr, RawAddress* static_bdaddr);
+
+void btif_inc_sdp_attempts();
+void btif_reset_pairing_cb() ;
+void btif_reset_sdp_attempts();
+
 #endif

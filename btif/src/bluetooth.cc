@@ -79,7 +79,7 @@
 #include "osi/include/wakelock.h"
 #include "stack/gatt/connection_manager.h"
 #include "stack_manager.h"
-
+#include "stack_interface.h"
 
 using bluetooth::hearing_aid::HearingAidInterface;
 
@@ -173,6 +173,7 @@ static int init(bt_callbacks_t* callbacks, bool start_restricted,
   niap_mode = is_niap_mode;
   niap_config_compare_result = config_compare_result;
   is_local_device_atv = is_atv;
+  init_external_interfaces();
 
   stack_manager_get_interface()->init_stack();
   btif_debug_init();
@@ -433,7 +434,7 @@ static const void* get_profile_interface(const char* profile_id) {
 
   if (is_profile(profile_id, BT_KEYSTORE_ID))
     return bluetooth::bluetooth_keystore::getBluetoothKeystoreInterface();
-  return NULL;
+  return get_external_profile_interface(profile_id);
 }
 
 int dut_mode_configure(uint8_t enable) {
@@ -474,6 +475,7 @@ static void dumpMetrics(std::string* output) {
 
 static int config_clear(void) {
   LOG_INFO(LOG_TAG, "%s", __func__);
+  btif_stack_config_cleared();
   return btif_config_clear() ? BT_STATUS_SUCCESS : BT_STATUS_FAIL;
 }
 

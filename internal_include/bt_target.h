@@ -73,7 +73,7 @@
 #ifndef L2CAP_EXTFEA_SUPPORTED_MASK
 #define L2CAP_EXTFEA_SUPPORTED_MASK                                            \
   (L2CAP_EXTFEA_ENH_RETRANS | L2CAP_EXTFEA_STREAM_MODE | L2CAP_EXTFEA_NO_CRC | \
-   L2CAP_EXTFEA_FIXED_CHNLS)
+   L2CAP_EXTFEA_FIXED_CHNLS | L2CAP_EXTFEA_ECFC_MODE)
 #endif
 
 /* This feature is used to update any QCOM related changes in the stack*/
@@ -760,8 +760,8 @@
 
 /* The maximum number of simultaneous applications that can register with LE
  * L2CAP. */
-#ifndef BLE_MAX_L2CAP_CLIENTS
-#define BLE_MAX_L2CAP_CLIENTS 15
+#ifndef L2CAP_COC_MAX_CLIENTS
+#define L2CAP_COC_MAX_CLIENTS 15
 #endif
 
 #ifndef BLE_HH_QUALIFICATION_ENABLED
@@ -806,6 +806,10 @@
 
 #ifndef GATT_MAX_APPS
 #define GATT_MAX_APPS 32 /* note: 2 apps used internally GATT and GAP */
+#endif
+
+#ifndef GATT_MAX_EATT_CHANNELS
+#define GATT_MAX_EATT_CHANNELS 64
 #endif
 
 /* connection manager doesn't generate it's own IDs. Instead, all GATT clients
@@ -1433,7 +1437,14 @@ incoming connection
 #ifndef DUMP_PCM_DATA
 #define DUMP_PCM_DATA FALSE
 #endif
-
+/****************************
+ *
+ * BLE PAST
+ *
+ **************************/
+#ifndef BLE_PS_PAST_IF_SUPPORTED
+#define BLE_PS_PAST_IF_SUPPORTED TRUE
+#endif
 /******************************************************************************
  *
  * BTA
@@ -1487,6 +1498,13 @@ incoming connection
 
 #include "bt_trace.h"
 
+/* Enable AHIM for LE Audio */
+/*
+#ifndef AHIM_ENABLED
+#define AHIM_ENABLED TRUE
+#endif
+*/
+
 /******************************************************************************
  *
  * Off target test
@@ -1495,6 +1513,21 @@ incoming connection
 /* Enable off target test */
 #ifndef OFF_TARGET_TEST_ENABLED
 #define OFF_TARGET_TEST_ENABLED FALSE
+#endif
+
+/* BLE ISO IF support */
+#ifndef BLE_ISO_IF_SUPPORTED
+#define BLE_ISO_IF_SUPPORTED TRUE
+#endif
+
+/******************************************************************************
+ *
+ * EATT IF support
+ *
+ *****************************************************************************/
+/* EATT IF support */
+#ifndef EATT_IF_SUPPORTED
+#define EATT_IF_SUPPORTED TRUE
 #endif
 
 #endif /* BT_TARGET_H */

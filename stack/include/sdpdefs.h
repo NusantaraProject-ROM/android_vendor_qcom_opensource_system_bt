@@ -25,6 +25,7 @@
 #ifndef SDP_DEFS_H
 #define SDP_DEFS_H
 
+#include "utils/include/bt_features.h"
 /* Define the service attribute IDs.
 */
 #define ATTR_ID_SERVICE_RECORD_HDL 0x0000
@@ -278,6 +279,10 @@
 #define UUID_SERVCLASS_GLUCOSE 0x1808    /* Glucose Meter Service */
 #define UUID_SERVCLASS_RSC 0x1814 /* RUNNERS SPEED AND CADENCE SERVICE      */
 #define UUID_SERVCLASS_CSC 0x1816 /* Cycling SPEED AND CADENCE SERVICE      */
+#ifdef ADV_AUDIO_FEATURE
+#define UUID_SERVCLASS_ADV_AUDIO_CONN 0x8FDA
+#define UUID_SERVCLASS_ADV_AUDIO_CONN_LESS 0x8FDB
+#endif
 
 #define UUID_SERVCLASS_TEST_SERVER 0x9000 /* Test Group UUID */
 

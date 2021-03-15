@@ -31,6 +31,7 @@
 #include "gatt_api.h"
 #include "gatt_int.h"
 #include "osi/include/osi.h"
+#include "stack/gatt/eatt_int.h"
 
 using base::StringPrintf;
 
@@ -115,7 +116,7 @@ void gatt_verify_signature(tGATT_TCB& tcb, BT_HDR* p_buf) {
   }
 
   STREAM_TO_UINT8(op_code, p_orig);
-  gatt_server_handle_client_req(tcb, op_code, (uint16_t)(p_buf->len - 1),
+  gatt_server_handle_client_req(tcb, tcb.att_lcid, op_code, (uint16_t)(p_buf->len - 1),
                                 p_orig);
 }
 /*******************************************************************************

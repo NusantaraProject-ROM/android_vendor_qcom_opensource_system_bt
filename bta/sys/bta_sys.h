@@ -24,6 +24,7 @@
 #ifndef BTA_SYS_H
 #define BTA_SYS_H
 
+#include "utils/include/bt_features.h"
 #include "bt_common.h"
 #include "bt_target.h"
 #include "osi/include/alarm.h"
@@ -96,7 +97,12 @@ typedef uint16_t tBTA_SYS_HW_MODULE;
 #define BTA_ID_SDP 33           /* SDP Client */
 #define BTA_ID_TWS_PLUS 34      /* TWS+ Interface */
 #define BTA_ID_BAT 35           /* Broadcast Audio Transmitter  */
+#ifdef ADV_AUDIO_FEATURE
+#define BTA_ID_GROUP 36          /* GROUP Client */
+#define BTA_ID_BLUETOOTH_MAX 37 /* last BT profile */
+#else
 #define BTA_ID_BLUETOOTH_MAX 36 /* last BT profile */
+#endif
 
 /* GENERIC */
 #define BTA_ID_PRM 38

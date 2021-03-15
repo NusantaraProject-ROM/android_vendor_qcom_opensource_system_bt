@@ -1280,3 +1280,156 @@ tBTM_STATUS BTM_BT_Quality_Report_VSE_Register(
             << " is_register: " << (is_register);
   return retval;
 }
+
+/*******************************************************************************
+ * Bluetooth Spec 5.2 HCI Commands: Parsing Command Complete Events.
+ ******************************************************************************/
+void btm_read_controller_delay_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  uint8_t status;
+  CONTROLLER_DELAY min_cont_delay = {0};
+  CONTROLLER_DELAY max_cont_delay = {0};
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(status, param);
+  if (status == HCI_SUCCESS) {
+    STREAM_TO_ARRAY(min_cont_delay, param, CONTROLLER_DELAY_LEN);
+    STREAM_TO_ARRAY(max_cont_delay, param, CONTROLLER_DELAY_LEN);
+  }
+  if (btm_cb.devcb.controller_delay_read_cb) {
+    (*btm_cb.devcb.controller_delay_read_cb) (status, min_cont_delay, max_cont_delay);
+  }
+
+  // clear callback
+  btm_cb.devcb.controller_delay_read_cb = NULL;
+}
+
+/* TODO: Parsing done through this API has to be tested once valid values in soc are known */
+void btm_read_codec_capability_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  tBTM_LOCAL_CAP_RET_PARAM ret_param = {};
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(ret_param.status, param);
+  if (ret_param.status == HCI_SUCCESS) {
+    STREAM_TO_UINT8(ret_param.num_codec_capabilities, param);
+
+    ret_param.codec_capability_length =
+        (uint8_t*)osi_malloc(ret_param.num_codec_capabilities);
+    STREAM_TO_ARRAY(ret_param.codec_capability_length, param,
+                    ret_param.num_codec_capabilities);
+
+    ret_param.codec_capability =
+        (uint8_t **)osi_malloc(ret_param.num_codec_capabilities * sizeof(uint8_t *));
+    for (int i = 0; i < ret_param.num_codec_capabilities; i++) {
+       ret_param.codec_capability[i] =
+          (uint8_t *)malloc(ret_param.codec_capability_length[i] * sizeof(uint8_t));
+       STREAM_TO_ARRAY(ret_param.codec_capability[i], param,
+                       ret_param.codec_capability_length[i]);
+    }
+
+  }
+  if (btm_cb.devcb.local_codec_cap_cmpl_cb) {
+    (*btm_cb.devcb.local_codec_cap_cmpl_cb) (&ret_param);
+  }
+
+  // clear callback
+  btm_cb.devcb.local_codec_cap_cmpl_cb = NULL;
+
+  // clear allocated memory
+  for (int i = 0; i < ret_param.num_codec_capabilities; i++) {
+    osi_free(ret_param.codec_capability[i]);
+  }
+  osi_free(ret_param.codec_capability);
+  osi_free(ret_param.codec_capability_length);
+}
+
+void btm_configure_datapath_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  uint8_t status;
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(status, param);
+  if (btm_cb.devcb.cfg_datapath_cmpl_cb) {
+    (*btm_cb.devcb.cfg_datapath_cmpl_cb) (status);
+  }
+
+  // clear callback
+  btm_cb.devcb.cfg_datapath_cmpl_cb = NULL;
+}
+
+void btm_set_ecosystem_base_interval_cmd_cmpl(uint8_t *param, uint16_t param_len) {
+  uint8_t status;
+  BTM_TRACE_API("%s: param_len = %d", __func__, param_len);
+
+  if (param_len <= 0) {
+    BTM_TRACE_WARNING("%s Insufficient return parameters.", __func__);
+    return;
+  }
+
+  STREAM_TO_UINT8(status, param);
+  if (btm_cb.devcb.set_eco_interval_cmpl_cb) {
+    (*btm_cb.devcb.set_eco_interval_cmpl_cb) (status);
+  }
+
+  // clear callback
+  btm_cb.devcb.set_eco_interval_cmpl_cb = NULL;
+}
+
+/*******************************************************************************
+ * Bluetooth Spec 5.2 HCI Commands API Implementation
+ ******************************************************************************/
+void BTM_ReadLocalSupportedControllerDelay(
+                                 tBTM_LOCAL_SUP_CONTROLLER_DELAY_PARAM* p_data) {
+  BTM_TRACE_API("%s", __func__);
+
+  btm_cb.devcb.controller_delay_read_cb = p_data->p_cb;
+  btsnd_hcic_read_local_sup_controller_delay(p_data->codec_id,
+                                   p_data->logical_transport_type,
+                                   p_data->direction,
+                                   p_data->codec_conf_length,
+                                   p_data->codec_conf,
+                                   base::Bind(&btm_read_controller_delay_cmd_cmpl));
+}
+
+void BTM_ReadLocalSupportedCodecCap(tBTM_LOCAL_CODEC_CAP_PARAM* p_data) {
+  BTM_TRACE_API("%s", __func__);
+
+  btm_cb.devcb.local_codec_cap_cmpl_cb = p_data->p_cb;
+  btsnd_hcic_read_local_sup_codec_cap(p_data->codec_id,
+                                      p_data->logical_transport_type,
+                                      p_data->direction,
+                                      base::Bind(&btm_read_codec_capability_cmd_cmpl));
+}
+
+void BTM_ConfigureDataPath(tBTM_CFG_DATA_PATH_PARAM* p_data) {
+  BTM_TRACE_API("%s", __func__);
+
+  btm_cb.devcb.cfg_datapath_cmpl_cb = p_data->p_cb;
+  btsnd_hcic_configure_data_path(p_data->data_path_dir,
+                                 p_data->data_path_id,
+                                 p_data->vs_config_len,
+                                 p_data->vs_config,
+                                 base::Bind(&btm_configure_datapath_cmd_cmpl));
+}
+
+void BTM_SetEcosystemBaseInterval(uint16_t interval,
+                                  tBTM_SET_ECOSYSTEM_BASE_INTERVAL_CB* p_cb) {
+  BTM_TRACE_API("%s", __func__);
+
+  btm_cb.devcb.set_eco_interval_cmpl_cb = p_cb;
+  btsnd_hcic_set_ecosystem_base_interval(interval,
+                                 base::Bind(&btm_set_ecosystem_base_interval_cmd_cmpl));
+}

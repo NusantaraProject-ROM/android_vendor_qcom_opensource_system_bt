@@ -211,7 +211,8 @@ void bta_gatts_register(tBTA_GATTS_CB* p_cb, tBTA_GATTS_DATA* p_msg) {
       p_cb->rcb[first_unuse].p_cback = p_msg->api_reg.p_cback;
       p_cb->rcb[first_unuse].app_uuid = p_msg->api_reg.app_uuid;
       cb_data.reg_oper.server_if = p_cb->rcb[first_unuse].gatt_if =
-          GATT_Register(p_msg->api_reg.app_uuid, &bta_gatts_cback);
+          GATT_Register(p_msg->api_reg.app_uuid, &bta_gatts_cback,
+                        p_msg->api_reg.eatt_support);
       if (!p_cb->rcb[first_unuse].gatt_if) {
         status = GATT_NO_RESOURCES;
       } else {
@@ -416,6 +417,78 @@ void bta_gatts_indicate_handle(tBTA_GATTS_CB* p_cb, tBTA_GATTS_DATA* p_msg) {
                << loghex(p_msg->api_indicate.attr_id);
   }
 }
+
+/*******************************************************************************
+ *
+ * Function         bta_gatts_multi_notifications
+ *
+ * Description      GATTS send notifications for multiple handles.
+ *
+ * Returns          none.
+ *
+ ******************************************************************************/
+void bta_gatts_multi_notifications(tBTA_GATTS_CB* p_cb, tBTA_GATTS_DATA* p_msg) {
+  tBTA_GATTS_SRVC_CB* p_srvc_cb;
+  tBTA_GATTS_RCB* p_rcb = NULL;
+  tGATT_STATUS status = GATT_ILLEGAL_PARAMETER;
+  tGATT_IF gatt_if;
+  RawAddress remote_bda;
+  tBTA_TRANSPORT transport;
+  tBTA_GATTS cb_data;
+
+  p_srvc_cb =
+      bta_gatts_find_srvc_cb_by_attr_id(p_cb, p_msg->api_multi_ntf.handles[0]);
+
+  if (p_srvc_cb) {
+    if (GATT_GetConnectionInfor(p_msg->api_indicate.hdr.layer_specific,
+                                &gatt_if, remote_bda, &transport)) {
+      p_rcb = bta_gatts_find_app_rcb_by_app_if(gatt_if);
+
+      status = GATTS_MultiHandleValueNotifications(
+          p_msg->api_indicate.hdr.layer_specific, p_msg->api_multi_ntf.num_attr,
+          p_msg->api_multi_ntf.handles, p_msg->api_multi_ntf.lens,
+          p_msg->api_multi_ntf.values);
+
+      /* if over BR_EDR, inform PM for mode change */
+      if (transport == BTA_TRANSPORT_BR_EDR) {
+        bta_sys_busy(BTA_ID_GATTS, BTA_ALL_APP_ID, remote_bda);
+        bta_sys_idle(BTA_ID_GATTS, BTA_ALL_APP_ID, remote_bda);
+      }
+    } else {
+      LOG(ERROR) << "Unknown connection_id="
+                 << loghex(p_msg->api_indicate.hdr.layer_specific)
+                 << " fail sending notification";
+    }
+
+    if (p_rcb && p_cb->rcb[p_srvc_cb->rcb_idx].p_cback) {
+      cb_data.req_data.status = status;
+      cb_data.req_data.conn_id = p_msg->api_indicate.hdr.layer_specific;
+
+      (*p_rcb->p_cback)(BTA_GATTS_MULTI_NTF_EVT, &cb_data);
+    }
+  } else {
+    LOG(ERROR) << "Not a registered service attribute ID: "
+               << loghex(p_msg->api_multi_ntf.handles[0]);
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_gatts_cfg_mtu
+ *
+ * Description      GATTS configure MTU.
+ *
+ * Returns          none.
+ *
+ ******************************************************************************/
+void bta_gatts_cfg_mtu(UNUSED_ATTR tBTA_GATTS_CB* p_cb,
+                        tBTA_GATTS_DATA* p_msg) {
+  if (GATTS_ConfigureMTU(p_msg->api_mtu.hdr.layer_specific,
+                         p_msg->api_mtu.mtu) != GATT_SUCCESS) {
+    LOG(ERROR) << "Sending response failed";
+  }
+}
+
 
 /*******************************************************************************
  *

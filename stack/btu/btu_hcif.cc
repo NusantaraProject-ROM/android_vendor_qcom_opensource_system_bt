@@ -374,8 +374,64 @@ void btu_hcif_process_event(UNUSED_ATTR uint8_t controller_id, BT_HDR* p_msg) {
           btm_ble_process_ext_adv_pkt(hci_evt_len, p);
           break;
 
+        case HCI_LE_PERIODIC_ADV_SYNC_ESTABLISHED_EVT:
+          btm_ble_periodic_adv_sync_established(p, hci_evt_len);
+          break;
+
+        case HCI_LE_PERIODIC_ADVERTISING_REPORT_EVT:
+          btm_ble_periodic_adv_report(p, hci_evt_len);
+          break;
+
+        case HCI_LE_PERIODIC_ADV_SYNC_LOST_EVT:
+          btm_ble_periodic_adv_sync_lost(p, hci_evt_len);
+          break;
+
         case HCI_LE_ADVERTISING_SET_TERMINATED_EVT:
           btm_le_on_advertising_set_terminated(p, hci_evt_len);
+          break;
+
+        case HCI_LE_CIS_ESTABLISHED:
+          btm_ble_cis_established_evt(p, hci_evt_len);
+          break;
+
+        case HCI_LE_CIS_REQUEST:
+          btm_ble_cis_request_evt(p, hci_evt_len);
+          break;
+
+        case HCI_LE_REQUEST_PEER_SCA_COMPLETE:
+          btm_ble_peer_sca_cmpl_evt(p, hci_evt_len);
+          break;
+
+        case HCI_LE_PATH_LOSS_THRESHOLD:
+          btm_ble_path_loss_threshold_evt(p, hci_evt_len);
+          break;
+
+        case HCI_LE_TRANSMIT_POWER_REPORTING:
+          btm_ble_transmit_power_reporting_event(p, hci_evt_len);
+          break;
+
+        case HCI_LE_PERIODIC_ADV_SYNC_TRANSFERE_RECEIVED_EVT:
+          btm_ble_periodic_adv_sync_tx_rcvd(p, hci_evt_len);
+          break;
+
+        case HCI_LE_BIGINFO_ADVERTISING_REPORT_EVT:
+          btm_ble_biginfo_adv_report_rcvd(p, hci_evt_len);
+          break;
+
+        case HCI_LE_CREATE_BIG_COMPLETE_EVT:
+          if(!controller_get_interface()->supports_ble_iso_broadcaster()) {
+            LOG_ERROR(LOG_TAG, "%s request not supported.", __func__);
+            return;
+          }
+          btm_le_create_big_complete(p, hci_evt_len);
+          break;
+
+        case HCI_LE_TERMINATE_BIG_COMPLETE_EVT:
+          if(!controller_get_interface()->supports_ble_iso_broadcaster()) {
+            LOG_ERROR(LOG_TAG, "%s request not supported.", __func__);
+            return;
+          }
+          btm_le_terminate_big_complete(p, hci_evt_len);
           break;
       }
       break;
@@ -476,9 +532,7 @@ static void btu_hcif_command_status_evt_with_cb_on_task(uint8_t status,
   uint8_t* stream = event->data + event->offset;
   STREAM_TO_UINT16(opcode, stream);
 
-  CHECK(status != 0);
-
-  // report command status error
+  // report command status
   cmd_with_cb_data* cb_wrapper = (cmd_with_cb_data*)context;
   HCI_TRACE_DEBUG("command status for: %s",
                   cb_wrapper->posted_from.ToString().c_str());
@@ -491,12 +545,6 @@ static void btu_hcif_command_status_evt_with_cb_on_task(uint8_t status,
 
 static void btu_hcif_command_status_evt_with_cb(uint8_t status, BT_HDR* command,
                                                 void* context) {
-  // Command is pending, we  report only error.
-  if (!status) {
-    osi_free(command);
-    return;
-  }
-
   do_in_hci_thread(
       FROM_HERE, base::Bind(btu_hcif_command_status_evt_with_cb_on_task, status,
                             command, context));
@@ -690,12 +738,18 @@ static void btu_hcif_connection_request_evt(uint8_t* p) {
 static void btu_hcif_disconnection_comp_evt(uint8_t* p) {
   uint16_t handle;
   uint8_t reason;
+  uint8_t status;
 
-  ++p;
+  STREAM_TO_UINT8(status, p)
   STREAM_TO_UINT16(handle, p);
   STREAM_TO_UINT8(reason, p);
 
   handle = HCID_GET_HANDLE(handle);
+
+  if (btm_ble_is_cis_handle(handle)) {
+    btm_ble_cis_disconnected(status, handle, reason);
+    return;
+  }
 
   if ((reason != HCI_ERR_CONN_CAUSE_LOCAL_HOST) &&
       (reason != HCI_ERR_PEER_USER)) {

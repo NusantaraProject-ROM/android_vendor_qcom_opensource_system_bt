@@ -1509,3 +1509,70 @@ void btsnd_hcic_vendor_spec_cmd(void* buffer, uint16_t opcode, uint8_t len,
 
   btu_hcif_send_cmd(LOCAL_BR_EDR_CONTROLLER_ID, p);
 }
+
+// Bluetooth Spec 5.2 Commands
+void btsnd_hcic_read_local_sup_codec_cap(CODEC_ID codec_id,
+                                         uint8_t logical_tx_type,
+                                         uint8_t direction,
+                                         base::Callback<void(uint8_t* ,uint16_t)> cb) {
+  const uint16_t param_len = 7;
+  uint8_t *param = (uint8_t *)osi_malloc(param_len);
+  uint8_t *p = param;
+
+  ARRAY_TO_STREAM(p, codec_id, CODEC_ID_LEN);
+  UINT8_TO_STREAM(p, logical_tx_type);
+  UINT8_TO_STREAM(p, direction);
+
+  btu_hcif_send_cmd_with_cb(FROM_HERE, HCI_READ_LOCAL_SUPPORTED_CODEC_CAPABILITIES, param,
+                            param_len, std::move(cb));
+}
+
+void btsnd_hcic_read_local_sup_controller_delay(CODEC_ID codec_id,
+                                         uint8_t logical_tx_type,
+                                         uint8_t direction,
+                                         uint8_t codec_conf_length,
+                                         uint8_t* codec_conf,
+                                         base::Callback<void(uint8_t*, uint16_t)> cb) {
+  const uint16_t param_len = 8 + codec_conf_length;
+  uint8_t *param = (uint8_t *)osi_malloc(param_len);
+  uint8_t *p = param;
+
+  ARRAY_TO_STREAM(p, codec_id, CODEC_ID_LEN);
+  UINT8_TO_STREAM(p, logical_tx_type);
+  UINT8_TO_STREAM(p, direction);
+  UINT8_TO_STREAM(p, codec_conf_length);
+  ARRAY_TO_STREAM(p, codec_conf, codec_conf_length)
+
+  btu_hcif_send_cmd_with_cb(FROM_HERE, HCI_READ_LOCAL_SUPPORTED_CONTROLLER_DELAY, param,
+                            param_len, std::move(cb));
+}
+
+void btsnd_hcic_configure_data_path(uint8_t data_path_direction,
+                                    uint8_t data_path_id,
+                                    uint8_t vs_config_length,
+                                    uint8_t* vs_config,
+                                    base::Callback<void(uint8_t*, uint16_t)> cb) {
+  const uint16_t param_len = 3 + vs_config_length;
+  uint8_t *param = (uint8_t *)osi_malloc(param_len);
+  uint8_t *p = param;
+
+  UINT8_TO_STREAM(p, data_path_direction);
+  UINT8_TO_STREAM(p, data_path_id);
+  UINT8_TO_STREAM(p, vs_config_length);
+  ARRAY_TO_STREAM(p, vs_config, vs_config_length)
+
+  btu_hcif_send_cmd_with_cb(FROM_HERE, HCI_CONFIGURE_DATA_PATH, param,
+                            param_len, std::move(cb));
+}
+
+void btsnd_hcic_set_ecosystem_base_interval(uint16_t interval,
+                                            base::Callback<void(uint8_t*, uint16_t)> cb) {
+  const uint16_t param_len = 2 ;
+  uint8_t *param = (uint8_t *)osi_malloc(param_len);
+  uint8_t *p = param;
+
+  UINT16_TO_STREAM(p, interval);
+
+  btu_hcif_send_cmd_with_cb(FROM_HERE, HCI_SET_ECOSYSTEM_BASE_INTERVAL, param,
+                            param_len, std::move(cb));
+}

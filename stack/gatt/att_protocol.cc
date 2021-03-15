@@ -26,6 +26,7 @@
 
 #include "gatt_int.h"
 #include "l2c_api.h"
+#include "stack/gatt/eatt_int.h"
 
 #define GATT_HDR_FIND_TYPE_VALUE_LEN 21
 #define GATT_OP_CODE_SIZE 1
@@ -189,7 +190,7 @@ BT_HDR* attp_build_read_by_type_value_cmd(uint16_t payload_size,
  *
  ******************************************************************************/
 BT_HDR* attp_build_read_multi_cmd(uint16_t payload_size, uint16_t num_handle,
-                                  uint16_t* p_handle) {
+                                  uint16_t* p_handle, bool is_variable_len) {
   uint8_t *p, i = 0;
   BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR) + num_handle * 2 + 1 +
                                       L2CAP_MIN_OFFSET);
@@ -198,7 +199,12 @@ BT_HDR* attp_build_read_multi_cmd(uint16_t payload_size, uint16_t num_handle,
   p_buf->offset = L2CAP_MIN_OFFSET;
   p_buf->len = 1;
 
-  UINT8_TO_STREAM(p, GATT_REQ_READ_MULTI);
+  if (is_variable_len) {
+    UINT8_TO_STREAM(p, GATT_REQ_READ_MULTI_VARIABLE);
+  }
+  else {
+    UINT8_TO_STREAM(p, GATT_REQ_READ_MULTI);
+  }
 
   for (i = 0; i < num_handle && p_buf->len + 2 <= payload_size; i++) {
     UINT16_TO_STREAM(p, *(p_handle + i));
@@ -317,18 +323,72 @@ BT_HDR* attp_build_value_cmd(uint16_t payload_size, uint8_t op_code,
 
 /*******************************************************************************
  *
+ * Function         attp_build_multi_ntf_cmd
+ *
+ * Description      Build a attribute value request
+ *
+ * Returns          None.
+ *
+ ******************************************************************************/
+BT_HDR* attp_build_multi_ntf_cmd(uint16_t payload_size, tGATT_MULTI_NOTIF multi_ntf) {
+  uint8_t *p;
+  BT_HDR* p_buf =
+      (BT_HDR*)osi_malloc(sizeof(BT_HDR) + payload_size + L2CAP_MIN_OFFSET);
+  uint16_t len = 0;
+  uint16_t handle = -1;
+  uint16_t hdl_len_bytes = 4;
+  std::vector<uint8_t> value;
+
+  p = (uint8_t*)(p_buf + 1) + L2CAP_MIN_OFFSET;
+  UINT8_TO_STREAM(p, GATT_MULTI_HANDLE_VALUE_NOTIF);
+  p_buf->offset = L2CAP_MIN_OFFSET;
+  p_buf->len = 1;
+
+
+  for (uint8_t i=0; i<multi_ntf.num_attr; i++) {
+    len = multi_ntf.lens[i];
+    handle = multi_ntf.handles[i];
+
+    /* ensure data not exceed MTU size */
+    if ((payload_size - p_buf->len) >= (len+ hdl_len_bytes)) {
+      UINT16_TO_STREAM(p, handle);
+      UINT16_TO_STREAM(p, len);
+      value = multi_ntf.values[i];
+      for (uint8_t j=0; j<len; j++) {
+        *p = value[j];
+        p++;
+      }
+      p_buf->len += hdl_len_bytes + len;
+    }
+    else {
+      VLOG(1) << __func__ << " attr value too long";
+      break;
+    }
+  }
+
+  return p_buf;
+}
+
+/*******************************************************************************
+ *
  * Function         attp_send_msg_to_l2cap
  *
  * Description      Send message to L2CAP.
  *
  ******************************************************************************/
-tGATT_STATUS attp_send_msg_to_l2cap(tGATT_TCB& tcb, BT_HDR* p_toL2CAP) {
+tGATT_STATUS attp_send_msg_to_l2cap(tGATT_TCB& tcb, uint16_t cid, BT_HDR* p_toL2CAP) {
   uint16_t l2cap_ret;
+  uint16_t lcid;
 
-  if (tcb.att_lcid == L2CAP_ATT_CID)
+  if (tcb.is_eatt_supported)
+    lcid = cid;
+  else
+    lcid = tcb.att_lcid;
+
+  if (lcid == L2CAP_ATT_CID)
     l2cap_ret = L2CA_SendFixedChnlData(L2CAP_ATT_CID, tcb.peer_bda, p_toL2CAP);
   else
-    l2cap_ret = (uint16_t)L2CA_DataWrite(tcb.att_lcid, p_toL2CAP);
+    l2cap_ret = (uint16_t)L2CA_DataWrite(lcid, p_toL2CAP);
 
   if (l2cap_ret == L2CAP_DW_FAILED) {
     LOG(ERROR) << __func__ << ": failed to write data to L2CAP";
@@ -341,9 +401,10 @@ tGATT_STATUS attp_send_msg_to_l2cap(tGATT_TCB& tcb, BT_HDR* p_toL2CAP) {
 }
 
 /** Build ATT Server PDUs */
-BT_HDR* attp_build_sr_msg(tGATT_TCB& tcb, uint8_t op_code,
+BT_HDR* attp_build_sr_msg(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_code,
                           tGATT_SR_MSG* p_msg) {
   uint16_t offset = 0;
+  uint16_t payload_size = gatt_get_payload_size(&tcb, lcid);
 
   switch (op_code) {
     case GATT_RSP_READ_BLOB:
@@ -360,7 +421,7 @@ BT_HDR* attp_build_sr_msg(tGATT_TCB& tcb, uint8_t op_code,
     case GATT_HANDLE_VALUE_NOTIF:
     case GATT_HANDLE_VALUE_IND:
       return attp_build_value_cmd(
-          tcb.payload_size, op_code, p_msg->attr_value.handle, offset,
+          payload_size, op_code, p_msg->attr_value.handle, offset,
           p_msg->attr_value.len, p_msg->attr_value.value);
 
     case GATT_RSP_WRITE:
@@ -396,11 +457,11 @@ BT_HDR* attp_build_sr_msg(tGATT_TCB& tcb, uint8_t op_code,
  *
  *
  ******************************************************************************/
-tGATT_STATUS attp_send_sr_msg(tGATT_TCB& tcb, BT_HDR* p_msg) {
+tGATT_STATUS attp_send_sr_msg(tGATT_TCB& tcb, uint16_t lcid, BT_HDR* p_msg) {
   if (p_msg == NULL) return GATT_NO_RESOURCES;
 
   p_msg->offset = L2CAP_MIN_OFFSET;
-  return attp_send_msg_to_l2cap(tcb, p_msg);
+  return attp_send_msg_to_l2cap(tcb, lcid, p_msg);
 }
 
 /*******************************************************************************
@@ -415,17 +476,33 @@ tGATT_STATUS attp_send_sr_msg(tGATT_TCB& tcb, BT_HDR* p_msg) {
  *                  GATT_ERROR if command sending failure
  *
  ******************************************************************************/
-tGATT_STATUS attp_cl_send_cmd(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
+tGATT_STATUS attp_cl_send_cmd(tGATT_TCB& tcb, tGATT_CLCB* p_clcb, uint16_t lcid,
                               uint8_t cmd_code, BT_HDR* p_cmd) {
   cmd_code &= ~GATT_AUTH_SIGN_MASK;
+  std::queue<tGATT_CMD_Q> cl_cmd_q = tcb.cl_cmd_q;;
+  tGATT_EBCB* p_eatt_bcb = NULL;
 
-  if (!tcb.cl_cmd_q.empty() && cmd_code != GATT_HANDLE_VALUE_CONF) {
-    gatt_cmd_enq(tcb, p_clcb, true, cmd_code, p_cmd);
+  if (tcb.is_eatt_supported) {
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    if (p_eatt_bcb) {
+      cl_cmd_q = p_eatt_bcb->cl_cmd_q;
+    }
+    else {
+      VLOG(1) <<  __func__ << " Failed to get EATT channel";
+      return GATT_INTERNAL_ERROR;
+    }
+  }
+  else {
+    cl_cmd_q = tcb.cl_cmd_q;
+  }
+
+  if (!cl_cmd_q.empty() && cmd_code != GATT_HANDLE_VALUE_CONF) {
+    gatt_cmd_enq(tcb, p_clcb, p_eatt_bcb, true, cmd_code, p_cmd);
     return GATT_CMD_STARTED;
   }
 
   /* no pending request or value confirmation */
-  tGATT_STATUS att_ret = attp_send_msg_to_l2cap(tcb, p_cmd);
+  tGATT_STATUS att_ret = attp_send_msg_to_l2cap(tcb, lcid, p_cmd);
   if (att_ret != GATT_CONGESTED && att_ret != GATT_SUCCESS) {
     return GATT_INTERNAL_ERROR;
   }
@@ -436,7 +513,7 @@ tGATT_STATUS attp_cl_send_cmd(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
   }
 
   gatt_start_rsp_timer(p_clcb);
-  gatt_cmd_enq(tcb, p_clcb, false, cmd_code, NULL);
+  gatt_cmd_enq(tcb, p_clcb, p_eatt_bcb, false, cmd_code, NULL);
   return att_ret;
 }
 
@@ -456,10 +533,12 @@ tGATT_STATUS attp_cl_send_cmd(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
  *
  *
  ******************************************************************************/
-tGATT_STATUS attp_send_cl_msg(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
+tGATT_STATUS attp_send_cl_msg(tGATT_TCB& tcb, tGATT_CLCB* p_clcb, uint16_t lcid,
                               uint8_t op_code, tGATT_CL_MSG* p_msg) {
   BT_HDR* p_cmd = NULL;
   uint16_t offset = 0, handle;
+  uint16_t payload_size = gatt_get_payload_size(&tcb, lcid);
+
   switch (op_code) {
     case GATT_REQ_MTU:
       if (p_msg->mtu > GATT_MAX_MTU_SIZE) return GATT_ILLEGAL_PARAMETER;
@@ -506,7 +585,7 @@ tGATT_STATUS attp_send_cl_msg(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
         return GATT_ILLEGAL_PARAMETER;
 
       p_cmd = attp_build_value_cmd(
-          tcb.payload_size, op_code, p_msg->attr_value.handle, offset,
+          payload_size, op_code, p_msg->attr_value.handle, offset,
           p_msg->attr_value.len, p_msg->attr_value.value);
       break;
 
@@ -515,14 +594,16 @@ tGATT_STATUS attp_send_cl_msg(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
       break;
 
     case GATT_REQ_FIND_TYPE_VALUE:
-      p_cmd = attp_build_read_by_type_value_cmd(tcb.payload_size,
+      p_cmd = attp_build_read_by_type_value_cmd(payload_size,
                                                 &p_msg->find_type_value);
       break;
 
     case GATT_REQ_READ_MULTI:
-      p_cmd = attp_build_read_multi_cmd(tcb.payload_size,
+    case GATT_REQ_READ_MULTI_VARIABLE:
+      p_cmd = attp_build_read_multi_cmd(payload_size,
                                         p_msg->read_multi.num_handles,
-                                        p_msg->read_multi.handles);
+                                        p_msg->read_multi.handles,
+                                        p_msg->read_multi.is_variable_len);
       break;
 
     default:
@@ -531,5 +612,5 @@ tGATT_STATUS attp_send_cl_msg(tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
 
   if (p_cmd == NULL) return GATT_NO_RESOURCES;
 
-  return attp_cl_send_cmd(tcb, p_clcb, op_code, p_cmd);
+  return attp_cl_send_cmd(tcb, p_clcb, lcid, op_code, p_cmd);
 }

@@ -39,13 +39,14 @@ cc_library_shared {
         "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext",
         "system/security/keystore/include",
-        "hardware/interfaces/keymaster/4.0/support/include"
+        "hardware/interfaces/keymaster/4.0/support/include",
     ],
     logtags: ["../EventLogTags.logtags"],
     shared_libs: [
         "android.hardware.bluetooth@1.0",
         "com.qualcomm.qti.bluetooth_audio@1.0",
         "vendor.qti.hardware.bluetooth_audio@2.0",
+        "vendor.qti.hardware.bluetooth_audio@2.1",
         "libaudioclient",
         "libcutils",
         "libdl",
@@ -59,6 +60,7 @@ cc_library_shared {
         "libz",
         "libcrypto",
         "libbtconfigstore",
+        "libxml2",
     ],
     static_libs: [
         "libbt-sbc-decoder",

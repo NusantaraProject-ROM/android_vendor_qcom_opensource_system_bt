@@ -37,6 +37,7 @@
 #include "btif_config.h"
 #include "device/include/device_iot_config.h"
 #include "btif_profile_queue.h"
+#include "stack_interface.h"
 
 static thread_t* management_thread;
 
@@ -119,6 +120,8 @@ static void event_init_stack(void* context) {
 #endif
     module_init(get_module(BTIF_CONFIG_MODULE));
 
+    btif_stack_state(StackState::INITIALIZING);
+
     future_t* local_hack_future = future_new();
     hack_future = local_hack_future;
     btif_init_bluetooth();
@@ -126,6 +129,7 @@ static void event_init_stack(void* context) {
     future_await(local_hack_future);
     // stack init is synchronous, so no waiting necessary here
     stack_is_initialized = true;
+    btif_stack_state(StackState::INITIALIZED);
   }
 
   LOG_INFO(LOG_TAG, "%s finished", __func__);
@@ -158,6 +162,8 @@ static void event_start_up_stack(UNUSED_ATTR void* context) {
 
   // Include this for now to put btif config into a shutdown-able state
   module_start_up(get_module(BTIF_CONFIG_MODULE));
+
+  btif_stack_state(StackState::TURNING_ON);
 #if (BT_IOT_LOGGING_ENABLED == TRUE)
   module_start_up(get_module(DEVICE_IOT_CONFIG_MODULE));
 #endif
@@ -189,6 +195,8 @@ static void event_shut_down_stack(UNUSED_ATTR void* context) {
 
   btif_disable_bluetooth();
   module_shut_down(get_module(BTIF_CONFIG_MODULE));
+
+  btif_stack_state(StackState::TURNING_OFF);
 #if (BT_IOT_LOGGING_ENABLED == TRUE)
   module_shut_down(get_module(DEVICE_IOT_CONFIG_MODULE));
 #endif
@@ -229,6 +237,8 @@ static void event_clean_up_stack(void* context) {
   btif_vendor_cleanup_iot_broadcast_timer();
   btif_cleanup_bluetooth();
   module_clean_up(get_module(BTIF_CONFIG_MODULE));
+
+  btif_stack_state(StackState::CLEAND_UP);
 #if (BT_IOT_LOGGING_ENABLED == TRUE)
   module_clean_up(get_module(DEVICE_IOT_CONFIG_MODULE));
 #endif
@@ -248,10 +258,12 @@ static void event_signal_stack_up(UNUSED_ATTR void* context) {
   // now time to dispatch all the pending profile connect requests.
   btif_queue_connect_next();
   btif_disconnect_queue_disconnect_next();
+  btif_stack_state(StackState::TURNED_ON);
   HAL_CBACK(bt_hal_cbacks, adapter_state_changed_cb, BT_STATE_ON);
 }
 
 static void event_signal_stack_down(UNUSED_ATTR void* context) {
+  btif_stack_state(StackState::TURNED_OFF);
   HAL_CBACK(bt_hal_cbacks, adapter_state_changed_cb, BT_STATE_OFF);
   future_ready(stack_manager_get_hack_future(), FUTURE_SUCCESS);
 }

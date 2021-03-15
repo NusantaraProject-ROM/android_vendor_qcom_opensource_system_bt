@@ -28,9 +28,20 @@
 #define BTM_BLE_MULTI_ADV_FAILURE 1
 #define ADVERTISE_FAILED_TOO_MANY_ADVERTISERS 0x02
 
+#define INVALID_BIG_HANDLE 0xFF
+
 using MultiAdvCb = base::Callback<void(uint8_t /* status */)>;
 using ParametersCb =
     base::Callback<void(uint8_t /* status */, int8_t /* tx_power */)>;
+using CreateBIGCb =
+    base::Callback<void(uint8_t /*adv_inst_id*/, uint8_t /*status*/, uint8_t /*big_handle*/,
+    uint32_t /*big_sync_delay*/, uint32_t /*transport_latency_big*/,
+    uint8_t /*phy*/, uint8_t /*nse*/, uint8_t /*bn*/, uint8_t /*pto*/,
+    uint8_t /*irc*/, uint16_t /*max_pdu*/, uint16_t /*iso_int*/,
+    uint8_t /*num_bis*/, std::vector<uint16_t> /*conn_handle_list*/)>;
+using TerminateBIGCb =
+    base::Callback<void(uint8_t /*status*/, uint8_t /*adv_inst_id*/,
+                        uint8_t /*big_handle*/, uint8_t /*reason*/)>;
 
 // methods we must have defined
 void btm_ble_update_dmt_flag_bits(uint8_t* flag_value,
@@ -60,6 +71,20 @@ typedef struct {
   uint16_t max_interval;
   uint16_t periodic_advertising_properties;
 } tBLE_PERIODIC_ADV_PARAMS;
+
+typedef struct {
+  uint8_t adv_handle;
+  uint8_t num_bis;
+  uint32_t sdu_int;
+  uint16_t max_sdu;
+  uint16_t max_transport_latency;
+  uint8_t rtn;
+  uint8_t phy;
+  uint8_t packing;
+  uint8_t framing;
+  uint8_t encryption;
+  std::vector<uint8_t> broadcast_code;
+} tBLE_CREATE_BIG_PARAMS;
 
 class BleAdvertiserHciInterface;
 
@@ -172,6 +197,28 @@ class BleAdvertisingManager {
   using GetAddressCallback =
       base::Callback<void(uint8_t /* address_type*/, RawAddress /*address*/)>;
   virtual void GetOwnAddress(uint8_t inst_id, GetAddressCallback cb) = 0;
+
+  //ISO
+  /*  This function creates BIG */
+  virtual void CreateBIG(uint8_t inst_id, tBLE_CREATE_BIG_PARAMS* params, CreateBIGCb cb) = 0;
+
+  /*  This function Terminates BIG */
+  virtual void TerminateBIG(uint8_t inst_id, uint8_t big_handle, uint8_t reason,
+      TerminateBIGCb cb) = 0;
+
+  /* This method is a member of BleAdvertiserHciInterface, and is exposed here
+     * just for tests. It should never be called from upper layers*/
+  virtual void CreateBIGComplete(
+      uint8_t status, uint8_t big_handle, uint32_t big_sync_delay,
+      uint32_t transport_latency_big, uint8_t phy, uint8_t nse,
+      uint8_t bn, uint8_t pto, uint8_t irc, uint16_t max_pdu,
+      uint16_t iso_int, uint8_t num_bis,
+      std::vector<uint16_t> conn_handle_list) = 0;
+
+  /* This method is a member of BleAdvertiserHciInterface, and is exposed here
+       * just for tests. It should never be called from upper layers*/
+  virtual void TerminateBIGComplete(
+      uint8_t status, uint8_t big_handle, bool cmd_status, uint8_t reason) = 0;
 };
 
 #endif  // BLE_ADVERTISER_H

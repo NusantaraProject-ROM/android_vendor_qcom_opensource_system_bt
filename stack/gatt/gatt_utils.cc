@@ -35,8 +35,13 @@
 #include "gatt_int.h"
 #include "gattdefs.h"
 #include "l2cdefs.h"
+#include "l2c_api.h"
 #include "sdp_api.h"
 #include "stack/gatt/connection_manager.h"
+#include "stack/gatt/eatt_int.h"
+
+#include <vector>
+#include <algorithm>
 
 using base::StringPrintf;
 using bluetooth::Uuid;
@@ -88,16 +93,27 @@ const char* const op_code_name[] = {"UNKNOWN",
  * Returns       None
  *
  ******************************************************************************/
-void gatt_free_pending_ind(tGATT_TCB* p_tcb) {
-  VLOG(1) << __func__;
+void gatt_free_pending_ind(tGATT_TCB* p_tcb, uint16_t lcid) {
+  VLOG(1) << __func__ << " lcid:" << +lcid;
+  fixed_queue_t** pending_ind_q = &(p_tcb->pending_ind_q);
+  tGATT_EBCB* p_eatt_bcb;
 
-  if (p_tcb->pending_ind_q == NULL) return;
+  if (p_tcb->is_eatt_supported) {
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    if (p_eatt_bcb)
+      pending_ind_q = &(p_eatt_bcb->pending_ind_q);
+  }
+
+  if (*pending_ind_q == NULL) {
+    VLOG(1) << __func__ << " pending_ind_q is null";
+    return;
+  }
 
   /* release all queued indications */
-  while (!fixed_queue_is_empty(p_tcb->pending_ind_q))
-    osi_free(fixed_queue_try_dequeue(p_tcb->pending_ind_q));
-  fixed_queue_free(p_tcb->pending_ind_q, NULL);
-  p_tcb->pending_ind_q = NULL;
+  while (!fixed_queue_is_empty(*pending_ind_q))
+    osi_free(fixed_queue_try_dequeue(*pending_ind_q));
+  fixed_queue_free(*pending_ind_q, NULL);
+  *pending_ind_q = NULL;
 }
 
 /*******************************************************************************
@@ -158,12 +174,26 @@ void gatt_set_srv_chg(void) {
 }
 
 /** Add a pending indication */
-void gatt_add_pending_ind(tGATT_TCB* p_tcb, tGATT_VALUE* p_ind) {
+void gatt_add_pending_ind(tGATT_TCB* p_tcb, uint16_t lcid, tGATT_VALUE* p_ind) {
   VLOG(1) << __func__ << "enqueue a pending indication";
+  tGATT_EBCB* p_eatt_bcb;
 
   tGATT_VALUE* p_buf = (tGATT_VALUE*)osi_malloc(sizeof(tGATT_VALUE));
   memcpy(p_buf, p_ind, sizeof(tGATT_VALUE));
-  fixed_queue_enqueue(p_tcb->pending_ind_q, p_buf);
+
+  if (p_tcb->is_eatt_supported) {
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    if (p_eatt_bcb) {
+      fixed_queue_enqueue(p_eatt_bcb->pending_ind_q, p_buf);
+    }
+    else {
+      VLOG(1) << __func__ << " EATT BCB Not found";
+      return;
+    }
+  }
+  else {
+    fixed_queue_enqueue(p_tcb->pending_ind_q, p_buf);
+  }
 }
 
 /*******************************************************************************
@@ -280,17 +310,42 @@ bool gatt_find_the_connected_bda(uint8_t start_idx, RawAddress& bda,
 bool gatt_is_srv_chg_ind_pending(tGATT_TCB* p_tcb) {
   VLOG(1) << __func__
           << " is_queue_empty=" << fixed_queue_is_empty(p_tcb->pending_ind_q);
+  uint16_t xx = 0;
+  tGATT_EBCB* p_eatt_bcb;
 
-  if (p_tcb->indicate_handle == gatt_cb.handle_of_h_r) return true;
+  if (p_tcb->is_eatt_supported) {
+    for (xx = 0; xx < GATT_MAX_EATT_CHANNELS; xx++) {
+      if (gatt_cb.eatt_bcb[xx].in_use) {
+        p_eatt_bcb = &gatt_cb.eatt_bcb[xx];
 
-  if (fixed_queue_is_empty(p_tcb->pending_ind_q)) return false;
+        if (p_eatt_bcb->indicate_handle == gatt_cb.handle_of_h_r) return true;
 
-  list_t* list = fixed_queue_get_list(p_tcb->pending_ind_q);
-  for (const list_node_t* node = list_begin(list); node != list_end(list);
-       node = list_next(node)) {
-    tGATT_VALUE* p_buf = (tGATT_VALUE*)list_node(node);
-    if (p_buf->handle == gatt_cb.handle_of_h_r) {
-      return true;
+        if (fixed_queue_is_empty(p_eatt_bcb->pending_ind_q))
+          continue;
+
+        list_t* list = fixed_queue_get_list(p_eatt_bcb->pending_ind_q);
+        for (const list_node_t* node = list_begin(list); node != list_end(list);
+            node = list_next(node)) {
+          tGATT_VALUE* p_buf = (tGATT_VALUE*)list_node(node);
+          if (p_buf->handle == gatt_cb.handle_of_h_r) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  else {
+    if (p_tcb->indicate_handle == gatt_cb.handle_of_h_r) return true;
+
+    if (fixed_queue_is_empty(p_tcb->pending_ind_q)) return false;
+
+    list_t* list = fixed_queue_get_list(p_tcb->pending_ind_q);
+    for (const list_node_t* node = list_begin(list); node != list_end(list);
+         node = list_next(node)) {
+      tGATT_VALUE* p_buf = (tGATT_VALUE*)list_node(node);
+      if (p_buf->handle == gatt_cb.handle_of_h_r) {
+        return true;
+      }
     }
   }
 
@@ -543,9 +598,22 @@ void gatt_start_rsp_timer(tGATT_CLCB* p_clcb) {
  * Returns          void
  *
  ******************************************************************************/
-void gatt_start_conf_timer(tGATT_TCB* p_tcb) {
-  alarm_set_on_mloop(p_tcb->conf_timer, GATT_WAIT_FOR_RSP_TIMEOUT_MS,
+void gatt_start_conf_timer(tGATT_TCB* p_tcb, uint16_t lcid) {
+  if (p_tcb->is_eatt_supported) {
+    tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    if (p_eatt_bcb) {
+      alarm_set_on_mloop(p_eatt_bcb->conf_timer, GATT_WAIT_FOR_RSP_TIMEOUT_MS,
+                         gatt_indication_confirmation_eatt_timeout, p_eatt_bcb);
+    }
+    else {
+      VLOG(1) << __func__ << "Unknown EATT lcid";
+      return;
+    }
+  }
+  else {
+    alarm_set_on_mloop(p_tcb->conf_timer, GATT_WAIT_FOR_RSP_TIMEOUT_MS,
                      gatt_indication_confirmation_timeout, p_tcb);
+  }
 }
 
 /*******************************************************************************
@@ -557,10 +625,23 @@ void gatt_start_conf_timer(tGATT_TCB* p_tcb) {
  * Returns          void
  *
  ******************************************************************************/
-void gatt_start_ind_ack_timer(tGATT_TCB& tcb) {
-  /* start notification cache timer */
-  alarm_set_on_mloop(tcb.ind_ack_timer, GATT_WAIT_FOR_RSP_TIMEOUT_MS,
-                     gatt_ind_ack_timeout, &tcb);
+void gatt_start_ind_ack_timer(tGATT_TCB& tcb, uint16_t lcid) {
+  tGATT_EBCB* p_eatt_bcb;
+
+  if (tcb.is_eatt_supported) {
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    if (p_eatt_bcb) {
+      /* start notification cache timer */
+      alarm_set_on_mloop(tcb.ind_ack_timer, GATT_WAIT_FOR_RSP_TIMEOUT_MS,
+                         gatt_ind_ack_eatt_timeout, p_eatt_bcb);
+    }
+  }
+  else {
+    /* start notification cache timer */
+    alarm_set_on_mloop(tcb.ind_ack_timer, GATT_WAIT_FOR_RSP_TIMEOUT_MS,
+                       gatt_ind_ack_timeout, &tcb);
+  }
+
 }
 
 /*******************************************************************************
@@ -574,6 +655,16 @@ void gatt_start_ind_ack_timer(tGATT_TCB& tcb) {
  ******************************************************************************/
 void gatt_rsp_timeout(void* data) {
   tGATT_CLCB* p_clcb = (tGATT_CLCB*)data;
+  uint16_t lcid = p_clcb->p_tcb->att_lcid;
+  tGATT_TCB* p_tcb = p_clcb->p_tcb;
+  tGATT_EBCB* p_eatt_bcb;
+  uint8_t i = 0;
+
+  if (p_clcb->p_tcb->is_eatt_supported) {
+    lcid = gatt_get_cid_by_conn_id(p_clcb->conn_id);
+  }
+
+  LOG(ERROR) << __func__ << " lcid:" << lcid;
 
   if (p_clcb == NULL || p_clcb->p_tcb == NULL) {
     LOG(WARNING) << __func__ << " clcb is already deleted";
@@ -584,7 +675,7 @@ void gatt_rsp_timeout(void* data) {
       p_clcb->retry_count < GATT_REQ_RETRY_LIMIT) {
     uint8_t rsp_code;
     LOG(WARNING) << __func__ << " retry discovery primary service";
-    if (p_clcb != gatt_cmd_dequeue(*p_clcb->p_tcb, &rsp_code)) {
+    if (p_clcb != gatt_cmd_dequeue(*p_clcb->p_tcb, lcid, &rsp_code)) {
       LOG(ERROR) << __func__ << " command queue out of sync, disconnect";
     } else {
       p_clcb->retry_count++;
@@ -593,8 +684,25 @@ void gatt_rsp_timeout(void* data) {
     }
   }
 
+  if (p_clcb->p_tcb->is_eatt_supported) {
+    gatt_move_apps(lcid);
+  }
+
   LOG(WARNING) << __func__ << " disconnecting...";
-  gatt_disconnect(p_clcb->p_tcb);
+
+  if ((lcid == L2CAP_ATT_CID) && (gatt_num_eatt_bcbs(p_tcb) > 0)) {
+    for (i = 0; i < GATT_MAX_EATT_CHANNELS; i++) {
+      if (gatt_cb.eatt_bcb[i].in_use && (gatt_cb.eatt_bcb[i].p_tcb->peer_bda == p_tcb->peer_bda)
+          && (!gatt_cb.eatt_bcb[i].create_in_prg) && (gatt_cb.eatt_bcb[i].cid != L2CAP_ATT_CID)) {
+        p_eatt_bcb = &gatt_cb.eatt_bcb[i];
+        p_tcb->is_att_rsp_tout = true;
+        L2CA_DisconnectReq(p_eatt_bcb->cid);
+        break;
+      }
+    }
+  }
+  else
+    gatt_disconnect(p_tcb, lcid);
 }
 
 extern void gatts_proc_srv_chg_ind_ack(tGATT_TCB tcb);
@@ -632,7 +740,59 @@ void gatt_indication_confirmation_timeout(void* data) {
   }
 
   LOG(WARNING) << __func__ << " disconnecting...";
-  gatt_disconnect(p_tcb);
+  gatt_disconnect(p_tcb, p_tcb->att_lcid);
+}
+
+/*******************************************************************************
+ *
+ * Function         gatt_indication_confirmation_eatt_timeout
+ *
+ * Description      Called when the indication confirmation timer expires
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void gatt_indication_confirmation_eatt_timeout(void* data) {
+  tGATT_EBCB* p_eatt_bcb = (tGATT_EBCB*)data;
+  tGATT_TCB* p_tcb = NULL;
+  uint16_t lcid;
+
+  LOG(ERROR) << __func__;
+  if (p_eatt_bcb) {
+    p_tcb = p_eatt_bcb->p_tcb;
+    lcid = p_eatt_bcb->cid;
+  }
+  else {
+    VLOG(1) << __func__ << " Invalid EATT bearer";
+    return;
+  }
+
+  if (p_eatt_bcb->indicate_handle == gatt_cb.handle_of_h_r) {
+    /* There are some GATT Server only devices, that don't implement GATT client
+     * functionalities, and ignore "Service Changed" indication. Android does
+     * not have CCC in "Service Changed" characteristic, and sends it to all
+     * bonded devices. This leads to situation where remote can ignore the
+     * indication, and trigger 30s timeout, then reconnection in a loop.
+     *
+     * Since chances of healthy Client device keeping connection for 30 seconds
+     * and not responding to "Service Changed" indication are very low, assume
+     * we are dealing with Server only device, and don't trigger disconnection.
+     *
+     * TODO: In future, we should properly expose CCC, and send indication only
+     * to devices that register for it.
+     */
+    LOG(WARNING) << " Service Changed notification timed out in 30 "
+                    "seconds, assuming server-only remote, not disconnecting";
+    gatts_proc_srv_chg_ind_ack(*p_tcb);
+    return;
+  }
+
+  if (p_tcb->is_eatt_supported) {
+    gatt_move_apps(lcid);
+  }
+
+  LOG(WARNING) << __func__ << " disconnecting...";
+  gatt_disconnect(p_tcb, lcid);
 }
 
 /*******************************************************************************
@@ -650,8 +810,28 @@ void gatt_ind_ack_timeout(void* data) {
 
   LOG(WARNING) << __func__ << ": send ack now";
   p_tcb->ind_count = 0;
-  attp_send_cl_msg(*p_tcb, nullptr, GATT_HANDLE_VALUE_CONF, NULL);
+  attp_send_cl_msg(*p_tcb, nullptr, p_tcb->att_lcid, GATT_HANDLE_VALUE_CONF, NULL);
 }
+
+/*******************************************************************************
+ *
+ * Function         gatt_ind_ack_eatt_timeout
+ *
+ * Description      Called when GATT wait for ATT handle confirmation timeout
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void gatt_ind_ack_eatt_timeout(void* data) {
+  tGATT_EBCB* p_eatt_bcb = (tGATT_EBCB*)data;
+  uint16_t lcid = p_eatt_bcb->cid;
+  tGATT_TCB* p_tcb = p_eatt_bcb->p_tcb;
+
+  LOG(WARNING) << __func__ << ": send ack now, lcid: " << +lcid;
+  p_tcb->ind_count = 0;
+  attp_send_cl_msg(*p_tcb, nullptr, lcid, GATT_HANDLE_VALUE_CONF, NULL);
+}
+
 /*******************************************************************************
  *
  * Description      Search for a service that owns a specific handle.
@@ -709,6 +889,7 @@ void gatt_sr_send_req_callback(uint16_t conn_id, uint32_t trans_id,
                                tGATTS_REQ_TYPE type, tGATTS_DATA* p_data) {
   tGATT_IF gatt_if = GATT_GET_GATT_IF(conn_id);
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
+  VLOG(1) << __func__;
 
   if (!p_reg) {
     LOG(ERROR) << "p_reg not found discard request";
@@ -731,7 +912,7 @@ void gatt_sr_send_req_callback(uint16_t conn_id, uint32_t trans_id,
  * Returns          void
  *
  ******************************************************************************/
-tGATT_STATUS gatt_send_error_rsp(tGATT_TCB& tcb, uint8_t err_code,
+tGATT_STATUS gatt_send_error_rsp(tGATT_TCB& tcb, uint16_t lcid, uint8_t err_code,
                                  uint8_t op_code, uint16_t handle, bool deq) {
   tGATT_STATUS status;
   BT_HDR* p_buf;
@@ -741,13 +922,13 @@ tGATT_STATUS gatt_send_error_rsp(tGATT_TCB& tcb, uint8_t err_code,
   msg.error.reason = err_code;
   msg.error.handle = handle;
 
-  p_buf = attp_build_sr_msg(tcb, GATT_RSP_ERROR, &msg);
+  p_buf = attp_build_sr_msg(tcb, lcid, GATT_RSP_ERROR, &msg);
   if (p_buf != NULL) {
-    status = attp_send_sr_msg(tcb, p_buf);
+    status = attp_send_sr_msg(tcb, lcid, p_buf);
   } else
     status = GATT_INSUF_RESOURCE;
 
-  if (deq) gatt_dequeue_sr_cmd(tcb);
+  if (deq) gatt_dequeue_sr_cmd(tcb, lcid);
 
   return status;
 }
@@ -996,10 +1177,27 @@ void gatt_sr_copy_prep_cnt_to_cback_cnt(tGATT_TCB& tcb) {
  * Returns          True if thetotal application callback count is zero
  *
  ******************************************************************************/
-bool gatt_sr_is_cback_cnt_zero(tGATT_TCB& tcb) {
-  for (uint8_t i = 0; i < GATT_MAX_APPS; i++) {
-    if (tcb.sr_cmd.cback_cnt[i]) {
+bool gatt_sr_is_cback_cnt_zero(tGATT_TCB& tcb, uint16_t lcid) {
+  tGATT_EBCB* p_eatt_bcb;
+
+  if (tcb.is_eatt_supported) {
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    if (p_eatt_bcb == NULL) {
+      VLOG(1) << __func__ << " EATT bearer not found for : " << +lcid;
       return false;
+    }
+  }
+
+  for (uint8_t i = 0; i < GATT_MAX_APPS; i++) {
+    if (tcb.is_eatt_supported) {
+      if (p_eatt_bcb->sr_cmd.cback_cnt[i]) {
+        return false;
+      }
+    }
+    else {
+      if (tcb.sr_cmd.cback_cnt[i]) {
+        return false;
+      }
     }
   }
   return true;
@@ -1110,7 +1308,17 @@ void gatt_sr_update_prep_cnt(tGATT_TCB& tcb, tGATT_IF gatt_if, bool is_inc,
 /** Cancel LE Create Connection request */
 bool gatt_cancel_open(tGATT_IF gatt_if, const RawAddress& bda) {
   tGATT_TCB* p_tcb = gatt_find_tcb_by_addr(bda, BT_TRANSPORT_LE);
+  tGATT_EBCB* p_eatt_bcb;
+  uint16_t lcid;
+
   if (!p_tcb) return true;
+
+  lcid = p_tcb->att_lcid;
+
+  if(p_tcb->is_eatt_supported) {
+    p_eatt_bcb = gatt_find_eatt_bcb_by_gatt_if(gatt_if, bda);
+    lcid = p_eatt_bcb->cid;
+  }
 
   if (gatt_get_ch_state(p_tcb) == GATT_CH_OPEN) {
     LOG(ERROR) << __func__ << ": link connected Too late to cancel";
@@ -1119,15 +1327,15 @@ bool gatt_cancel_open(tGATT_IF gatt_if, const RawAddress& bda) {
 
   gatt_update_app_use_link_flag(gatt_if, p_tcb, false, false);
 
-  if (p_tcb->app_hold_link.empty()) gatt_disconnect(p_tcb);
+  if (p_tcb->app_hold_link.empty()) gatt_disconnect(p_tcb, lcid);
 
   connection_manager::direct_connect_remove(gatt_if, bda);
   return true;
 }
 
 /** Enqueue this command */
-void gatt_cmd_enq(tGATT_TCB& tcb, tGATT_CLCB* p_clcb, bool to_send,
-                  uint8_t op_code, BT_HDR* p_buf) {
+void gatt_cmd_enq(tGATT_TCB& tcb, tGATT_CLCB* p_clcb, tGATT_EBCB* p_eatt_bcb,
+                  bool to_send, uint8_t op_code, BT_HDR* p_buf) {
   tGATT_CMD_Q cmd;
   cmd.to_send = to_send; /* waiting to be sent */
   cmd.op_code = op_code;
@@ -1136,20 +1344,46 @@ void gatt_cmd_enq(tGATT_TCB& tcb, tGATT_CLCB* p_clcb, bool to_send,
 
   if (!to_send) {
     // TODO: WTF why do we clear the queue here ?!
-    tcb.cl_cmd_q = std::queue<tGATT_CMD_Q>();
+    if (tcb.is_eatt_supported) {
+      p_eatt_bcb->cl_cmd_q = std::queue<tGATT_CMD_Q>();
+    }
+    else {
+      tcb.cl_cmd_q = std::queue<tGATT_CMD_Q>();
+    }
   }
 
-  tcb.cl_cmd_q.push(cmd);
+  if (tcb.is_eatt_supported) {
+    p_eatt_bcb->cl_cmd_q.push(cmd);
+  }
+  else {
+    tcb.cl_cmd_q.push(cmd);
+  }
 }
 
 /** dequeue the command in the client CCB command queue */
-tGATT_CLCB* gatt_cmd_dequeue(tGATT_TCB& tcb, uint8_t* p_op_code) {
-  if (tcb.cl_cmd_q.empty()) return nullptr;
+tGATT_CLCB* gatt_cmd_dequeue(tGATT_TCB& tcb, uint16_t lcid, uint8_t* p_op_code) {
+  std::queue<tGATT_CMD_Q>* cl_cmd_q = &tcb.cl_cmd_q;
+  tGATT_EBCB* p_eatt_bcb;
 
-  tGATT_CMD_Q cmd = tcb.cl_cmd_q.front();
+  if (tcb.is_eatt_supported) {
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    if (p_eatt_bcb) {
+      cl_cmd_q = &(p_eatt_bcb->cl_cmd_q);
+    }
+    else {
+      if (lcid != L2CAP_ATT_CID) {
+        VLOG(1) << __func__ << "EATT supported: Unknown lcid";
+        return NULL;
+      }
+    }
+  }
+
+  if (cl_cmd_q->empty()) return nullptr;
+
+  tGATT_CMD_Q cmd = cl_cmd_q->front();
   tGATT_CLCB* p_clcb = cmd.p_clcb;
   *p_op_code = cmd.op_code;
-  tcb.cl_cmd_q.pop();
+  cl_cmd_q->pop();
 
   return p_clcb;
 }
@@ -1159,13 +1393,20 @@ uint8_t gatt_send_write_msg(tGATT_TCB& tcb, tGATT_CLCB* p_clcb, uint8_t op_code,
                             uint16_t handle, uint16_t len, uint16_t offset,
                             uint8_t* p_data) {
   tGATT_CL_MSG msg;
+  uint16_t lcid = 0;
+
   msg.attr_value.handle = handle;
   msg.attr_value.len = len;
   msg.attr_value.offset = offset;
   memcpy(msg.attr_value.value, p_data, len);
 
+  lcid = tcb.att_lcid;
+  if (tcb.is_eatt_supported) {
+    lcid = gatt_get_cid_by_conn_id(p_clcb->conn_id);
+  }
+
   /* write by handle */
-  return attp_send_cl_msg(tcb, p_clcb, op_code, &msg);
+  return attp_send_cl_msg(tcb, p_clcb, lcid, op_code, &msg);
 }
 
 /*******************************************************************************
@@ -1195,7 +1436,15 @@ void gatt_end_operation(tGATT_CLCB* p_clcb, tGATT_STATUS status, void* p_data) {
 
   if (p_cmpl_cb != NULL && p_clcb->operation != 0) {
     if (p_clcb->operation == GATTC_OPTYPE_READ) {
-      cb_data.att_value.handle = p_clcb->s_handle;
+      //Add for read multi rsp
+      if ((p_clcb->op_subtype == GATT_READ_MULTIPLE) ||
+          (p_clcb->op_subtype == GATT_READ_MULTIPLE_VARIABLE)) {
+        cb_data.att_value.read_sub_type = p_clcb->op_subtype;
+      }
+      else {
+        cb_data.att_value.handle = p_clcb->s_handle;
+      }
+
       cb_data.att_value.len = p_clcb->counter;
 
       if (p_data && p_clcb->counter)
@@ -1233,7 +1482,7 @@ void gatt_end_operation(tGATT_CLCB* p_clcb, tGATT_STATUS status, void* p_data) {
   if (p_disc_cmpl_cb && (op == GATTC_OPTYPE_DISCOVERY))
     (*p_disc_cmpl_cb)(conn_id, disc_type, status);
   else if (p_cmpl_cb && op)
-    (*p_cmpl_cb)(conn_id, op, status, &cb_data);
+    (*p_cmpl_cb)(conn_id, op, status, &cb_data, 0);
   else
     LOG(WARNING) << __func__
                  << StringPrintf(
@@ -1247,6 +1496,8 @@ void gatt_cleanup_upon_disc(const RawAddress& bda, uint16_t reason,
   VLOG(1) << __func__;
 
   tGATT_TCB* p_tcb = gatt_find_tcb_by_addr(bda, transport);
+  uint16_t lcid = p_tcb->att_lcid;
+
   if (!p_tcb) return;
 
   gatt_set_ch_state(p_tcb, GATT_CH_CLOSE);
@@ -1268,7 +1519,6 @@ void gatt_cleanup_upon_disc(const RawAddress& bda, uint16_t reason,
   p_tcb->ind_ack_timer = NULL;
   alarm_free(p_tcb->conf_timer);
   p_tcb->conf_timer = NULL;
-  gatt_free_pending_ind(p_tcb);
   fixed_queue_free(p_tcb->sr_cmd.multi_rsp_q, NULL);
   p_tcb->sr_cmd.multi_rsp_q = NULL;
 
@@ -1280,8 +1530,21 @@ void gatt_cleanup_upon_disc(const RawAddress& bda, uint16_t reason,
                               p_tcb->tcb_idx, p_reg->gatt_if, conn_id);
       (*p_reg->app_cb.p_conn_cb)(p_reg->gatt_if, bda, conn_id, false, reason,
                                  transport);
+
+      if (p_tcb->is_eatt_supported) {
+        lcid = gatt_get_cid_by_conn_id(conn_id);
+      }
+      gatt_free_pending_ind(p_tcb, lcid);
     }
   }
+
+  gatt_free_pending_ind(p_tcb, L2CAP_ATT_CID);
+
+  eatt_cleanup_upon_disc(bda);
+
+  p_tcb->is_eatt_supported = false;
+  p_tcb->is_eatt_upgrade_done = false;
+  p_tcb->is_att_rsp_tout = false;
 
   *p_tcb = tGATT_TCB();
   VLOG(1) << __func__ << ": exit";

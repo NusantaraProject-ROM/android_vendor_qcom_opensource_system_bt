@@ -25,6 +25,7 @@
 #define BTA_DM_API_H
 
 #include "stack/include/bt_types.h"
+#include "bta/dm/bta_dm_int.h"
 
 // Brings connection to active mode
 void bta_dm_pm_active(const RawAddress& peer_addr);

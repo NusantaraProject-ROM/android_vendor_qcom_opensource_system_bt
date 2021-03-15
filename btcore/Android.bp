@@ -5,6 +5,7 @@ cc_library_static {
     defaults: ["fluoride_defaults_qti"],
     local_include_dirs: ["include"],
     include_dirs: ["vendor/qcom/opensource/commonsys/system/bt",
+                   "vendor/qcom/opensource/commonsys/system/bt/internal_include",
                    "vendor/qcom/opensource/commonsys/system/bt/stack/include"],
     srcs: [
         "src/device_class.cc",

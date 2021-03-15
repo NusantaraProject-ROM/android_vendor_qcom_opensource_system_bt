@@ -33,6 +33,8 @@
 #include "gatt_int.h"
 #include "l2c_api.h"
 #include "stack/gatt/connection_manager.h"
+#include "stack/gatt/eatt_int.h"
+#include "btif_storage.h"
 
 #define SYSTEM_APP_GATT_IF 3
 
@@ -417,6 +419,9 @@ tGATT_STATUS GATTS_HandleValueIndication(uint16_t conn_id, uint16_t attr_handle,
   uint8_t tcb_idx = GATT_GET_TCB_IDX(conn_id);
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
+  uint16_t lcid = 0;
+  tGATT_EBCB* p_eatt_bcb;
+  uint16_t indicate_handle = 0;
 
   VLOG(1) << __func__;
   if ((p_reg == NULL) || (p_tcb == NULL)) {
@@ -433,22 +438,48 @@ tGATT_STATUS GATTS_HandleValueIndication(uint16_t conn_id, uint16_t attr_handle,
   memcpy(indication.value, p_val, val_len);
   indication.auth_req = GATT_AUTH_REQ_NONE;
 
-  if (GATT_HANDLE_IS_VALID(p_tcb->indicate_handle)) {
+  lcid = p_tcb->att_lcid;
+  indicate_handle = p_tcb->indicate_handle;
+  if (p_tcb->is_eatt_supported && p_reg->eatt_support) {
+    if (is_gatt_conn_id_found(conn_id)) {
+      lcid = gatt_get_cid_by_conn_id(conn_id);
+      p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+      if (p_eatt_bcb)
+        indicate_handle = p_eatt_bcb->indicate_handle;
+    }
+    else {
+      //Find least burdened channel
+      p_eatt_bcb = gatt_find_best_eatt_bcb(p_tcb, gatt_if, 0, false);
+      if (p_eatt_bcb) {
+        lcid = p_eatt_bcb->cid;
+        indicate_handle = p_eatt_bcb->indicate_handle;
+      }
+    }
+  }
+  else if (p_tcb->is_eatt_supported && !p_reg->eatt_support) {
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(L2CAP_ATT_CID);
+    indicate_handle = p_eatt_bcb->indicate_handle;
+  }
+
+  if (GATT_HANDLE_IS_VALID(indicate_handle)) {
     VLOG(1) << "Add a pending indication";
-    gatt_add_pending_ind(p_tcb, &indication);
+    gatt_add_pending_ind(p_tcb, lcid, &indication);
     return GATT_SUCCESS;
   }
 
   tGATT_SR_MSG gatt_sr_msg;
   gatt_sr_msg.attr_value = indication;
   BT_HDR* p_msg =
-      attp_build_sr_msg(*p_tcb, GATT_HANDLE_VALUE_IND, &gatt_sr_msg);
+      attp_build_sr_msg(*p_tcb, lcid, GATT_HANDLE_VALUE_IND, &gatt_sr_msg);
   if (!p_msg) return GATT_NO_RESOURCES;
 
-  tGATT_STATUS cmd_status = attp_send_sr_msg(*p_tcb, p_msg);
+  tGATT_STATUS cmd_status = attp_send_sr_msg(*p_tcb, lcid, p_msg);
   if (cmd_status == GATT_SUCCESS || cmd_status == GATT_CONGESTED) {
-    p_tcb->indicate_handle = indication.handle;
-    gatt_start_conf_timer(p_tcb);
+    if (p_tcb->is_eatt_supported)
+      p_eatt_bcb->indicate_handle = indication.handle;
+    else
+      p_tcb->indicate_handle = indication.handle;
+    gatt_start_conf_timer(p_tcb, lcid);
   }
   return cmd_status;
 }
@@ -476,6 +507,8 @@ tGATT_STATUS GATTS_HandleValueNotification(uint16_t conn_id,
   uint8_t tcb_idx = GATT_GET_TCB_IDX(conn_id);
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
+  uint16_t lcid = 0;
+  tGATT_EBCB* p_eatt_bcb;
 
   VLOG(1) << __func__;
 
@@ -493,13 +526,108 @@ tGATT_STATUS GATTS_HandleValueNotification(uint16_t conn_id,
   memcpy(notif.value, p_val, val_len);
   notif.auth_req = GATT_AUTH_REQ_NONE;
 
+  lcid = p_tcb->att_lcid;
+  if (p_tcb->is_eatt_supported && p_reg->eatt_support) {
+    if (is_gatt_conn_id_found(conn_id)) {
+      lcid = gatt_get_cid_by_conn_id(conn_id);
+    }
+    else {
+      p_eatt_bcb = gatt_find_best_eatt_bcb(p_tcb, gatt_if, 0, false);
+      if (p_eatt_bcb)
+        lcid = p_eatt_bcb->cid;
+    }
+  }
+
   tGATT_STATUS cmd_sent;
   tGATT_SR_MSG gatt_sr_msg;
   gatt_sr_msg.attr_value = notif;
   BT_HDR* p_buf =
-      attp_build_sr_msg(*p_tcb, GATT_HANDLE_VALUE_NOTIF, &gatt_sr_msg);
+      attp_build_sr_msg(*p_tcb, lcid, GATT_HANDLE_VALUE_NOTIF, &gatt_sr_msg);
+
   if (p_buf != NULL) {
-    cmd_sent = attp_send_sr_msg(*p_tcb, p_buf);
+    cmd_sent = attp_send_sr_msg(*p_tcb, lcid, p_buf);
+  } else
+    cmd_sent = GATT_NO_RESOURCES;
+  return cmd_sent;
+}
+
+/*******************************************************************************
+ *
+ * Function         GATTS_MultiHandleValueNotifications
+ *
+ * Description      This function sends multiple handle value notifications to a client.
+ *
+ * Parameter        conn_id: connection identifier.
+ *                  num_attr: number of attributes which are notified
+ *                  handles: array of attribute handles notified.
+ *                  lens: array of lengths of characteristic value notified.
+ *                  values: vector of characteristic values notified.
+ *
+ * Returns          GATT_SUCCESS if sucessfully sent; otherwise error code.
+ *
+ ******************************************************************************/
+tGATT_STATUS GATTS_MultiHandleValueNotifications(uint16_t conn_id,
+                                                 uint8_t num_attr,
+                                                 uint16_t handles[],
+                                                 uint16_t lens[],
+                                                 std::vector<std::vector<uint8_t>> values) {
+  tGATT_IF gatt_if = GATT_GET_GATT_IF(conn_id);
+  uint8_t tcb_idx = GATT_GET_TCB_IDX(conn_id);
+  tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
+  tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
+  uint16_t lcid = 0;
+  tGATT_EBCB* p_eatt_bcb;
+  tGATT_MULTI_NOTIF multi_ntf;
+  uint16_t payload_size = 0;
+  uint8_t cl_supp_feat = 0;
+
+  VLOG(1) << __func__ << " gatt_if:" << +gatt_if;
+
+  if ((p_reg == NULL) || (p_tcb == NULL)) {
+    LOG(ERROR) << __func__ << "Unknown  conn_id: " << conn_id;
+    return (tGATT_STATUS)GATT_INVALID_CONN_ID;
+  }
+
+  cl_supp_feat = btif_storage_get_cl_supp_feat(p_tcb->peer_bda);
+  if ((cl_supp_feat & CL_MULTI_NOTIF_SUPPORTED) != CL_MULTI_NOTIF_SUPPORTED) {
+    LOG(ERROR) << __func__ << " Unsupported by remote client";
+    return GATT_REQ_NOT_SUPPORTED;
+  }
+
+  multi_ntf.auth_req = GATT_AUTH_REQ_NONE;
+  multi_ntf.conn_id = conn_id;
+  multi_ntf.num_attr = num_attr;
+
+  for (uint8_t i=0; i<num_attr; i++) {
+    multi_ntf.handles[i] = handles[i];
+    multi_ntf.lens[i] = lens[i];
+    if (!GATT_HANDLE_IS_VALID(multi_ntf.handles[i])) {
+      return GATT_ILLEGAL_PARAMETER;
+    }
+  }
+  multi_ntf.values = values;
+
+  lcid = p_tcb->att_lcid;
+  payload_size = p_tcb->payload_size;
+  if (p_tcb->is_eatt_supported && p_reg->eatt_support) {
+    if (is_gatt_conn_id_found(conn_id)) {
+      lcid = gatt_get_cid_by_conn_id(conn_id);
+    }
+    else {
+      //Find least burdened channel
+      p_eatt_bcb = gatt_find_best_eatt_bcb(p_tcb, gatt_if, 0, false);
+      if (p_eatt_bcb)
+        lcid = p_eatt_bcb->cid;
+    }
+  }
+  payload_size = gatt_get_payload_size(p_tcb, lcid);
+
+  tGATT_STATUS cmd_sent;
+
+  BT_HDR* p_buf = attp_build_multi_ntf_cmd(payload_size, multi_ntf);
+
+  if (p_buf != NULL) {
+    cmd_sent = attp_send_sr_msg(*p_tcb, lcid, p_buf);
   } else
     cmd_sent = GATT_NO_RESOURCES;
   return cmd_sent;
@@ -526,6 +654,8 @@ tGATT_STATUS GATTS_SendRsp(uint16_t conn_id, uint32_t trans_id,
   uint8_t tcb_idx = GATT_GET_TCB_IDX(conn_id);
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
+  uint32_t sr_cmd_trans_id = 0;
+  uint8_t op_code = 0;
 
   VLOG(1) << __func__ << ": conn_id=" << loghex(conn_id)
           << ", trans_id=" << loghex(trans_id) << ", status=" << loghex(status);
@@ -535,16 +665,69 @@ tGATT_STATUS GATTS_SendRsp(uint16_t conn_id, uint32_t trans_id,
     return (tGATT_STATUS)GATT_INVALID_CONN_ID;
   }
 
-  if (p_tcb->sr_cmd.trans_id != trans_id) {
+  if (p_tcb->is_eatt_supported) {
+    tGATT_EBCB* p_eatt_bcb =
+            gatt_find_eatt_bcb_by_srv_trans_id(trans_id, p_tcb->peer_bda);
+    if (p_eatt_bcb) {
+      sr_cmd_trans_id = p_eatt_bcb->sr_cmd.trans_id;
+      op_code = p_eatt_bcb->sr_cmd.op_code;
+    }
+    else {
+      return (GATT_NO_RESOURCES);
+    }
+  }
+  else {
+    sr_cmd_trans_id = p_tcb->sr_cmd.trans_id;
+    op_code = p_tcb->sr_cmd.op_code;
+  }
+
+  if (sr_cmd_trans_id != trans_id) {
     LOG(ERROR) << "conn_id=" << loghex(conn_id)
-               << " waiting for op_code=" << loghex(p_tcb->sr_cmd.op_code);
+               << " waiting for op_code=" << loghex(sr_cmd_trans_id);
     return (GATT_WRONG_STATE);
   }
   /* Process App response */
   cmd_sent = gatt_sr_process_app_rsp(*p_tcb, gatt_if, trans_id,
-                                     p_tcb->sr_cmd.op_code, status, p_msg);
+                                     op_code, status, p_msg);
 
   return cmd_sent;
+}
+
+/*******************************************************************************
+ *
+ * Function         GATTS_ConfigureMTU
+ *
+ * Description      This function add the allocated handles range for the
+ *                  specified application UUID, service UUID and service
+ *                  instance
+ *
+ * Parameter        p_hndl_range:   pointer to allocated handles information
+ *
+******************************************************************************/
+tGATT_STATUS GATTS_ConfigureMTU(uint16_t conn_id, uint16_t mtu) {
+  tGATT_IF gatt_if = GATT_GET_GATT_IF(conn_id);
+  uint8_t tcb_idx = GATT_GET_TCB_IDX(conn_id);
+  tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
+  tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
+
+  if ((p_tcb == NULL) || (p_reg == NULL) || (mtu < GATT_DEF_BLE_MTU_SIZE) ||
+      (mtu > GATT_MAX_MTU_SIZE)) {
+    return GATT_ILLEGAL_PARAMETER;
+  }
+
+  /* Validate that the link is BLE, not BR/EDR */
+  if (p_tcb->transport != BT_TRANSPORT_LE) {
+    return GATT_ERROR;
+  }
+
+  tGATTS_DATA gatts_data;
+  uint16_t lcid = gatt_get_cid_by_conn_id(conn_id);
+  gatts_data.mtu = gatt_get_payload_size(p_tcb, lcid);
+
+  VLOG(1) << __func__ << " mtu:" << +gatts_data.mtu;
+  gatt_sr_send_req_callback(conn_id, 0, GATTS_REQ_TYPE_MTU, &gatts_data);
+
+  return GATT_SUCCESS;
 }
 
 /******************************************************************************/
@@ -574,6 +757,11 @@ tGATT_STATUS GATTC_ConfigureMTU(uint16_t conn_id, uint16_t mtu) {
   uint8_t tcb_idx = GATT_GET_TCB_IDX(conn_id);
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
+  uint16_t lcid = 0;
+  tGATT_EBCB* p_eatt_bcb = NULL;
+  tGATT_CMPL_CBACK* p_cmpl_cb =
+      (p_reg) ? p_reg->app_cb.p_cmpl_cb : NULL;
+  tGATT_CL_COMPLETE cb_data;
 
   VLOG(1) << __func__ << ": conn_id=" << loghex(conn_id) << ", mtu=" << +mtu;
 
@@ -587,6 +775,18 @@ tGATT_STATUS GATTC_ConfigureMTU(uint16_t conn_id, uint16_t mtu) {
     return GATT_ERROR;
   }
 
+  if (p_tcb->is_eatt_supported && p_reg->eatt_support) {
+    uint16_t cid = gatt_get_cid_by_conn_id(conn_id);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(cid);
+    if (p_eatt_bcb) {
+      cb_data.mtu = p_eatt_bcb->payload_size;
+      if (p_cmpl_cb) {
+        (*p_cmpl_cb)(conn_id, GATTC_OPTYPE_CONFIG, GATT_SUCCESS, &cb_data, 0);
+      }
+    }
+    return GATT_SUCCESS;
+  }
+
   if (gatt_is_clcb_allocated(conn_id)) {
     LOG(ERROR) << "GATT_BUSY conn_id = " << +conn_id;
     return GATT_BUSY;
@@ -597,9 +797,12 @@ tGATT_STATUS GATTC_ConfigureMTU(uint16_t conn_id, uint16_t mtu) {
 
   p_clcb->p_tcb->payload_size = mtu;
   p_clcb->operation = GATTC_OPTYPE_CONFIG;
+
+  lcid = p_tcb->att_lcid;
+
   tGATT_CL_MSG gatt_cl_msg;
   gatt_cl_msg.mtu = mtu;
-  return attp_send_cl_msg(*p_clcb->p_tcb, p_clcb, GATT_REQ_MTU, &gatt_cl_msg);
+  return attp_send_cl_msg(*p_clcb->p_tcb, p_clcb, lcid, GATT_REQ_MTU, &gatt_cl_msg);
 }
 
 /*******************************************************************************
@@ -688,6 +891,7 @@ tGATT_STATUS GATTC_Read(uint16_t conn_id, tGATT_READ_TYPE type,
   uint8_t tcb_idx = GATT_GET_TCB_IDX(conn_id);
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
+  uint16_t payload_size = 0;
 
   VLOG(1) << __func__ << ": conn_id=" << loghex(conn_id)
           << ", type=" << loghex(type);
@@ -707,11 +911,13 @@ tGATT_STATUS GATTC_Read(uint16_t conn_id, tGATT_READ_TYPE type,
   tGATT_CLCB* p_clcb = gatt_clcb_alloc(conn_id);
   if (!p_clcb) return GATT_NO_RESOURCES;
 
+  uint16_t lcid = gatt_get_cid_by_conn_id(conn_id);
+  payload_size = gatt_get_payload_size(p_tcb, lcid);
   p_clcb->operation = GATTC_OPTYPE_READ;
   p_clcb->op_subtype = type;
   p_clcb->auth_req = p_read->by_handle.auth_req;
   p_clcb->counter = 0;
-  p_clcb->read_req_current_mtu = p_tcb->payload_size;
+  p_clcb->read_req_current_mtu = payload_size;
 
   switch (type) {
     case GATT_READ_BY_TYPE:
@@ -720,7 +926,8 @@ tGATT_STATUS GATTC_Read(uint16_t conn_id, tGATT_READ_TYPE type,
       p_clcb->e_handle = p_read->service.e_handle;
       p_clcb->uuid = p_read->service.uuid;
       break;
-    case GATT_READ_MULTIPLE: {
+    case GATT_READ_MULTIPLE:
+    case GATT_READ_MULTIPLE_VARIABLE: {
       p_clcb->s_handle = 0;
       /* copy multiple handles in CB */
       tGATT_READ_MULTI* p_read_multi =
@@ -858,9 +1065,12 @@ tGATT_STATUS GATTC_ExecuteWrite(uint16_t conn_id, bool is_execute) {
  * Returns          GATT_SUCCESS if command started successfully.
  *
  ******************************************************************************/
-tGATT_STATUS GATTC_SendHandleValueConfirm(uint16_t conn_id, uint16_t handle) {
+tGATT_STATUS GATTC_SendHandleValueConfirm(uint16_t conn_id, uint16_t handle,
+                                          uint32_t trans_id) {
   VLOG(1) << __func__ << " conn_id=" << loghex(conn_id)
           << ", handle=" << loghex(handle);
+  tGATT_EBCB* p_eatt_bcb;
+  uint16_t lcid;
 
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(GATT_GET_TCB_IDX(conn_id));
   if (!p_tcb) {
@@ -877,11 +1087,21 @@ tGATT_STATUS GATTC_SendHandleValueConfirm(uint16_t conn_id, uint16_t handle) {
   alarm_cancel(p_tcb->ind_ack_timer);
 
   VLOG(1) << "notif_count= " << p_tcb->ind_count;
+
+  lcid = p_tcb->att_lcid;
+
+  if (p_tcb->is_eatt_supported) {
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cl_trans_id(trans_id, p_tcb->peer_bda);
+    if (p_eatt_bcb)
+      lcid = p_eatt_bcb->cid;
+    else
+      return GATT_ILLEGAL_PARAMETER;
+  }
   /* send confirmation now */
   tGATT_CL_MSG gatt_cl_msg;
   gatt_cl_msg.handle = handle;
   tGATT_STATUS ret =
-      attp_send_cl_msg(*p_tcb, nullptr, GATT_HANDLE_VALUE_CONF, &gatt_cl_msg);
+      attp_send_cl_msg(*p_tcb, nullptr, lcid, GATT_HANDLE_VALUE_CONF, &gatt_cl_msg);
 
   p_tcb->ind_count = 0;
 
@@ -907,12 +1127,15 @@ tGATT_STATUS GATTC_SendHandleValueConfirm(uint16_t conn_id, uint16_t handle) {
  *
  ******************************************************************************/
 void GATT_SetIdleTimeout(const RawAddress& bd_addr, uint16_t idle_tout,
-                         tBT_TRANSPORT transport) {
+                         tBT_TRANSPORT transport, uint16_t lcid) {
   bool status = false;
 
   tGATT_TCB* p_tcb = gatt_find_tcb_by_addr(bd_addr, transport);
   if (p_tcb != NULL) {
-    if (p_tcb->att_lcid == L2CAP_ATT_CID) {
+    if(!p_tcb->is_eatt_supported) {
+      lcid = p_tcb->att_lcid;
+    }
+    if (lcid == L2CAP_ATT_CID) {
       status = L2CA_SetFixedChannelTout(bd_addr, L2CAP_ATT_CID, idle_tout);
 
       if (idle_tout == GATT_LINK_IDLE_TIMEOUT_WHEN_NO_APP)
@@ -920,7 +1143,7 @@ void GATT_SetIdleTimeout(const RawAddress& bd_addr, uint16_t idle_tout,
                                     GATT_LINK_IDLE_TIMEOUT_WHEN_NO_APP,
                                     BT_TRANSPORT_LE);
     } else {
-      status = L2CA_SetIdleTimeout(p_tcb->att_lcid, idle_tout, false);
+      status = L2CA_SetIdleTimeout(lcid, idle_tout, false);
     }
   }
 
@@ -942,7 +1165,7 @@ void GATT_SetIdleTimeout(const RawAddress& bd_addr, uint16_t idle_tout,
  *                  with GATT
  *
  ******************************************************************************/
-tGATT_IF GATT_Register(const Uuid& app_uuid128, tGATT_CBACK* p_cb_info) {
+tGATT_IF GATT_Register(const Uuid& app_uuid128, tGATT_CBACK* p_cb_info, bool eatt_support) {
   tGATT_REG* p_reg;
   uint8_t i_gatt_if = 0;
   tGATT_IF gatt_if = 0;
@@ -966,6 +1189,7 @@ tGATT_IF GATT_Register(const Uuid& app_uuid128, tGATT_CBACK* p_cb_info) {
       gatt_if = p_reg->gatt_if = (tGATT_IF)i_gatt_if;
       p_reg->app_cb = *p_cb_info;
       p_reg->in_use = true;
+      p_reg->eatt_support = eatt_support;
 
       LOG(INFO) << "allocated gatt_if=" << +gatt_if;
       return gatt_if;
@@ -990,6 +1214,9 @@ tGATT_IF GATT_Register(const Uuid& app_uuid128, tGATT_CBACK* p_cb_info) {
  ******************************************************************************/
 void GATT_Deregister(tGATT_IF gatt_if) {
   bool is_gatt_connected = false;
+  tGATT_EBCB* p_eatt_bcb;
+  uint16_t lcid;
+
   VLOG(1) << __func__ << " gatt_if=" << +gatt_if;
   
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
@@ -1029,15 +1256,27 @@ void GATT_Deregister(tGATT_IF gatt_if) {
     if (!p_tcb->in_use) continue;
     if (p_tcb->in_use) {
       if (gatt_get_ch_state(p_tcb) != GATT_CH_CLOSE) {
+        lcid = p_tcb->att_lcid;
+        if(p_tcb->is_eatt_supported) {
+          p_eatt_bcb = gatt_find_eatt_bcb_by_gatt_if(gatt_if, p_tcb->peer_bda);
+          if (p_eatt_bcb)
+            lcid = p_eatt_bcb->cid;
+          else
+            LOG(ERROR) << " EATT bearer not found";
+        }
+
         is_gatt_connected = gatt_is_app_holding_link(gatt_if, p_tcb);
         gatt_update_app_use_link_flag(gatt_if, p_tcb, false, true);
         if (is_gatt_connected && (gatt_if > SYSTEM_APP_GATT_IF) && p_tcb->app_hold_link.empty())
         {
           /* this will disconnect the link or cancel the pending connect request at lower layer*/
-          gatt_disconnect(p_tcb);
+          gatt_disconnect(p_tcb, lcid);
         }
+
+        uint16_t conn_id = GATT_CREATE_CONN_ID(p_tcb->tcb_idx, gatt_if);
+        gatt_remove_gatt_conn(conn_id, lcid);
       }
-    }      
+    }
 
 
     tGATT_CLCB* p_clcb;
@@ -1119,6 +1358,7 @@ bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, bool is_direct,
 bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, bool is_direct,
                   tBT_TRANSPORT transport, bool opportunistic,
                   uint8_t initiating_phys) {
+  tGATT_TCB* p_tcb;
   LOG(INFO) << __func__ << " gatt_if=" << +gatt_if << ", address=" << bd_addr
     << " is_direct " << is_direct;
 
@@ -1136,6 +1376,12 @@ bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, bool is_direct,
 
   if (opportunistic) {
     LOG(INFO) << __func__ << " opportunistic connection";
+
+    p_tcb = gatt_find_tcb_by_addr(bd_addr, transport);
+    if (p_tcb && p_tcb->is_eatt_supported && p_reg->eatt_support) {
+      gatt_find_best_eatt_bcb(p_tcb, gatt_if, 0, true);
+    }
+
     return true;
   }
 
@@ -1154,10 +1400,21 @@ bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, bool is_direct,
     }
   }
 
-  tGATT_TCB* p_tcb = gatt_find_tcb_by_addr(bd_addr, transport);
+  p_tcb = gatt_find_tcb_by_addr(bd_addr, transport);
   // background connections don't necessarily create tcb
   if (p_tcb && ret)
     gatt_update_app_use_link_flag(p_reg->gatt_if, p_tcb, true, !is_direct);
+
+  if (p_tcb && p_tcb->is_eatt_supported && p_reg->eatt_support
+      && !is_direct) {
+    std::deque<tGATT_IF>::iterator it =
+        std::find(p_tcb->apps_needing_eatt.begin(), p_tcb->apps_needing_eatt.end(), gatt_if);
+    if (it == p_tcb->apps_needing_eatt.end()) {
+      p_tcb->apps_needing_eatt.push_back(gatt_if);
+    }
+    if (btm_sec_is_a_bonded_dev(bd_addr))
+      gatt_establish_eatt_connect(p_tcb, 1);
+  }
 
   return ret;
 }
@@ -1242,6 +1499,10 @@ tGATT_STATUS GATT_Disconnect(uint16_t conn_id) {
 
   tGATT_IF gatt_if = GATT_GET_GATT_IF(conn_id);
   gatt_update_app_use_link_flag(gatt_if, p_tcb, false, true);
+
+  uint16_t lcid = gatt_get_cid_by_conn_id(conn_id);
+  gatt_remove_gatt_conn(conn_id, lcid);
+
   return GATT_SUCCESS;
 }
 
@@ -1304,4 +1565,73 @@ bool GATT_GetConnIdIfConnected(tGATT_IF gatt_if, const RawAddress& bd_addr,
 
   VLOG(1) << __func__ << " status= " << +status;
   return status;
+}
+
+/*******************************************************************************
+ *
+ * Function         GATT_GetEattSupportIfConnected
+ *
+ * Description      This function checks if an app is using EATT or not.
+ *
+ * Parameters        gatt_if: applicaiton interface (input)
+ *                   bd_addr: peer device address. (input)
+ *                   p_conn_id: connection id  (output)
+ *                   transport: transport option
+ *
+ * Returns          true, if local and remote support EATT and gatt_if also
+ *                  requested for EATT.
+ *                  false, otherwise.
+ *
+ ******************************************************************************/
+bool GATT_GetEattSupportIfConnected(tGATT_IF gatt_if, const RawAddress& bd_addr,
+                                    tBT_TRANSPORT transport) {
+  tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
+  tGATT_TCB* p_tcb = gatt_find_tcb_by_addr(bd_addr, transport);
+  bool status = false;
+
+  if (transport != BT_TRANSPORT_LE)
+    return false;
+
+  if (p_reg && p_tcb && (gatt_get_ch_state(p_tcb) == GATT_CH_OPEN)) {
+    if (p_tcb->is_eatt_supported && p_reg->eatt_support) {
+      status = true;
+    }
+  }
+
+  VLOG(1) << __func__ << " status= " << +status;
+  return status;
+}
+
+/*******************************************************************************
+ *
+ * Function         GATT_GetMtuSize
+ *
+ * Description      This function find the conn_id if the logical link for BD
+ *                  address and applciation interface is connected
+ *
+ * Parameters        gatt_if: applicaiton interface (input)
+ *                   bd_addr: peer device address. (input)
+ *                   p_conn_id: connection id  (output)
+ *                   transport: transport option
+ *
+ * Returns          true the logical link is connected
+ *
+ ******************************************************************************/
+uint16_t GATT_GetMtuSize(uint16_t conn_id, const RawAddress& bd_addr,
+                         tBT_TRANSPORT transport) {
+  tGATT_IF gatt_if = GATT_GET_GATT_IF(conn_id);
+  tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
+  tGATT_TCB* p_tcb = gatt_find_tcb_by_addr(bd_addr, transport);
+  uint16_t mtu = 0;
+  uint16_t lcid = L2CAP_ATT_CID;
+
+  if (p_reg && p_tcb && (gatt_get_ch_state(p_tcb) == GATT_CH_OPEN)) {
+    if (p_tcb->is_eatt_supported && p_reg->eatt_support) {
+      lcid = gatt_get_cid_by_conn_id(conn_id);
+    }
+    mtu = gatt_get_payload_size(p_tcb, lcid);
+  }
+
+  VLOG(1) << __func__ << " mtu: " << +mtu;
+  return mtu;
 }

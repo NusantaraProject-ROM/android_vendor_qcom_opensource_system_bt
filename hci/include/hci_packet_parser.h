@@ -50,9 +50,13 @@ typedef struct {
   void (*parse_ble_read_white_list_size_response)(BT_HDR* response,
                                                   uint8_t* white_list_size_ptr);
 
-  void (*parse_ble_read_buffer_size_response)(BT_HDR* response,
-                                              uint16_t* data_size_ptr,
-                                              uint8_t* acl_buffer_count_ptr);
+  void (*parse_ble_read_buffer_size_response)(
+      BT_HDR* response,
+      uint16_t* le_acl_data_packet_length,
+      uint8_t* total_num_le_acl_data_packets,
+      uint16_t* iso_data_packet_length,
+      uint8_t* total_num_iso_data_packets);
+
 
   void (*parse_ble_read_supported_states_response)(
       BT_HDR* response, uint8_t* supported_states,
@@ -74,8 +78,12 @@ typedef struct {
       BT_HDR* response, uint8_t* ble_number_of_supported_advertising_sets_ptr);
 
   void (*parse_read_local_supported_codecs_response)(
-      BT_HDR* response, uint8_t* number_of_local_supported_codecs,
-      uint8_t* local_supported_codecs);
+      BT_HDR* response,
+      uint8_t* number_of_std_supported_codecs,
+      uint8_t* std_supported_codecs, uint8_t* std_codec_tx,
+      uint8_t* number_of_vs_supported_codecs,
+      uint32_t* vs_supported_codecs, uint8_t* vs_codec_tx);
+
 
   void (*parse_ble_read_offload_features_response)(
       BT_HDR *response,
@@ -92,6 +100,8 @@ typedef struct {
   void (*parse_read_local_simple_paring_options_response)(
       BT_HDR* response, uint8_t* simple_pairing_options,
       uint8_t* maximum_encryption_key_size);
+
+  void (*parse_ble_set_host_feature_cmd)(BT_HDR* response);
 
 } hci_packet_parser_t;
 

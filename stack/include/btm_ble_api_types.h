@@ -19,9 +19,12 @@
 #ifndef BTM_BLE_API_TYPES_H
 #define BTM_BLE_API_TYPES_H
 
+#include "osi/include/alarm.h"
+
 #include <base/callback_forward.h>
 #include <hardware/bt_common_types.h>
 #include <vector>
+#include <map>
 
 #define CHNL_MAP_LEN 5
 typedef uint8_t tBTM_BLE_CHNL_MAP[CHNL_MAP_LEN];
@@ -108,6 +111,7 @@ typedef uint8_t tBTM_BLE_AFP;
 #define SP_ADV_WL_RPA_DIR_ADV 0x03
 
 typedef uint8_t tBTM_BLE_SFP;
+typedef uint8_t tBTM_STATUS;
 
 #ifndef BTM_BLE_DEFAULT_SFP
 #define BTM_BLE_DEFAULT_SFP SP_ADV_ALL
@@ -430,11 +434,12 @@ typedef struct {
 #define BTM_BLE_PF_MANU_DATA 5
 #define BTM_BLE_PF_SRVC_DATA_PATTERN 6
 #define BTM_BLE_PF_TDS_DATA 7
+#define BTM_BLE_PF_GROUP_FILTER 8
 /* when passed in payload filter type all, only clear action is applicable */
-#define BTM_BLE_PF_TYPE_ALL 8
-#define BTM_BLE_PF_TYPE_MAX 9
+#define BTM_BLE_PF_TYPE_ALL 9
+#define BTM_BLE_PF_TYPE_MAX 10
 
-/* max number of filter spot for different filter type */
+/* max number of filter spot fors different filter type */
 #ifndef BTM_BLE_MAX_UUID_FILTER
 #define BTM_BLE_MAX_UUID_FILTER 8
 #endif
@@ -446,6 +451,9 @@ typedef struct {
 #endif
 #ifndef BTM_BLE_PF_STR_LEN_MAX
 #define BTM_BLE_PF_STR_LEN_MAX 29 /* match for first 29 bytes */
+#endif
+#ifndef BTM_BLE_PF_GROUP_DATA_LEN
+#define BTM_BLE_PF_GROUP_DATA_LEN 6 /* length of GROUP data */
 #endif
 
 typedef uint8_t tBTM_BLE_PF_COND_TYPE;
@@ -512,7 +520,8 @@ typedef struct {
 #define BTM_BLE_META_PF_MANU_DATA 0x06
 #define BTM_BLE_META_PF_SRVC_DATA 0x07
 #define BTM_BLE_META_PF_TDS_DATA 0x08
-#define BTM_BLE_META_PF_ALL 0x09
+#define BTM_BLE_META_PF_GROUP 0x09
+#define BTM_BLE_META_PF_ALL 0x0A
 
 typedef uint8_t BTM_BLE_ADV_STATE;
 typedef uint8_t BTM_BLE_ADV_INFO_PRESENT;
@@ -561,3 +570,361 @@ typedef void (*tBLE_SCAN_PARAM_SETUP_CBACK)(tGATT_IF client_if,
                                             tBTM_STATUS status);
 
 #endif  // BTM_BLE_API_TYPES_H
+
+#ifndef LE_ISO_HCI_CMD_PARAM
+#define LE_ISO_HCI_CMD_PARAM
+
+/* Return parameters of HCI_LE_Set_CIG_Parameters command complete*/
+typedef struct {
+    uint8_t status;
+    uint8_t cig_id;
+    uint8_t cis_count;
+    uint16_t *conn_handle;
+} tBTM_BLE_SET_CIG_RET_PARAM;
+
+/* Return parameters of HCI_LE_CIS_Established Event*/
+typedef struct {
+    uint8_t status;
+    uint16_t connection_handle;
+    SYNC_DELAY cig_sync_delay;
+    SYNC_DELAY cis_sync_delay;
+    TRANSPORT_LATENCY transport_latency_m_to_s;
+    TRANSPORT_LATENCY transport_latency_s_to_m;
+    uint8_t phy_m_to_s;
+    uint8_t phy_s_to_m;
+    uint8_t nse;
+    uint8_t bn_m_to_s;
+    uint8_t bn_s_to_m;
+    uint8_t ft_m_to_s;
+    uint8_t ft_s_to_m;
+    uint16_t max_pdu_m_to_s;
+    uint16_t max_pdu_s_to_m;
+    uint16_t iso_interval;
+} tBTM_BLE_CIS_ESTABLISHED_EVT_PARAM;
+
+/* Return parameters of HCI_LE_Request_Peer_SCA_Complete Event*/
+typedef struct {
+  uint8_t status;
+  uint16_t conn_handle;
+  uint8_t sca;
+} tBTM_BLE_PEER_SCA_PARAM;
+
+/* Return parameters of HCI_LE_CIS_REQUEST EVENT*/
+typedef struct {
+  uint16_t acl_conn_handle;
+  uint16_t cis_conn_handle;
+  uint8_t cig_id;
+  uint8_t cis_id;
+} tBTM_BLE_CIS_REQ_EVT_PARAM;
+
+/* Return parameters of HCI_LE_Read_ISO_Link_Quality command complete*/
+typedef struct {
+  uint8_t status;
+  uint16_t conn_handle;
+  uint32_t tx_unacked_packets;
+  uint32_t tx_flushed_packets;
+  uint32_t tx_last_subevent_packets;
+  uint32_t retransmitted_packets;
+  uint32_t crc_error_packets;
+  uint32_t rx_unreceived_packets;
+  uint32_t duplicate_packets;
+} tBTM_BLE_ISO_LINK_QLT;
+
+/* Return parameters of HCI_LE_Read_ISO_TX_Sync command complete*/
+typedef struct {
+  uint8_t status;
+  uint16_t conn_handle;
+  uint16_t packet_sequence_number;
+  uint32_t time_stamp;
+  TIME_OFFSET time_offset;
+} tBTM_BLE_READ_ISO_TX_SYNC_PARAM;
+
+/* Return parameters of HCI_LE_Enhanced_Read_Transmit_Power_Level command complete*/
+typedef struct {
+  uint8_t status;
+  uint16_t conn_handle;
+  uint8_t phy;
+  uint8_t current_transmit_power_level;
+  uint8_t max_transmit_power_level;
+} tBTM_BLE_ENH_READ_TX_POWER_LEVEL;
+
+/* Return parameters of HCI_LE_Read_Remote_Transmit_Power_Level command complete*/
+typedef struct {
+  uint8_t status;
+  uint16_t conn_handle;
+  uint8_t phy;
+  uint8_t current_transmit_power_level;
+  uint8_t max_transmit_power_level;
+  uint8_t delta;
+} tBTM_BLE_READ_REMOTE_TX_POWER_LEVEL;
+
+/* Return parameters of HCI_LE_Transmit_Power_Reporting Event*/
+typedef struct {
+  uint8_t status;
+  uint16_t conn_handle;
+  uint8_t reason;
+  uint8_t phy;
+  int8_t tx_pow_level;
+  uint8_t tx_pow_level_flag;
+  int8_t delta;
+} tBTM_BLE_TX_POW_EVT_PARAM;
+
+/* Return parameters of HCI_LE_Set_CIG_Parameters_Test command complete*/
+typedef struct {
+  uint8_t status;
+  uint8_t cig_id;
+  uint8_t cis_count;
+  uint16_t* conn_handle;
+} tBTM_BLE_SET_CIG_PARAM_TEST_RET;
+
+/* Return parameters of HCI_LE_ISO_Test_End command complete*/
+typedef struct {
+  uint8_t status;
+  uint16_t conn_handle;
+  uint32_t received_packet_count;
+  uint32_t missed_packet_count;
+  uint32_t failed_packet_count;
+} tBTM_BLE_ISO_TEST_END_RET;
+
+/* Return parameters of HCI_LE_ISO_Read_Test_Counters command complete*/
+typedef struct {
+  uint8_t status;
+  uint16_t conn_handle;
+  uint32_t received_packet_count;
+  uint32_t missed_packet_count;
+  uint32_t failed_packet_count;
+} tBTM_BLE_ISO_TEST_COUNTERS_RET;
+
+/* Return parameters of HCI_LE_Path_Loss_Threshold Event*/
+typedef struct {
+  uint16_t conn_handle;
+  uint8_t current_path_loss;
+  uint8_t zone_entered;
+} tBTM_BLE_PATHLOSS_THRESHOLD_RET;
+
+// Bluetooth Spec 5.2 HCI Command Callbacks
+/* HCI_LE_Set_CIG_Parameters command complete callback*/
+typedef void (tBTM_BLE_SET_CIG_PARAM_CMPL_CB) (tBTM_BLE_SET_CIG_RET_PARAM* param);
+
+/* HCI_LE_CIS_Established command status event */
+typedef void (tBTM_BLE_CREATE_CIS_CB) (uint8_t status);
+
+/* HCI_LE_CIS_Established event callback*/
+typedef void (tBTM_BLE_CIS_ESTABLISHED_CB) (tBTM_BLE_CIS_ESTABLISHED_EVT_PARAM * param);
+
+/* Disconnection complete callback for CIS*/
+typedef void (tBTM_BLE_CIS_DISCONNECTED_CB) (uint8_t status, uint16_t cis_handle,
+                                             uint8_t reason);
+
+/* HCI_LE_CIS_Request event callback*/
+typedef void (tBTM_BLE_CIS_REQ_EVT_CB) (tBTM_BLE_CIS_REQ_EVT_PARAM* param);
+
+/* HCI_LE_Remove_CIG command complete callback*/
+typedef void (tBTM_BLE_REMOVE_CIG_CMPL_CB) (uint8_t status, uint8_t cig_id);
+
+/* HCI_LE_Setup_ISO_Data_Path command complete callback*/
+typedef void (tBTM_BLE_SETUP_ISO_DATA_PATH_CMPL_CB) (uint8_t status, uint16_t conn_handle);
+
+/* HCI_LE_Remove_ISO_Data_Path command complete callback*/
+typedef void (tBTM_BLE_REMOVE_ISO_DATA_PATH_CMPL_CB) (uint8_t status, uint16_t conn_handle);
+
+/* HCI_LE_Request_Peer_SCA_Complete event callback*/
+typedef void (tBTM_BLE_REQUEST_PEER_SCA_COMPLETE_CB) (tBTM_BLE_PEER_SCA_PARAM* peer_sca_param);
+
+/* HCI_LE_Reject_CIS_Request command complete callback*/
+typedef void (tBTM_BLE_REJECT_CIS_CB) (uint8_t status, uint16_t conn_handle);
+
+/* HCI_LE_Read_ISO_Link_Quality command complete callback*/
+typedef void (tBTM_BLE_READ_ISO_LINK_QLT_CB) (tBTM_BLE_ISO_LINK_QLT* lnk_qlt_param);
+
+/* HCI_LE_Read_ISO_TX_Sync command complete callback*/
+typedef void (tBTM_BLE_READ_ISO_TX_SYNC_CB) (tBTM_BLE_READ_ISO_TX_SYNC_PARAM *ret_param);
+
+/* HCI_LE_Enhanced_Read_Transmit_Power_Level command complete callback*/
+typedef void (tBTM_BLE_ENHANCED_READ_TRANSMIT_POWER_LEVEL_CB) (
+                                            tBTM_BLE_ENH_READ_TX_POWER_LEVEL* ret_param);
+
+/* HCI_LE_TRANSMIT_POWER_REPORTING callback*/
+typedef void (tBTM_BLE_READ_REMOTE_TX_POW_LEVEL_CB) (
+              tBTM_BLE_READ_REMOTE_TX_POWER_LEVEL* ret_param);
+
+/* HCI_LE_Set_Path_Loss_Reporting_Parameters callback*/
+typedef void (tBTM_BLE_SET_PATH_LOSS_REPORTING_CB) (uint8_t status, uint16_t conn_handle);
+
+/* HCI_LE_Set_Path_Loss_Reporting_Enable command complete callback*/
+typedef void (tBTM_BLE_SET_PATH_LOSS_REPORTING_ENABLE_CB) (uint8_t status,
+                                                           uint16_t conn_handle);
+
+/* HCI_LE_Path_Loss_Threshold Event callback*/
+typedef void (tBTM_BLE_PATH_LOSS_THRESHOLD_CB) (tBTM_BLE_PATHLOSS_THRESHOLD_RET* ret_param);
+
+/* HCI_LE_Set_Transmit_Power_Reporting_Enable command complete callback*/
+typedef void (tBTM_BLE_SET_TRANSMIT_POWER_REPORTING_ENABLE_CB) (uint8_t status,
+                                                                uint16_t conn_handle);
+
+/* HCI_LE_Transmit_Power_Reporting event callback*/
+typedef void (tBTM_BLE_TRANSMIT_POWER_REPORTING_EVENT_CB) (tBTM_BLE_TX_POW_EVT_PARAM* param);
+
+/* HCI_LE_Set_CIG_Parameters_Test command complete callback*/
+typedef void (tBTM_BLE_SET_CIG_PARAMETERS_TEST_CB) (tBTM_BLE_SET_CIG_PARAM_TEST_RET* ret_param);
+
+/* HCI_LE_ISO_Test_End command complete callback*/
+typedef void (tBTM_BLE_ISO_TEST_END_CB) (tBTM_BLE_ISO_TEST_END_RET* ret_param);
+
+/* HCI_LE_ISO_Read_Test_Counters  command complete callback*/
+typedef void (tBTM_BLE_ISO_READ_TEST_COUNTERS_CB) (tBTM_BLE_ISO_TEST_COUNTERS_RET* ret_param);
+
+/* HCI_LE_ISO_Receive_Test command complete callback*/
+typedef void (tBTM_BLE_ISO_RECEIVE_TEST_CB) (uint8_t status,	uint16_t conn_handle);
+
+/* HCI_LE_ISO_Transmit_Test command complete callback*/
+typedef void (tBTM_BLE_ISO_TRANSMIT_TEST_CB) (uint8_t status, uint16_t conn_handle);
+
+/* HCI_LE_Transmitter_Test_v4 command complete callback*/
+typedef void (tBTM_BLE_TRANSMITTER_TEST_V4_CB) (uint8_t status);
+
+// Callabck function pointers of HCI Commands after receiving Command Complete or HCI Event
+typedef struct {
+  tBTM_BLE_SET_CIG_PARAM_CMPL_CB* set_cig_param = NULL;
+  tBTM_BLE_CREATE_CIS_CB* create_cis_status_cb = NULL;
+  tBTM_BLE_CIS_ESTABLISHED_CB* cis_established_evt_cb = NULL;
+  tBTM_BLE_CIS_REQ_EVT_CB* cis_request_evt_cb = NULL;
+  tBTM_BLE_REMOVE_CIG_CMPL_CB* remove_cig = NULL;
+  tBTM_BLE_CIS_DISCONNECTED_CB* cis_disconnected_cb = NULL;
+  tBTM_BLE_SETUP_ISO_DATA_PATH_CMPL_CB* setup_iso_datapath = NULL;
+  tBTM_BLE_REMOVE_ISO_DATA_PATH_CMPL_CB* remove_iso_datapath = NULL;
+  tBTM_BLE_REQUEST_PEER_SCA_COMPLETE_CB* peer_sca_cmpl = NULL;
+  tBTM_BLE_REJECT_CIS_CB* reject_cis_cb = NULL;
+  tBTM_BLE_READ_ISO_LINK_QLT_CB* iso_link_qly_cb = NULL;
+  tBTM_BLE_READ_ISO_TX_SYNC_CB* iso_tx_sync_cb = NULL;
+  tBTM_BLE_ENHANCED_READ_TRANSMIT_POWER_LEVEL_CB* tx_pow_level_cb = NULL;
+  tBTM_BLE_READ_REMOTE_TX_POW_LEVEL_CB* remote_tx_pow_cb = NULL;
+  tBTM_BLE_SET_PATH_LOSS_REPORTING_CB* pathloss_rpt_cb = NULL;
+  tBTM_BLE_SET_PATH_LOSS_REPORTING_ENABLE_CB* pathloss_rpt_enable_cb = NULL;
+  tBTM_BLE_PATH_LOSS_THRESHOLD_CB* pathloss_threshold_evt_cb = NULL;
+  tBTM_BLE_SET_TRANSMIT_POWER_REPORTING_ENABLE_CB* tx_pow_rpt_enable_cb = NULL;
+  tBTM_BLE_TRANSMIT_POWER_REPORTING_EVENT_CB* tx_pow_rpt_evt_cb = NULL;
+  tBTM_BLE_SET_CIG_PARAMETERS_TEST_CB* cig_param_test_cmpl = NULL;
+  tBTM_BLE_ISO_TEST_END_CB* iso_test_end_cmpl = NULL;
+  tBTM_BLE_ISO_READ_TEST_COUNTERS_CB* read_test_cnt_cmpl = NULL;
+  tBTM_BLE_ISO_RECEIVE_TEST_CB* iso_rcv_test_cmpl = NULL;
+  tBTM_BLE_ISO_TRANSMIT_TEST_CB* iso_tx_test_cmpl = NULL;
+  tBTM_BLE_TRANSMITTER_TEST_V4_CB* tx_test_v4_cmpl = NULL;
+} tBTM_BLE_HCI_CMD_CB;
+
+/* CIS configuration params used in HCI_LE_Set_CIG_Parameters*/
+typedef struct {
+  uint8_t cis_id;
+  uint16_t max_sdu_m_to_s;
+  uint16_t max_sdu_s_to_m;
+  uint8_t phy_m_to_s;
+  uint8_t phy_s_to_m;
+  uint8_t rtn_m_to_s;
+  uint8_t rtn_s_to_m;
+} tBTM_BLE_CIS_CONFIG;
+
+/* command parameters of HCI_LE_Set_CIG_Parameters */
+typedef struct {
+  uint8_t cig_id;
+  SDU_INTERVAL sdu_int_m_to_s;
+  SDU_INTERVAL sdu_int_s_to_m;
+  uint8_t slave_clock_accuracy;
+  uint8_t packing;
+  uint8_t framing;
+  uint16_t max_transport_latency_m_to_s;
+  uint16_t max_transport_latency_s_to_m;
+  uint8_t cis_count;
+  std::vector<tBTM_BLE_CIS_CONFIG> cis_config;
+  tBTM_BLE_SET_CIG_PARAM_CMPL_CB* p_cb;
+} tBTM_BLE_ISO_SET_CIG_CMD_PARAM;
+
+/* Associated connection handles of ACL and ISO link*/
+typedef struct {
+  uint16_t cis_conn_handle;
+  uint16_t acl_conn_handle;
+} tBTM_BLE_CHANNEL_MAP;
+
+/* command parameters of HCI_LE_Create_CIS Command*/
+typedef struct {
+  uint8_t cis_count;
+  std::vector<tBTM_BLE_CHANNEL_MAP> link_conn_handles;
+  tBTM_BLE_CREATE_CIS_CB* p_cb;
+  tBTM_BLE_CIS_ESTABLISHED_CB* p_evt_cb;
+} tBTM_BLE_ISO_CREATE_CIS_CMD_PARAM;
+
+/* command parameters of HCI_LE_Setup_ISO_Data_Path*/
+typedef struct {
+  uint16_t conn_handle;
+  uint8_t data_path_dir;
+  uint8_t data_path_id;
+  CODEC_ID codec_id;
+  CONTROLLER_DELAY cont_delay;
+  uint8_t codec_config_length;
+  uint8_t *codec_config;
+  tBTM_BLE_SETUP_ISO_DATA_PATH_CMPL_CB* p_cb;
+} tBTM_BLE_SET_ISO_DATA_PATH_PARAM;
+
+/* command parameters of HCI_LE_Set_Path_Loss_Reporting_Parameters*/
+typedef struct {
+  uint16_t conn_handle;
+  uint8_t high_threshold;
+  uint8_t high_hysteresis;
+  uint8_t low_threshold;
+  uint8_t low_hysteresis;
+  uint16_t min_time_spent;
+  tBTM_BLE_SET_PATH_LOSS_REPORTING_CB* p_cb;
+} tBTM_BLE_SET_PATH_LOSS_REPORTING_PARAM;
+
+/* CIS configuration params used in HCI_LE_Set_CIG_Parameters*/
+typedef struct {
+  uint8_t cis_id;
+  uint8_t nse;
+  uint16_t max_sdu_m_to_s;
+  uint16_t max_sdu_s_to_m;
+  uint16_t max_pdu_m_to_s;
+  uint16_t max_pdu_s_to_m;
+  uint8_t phy_m_to_s;
+  uint8_t phy_s_to_m;
+  uint8_t bn_m_to_s;
+  uint8_t bn_s_to_m;
+} tBTM_BLE_CIS_TEST_CONFIG;
+
+/* command parameters of HCI_LE_Set_CIG_Parameters_Test*/
+typedef struct {
+  uint8_t cig_id;
+  SDU_INTERVAL sdu_int_m_to_s;
+  SDU_INTERVAL sdu_int_s_to_m;
+  uint8_t ft_m_to_s;
+  uint8_t ft_s_to_m;
+  uint16_t iso_interval;
+  uint8_t slave_clock_accuracy;
+  uint8_t packing;
+  uint8_t framing;
+  uint8_t cis_count;
+  std::vector<tBTM_BLE_CIS_TEST_CONFIG> cis_config;
+  tBTM_BLE_SET_CIG_PARAMETERS_TEST_CB* p_cb;
+} tBTM_BLE_SET_CIG_PARAM_TEST;
+
+/* command parameters of HCI_LE_Transmitter_Test[v4]*/
+typedef struct {
+  uint8_t tx_channel;
+  uint8_t test_data_length;
+  uint8_t packet_payload;
+  uint8_t phy;
+  uint8_t cte_length;
+  uint8_t cte_type;
+  uint8_t switching_pattern_length;
+  uint8_t* antenna_ids;
+  uint8_t transmit_power_level;
+  tBTM_BLE_TRANSMITTER_TEST_V4_CB* p_cb;
+} tBTM_BLE_TRANSMITTER_TEST_PARAM;
+
+/* Pending CIS connection management control block */
+typedef struct {
+  std::vector<uint16_t> *cis_handles;
+  alarm_t* conn_timeout_alarm = NULL;;
+  tBTM_BLE_CREATE_CIS_CB* create_cis_status_cb = NULL;
+  tBTM_BLE_CIS_ESTABLISHED_CB* cis_established_evt_cb = NULL;
+} tBTM_BLE_PENDING_CIS_CONN;
+
+#endif

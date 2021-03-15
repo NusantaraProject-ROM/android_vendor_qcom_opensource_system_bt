@@ -235,6 +235,12 @@ bool l2c_link_hci_conn_comp(uint8_t status, uint16_t handle,
     /* For all channels, send the event through their FSMs */
     for (p_ccb = p_lcb->ccb_queue.p_first_ccb; p_ccb;
          p_ccb = p_ccb->p_next_ccb) {
+      if ((p_ccb->our_cfg.fcr.mode == L2CAP_FCR_ECFC_MODE)
+        && (p_ccb->coc_cmd_info.ecfc_grp_status &
+            L2CAP_ECFC_LINK_CONNECT_CFM_CB)) {
+          L2CAP_TRACE_WARNING("L2CEVT_LP_CONNECT_CFM for cid %d", p_ccb->local_cid);
+          continue;
+      }
       l2c_csm_execute(p_ccb, L2CEVT_LP_CONNECT_CFM, &ci);
     }
 

@@ -102,6 +102,30 @@ void known_tx_pwr(BleAdvertiserHciInterface::parameters_cb cb, int8_t tx_power,
   cb.Run(status, tx_power);
 }
 
+void create_big_cmd_status_cb(BleAdvertiserHciInterface::AdvertisingEventObserver* observer,
+                              uint8_t big_handle, uint8_t status) {
+  std::vector<uint16_t> conn_handle_list;
+  VLOG(1) << __func__ << "status:"<< +status;
+  if (status == HCI_SUCCESS)
+    return;
+
+  if (observer)
+    observer->CreateBIGComplete(status, big_handle, 0,
+                                0, 0, 0, 0,
+                                0, 0, 0, 0, 0,
+                                conn_handle_list);
+}
+
+void terminate_big_cmd_status_cb(BleAdvertiserHciInterface::AdvertisingEventObserver* observer,
+                                 uint8_t big_handle, uint8_t status) {
+  VLOG(1) << __func__ << "status:"<< +status;
+  if (status == HCI_SUCCESS)
+    return;
+
+  if (observer)
+    observer->TerminateBIGComplete(status, big_handle, true, status);
+}
+
 class BleAdvertiserVscHciInterfaceImpl : public BleAdvertiserHciInterface {
   void SendAdvCmd(const base::Location& posted_from, uint8_t param_len,
                   uint8_t* param_buf, status_cb command_complete) {
@@ -291,6 +315,19 @@ class BleAdvertiserVscHciInterfaceImpl : public BleAdvertiserHciInterface {
                             status_cb command_complete) override {
     // VSC Advertising don't have remove method.
     command_complete.Run(0);
+  }
+
+  void CreateBIG(uint8_t big_handle, uint8_t adv_handle,
+                 uint8_t num_bis, uint32_t sdu_int, //3 octets
+                 uint16_t max_sdu, uint16_t max_transport_latency,
+                 uint8_t rtn, uint8_t phy, uint8_t packing,
+                 uint8_t framing, uint8_t encryption,
+                 std::vector<uint8_t> broadcast_code) override {
+    LOG(INFO) << __func__ << " VSC can't do Create BIG";
+  }
+
+  void TerminateBIG(uint8_t big_handle, uint8_t reason) override {
+    LOG(INFO) << __func__ << " VSC can't do Terminate BIG";
   }
 
  public:
@@ -503,6 +540,19 @@ class BleAdvertiserLegacyHciInterfaceImpl : public BleAdvertiserHciInterface {
                             status_cb command_complete) override {
     // Legacy Advertising don't have remove method.
     command_complete.Run(0);
+  }
+
+  void CreateBIG(uint8_t big_handle, uint8_t adv_handle,
+                 uint8_t num_bis, uint32_t sdu_int, //3 octets
+                 uint16_t max_sdu, uint16_t max_transport_latency,
+                 uint8_t rtn, uint8_t phy, uint8_t packing,
+                 uint8_t framing, uint8_t encryption,
+                 std::vector<uint8_t> broadcast_code) override {
+    LOG(INFO) << __func__ << " Legacy can't do Create BIG";
+  }
+
+  void TerminateBIG(uint8_t big_handle, uint8_t reason) override {
+    LOG(INFO) << __func__ << " Legacy can't do Terminate BIG";
   }
 
  public:
@@ -723,6 +773,62 @@ class BleAdvertiserHciExtendedImpl : public BleAdvertiserHciInterface {
                command_complete);
   }
 
+  void CreateBIG(uint8_t big_handle, uint8_t adv_handle,
+                 uint8_t num_bis, uint32_t sdu_int, //3 octets
+                 uint16_t max_sdu, uint16_t max_transport_latency,
+                 uint8_t rtn, uint8_t phy, uint8_t packing,
+                 uint8_t framing, uint8_t encryption,
+                 std::vector<uint8_t> broadcast_code) override {
+    VLOG(1) << __func__;
+    const uint16_t HCI_LE_CREATE_BIG_LEN = 31;
+    uint8_t param[HCI_LE_CREATE_BIG_LEN];
+    memset(param, 0, HCI_LE_CREATE_BIG_LEN);
+
+    uint8_t* pp = param;
+    UINT8_TO_STREAM(pp, big_handle);
+    UINT8_TO_STREAM(pp, adv_handle);
+    UINT8_TO_STREAM(pp, num_bis);
+    UINT24_TO_STREAM(pp, sdu_int);
+    UINT16_TO_STREAM(pp, max_sdu);
+    UINT16_TO_STREAM(pp, max_transport_latency);
+    UINT8_TO_STREAM(pp, rtn);
+    UINT8_TO_STREAM(pp, phy);
+    UINT8_TO_STREAM(pp, packing);
+    UINT8_TO_STREAM(pp, framing);
+    UINT8_TO_STREAM(pp, encryption);
+
+    if (encryption) {
+      if (broadcast_code.size() > 0) {
+        uint8_t size = broadcast_code.size();
+        REVERSE_ARRAY_TO_STREAM(pp, broadcast_code.data(), size);
+      }
+    }
+    else {
+      broadcast_code.resize(16, 0);
+    }
+
+    SendAdvCmd(FROM_HERE, HCI_BLE_CREATE_BIG, param,
+               HCI_LE_CREATE_BIG_LEN,
+               base::Bind(create_big_cmd_status_cb, this->advertising_event_observer, big_handle));
+
+  }
+
+  void TerminateBIG(uint8_t big_handle, uint8_t reason) override {
+    VLOG(1) << __func__;
+    const uint16_t HCI_LE_TERMINATE_BIG_LEN = 2;
+    uint8_t param[HCI_LE_TERMINATE_BIG_LEN];
+    memset(param, 0, HCI_LE_TERMINATE_BIG_LEN);
+
+    uint8_t* pp = param;
+    UINT8_TO_STREAM(pp, big_handle);
+    UINT8_TO_STREAM(pp, reason);
+
+    SendAdvCmd(FROM_HERE, HCI_BLE_TERMINATE_BIG, param,
+               HCI_LE_TERMINATE_BIG_LEN,
+               base::Bind(terminate_big_cmd_status_cb, this->advertising_event_observer,
+               big_handle));
+  }
+
  public:
   void OnAdvertisingSetTerminated(uint8_t length, uint8_t* p) {
     VLOG(1) << __func__;
@@ -744,6 +850,59 @@ class BleAdvertiserHciExtendedImpl : public BleAdvertiserHciInterface {
                                            num_completed_extended_adv_events);
   }
 
+  void CreateBIGComplete(uint8_t length, uint8_t* p) {
+    VLOG(1) << __func__;
+    LOG_ASSERT(p);
+    uint8_t status, big_handle = INVALID_BIG_HANDLE, phy = 0, nse = 0, bn = 0, pto = 0, irc = 0, num_bis = 0;
+    uint16_t max_pdu = 0, iso_int = 0;
+    uint32_t big_sync_delay = 0, transport_latency_big = 0;
+    uint16_t conn_handle = 0xFF;
+    std::vector<uint16_t> conn_handle_list;
+
+    STREAM_TO_UINT8(status, p);
+    STREAM_TO_UINT8(big_handle, p);
+    if (status == HCI_SUCCESS) {
+      STREAM_TO_UINT24(big_sync_delay, p);
+      STREAM_TO_UINT24(transport_latency_big, p);
+      STREAM_TO_UINT8(phy, p);
+      STREAM_TO_UINT8(nse, p);
+      STREAM_TO_UINT8(bn, p);
+      STREAM_TO_UINT8(pto, p);
+      STREAM_TO_UINT8(irc, p);
+      STREAM_TO_UINT16(max_pdu, p);
+      STREAM_TO_UINT16(iso_int, p);
+      STREAM_TO_UINT8(num_bis, p);
+
+      for(uint8_t i=0; i< num_bis; i++) {
+        STREAM_TO_UINT16(conn_handle, p);
+        VLOG(1) << __func__ << "conn_handle::" << +conn_handle;
+        conn_handle_list.push_back(conn_handle);
+      }
+    }
+
+    AdvertisingEventObserver* observer = this->advertising_event_observer;
+    if (observer)
+      observer->CreateBIGComplete(status, big_handle, big_sync_delay,
+                                  transport_latency_big, phy, nse, bn,
+                                  pto, irc, max_pdu, iso_int, num_bis,
+                                  conn_handle_list);
+  }
+
+  void TerminateBIGComplete(uint8_t length, uint8_t* p) {
+    VLOG(1) << __func__;
+    LOG_ASSERT(p);
+    uint8_t big_handle, reason;
+
+    STREAM_TO_UINT8(big_handle, p);
+    STREAM_TO_UINT8(reason, p);
+
+    VLOG(1) << __func__ << "big_handle::" << +big_handle << "reason::" << +reason;
+    AdvertisingEventObserver* observer = this->advertising_event_observer;
+    if (observer)
+      observer->TerminateBIGComplete(HCI_SUCCESS, big_handle, false, reason);
+  }
+
+
  private:
   AdvertisingEventObserver* advertising_event_observer = nullptr;
 };
@@ -754,6 +913,20 @@ void btm_le_on_advertising_set_terminated(uint8_t* p, uint16_t length) {
   if (BleAdvertiserHciInterface::Get()) {
     ((BleAdvertiserHciExtendedImpl*)BleAdvertiserHciInterface::Get())
         ->OnAdvertisingSetTerminated(length, p);
+  }
+}
+
+void btm_le_create_big_complete(uint8_t* p, uint16_t length) {
+  if (BleAdvertiserHciInterface::Get()) {
+    ((BleAdvertiserHciExtendedImpl*)BleAdvertiserHciInterface::Get())
+        ->CreateBIGComplete(length, p);
+  }
+}
+
+void btm_le_terminate_big_complete(uint8_t* p, uint16_t length) {
+  if (BleAdvertiserHciInterface::Get()) {
+    ((BleAdvertiserHciExtendedImpl*)BleAdvertiserHciInterface::Get())
+        ->TerminateBIGComplete(length, p);
   }
 }
 

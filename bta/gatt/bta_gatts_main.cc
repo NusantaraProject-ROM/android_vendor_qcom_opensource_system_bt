@@ -67,6 +67,14 @@ bool bta_gatts_hdl_event(BT_HDR* p_msg) {
       bta_gatts_indicate_handle(p_cb, (tBTA_GATTS_DATA*)p_msg);
       break;
 
+    case BTA_GATTS_API_MULTI_NOTIFICATION_EVT:
+      bta_gatts_multi_notifications(p_cb, (tBTA_GATTS_DATA*)p_msg);
+      break;
+
+    case BTA_GATTS_API_CFG_MTU_EVT:
+      bta_gatts_cfg_mtu(p_cb, (tBTA_GATTS_DATA*)p_msg);
+      break;
+
     case BTA_GATTS_API_OPEN_EVT:
       bta_gatts_open(p_cb, (tBTA_GATTS_DATA*)p_msg);
       break;
