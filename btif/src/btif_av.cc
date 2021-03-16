@@ -76,6 +76,7 @@
 #include "osi/include/osi.h"
 #include "osi/include/properties.h"
 #include "btif/include/btif_a2dp_source.h"
+#include "btif/include/btif_config.h"
 #include "device/include/interop.h"
 #include "device/include/controller.h"
 #include "btif_bat.h"
@@ -3526,6 +3527,13 @@ static void btif_av_handle_event(uint16_t event, char* p_param) {
     case BTA_AV_COLL_DETECTED_EVT: {
         BTIF_TRACE_WARNING("Collission evt received in btif");
         RawAddress bt_addr = p_bta_data->av_col_detected.peer_addr;
+        uint16_t version = 0;
+        bool a2dp_supported = btif_config_get_uint16(bt_addr.ToString().c_str(),
+                              AVDTP_VERSION_CONFIG_KEY, (uint16_t*)&version);
+        if (!a2dp_supported) {
+          BTIF_TRACE_WARNING("Peer not have A2DP support, don't try Collision recovery, drop off");
+          return;
+        }
         index = btif_av_idx_by_bdaddr(&bt_addr);
         if (index == btif_max_av_clients) {
           BTIF_TRACE_WARNING("Collision happen even before conncet and index allocation");
