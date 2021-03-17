@@ -655,10 +655,16 @@ void gatt_start_ind_ack_timer(tGATT_TCB& tcb, uint16_t lcid) {
  ******************************************************************************/
 void gatt_rsp_timeout(void* data) {
   tGATT_CLCB* p_clcb = (tGATT_CLCB*)data;
-  uint16_t lcid = p_clcb->p_tcb->att_lcid;
-  tGATT_TCB* p_tcb = p_clcb->p_tcb;
   tGATT_EBCB* p_eatt_bcb;
   uint8_t i = 0;
+
+  if (p_clcb == NULL || p_clcb->p_tcb == NULL) {
+    LOG(WARNING) << __func__ << " clcb is already deleted";
+    return;
+  }
+
+  uint16_t lcid = p_clcb->p_tcb->att_lcid;
+  tGATT_TCB* p_tcb = p_clcb->p_tcb;
 
   if (p_clcb->p_tcb->is_eatt_supported) {
     lcid = gatt_get_cid_by_conn_id(p_clcb->conn_id);
@@ -666,10 +672,6 @@ void gatt_rsp_timeout(void* data) {
 
   LOG(ERROR) << __func__ << " lcid:" << lcid;
 
-  if (p_clcb == NULL || p_clcb->p_tcb == NULL) {
-    LOG(WARNING) << __func__ << " clcb is already deleted";
-    return;
-  }
   if (p_clcb->operation == GATTC_OPTYPE_DISCOVERY &&
       p_clcb->op_subtype == GATT_DISC_SRVC_ALL &&
       p_clcb->retry_count < GATT_REQ_RETRY_LIMIT) {
