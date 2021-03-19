@@ -234,10 +234,11 @@ void l2cu_release_lcb(tL2C_LCB* p_lcb) {
     while (!fixed_queue_is_empty(p_lcb->le_sec_pending_q)) {
       tL2CAP_SEC_DATA* p_buf =
           (tL2CAP_SEC_DATA*)fixed_queue_try_dequeue(p_lcb->le_sec_pending_q);
-      if (p_buf->p_callback)
+      if (p_buf && p_buf->p_callback) {
         p_buf->p_callback(p_lcb->remote_bd_addr, p_lcb->transport,
                           p_buf->p_ref_data, BTM_DEV_RESET);
-      osi_free(p_buf);
+        osi_free(p_buf);
+      }
     }
     fixed_queue_free(p_lcb->le_sec_pending_q, NULL);
     p_lcb->le_sec_pending_q = NULL;
@@ -3202,6 +3203,11 @@ void l2cu_send_peer_credit_based_conn_res(tL2C_CCB* p_ccb,
 
   L2CAP_TRACE_DEBUG("l2cu_send_peer_credit_based_conn_res");
 
+  if (p_ccb == NULL) {
+    L2CAP_TRACE_WARNING("l2cu_send_peer_credit_based_conn_res FAILED- NO CCB");
+    return;
+  }
+
   uint16_t pkt_len = L2CAP_CMD_CREDIT_BASED_CONN_LEN +
                       (2 * p_ccb->coc_cmd_info.requested_ecfc_chnls);
   p_buf =
@@ -3214,11 +3220,6 @@ void l2cu_send_peer_credit_based_conn_res(tL2C_CCB* p_ccb,
 
   p = (uint8_t*)(p_buf + 1) + L2CAP_SEND_CMD_OFFSET + HCI_DATA_PREAMBLE_SIZE +
       L2CAP_PKT_OVERHEAD + L2CAP_CMD_OVERHEAD;
-
-  if (p_ccb == NULL) {
-    L2CAP_TRACE_WARNING("l2cu_send_peer_credit_based_conn_res FAILED- NO CCB");
-    return;
-  }
 
   UINT16_TO_STREAM(p, p_ccb->local_conn_cfg.mtu);     /* MTU */
   UINT16_TO_STREAM(p, p_ccb->local_conn_cfg.mps);     /* MPS */
@@ -4257,12 +4258,12 @@ void l2cu_process_ecfc_pending_disconnect(tL2C_CCB** p_ccb,
 
           if ((*p_ccb)->local_cid == tmp_ccb->local_cid) {
             *p_ccb = l2cu_find_ecfc_grp_next_ccb(*p_ccb, tmp_ccb->local_cid);
-            if ((*p_ccb) && !(*p_ccb)->in_use) {
+            if (!(*p_ccb) || !(*p_ccb)->in_use) {
               L2CAP_TRACE_WARNING("%s No Chnls left.. ", __func__);
               break;
             }
             L2CAP_TRACE_WARNING("%s Point the P_CCB to next one local cid %d ",
-                                __func__, (*p_ccb)->local_cid);
+                                __func__, (*p_ccb) ? (*p_ccb)->local_cid: 0);
           }
           disc_pend_cnt++;
           l2cu_update_ecfc_grp_dest_cids(p_ccb, dest_cids,
@@ -4283,16 +4284,18 @@ void l2cu_process_ecfc_pending_disconnect(tL2C_CCB** p_ccb,
       L2CAP_TRACE_WARNING("%s ABORT.. Something WRONG", __func__);
     }
   }
-  L2CAP_TRACE_WARNING("%s Final Num Chanls %d ", __func__, (*p_ccb)->coc_cmd_info.num_coc_chnls);
-  for (int i = 0; i < (*p_ccb)->coc_cmd_info.num_coc_chnls; i++) {
-    L2CAP_TRACE_WARNING("%s Dest %d sr_cid %d ", __func__, dest_cids[i],
-                        (*p_ccb)->coc_cmd_info.ecfc_cids_group[i]);
-  }
-  if (((*p_ccb)->coc_cmd_info.num_coc_chnls == 0) &&
-      ((*p_ccb)->in_use)) {
-    L2CAP_TRACE_WARNING("%s Clearing CCB %d Since num chnls 0  ",
-                        __func__, (*p_ccb)->local_cid);
-    l2cu_release_ccb(*p_ccb);
+  if (*p_ccb) {
+    L2CAP_TRACE_WARNING("%s Final Num Chanls %d ", __func__, (*p_ccb)->coc_cmd_info.num_coc_chnls);
+    for (int i = 0; i < (*p_ccb)->coc_cmd_info.num_coc_chnls; i++) {
+      L2CAP_TRACE_WARNING("%s Dest %d sr_cid %d ", __func__, dest_cids[i],
+                          (*p_ccb)->coc_cmd_info.ecfc_cids_group[i]);
+    }
+    if (((*p_ccb)->coc_cmd_info.num_coc_chnls == 0) &&
+        ((*p_ccb)->in_use)) {
+      L2CAP_TRACE_WARNING("%s Clearing CCB %d Since num chnls 0  ",
+                          __func__, (*p_ccb)->local_cid);
+      l2cu_release_ccb(*p_ccb);
+    }
   }
 }
 
@@ -4380,8 +4383,8 @@ bool l2cu_check_for_valid_sr_cids(tL2C_CCB** p_ccb, uint16_t* dest_cids,
       }
       L2CAP_TRACE_WARNING("%s Accepted with result %s num_chnls %d CID %d", __func__,
                           l2cu_get_connection_result(result),
-                          (*p_ccb)->coc_cmd_info.num_coc_chnls,
-                          (*p_ccb)->local_cid);
+                          (*p_ccb) ? (*p_ccb)->coc_cmd_info.num_coc_chnls: 0,
+                          (*p_ccb) ? (*p_ccb)->local_cid: 0);
       break;
     case L2CAP_ECFC_ALL_CONNS_REFUSED_INSUFF_AUTHENTICATION:
     case L2CAP_ECFC_ALL_CONNS_REFUSED_INSUFF_AUTHERIZATION:
@@ -4856,7 +4859,7 @@ void l2cu_send_peer_reconfig_req(tL2C_CCB* p_ccb, tL2C_CFG_REQ_PARAM *cfg) {
   // update identifier in all CCB's
   for (int i = 0; i < num_cids; i++) {
     tL2C_CCB *cur_ccb = l2cu_find_ccb_by_cid(NULL, cfg->chnl_info.sr_cids[i]);
-    cur_ccb->local_id = p_lcb->id;
+    if (cur_ccb) cur_ccb->local_id = p_lcb->id;
   }
 
   p_buf = l2cu_build_header(p_lcb, reconfig_req_cmd_len,

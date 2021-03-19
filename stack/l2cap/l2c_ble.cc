@@ -697,8 +697,6 @@ void l2cble_process_sig_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
           l2c_csm_execute(p_ccb, L2CEVT_L2CAP_CONNECT_RSP_NEG, &con_info);
       } else {
         L2CAP_TRACE_DEBUG("I DO NOT remember the connection req");
-        con_info.l2cap_result = L2CAP_LE_RESULT_INVALID_SOURCE_CID;
-        l2c_csm_execute(p_ccb, L2CEVT_L2CAP_CONNECT_RSP_NEG, &con_info);
       }
       break;
 
@@ -814,8 +812,6 @@ void l2cble_process_sig_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
         l2cu_process_peer_ecfc_conn_res(p_ccb, dest_cid, &con_info);
       } else {
         L2CAP_TRACE_DEBUG("I DO NOT remember the connection req");
-        con_info.l2cap_result = L2CAP_ECFC_SOME_CONNS_REFUSED_INVALID_SOURCE_CID;
-        l2c_csm_execute(p_ccb, L2CEVT_L2CAP_COC_CONNECT_NEG_RSP, &con_info);
       }
     }
       break;
@@ -848,7 +844,7 @@ void l2cble_process_sig_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
         }
         req_param->chnl_info.sr_cids[i] = p_ccb->local_cid;
       }
-      l2c_csm_execute(p_ccb, L2CEVT_L2CAP_COC_RECONFIG_REQ, req_param);
+      if (p_ccb) l2c_csm_execute(p_ccb, L2CEVT_L2CAP_COC_RECONFIG_REQ, req_param);
       break;
 
     case L2CAP_CMD_CREDIT_BASED_RECONFIGURE_RSP:
