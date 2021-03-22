@@ -431,7 +431,12 @@ void bta_gattc_init_bk_conn(tBTA_GATTC_API_OPEN* p_data,
 
   tBTA_GATTC_CLCB* p_clcb = bta_gattc_find_alloc_clcb(
       p_data->client_if, p_data->remote_bda, GATT_TRANSPORT_LE);
-  if (!p_clcb) return;
+  if (!p_clcb) {
+    LOG(ERROR) << __func__ << " CLCB Resources exhausted";
+    bta_gattc_send_open_cback(p_clreg, GATT_NO_RESOURCES, p_data->remote_bda,
+                              GATT_INVALID_CONN_ID, GATT_TRANSPORT_LE, 0);
+    return;
+  }
 
   tBTA_GATTC_DATA gattc_data;
   gattc_data.hdr.layer_specific = p_clcb->bta_conn_id = conn_id;
