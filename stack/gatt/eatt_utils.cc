@@ -396,7 +396,7 @@ tGATT_EBCB* gatt_find_best_eatt_bcb(tGATT_TCB* p_tcb, tGATT_IF gatt_if, uint16_t
   for (i = 0; i < GATT_MAX_EATT_CHANNELS; i++) {
     if (gatt_cb.eatt_bcb[i].in_use && (gatt_cb.eatt_bcb[i].p_tcb->peer_bda == p_tcb->peer_bda)
         && (!gatt_cb.eatt_bcb[i].create_in_prg) && (!gatt_cb.eatt_bcb[i].disconn_in_prg)
-        && (gatt_cb.eatt_bcb[i].cid != L2CAP_ATT_CID) && (p_reg->eatt_support)
+        && (gatt_cb.eatt_bcb[i].cid != L2CAP_ATT_CID) && (p_reg && p_reg->eatt_support)
         && (!gatt_cb.eatt_bcb[i].is_remote_initiated)) {
       if (old_cid > 0) {
         if ((p_eatt_bcb_old) && (gatt_cb.eatt_bcb[i].payload_size < p_eatt_bcb_old->payload_size)) {
@@ -778,7 +778,7 @@ void gatt_move_apps(uint16_t cid) {
   if (p_eatt_bcb_old) {
     p_tcb = p_eatt_bcb_old->p_tcb;
 
-    if (!p_tcb->is_eatt_supported || (cid == L2CAP_ATT_CID)) {
+    if (!p_tcb || !p_tcb->is_eatt_supported || (cid == L2CAP_ATT_CID)) {
       VLOG(1) << __func__ << " Invalid scenario for moving apps";
       return;
     }
@@ -802,7 +802,7 @@ void gatt_move_apps(uint16_t cid) {
     }
   }
 
-  if ((cid != L2CAP_ATT_CID) && p_tcb->is_eatt_supported &&
+  if ((cid != L2CAP_ATT_CID) && p_tcb && p_tcb->is_eatt_supported &&
       (p_tcb->transport == BT_TRANSPORT_LE) && p_eatt_bcb_old) {
     std::vector<tGATT_APP_INFO> apps;
     std::vector<tGATT_APPS_Q> apps_q;
@@ -860,7 +860,8 @@ void gatt_move_apps(uint16_t cid) {
         if ((app.conn_id == cmd.p_clcb->conn_id) && (app.conn_id != cl_conn_id) &&
             (cmd.p_cmd != NULL)) {
           p_eatt_bcb = gatt_find_eatt_bcb_by_cid(app.lcid);
-          p_eatt_bcb->cl_cmd_q.push(cmd);
+          if (p_eatt_bcb)
+            p_eatt_bcb->cl_cmd_q.push(cmd);
         }
       }
       p_eatt_bcb_old->cl_cmd_q.pop();
@@ -875,7 +876,8 @@ void gatt_move_apps(uint16_t cid) {
           tGATT_APPS_Q app = apps_q[i];
           if ((app.conn_id == p_buf->conn_id) && (app.conn_id != sr_conn_id)) {
             p_eatt_bcb = gatt_find_eatt_bcb_by_cid(app.lcid);
-            gatt_add_pending_ind(p_tcb, p_eatt_bcb->cid, p_buf);
+            if (p_eatt_bcb)
+              gatt_add_pending_ind(p_tcb, p_eatt_bcb->cid, p_buf);
           }
         }
         osi_free(fixed_queue_try_remove_from_queue(p_eatt_bcb_old->pending_ind_q, p_buf));
