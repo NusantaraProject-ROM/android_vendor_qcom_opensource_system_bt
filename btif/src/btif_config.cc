@@ -313,6 +313,7 @@ static future_t* clean_up(void) {
   std::unique_lock<std::recursive_mutex> lock(config_lock);
   config_free(config);
   config = NULL;
+  get_bluetooth_keystore_interface()->clear_map();
   return future_new_immediate(FUTURE_SUCCESS);
 }
 
