@@ -89,8 +89,10 @@ using bluetooth::hearing_aid::HearingAidInterface;
 
 bt_callbacks_t* bt_hal_cbacks = NULL;
 bool restricted_mode = false;
-bool single_user_mode = false;
 bool is_local_device_atv = false;
+bool niap_mode = false;
+const int CONFIG_COMPARE_ALL_PASS = 0b11;
+int niap_config_compare_result = CONFIG_COMPARE_ALL_PASS;
 
 /*******************************************************************************
  *  Externs
@@ -169,8 +171,9 @@ static int init(bt_callbacks_t* callbacks, bool start_restricted,
 
   bt_hal_cbacks = callbacks;
   restricted_mode = start_restricted;
-  single_user_mode = is_niap_mode;
   is_local_device_atv = is_atv;
+  niap_mode = is_niap_mode;
+  niap_config_compare_result = config_compare_result;
 
   stack_manager_get_interface()->init_stack();
   btif_debug_init();
@@ -197,7 +200,12 @@ static int disable(void) {
 static void cleanup(void) { stack_manager_get_interface()->clean_up_stack(); }
 
 bool is_restricted_mode() { return restricted_mode; }
-bool is_single_user_mode() { return single_user_mode; }
+bool is_niap_mode() { return niap_mode; }
+// if niap mode disable, will always return CONFIG_COMPARE_ALL_PASS(0b11)
+// indicate don't check config checksum.
+int get_niap_config_compare_result() {
+  return niap_mode ? niap_config_compare_result : CONFIG_COMPARE_ALL_PASS;
+}
 
 bool is_atv_device() { return is_local_device_atv; }
 
