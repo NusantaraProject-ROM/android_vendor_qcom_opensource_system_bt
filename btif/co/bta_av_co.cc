@@ -1326,11 +1326,16 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_p_sink(
 //
 static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
   tBTA_AV_CO_SINK* p_sink = NULL;
+
+  APPL_TRACE_DEBUG("%s: start", __func__);
+  mutex_global_lock();
+
   // Update all selectable codecs.
   // This is needed to update the selectable parameters for each codec.
   // NOTE: The selectable codec info is used only for informational purpose.
   if (p_peer->codecs == nullptr) {
     APPL_TRACE_ERROR("%s: p_peer->codecs is null", __func__);
+    mutex_global_unlock();
     return NULL;
   }
 
@@ -1427,6 +1432,8 @@ static tBTA_AV_CO_SINK* bta_av_co_audio_set_codec(tBTA_AV_CO_PEER* p_peer) {
     APPL_TRACE_DEBUG("%s: cannot use codec %s", __func__, iter->name().c_str());
   }
   APPL_TRACE_DEBUG("%s BDA:%s", __func__, p_peer->addr.ToString().c_str());
+
+  mutex_global_unlock();
   return p_sink;
 }
 
