@@ -75,6 +75,7 @@ bt_interface_t fake_bt_iface = {
     nullptr, /* get_avrcp_service */
     nullptr, /* obfuscate_address */
     nullptr, /* set_dynamic_audio_buffer_size */
+    nullptr, /* generate_local_oob_data */
 };
 
 }  // namespace

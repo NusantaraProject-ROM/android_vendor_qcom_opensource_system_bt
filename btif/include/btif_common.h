@@ -224,4 +224,7 @@ void btif_init_ok(UNUSED_ATTR uint16_t event, UNUSED_ATTR char* p_param);
 
 bt_status_t btif_reset_service(tBTA_SERVICE_ID service_id);
 
+void invoke_oob_data_request_cb(tBT_TRANSPORT t, bool valid, Octet16 c,
+                                Octet16 r);
+
 #endif /* BTIF_COMMON_H */
