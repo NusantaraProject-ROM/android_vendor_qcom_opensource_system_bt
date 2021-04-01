@@ -239,11 +239,6 @@ void btm_read_rssi_cb(void* p_void) {
   bt_status_t btif_gattc_register_app(const Uuid& uuid, bool eatt_support) {
     CHECK_BTGATT_INIT();
 
-    if (eatt_support) {
-      LOG_ERROR(LOG_TAG, "%s: EATT not supported", __func__);
-      return BT_STATUS_UNSUPPORTED;
-    }
-
     return do_in_jni_thread(Bind(
         [](const Uuid& uuid, bool eatt_support) {
           BTA_GATTC_AppRegister(
