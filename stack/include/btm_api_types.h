@@ -1476,7 +1476,14 @@ typedef uint8_t tBTM_IO_CAP;
 
 typedef uint8_t tBTM_AUTH_REQ;
 
-enum { BTM_OOB_NONE, BTM_OOB_PRESENT, BTM_OOB_UNKNOWN };
+enum {
+  BTM_OOB_NONE,
+  BTM_OOB_PRESENT_192,
+  BTM_OOB_PRESENT_256,
+  BTM_OOB_PRESENT_192_AND_256,
+  BTM_OOB_UNKNOWN
+};
+
 typedef uint8_t tBTM_OOB_DATA;
 
 /* data type for BTM_SP_IO_REQ_EVT */
