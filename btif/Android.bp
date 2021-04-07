@@ -1,3 +1,30 @@
+soong_config_module_type_import {
+    from: "device/qcom/qssi/Android.bp",
+    module_types: [
+         "bredr_vs_btadva_cc_defaults",
+    ],
+}
+
+bredr_vs_btadva_cc_defaults {
+    name: "btadva_btif_cc-default",
+
+    soong_config_variables: {
+        bredr_or_btadva: {
+           btadva: {
+              include_dirs: [
+                 "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/system/bt/btif/include",
+                 "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/system/bt",
+                 "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/system/bt/bta/include",
+                 "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/vhal/include",
+              ],
+              cflags: [
+                 "-DADV_AUDIO_FEATURE=1",
+              ],
+           }
+       }
+   }
+}
+
 // Common variables
 // ========================================================
 btifCommonIncludes = [
@@ -35,7 +62,7 @@ btifCommonIncludes = [
 // ========================================================
 cc_library_static {
     name: "libbtif_qti",
-    defaults: ["fluoride_defaults_qti"],
+    defaults: ["fluoride_defaults_qti", "btadva_btif_cc-default"],
     include_dirs: btifCommonIncludes,
     srcs: [
         // HAL layer
@@ -121,7 +148,9 @@ cc_library_static {
         "libmedia_headers",
         "libmediametrics_headers",
     ],
-    cflags: ["-DBUILDCFG"],
+    cflags: [
+        "-DBUILDCFG",
+    ],
 
 }
 

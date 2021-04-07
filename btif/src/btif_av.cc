@@ -4406,7 +4406,8 @@ static bt_status_t init_src(
  *
  ******************************************************************************/
 
-static bt_status_t init_sink(btav_sink_callbacks_t* callbacks) {
+static bt_status_t init_sink(btav_sink_callbacks_t* callbacks,
+                             int /*max_connected_audio_devices*/) {
   BTIF_TRACE_EVENT("%s", __func__);
   property_set("persist.vendor.service.bt.a2dp.sink", "true");
   bt_status_t status = btif_av_init(BTA_A2DP_SINK_SERVICE_ID);

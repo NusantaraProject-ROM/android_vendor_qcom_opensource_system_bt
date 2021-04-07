@@ -148,12 +148,18 @@ void btif_ahim_update_pending_command(tA2DP_CTRL_CMD cmd) {
   bluetooth::audio::a2dp::update_pending_command(cmd);
 }
 
-void btif_ahim_ack_stream_started(const tA2DP_CTRL_ACK& ack) {
-  bluetooth::audio::a2dp::ack_stream_started(ack);
+void btif_ahim_ack_stream_started(const tA2DP_CTRL_ACK& ack, uint8_t profile) {
+  if (cur_active_profile == profile)
+    bluetooth::audio::a2dp::ack_stream_started(ack);
+  else
+    BTIF_TRACE_WARNING("%s, ACK ignored from inactive profile", __func__);
 }
 
-void btif_ahim_ack_stream_suspended(const tA2DP_CTRL_ACK& ack) {
-  bluetooth::audio::a2dp::ack_stream_suspended(ack);
+void btif_ahim_ack_stream_suspended(const tA2DP_CTRL_ACK& ack, uint8_t profile) {
+  if (cur_active_profile == profile)
+    bluetooth::audio::a2dp::ack_stream_suspended(ack);
+  else
+    BTIF_TRACE_WARNING("%s, ACK ignored from inactive profile", __func__);
 }
 
 size_t btif_ahim_read(uint8_t* p_buf, uint32_t len) {

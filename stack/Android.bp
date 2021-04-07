@@ -193,6 +193,9 @@ cc_library_static {
         "libldacBT_enc",
         "libldacBT_abr",
     ],
+    cflags: [
+        "-DADV_AUDIO_FEATURE=1",
+    ],
 }
 
 // Bluetooth stack unit tests for target

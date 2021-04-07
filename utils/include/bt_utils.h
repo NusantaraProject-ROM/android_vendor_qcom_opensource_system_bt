@@ -54,7 +54,8 @@ typedef enum {
 
 /* BLE AUDIO FEATURE MASK */
 #define ADV_AUDIO_UNICAST_FEAT_MASK 0x01
-#define ADV_AUDIO_BROADCAST_FEAT_MASK 0x02
+#define ADV_AUDIO_BCA_FEAT_MASK 0x02
+#define ADV_AUDIO_BCS_FEAT_MASK 0x04
 /*******************************************************************************
  *  Functions
  ******************************************************************************/

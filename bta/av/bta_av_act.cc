@@ -1774,7 +1774,8 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
   uint8_t mask;
   uint16_t timeout = 0;
   tBTA_AV_LCB* p_lcb = NULL;
-  uint8_t handle;
+  uint8_t handle = BTA_AV_RC_HANDLE_NONE;
+  uint8_t tmp_acp_handle = BTA_AV_RC_HANDLE_NONE;
   tBTA_AV_RCB *tmp_rcb = NULL;
   APPL_TRACE_IMP("%s:event: %d, conn_acp: %d addr %s", __func__, event,
                  p_data->hdr.offset, p_data->str_msg.bd_addr.ToString().c_str());
@@ -1828,8 +1829,11 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
           /* start listening when the signal channel is open */
           if ((p_cb->features & BTA_AV_FEAT_RCTG) &&
               (bta_av_map_scb_rc(p_data->str_msg.bd_addr, p_cb->rcb) == NULL)) {
-            if ((handle = bta_av_rc_create(p_cb, AVCT_ACP, 0, p_lcb->lidx, &p_data->str_msg.bd_addr)) != 0 &&
-                 (handle != BTA_AV_RC_HANDLE_NONE)) {
+            tmp_acp_handle = p_cb->rc_acp_handle;
+            handle = bta_av_rc_create(p_cb, AVCT_ACP, 0, p_lcb->lidx, &p_data->str_msg.bd_addr);
+            if ((handle != BTA_AV_RC_HANDLE_NONE) &&
+                 (handle != tmp_acp_handle)) {
+              APPL_TRACE_DEBUG("%s: acp handle %d", __func__, p_cb->rc_acp_handle);
               p_cb->p_scb[xx]->rc_ccb_alloc_handle = handle;
             }
           }
@@ -2378,6 +2382,8 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
           if (p_scb->rc_ccb_alloc_handle != BTA_AV_RC_HANDLE_NONE) {
             APPL_TRACE_DEBUG("closing previous allocating unnecessary ccb %d", p_scb->rc_ccb_alloc_handle);
             AVRC_Close(p_scb->rc_ccb_alloc_handle);
+            //clearing acp handle to open again
+            p_cb->rcb[p_scb->rc_ccb_alloc_handle].handle = BTA_AV_RC_HANDLE_NONE;
             p_scb->rc_ccb_alloc_handle = BTA_AV_RC_HANDLE_NONE;
           }
           rc_handle = bta_av_rc_create(p_cb, AVCT_INT,
