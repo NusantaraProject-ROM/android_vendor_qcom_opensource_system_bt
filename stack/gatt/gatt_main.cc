@@ -274,6 +274,7 @@ bool gatt_connect(const RawAddress& rem_bda, tGATT_TCB* p_tcb,
                   tGATT_IF gatt_if) {
   VLOG(1) << __func__;
   tGATT_REG* p_reg_app = gatt_get_regcb(gatt_if);
+  tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(rem_bda);
 
   if (gatt_get_ch_state(p_tcb) != GATT_CH_OPEN)
     gatt_set_ch_state(p_tcb, GATT_CH_CONN);
@@ -312,7 +313,7 @@ bool gatt_connect(const RawAddress& rem_bda, tGATT_TCB* p_tcb,
       if (it == p_tcb->apps_needing_eatt.end()) {
         p_tcb->apps_needing_eatt.push_back(gatt_if);
       }
-      if (btm_sec_is_a_bonded_dev(rem_bda))
+      if (p_dev_rec && (p_dev_rec->sec_flags & BTM_SEC_LE_ENCRYPTED))
         gatt_establish_eatt_connect(p_tcb, 1);
     }
 

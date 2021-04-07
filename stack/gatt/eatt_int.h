@@ -55,7 +55,7 @@ extern bool gatt_eatt_bcb_dealloc(uint16_t lcid);
 extern tGATT_EBCB* gatt_find_best_eatt_bcb(tGATT_TCB* p_tcb, tGATT_IF gatt_if, uint16_t old_cid, bool opportunistic);
 extern uint8_t gatt_num_eatt_bcbs_in_progress(tGATT_TCB* p_tcb);
 extern uint16_t gatt_get_payload_size(tGATT_TCB* p_tcb, uint16_t lcid);
-extern void gatt_remove_gatt_conn(uint16_t conn_id, uint16_t lcid);
+extern void gatt_remove_conn(uint16_t conn_id, uint16_t lcid);
 extern bool is_gatt_conn_found(uint16_t conn_id, uint16_t lcid);
 extern void gatt_add_conn(uint16_t conn_id, uint16_t lcid);
 extern bool is_gatt_conn_id_found(uint16_t conn_id);

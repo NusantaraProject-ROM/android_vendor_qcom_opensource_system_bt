@@ -558,14 +558,14 @@ struct is_gatt_cid_found
 
 /*******************************************************************************
  *
- * Function         gatt_remove_gatt_conn
+ * Function         gatt_remove_conn
  *
- * Description      The function deleted gatt_conn entry
+ * Description      The function deletes gatt_conn entry
  *
  * Returns          void.
  *
  ******************************************************************************/
-void gatt_remove_gatt_conn(uint16_t conn_id, uint16_t lcid) {
+void gatt_remove_conn(uint16_t conn_id, uint16_t lcid) {
   std::vector<tGATT_CONN>::iterator it
       = std::find_if(gatt_cb.gatt_conn_list.begin(), gatt_cb.gatt_conn_list.end(), find_gatt_conn(conn_id, lcid));
   VLOG(1) << __func__;
@@ -828,7 +828,7 @@ void gatt_move_apps(uint16_t cid) {
       conn_id = GATT_CREATE_CONN_ID(p_tcb->tcb_idx, gatt_if);
 
       //Remove the conn_id from previous lcid
-      gatt_remove_gatt_conn(conn_id, cid);
+      gatt_remove_conn(conn_id, cid);
       p_eatt_bcb_old->disconn_in_prg = true;
 
       //Find least burdened channel for the gatt_if
@@ -964,13 +964,13 @@ uint8_t gatt_remove_app_on_lcid(uint16_t lcid, tGATT_IF gatt_if) {
         std::find(p_eatt_bcb->opportunistic_apps.begin(), p_eatt_bcb->opportunistic_apps.end(), gatt_if);
     if (pos != p_eatt_bcb->opportunistic_apps.end()) {
       p_eatt_bcb->opportunistic_apps.erase(pos);
-      gatt_remove_gatt_conn(conn_id, lcid);
+      gatt_remove_conn(conn_id, lcid);
     }
     else {
       pos = std::find(p_eatt_bcb->apps.begin(), p_eatt_bcb->apps.end(), gatt_if);
       if (pos != p_eatt_bcb->apps.end()) {
         p_eatt_bcb->apps.erase(pos);
-        gatt_remove_gatt_conn(conn_id, lcid);
+        gatt_remove_conn(conn_id, lcid);
       }
     }
 
