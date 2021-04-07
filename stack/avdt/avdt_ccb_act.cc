@@ -457,7 +457,10 @@ void avdt_ccb_hdl_getcap_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   AVDT_TRACE_DEBUG("%s: bd_add: %s", __func__, p_ccb->peer_addr.ToString().c_str());
   /* look up scb for seid sent to us */
   p_scb = avdt_scb_by_hdl(p_data->msg.single.seid);
-
+  if (p_scb == NULL) {
+      AVDT_TRACE_WARNING("%s: scb is null", __func__);
+      return;
+  }
   p_data->msg.svccap.p_cfg = &p_scb->cs.cfg;
   if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC) {
       if (!A2DP_Get_AAC_VBR_Status(&p_ccb->peer_addr)) {
