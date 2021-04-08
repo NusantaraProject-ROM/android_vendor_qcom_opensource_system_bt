@@ -2778,8 +2778,8 @@ void btm_ble_create_cis_timeout (void* p_data) {
 
     // erase the pending connection entry from map
     pending_cis_map.erase(it);
-    delete cis_handles;
   }
+  delete cis_handles;
 }
 
 void btm_ble_cis_established_evt(uint8_t *param, uint16_t param_len) {
