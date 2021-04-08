@@ -35,6 +35,7 @@
 #include "rfcdefs.h"
 
 #include <set>
+#include "stack/l2cap/l2c_int.h"
 #include "hci/include/btsnoop.h"
 
 static const std::set<uint16_t> uuid_logging_whitelist = {
@@ -220,6 +221,19 @@ void rfc_port_sm_sabme_wait_ua(tPORT* p_port, uint16_t event, void* p_data) {
                                                     p_port->dlci);
       }
 
+      {
+        uint16_t lcid;
+        tL2C_CCB *ccb;
+
+        lcid   = p_port->rfc.p_mcb->lcid;
+        ccb    = l2cu_find_ccb_by_cid(nullptr, lcid);
+
+        if (ccb) {
+          btsnoop_get_interface()->set_rfc_port_open(ccb->p_lcb->handle,
+                                          lcid, p_port->dlci, p_port->uuid,
+                                          p_port->rfc.p_mcb->flow == PORT_FC_CREDIT);
+        }
+      }
       PORT_DlcEstablishCnf(p_port->rfc.p_mcb, p_port->dlci,
                            p_port->rfc.p_mcb->peer_l2cap_mtu, RFCOMM_SUCCESS);
       return;
@@ -335,6 +349,19 @@ void rfc_port_sm_term_wait_sec_check(tPORT* p_port, uint16_t event,
             uuid_logging_whitelist.end()) {
           btsnoop_get_interface()->whitelist_rfc_dlci(p_port->rfc.p_mcb->lcid,
                                                       p_port->dlci);
+        }
+        {
+          uint16_t lcid;
+          tL2C_CCB *ccb;
+
+          lcid   = p_port->rfc.p_mcb->lcid;
+          ccb    = l2cu_find_ccb_by_cid(nullptr, lcid);
+
+          if (ccb) {
+            btsnoop_get_interface()->set_rfc_port_open(ccb->p_lcb->handle,
+                                          lcid, p_port->dlci, p_port->uuid,
+                                          p_port->rfc.p_mcb->flow == PORT_FC_CREDIT);
+          }
         }
       }
       return;

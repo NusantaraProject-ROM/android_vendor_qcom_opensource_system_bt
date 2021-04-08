@@ -1587,6 +1587,10 @@ void l2cu_release_ccb(tL2C_CCB* p_ccb) {
   p_lcb = p_ccb->p_lcb;
   p_rcb = p_ccb->p_rcb;
 
+  if (p_rcb && p_lcb && p_ccb->chnl_state >= CST_OPEN) {
+    btsnoop_get_interface()->set_l2cap_channel_close(p_ccb->p_lcb->handle,
+                                        p_ccb->local_cid, p_ccb->remote_cid);
+  }
 #if (defined(LE_L2CAP_CFC_INCLUDED) && (LE_L2CAP_CFC_INCLUDED == TRUE))
   if (p_rcb && p_lcb && (p_rcb->psm != p_rcb->real_psm)) {
 #else

@@ -35,6 +35,7 @@
 #include "l2c_int.h"
 #include "l2cdefs.h"
 #include "device/include/interop.h"
+#include "hci/include/btsnoop.h"
 
 /******************************************************************************/
 /*            L O C A L    F U N C T I O N     P R O T O T Y P E S            */
@@ -934,6 +935,14 @@ static void l2c_csm_config(tL2C_CCB* p_ccb, uint16_t event, void* p_data) {
             l2c_link_check_send_pkts(p_ccb->p_lcb, NULL, NULL);
           }
         }
+
+        if (p_ccb->config_done & RECONFIG_FLAG) {
+          // Notify only once
+          btsnoop_get_interface()->set_l2cap_channel_open(p_ccb->p_lcb->handle,
+                                        p_ccb->local_cid, p_ccb->remote_cid,
+                                        p_ccb->p_rcb->psm,
+                                        p_ccb->peer_cfg.fcr.mode != L2CAP_FCR_BASIC_MODE);
+        }
       }
       L2CAP_TRACE_WARNING("L2CAP-peer_Config_Rsp,Local CID: 0x%04x,Remote CID: 0x%04x,"
                "PSM: %d,peer MTU present: %d,peer MTU: %d", p_ccb->local_cid,p_ccb->remote_cid,
@@ -1025,6 +1034,14 @@ static void l2c_csm_config(tL2C_CCB* p_ccb, uint16_t event, void* p_data) {
 #if (L2CAP_ERTM_STATS == TRUE)
       p_ccb->fcrb.connect_tick_count = time_get_os_boottime_ms();
 #endif
+
+      if (p_ccb->config_done & RECONFIG_FLAG) {
+        // Notify only once
+        btsnoop_get_interface()->set_l2cap_channel_open(p_ccb->p_lcb->handle,
+                                          p_ccb->local_cid, p_ccb->remote_cid,
+                                          p_ccb->p_rcb->psm,
+                                          p_ccb->peer_cfg.fcr.mode != L2CAP_FCR_BASIC_MODE);
+      }
 
       /* See if we can forward anything on the hold queue */
       if ((p_ccb->chnl_state == CST_OPEN) &&
