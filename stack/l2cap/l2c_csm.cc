@@ -819,10 +819,12 @@ static void l2c_csm_term_w4_sec_comp(tL2C_CCB* p_ccb, uint16_t event,
           alarm_set_on_mloop(p_ccb->coc_cmd_info.ecfc_conn_alarm,
                             L2CAP_CHNL_CONNECT_TIMEOUT_MS,
                             l2c_ccb_timer_timeout, p_ccb);
-          (*p_ccb->p_rcb->coc_api.pL2CA_CocConnectInd_Cb)(&p_conn_req,
-                p_ccb->remote_id,
-                p_ccb->coc_cmd_info.ecfc_conn_result,
-                L2CAP_CONN_OK);
+          if (p_ccb->p_rcb) {
+            (*p_ccb->p_rcb->coc_api.pL2CA_CocConnectInd_Cb)(&p_conn_req,
+                  p_ccb->remote_id,
+                  p_ccb->coc_cmd_info.ecfc_conn_result,
+                  L2CAP_CONN_OK);
+          }
         }
       }
       break;
