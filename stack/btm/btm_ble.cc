@@ -1787,8 +1787,10 @@ tBTM_STATUS btm_ble_start_encrypt(const RawAddress& bda, bool use_stk,
     return BTM_NO_RESOURCES;
   }
 
-  if (p_rec->sec_state == BTM_SEC_STATE_IDLE)
+  if (p_rec->sec_state == BTM_SEC_STATE_IDLE) {
     p_rec->sec_state = BTM_SEC_STATE_ENCRYPTING;
+    p_rec->is_le_enc_in_progress = true;
+  }
 
   return BTM_CMD_STARTED;
 }
@@ -1826,6 +1828,7 @@ void btm_ble_link_encrypted(const RawAddress& bd_addr, uint8_t encr_enable) {
     p_dev_rec->enc_key_size = p_dev_rec->ble.keys.key_size;
 
   p_dev_rec->sec_state = BTM_SEC_STATE_IDLE;
+  p_dev_rec->is_le_enc_in_progress = false;
   if (p_dev_rec->p_callback && enc_cback) {
     if (encr_enable)
       btm_sec_dev_rec_cback_event(p_dev_rec, BTM_SUCCESS, true);
