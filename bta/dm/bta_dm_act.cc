@@ -3244,7 +3244,8 @@ static uint8_t bta_dm_sp_cback(tBTM_SP_EVT event, tBTM_SP_EVT_DATA* p_data) {
 
     case BTM_SP_LOC_OOB_EVT:
 #ifdef BTIF_DM_OOB_TEST
-      btif_dm_proc_loc_oob((bool)(p_data->loc_oob.status == BTM_SUCCESS),
+      btif_dm_proc_loc_oob(BT_TRANSPORT_BR_EDR,
+                           (bool)(p_data->loc_oob.status == BTM_SUCCESS),
                            p_data->loc_oob.c, p_data->loc_oob.r);
 #endif
       break;
