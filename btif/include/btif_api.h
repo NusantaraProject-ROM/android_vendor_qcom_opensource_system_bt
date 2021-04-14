@@ -298,9 +298,10 @@ bt_status_t btif_dm_create_bond(const RawAddress* bd_addr, int transport);
  * Returns          bt_status_t
  *
  ******************************************************************************/
-bt_status_t btif_dm_create_bond_out_of_band(
-    const RawAddress* bd_addr, int transport,
-    const bt_out_of_band_data_t* oob_data);
+bt_status_t btif_dm_create_bond_out_of_band(const RawAddress* bd_addr,
+                                     tBT_TRANSPORT transport,
+                                     const bt_oob_data_t p192_data,
+                                     const bt_oob_data_t p256_data);
 
 /*******************************************************************************
  *
