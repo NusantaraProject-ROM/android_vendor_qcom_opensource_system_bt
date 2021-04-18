@@ -1274,7 +1274,7 @@ void GATT_Deregister(tGATT_IF gatt_if) {
         }
 
         uint16_t conn_id = GATT_CREATE_CONN_ID(p_tcb->tcb_idx, gatt_if);
-        gatt_remove_gatt_conn(conn_id, lcid);
+        gatt_remove_conn(conn_id, lcid);
       }
     }
 
@@ -1359,6 +1359,7 @@ bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, bool is_direct,
                   tBT_TRANSPORT transport, bool opportunistic,
                   uint8_t initiating_phys) {
   tGATT_TCB* p_tcb;
+  tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(bd_addr);
   LOG(INFO) << __func__ << " gatt_if=" << +gatt_if << ", address=" << bd_addr
     << " is_direct " << is_direct;
 
@@ -1412,7 +1413,7 @@ bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, bool is_direct,
     if (it == p_tcb->apps_needing_eatt.end()) {
       p_tcb->apps_needing_eatt.push_back(gatt_if);
     }
-    if (btm_sec_is_a_bonded_dev(bd_addr))
+    if (p_dev_rec && (p_dev_rec->sec_flags & BTM_SEC_LE_ENCRYPTED))
       gatt_establish_eatt_connect(p_tcb, 1);
   }
 
@@ -1501,7 +1502,7 @@ tGATT_STATUS GATT_Disconnect(uint16_t conn_id) {
   gatt_update_app_use_link_flag(gatt_if, p_tcb, false, true);
 
   uint16_t lcid = gatt_get_cid_by_conn_id(conn_id);
-  gatt_remove_gatt_conn(conn_id, lcid);
+  gatt_remove_conn(conn_id, lcid);
 
   return GATT_SUCCESS;
 }

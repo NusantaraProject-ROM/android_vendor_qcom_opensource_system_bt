@@ -163,7 +163,11 @@ typedef uint16_t tGATT_DISCONN_REASON;
 #define GATT_INVALID_CONN_ID 0xFFFF
 
 #ifndef GATT_CL_MAX_LCB
+#ifdef ADV_AUDIO_FEATURE
+#define GATT_CL_MAX_LCB 64
+#else
 #define GATT_CL_MAX_LCB 22
+#endif
 #endif
 
 /* GATT notification caching timer, default to be three seconds

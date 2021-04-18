@@ -1175,7 +1175,7 @@ void btif_storage_get_remote_services(RawAddress *p_addr, Uuid *actual_rem_uuids
   btif_storage_get_remote_device_property(p_addr, &prop);
 
   int final_valid_index = valid_uuids;
-  for (i = 0; i < BT_MAX_NUM_UUIDS; i++) {
+  for (i = 0; i < BT_MAX_NUM_UUIDS && final_valid_index < BT_MAX_NUM_UUIDS; i++) {
     if (remote_le_uuids[i] != Uuid::kEmpty) {
       BTIF_TRACE_EVENT("%s: UUID %s index %d ", __func__,
         remote_le_uuids[i].ToString().c_str());

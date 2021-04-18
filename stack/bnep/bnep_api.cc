@@ -299,6 +299,14 @@ tBNEP_RESULT BNEP_Disconnect(uint16_t handle) {
 
   L2CA_DisconnectReq(p_bcb->l2cap_cid);
 
+  if (bnep_cb.p_tx_data_flow_cb &&
+      (p_bcb->con_flags & BNEP_FLAGS_L2CAP_CONGESTED))
+  {
+     p_bcb->con_flags &= ~BNEP_FLAGS_L2CAP_CONGESTED;
+     BNEP_TRACE_WARNING ("BNEP - Disconnect, clearing the congestion");
+     bnep_cb.p_tx_data_flow_cb(p_bcb->handle, BNEP_TX_FLOW_ON);
+  }
+
   bnepu_release_bcb(p_bcb);
 
   return (BNEP_SUCCESS);

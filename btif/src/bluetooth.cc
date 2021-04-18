@@ -290,11 +290,12 @@ static int create_bond(const RawAddress* bd_addr, int transport) {
 }
 
 static int create_bond_out_of_band(const RawAddress* bd_addr, int transport,
-                                   const bt_out_of_band_data_t* oob_data) {
+                                   const bt_oob_data_t* p192_data,
+                                   const bt_oob_data_t* p256_data) {
   /* sanity check */
   if (interface_ready() == false) return BT_STATUS_NOT_READY;
 
-  return btif_dm_create_bond_out_of_band(bd_addr, transport, oob_data);
+  return btif_dm_create_bond_out_of_band(bd_addr, transport, *p192_data,*p256_data);
 }
 
 static int cancel_bond(const RawAddress* bd_addr) {

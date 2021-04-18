@@ -71,7 +71,7 @@ extern void btm_event_filter_complete(uint8_t* p);
 extern void btm_inq_stop_on_ssp(void);
 extern void btm_inq_clear_ssp(void);
 extern tINQ_DB_ENT* btm_inq_db_find(const RawAddress& p_bda);
-extern bool btm_inq_find_bdaddr(const RawAddress& p_bda);
+extern bool btm_inq_find_bdaddr(const RawAddress& p_bda, tBT_DEVICE_TYPE p_dev_type);
 
 /* Internal functions provided by btm_acl.cc
  *******************************************

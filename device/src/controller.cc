@@ -43,7 +43,7 @@
 #define BTSNOOP_SOCLOG_PROPERTY "persist.vendor.service.bdroid.soclog"
 
 const bt_event_mask_t BLE_EVENT_MASK = {
-    {0x00, 0x00, 0x00, 0x02, 0xCF, 0x0B, 0xFE, 0x7f}};
+    {0x00, 0x00, 0x00, 0x02, 0x4F, 0x0B, 0xFE, 0x7f}};
 
 const bt_event_mask_t CLASSIC_EVENT_MASK = {HCI_DUMO_EVENT_MASK_EXT};
 

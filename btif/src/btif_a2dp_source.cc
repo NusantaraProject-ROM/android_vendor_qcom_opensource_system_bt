@@ -803,7 +803,7 @@ void btif_a2dp_source_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
                   !strcmp(a2dp_hal_imp, "true")) {
             if (btif_a2dp_source_is_hal_v2_enabled()) {
 #if AHIM_ENABLED
-              btif_ahim_reset_pending_command();
+              btif_ahim_reset_pending_command(A2DP);
 #else
               bluetooth::audio::a2dp::reset_pending_command();
 #endif
@@ -883,7 +883,7 @@ void btif_a2dp_source_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
                   !strcmp(a2dp_hal_imp, "true")) {
             if (btif_a2dp_source_is_hal_v2_enabled()) {
 #if AHIM_ENABLED
-              btif_ahim_reset_pending_command();
+              btif_ahim_reset_pending_command(A2DP);
 #else
               bluetooth::audio::a2dp::reset_pending_command();
 #endif
@@ -1485,8 +1485,10 @@ void btif_a2dp_source_update_metrics(void) {
     int64_t session_end_us = stats->session_end_us == 0
                                  ? time_get_os_boottime_us()
                                  : stats->session_end_us;
-    metrics.audio_duration_ms =
-        (session_end_us - stats->session_start_us) / 1000;
+    if (static_cast<uint64_t>(session_end_us) > stats->session_start_us) {
+      metrics.audio_duration_ms =
+          (session_end_us - stats->session_start_us) / 1000;
+    }
   }
 
   if (enqueue_stats->total_updates > 1) {
@@ -1787,7 +1789,7 @@ void btif_a2dp_source_process_request(tA2DP_CTRL_CMD cmd) {
   bool start_audio = false;
   // update the pending command
 #if AHIM_ENABLED
-  btif_ahim_update_pending_command(cmd);
+  btif_ahim_update_pending_command(cmd, A2DP);
 #else
   bluetooth::audio::a2dp::update_pending_command(cmd);
 #endif

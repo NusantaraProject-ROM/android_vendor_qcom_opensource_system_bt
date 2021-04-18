@@ -281,7 +281,7 @@ void btif_a2dp_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
           RawAddress addr = btif_av_get_addr_by_index(index);
           if (btif_a2dp_source_is_hal_v2_enabled()) {
 #if AHIM_ENABLED
-            btif_ahim_reset_pending_command();
+            btif_ahim_reset_pending_command(A2DP);
 #else
             bluetooth::audio::a2dp::reset_pending_command();
 #endif
@@ -342,7 +342,7 @@ void btif_a2dp_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
         RawAddress addr = btif_av_get_addr_by_index(index);
         if (btif_a2dp_source_is_hal_v2_enabled()) {
 #if AHIM_ENABLED
-          btif_ahim_reset_pending_command();
+          btif_ahim_reset_pending_command(A2DP);
 #else
           bluetooth::audio::a2dp::reset_pending_command();
 #endif
