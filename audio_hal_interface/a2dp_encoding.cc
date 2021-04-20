@@ -1542,11 +1542,20 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
     lc3Config.decoderOuputChannels = 0;
     int numBises = 2;
     if (type == 0x04) {
+      LOG(ERROR) << __func__ << ": Filling Tx dummy values";
+      lc3Config.txConfig.sampleRate = ExtSampleRate::RATE_48000;
+      lc3Config.txConfig.channelMode = LC3ChannelMode::STEREO;
+      lc3Config.txConfig.bitrate = 80000;
+      lc3Config.txConfig.octetsPerFrame = 100;
+      lc3Config.txConfig.frameDuration = 10000;
+      lc3Config.txConfig.bitsPerSample = BitsPerSample::BITS_24;
+      lc3Config.txConfig.numBlocks = 1;
+
       lc3Config.rxConfigSet = 1;
-      lc3Config.rxConfig.sampleRate = ExtSampleRate::RATE_16000;
+      lc3Config.rxConfig.sampleRate = ExtSampleRate::RATE_48000;
       lc3Config.rxConfig.channelMode = LC3ChannelMode::STEREO;
-      lc3Config.rxConfig.bitrate = 48000;
-      lc3Config.rxConfig.octetsPerFrame = 60;
+      lc3Config.rxConfig.bitrate = 80000;
+      lc3Config.rxConfig.octetsPerFrame = 100;
       lc3Config.rxConfig.frameDuration = 10000;
       lc3Config.rxConfig.bitsPerSample = BitsPerSample::BITS_24;
     }
