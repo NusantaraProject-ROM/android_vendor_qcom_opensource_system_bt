@@ -1983,7 +1983,7 @@ static bool btif_av_state_opened_handler(btif_sm_event_t event, void* p_data,
             }
           }
         }
-        if(!active_tws)
+        if(!active_tws && !enable_multicast)
 #endif
         {
           BTIF_TRACE_EVENT("%s: Start event received for in-active device", __func__);

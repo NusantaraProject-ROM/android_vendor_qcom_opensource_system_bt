@@ -37,7 +37,9 @@ cc_library_shared {
         "system/bt/embdrv/sbc/decoder/include",
         "vendor/qcom/opensource/commonsys/system/bt/utils/include",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include",
-        "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext"
+        "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext",
+        "system/security/keystore/include",
+        "hardware/interfaces/keymaster/4.0/support/include"
     ],
     logtags: ["../EventLogTags.logtags"],
     shared_libs: [

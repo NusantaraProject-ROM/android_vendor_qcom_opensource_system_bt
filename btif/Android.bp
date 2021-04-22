@@ -28,7 +28,6 @@ btifCommonIncludes = [
     "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/bta/include",
     "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include",
     "vendor/qcom/opensource/commonsys-intf/bluetooth/include",
-
     "system/bt/include",
 ]
 
@@ -86,6 +85,7 @@ cc_library_static {
         "src/btif_storage.cc",
         "src/btif_uid.cc",
         "src/btif_util.cc",
+        "src/btif_keystore.cc",
         "src/stack_manager.cc",
         // Callouts
         "co/bta_ag_co.cc",
@@ -129,7 +129,9 @@ cc_test {
     name: "net_test_btif_qti",
     defaults: ["fluoride_defaults_qti"],
     include_dirs: btifCommonIncludes,
-    srcs: ["test/btif_storage_test.cc"],
+    srcs: [
+        "test/btif_storage_test.cc",
+    ],
     header_libs: ["libbluetooth_headers"],
     shared_libs: [
         "liblog",
@@ -146,6 +148,9 @@ cc_test {
         "libbt-common-qti",
     ],
     cflags: ["-DBUILDCFG"],
+    sanitize: {
+        integer_overflow: true,
+    },
 }
 
 // btif profile queue unit tests for target

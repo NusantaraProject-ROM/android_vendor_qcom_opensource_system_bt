@@ -50,6 +50,7 @@
 #define BT_PROFILE_AV_RC_ID "avrcp"
 #define BT_PROFILE_AV_RC_CTRL_ID "avrcp_ctrl"
 #define BT_PROFILE_HEARING_AID_ID "hearing_aid"
+#define BT_KEYSTORE_ID "bluetooth_keystore"
 
 /** Bluetooth Device Name */
 typedef struct {
@@ -485,11 +486,13 @@ typedef struct {
      * The |start_restricted| flag inits the adapter in restricted mode. In
      * restricted mode, bonds that are created are marked as restricted in the
      * config file. These devices are deleted upon leaving restricted mode.
-     * The |is_single_user_mode| flag inits the adapter in NIAP mode.
+     * The |is_niap_mode| flag inits the adapter in NIAP mode.
+     * The |config_compare_result| flag show the config checksum check result if
+     * is in NIAP mode.
      * The |is_atv| flag indicates whether the local device is an Android TV
      */
     int (*init)(bt_callbacks_t* callbacks , bool guest_mode,
-                bool is_single_user_mode , int config_compare_result, bool is_atv);
+                bool is_niap_mode , int config_compare_result, bool is_atv);
 
     /** Enable Bluetooth. */
     int (*enable)();
