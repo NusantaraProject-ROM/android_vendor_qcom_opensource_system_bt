@@ -85,6 +85,7 @@ using ::bluetooth::audio::SessionType;
 std::mutex internal_mutex_;
 std::condition_variable ack_wait_cv;
 tA2DP_CTRL_ACK ack_status;
+
 #define BA_SIMULCAST 3
 #define CHANNEL_MONO 0x00000000 //Mono/Unspecified
 #define CHANNEL_FL   0x00000001 //Front Left
@@ -93,6 +94,9 @@ tA2DP_CTRL_ACK ack_status;
 #define CHANNEL_LFE  0x00000008 //Low Frequency Effect
 #define CHANNEL_BL   0x00000010 //Back Left
 #define CHANNEL_BR   0x00000020 //Back Right
+#define FROM_AIR     0x01
+#define TO_AIR       0x00
+
 BluetoothAudioCtrlAck a2dp_ack_to_bt_audio_ctrl_ack(tA2DP_CTRL_ACK ack);
 
 // Provide call-in APIs for the Bluetooth Audio HAL
@@ -1467,6 +1471,7 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
     LOG(INFO) << __func__ << ": Celt codec, CodecConfiguration=" << toString(*codec_config);
     return true;
   }
+
 /********LC3 Codec */
   if (profile == BROADCAST) {
     //Populate LC3 codec info
@@ -1501,7 +1506,7 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
       lc3Config.rxConfig.bitsPerSample = BitsPerSample::BITS_24;
       lc3Config.mode = BA_SIMULCAST;
     }
-    lc3Config.NumStreamIDGroup = numBises; 
+    lc3Config.NumStreamIDGroup = numBises;
     for (int i = 0; i < numBises; i++) {
       if (lc3Config.txConfig.channelMode == LC3ChannelMode::STEREO) {
         lc3Config.streamMap[(i*3)] = (CHANNEL_FL + (i % 2));
@@ -1532,15 +1537,18 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
       lc3Config.txConfig.bitsPerSample = BitsPerSample::BITS_24;
       lc3Config.txConfig.numBlocks = 1;
     }
+
     uint8_t cs[16] = {0};
     for (int i = 0; i  < 16; i++) {
       lc3Config.codecSpecific[i] = cs[i];
     }
+
     lc3Config.defaultQlevel = 0;
     lc3Config.mode = pclient_cbs[profile - 1]->mode;
     lc3Config.rxConfigSet = 0;
     lc3Config.decoderOuputChannels = 0;
-    int numBises = 2;
+    int cis_count = 2;
+
     if (type == 0x04) {
       LOG(ERROR) << __func__ << ": Filling Tx dummy values";
       lc3Config.txConfig.sampleRate = ExtSampleRate::RATE_48000;
@@ -1558,28 +1566,54 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
       lc3Config.rxConfig.octetsPerFrame = 100;
       lc3Config.rxConfig.frameDuration = 10000;
       lc3Config.rxConfig.bitsPerSample = BitsPerSample::BITS_24;
+      lc3Config.rxConfig.numBlocks = 1;
     }
-    lc3Config.NumStreamIDGroup = numBises;
-    for (int i = 0; i < numBises; i++) {
-      if (type == 0x04 ? lc3Config.rxConfig.channelMode == LC3ChannelMode::STEREO : lc3Config.txConfig.channelMode == LC3ChannelMode::STEREO) {
+    lc3Config.NumStreamIDGroup = cis_count;
+
+    // To Air
+    for (int i = 0; i < cis_count; i++) {
+      if (lc3Config.txConfig.channelMode == LC3ChannelMode::STEREO) {//TODO:change rx in wmcp case
         lc3Config.streamMap[(i*3)] = (CHANNEL_FL + (i % 2));
+        LOG(ERROR) << __func__ << ": Stereo config of ToAir";
       } else if (lc3Config.txConfig.channelMode == LC3ChannelMode::JOINT_STEREO) {
         lc3Config.streamMap[(i*3)] = (CHANNEL_FR | CHANNEL_FL);
       } else {
         lc3Config.streamMap[(i*3)] = i;
       }
       lc3Config.streamMap[(i*3)+1] = i;
-      lc3Config.streamMap[(i*3)+2] = 0;
+      lc3Config.streamMap[(i*3)+2] = TO_AIR;
     }
+
+    // From Air
+    if (lc3Config.rxConfigSet) {
+      lc3Config.decoderOuputChannels = 2;
+      for (int i = cis_count, j = 0; i < cis_count*2; i++, j++) {
+        if (type == 0x04 ? lc3Config.rxConfig.channelMode == LC3ChannelMode::STEREO :
+          lc3Config.txConfig.channelMode == LC3ChannelMode::STEREO) {//TODO:change rx in wmcp case
+          lc3Config.streamMap[(i*3)] = (CHANNEL_FL + (i % 2));
+          LOG(ERROR) << __func__ << ": Stereo config of FromAir";
+        } else if (lc3Config.txConfig.channelMode == LC3ChannelMode::JOINT_STEREO) {
+          lc3Config.streamMap[(i*3)] = (CHANNEL_FR | CHANNEL_FL);
+        } else {
+          lc3Config.streamMap[(i*3)] = i;
+        }
+        lc3Config.streamMap[(i*3)+1] = j; // stream ID
+        lc3Config.streamMap[(i*3)+2] = FROM_AIR;  // direction
+      }
+      lc3Config.NumStreamIDGroup += cis_count;
+    }
+
     codec_config->config.lc3Config = lc3Config;
     LOG(INFO) << __func__ << ": LC3 codec, CodecConfiguration=" << toString(*codec_config);
     return true;
   }
+
 /********LC3 Codec */
   if (a2dp_codec_configs == nullptr) {
     LOG(WARNING) << __func__ << ": failure to get A2DP codec config";
     return false;
   }
+
   btav_a2dp_codec_config_t current_codec = a2dp_codec_configs->getCodecConfig();
   tBT_A2DP_OFFLOAD a2dp_offload;
   a2dp_codec_configs->getCodecSpecificConfig(&a2dp_offload);
