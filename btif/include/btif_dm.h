@@ -120,5 +120,6 @@ void btif_get_pairing_cb_info(bt_bond_state_t* state, uint8_t* sdp_attempts,
 void btif_inc_sdp_attempts();
 void btif_reset_pairing_cb() ;
 void btif_reset_sdp_attempts();
+int btif_dm_is_adv_audio();
 
 #endif

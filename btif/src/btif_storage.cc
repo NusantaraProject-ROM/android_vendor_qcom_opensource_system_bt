@@ -81,6 +81,7 @@ using bluetooth::Uuid;
 #define BTIF_STORAGE_PATH_REMOTE_VER_SUBVER "LmpSubVer"
 #define BTIF_STORAGE_PATH_REMOTE_VALID_ADDR "ValidAddr"
 #define BTIF_STORAGE_PATH_REMOTE_MAPPING_ADDR "MapAddr"
+#define BTIF_STORAGE_PATH_REMOTE_ADV_AUDIO "IsAdvAudio"
 
 //#define BTIF_STORAGE_PATH_REMOTE_LINKKEYS "remote_linkkeys"
 #define BTIF_STORAGE_PATH_REMOTE_ALIASE "Aliase"
@@ -256,6 +257,10 @@ static bool prop_upd(const RawAddress* remote_bd_addr, bt_property_t *prop)
       break;
     case BT_PROPERTY_REM_DEViCE_VALID_ADDR:
       btif_config_set_int(bdstr, BTIF_STORAGE_PATH_REMOTE_VALID_ADDR,
+                *(int*)prop->val);
+      break;
+    case BT_PROPERTY_REM_DEV_IS_ADV_AUDIO:
+      btif_config_set_int(bdstr, BTIF_STORAGE_PATH_REMOTE_ADV_AUDIO,
                 *(int*)prop->val);
       break;
     case BT_PROPERTY_REM_DEV_IDENT_BD_ADDR:
@@ -476,6 +481,11 @@ static int cfg2prop(const RawAddress* remote_bd_addr, bt_property_t* prop) {
     case BT_PROPERTY_REM_DEViCE_VALID_ADDR:
       if (prop->len >= (int)sizeof(int))
         ret = btif_config_get_int(bdstr, BTIF_STORAGE_PATH_REMOTE_VALID_ADDR,
+                                  (int*)prop->val);
+      break;
+    case BT_PROPERTY_REM_DEV_IS_ADV_AUDIO:
+      if (prop->len >= (int)sizeof(int))
+        ret = btif_config_get_int(bdstr, BTIF_STORAGE_PATH_REMOTE_ADV_AUDIO,
                                   (int*)prop->val);
       break;
     case BT_PROPERTY_REM_DEV_IDENT_BD_ADDR:
@@ -1079,6 +1089,8 @@ bt_status_t btif_storage_remove_bonded_device(
     ret &= btif_config_remove(bdstr, "MapAddr");
   if (btif_config_exist(bdstr, "AdvAudioService"))
     ret &= btif_config_remove(bdstr, "AdvAudioService");
+  if (btif_config_exist(bdstr, "IsAdvAudio"))
+    ret &= btif_config_remove(bdstr, "IsAdvAudio");
   /* Retaining TwsPlusPeerAddr , AvrcpCtVersion and AvrcpFeatures
      as these are needed even after unpair */
   /* write bonded info immediately */
@@ -1303,6 +1315,11 @@ bt_status_t btif_storage_load_bonded_devices(void) {
       p_remote_addr = (RawAddress *)list_node(node);
       memset(remote_properties, 0, sizeof(remote_properties));
       memset(remote_uuids, 0, sizeof(remote_uuids));
+      BTIF_STORAGE_GET_REMOTE_PROP(p_remote_addr,
+          (bt_property_type_t)BT_PROPERTY_REM_DEViCE_VALID_ADDR,
+          &validAddr, sizeof(int), remote_properties[num_props]);
+      num_props++;
+
       BTIF_STORAGE_GET_REMOTE_PROP(p_remote_addr, BT_PROPERTY_BDNAME, &name,
                                    sizeof(name), remote_properties[num_props]);
       num_props++;
@@ -1319,11 +1336,6 @@ bt_status_t btif_storage_load_bonded_devices(void) {
 
       BTIF_STORAGE_GET_REMOTE_PROP(p_remote_addr, BT_PROPERTY_TYPE_OF_DEVICE,
                                    &devtype, sizeof(devtype),
-                                   remote_properties[num_props]);
-      num_props++;
-
-      BTIF_STORAGE_GET_REMOTE_PROP(p_remote_addr, (bt_property_type_t)BT_PROPERTY_REM_DEViCE_VALID_ADDR,
-                                   &validAddr, sizeof(int),
                                    remote_properties[num_props]);
       num_props++;
 
@@ -2220,4 +2232,26 @@ RawAddress btif_get_map_address(RawAddress bda) {
   }
 
   return mapping_addr;
+}
+
+/*
+ * Whenever calling this API, Please guard the call with
+ * ADV_AUDIO_FEATURE flag. This API is used by ADV_AUDIO feature only.
+ */
+int btif_get_is_adv_audio_pair_info(RawAddress bda) {
+  int is_adv_audio = 0;
+  bt_property_t get_adv_audio_support;
+
+  std::string addrstr = bda.ToString();
+  const char* bdstr = addrstr.c_str();
+  if (btif_config_exist(bdstr, "IsAdvAudio")) {
+    BTIF_STORAGE_GET_REMOTE_PROP(&bda, (bt_property_type_t)BT_PROPERTY_REM_DEV_IS_ADV_AUDIO,
+        &is_adv_audio, sizeof(is_adv_audio),
+        get_adv_audio_support);
+    BTIF_TRACE_DEBUG("%s is_adv_audio %d", __func__, is_adv_audio);
+  } else {
+    BTIF_TRACE_DEBUG("%s Configure entry not present ", __func__);
+  }
+
+  return is_adv_audio;
 }
