@@ -171,6 +171,9 @@ using bluetooth::Uuid;
 
 extern void btif_gatts_add_bonded_dev_from_nv(const RawAddress& bda);
 
+#ifdef ADV_AUDIO_FEATURE
+extern bool is_remote_support_adv_audio(const RawAddress remote_bdaddr);
+#endif
 /*******************************************************************************
  *  Internal Functions
  ******************************************************************************/
@@ -361,6 +364,10 @@ static int prop2cfg(const RawAddress* remote_bd_addr, bt_property_t* prop) {
     // flush is expensive, avoid for BLE devices during BLE Scanning
     if(dev_type == BT_DEVICE_TYPE_BREDR) {
       btif_config_flush();
+#ifdef ADV_AUDIO_FEATURE
+    } else if (is_remote_support_adv_audio(*remote_bd_addr)) {
+      btif_config_flush();
+#endif
     } else {
       btif_config_save();
     }
@@ -2193,4 +2200,24 @@ void btif_storage_set_cl_supp_feat(const RawAddress& bda, uint8_t value) {
                        btif_config_save();
                      },
                      bda, value));
+}
+
+RawAddress btif_get_map_address(RawAddress bda) {
+  char addr_map[1024] = "";
+  int addr_len = 1024;
+  RawAddress mapping_addr = RawAddress::kEmpty;
+  bt_property_t addr_map_prop;
+
+  std::string addrstr = bda.ToString();
+  const char* bdstr = addrstr.c_str();
+  if (btif_config_exist(bdstr, "MapAddr")) {
+    BTIF_STORAGE_GET_REMOTE_PROP(&bda, (bt_property_type_t)BT_PROPERTY_REM_DEV_IDENT_BD_ADDR,
+        addr_map, addr_len,
+        addr_map_prop);
+    RawAddress::FromString(addr_map, mapping_addr);
+  } else {
+    BTIF_TRACE_DEBUG("%s Configure entry not present ", __func__);
+  }
+
+  return mapping_addr;
 }

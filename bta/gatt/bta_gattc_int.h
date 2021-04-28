@@ -312,6 +312,8 @@ typedef struct {
   bool native_access_notif_enabled;
 } tBTA_GATTC_CB;
 
+extern std::map <uint8_t, RawAddress> dev_addr_map;
+
 /*****************************************************************************
  *  Global data
  ****************************************************************************/
@@ -468,5 +470,8 @@ extern bool bta_gattc_conn_dealloc(const RawAddress& remote_bda);
 
 extern bool bta_gattc_cache_load(tBTA_GATTC_CLCB* p_clcb);
 extern void bta_gattc_cache_reset(const RawAddress& server_bda);
+
+extern tBTA_GATTC_CLCB* bta_gattc_cl_get_regcb_by_bdaddr(RawAddress bd_addr,
+                                                   tBTA_TRANSPORT transport);
 
 #endif /* BTA_GATTC_INT_H */
