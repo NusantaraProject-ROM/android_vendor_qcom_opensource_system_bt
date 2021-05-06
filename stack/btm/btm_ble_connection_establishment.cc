@@ -23,6 +23,9 @@
 #include "stack/gatt/connection_manager.h"
 #include "stack/include/hcimsgs.h"
 
+#ifdef ADV_AUDIO_FEATURE
+extern bool is_remote_support_adv_audio(const RawAddress remote_bdaddr);
+#endif
 extern void btm_ble_advertiser_notify_terminated_legacy(
     uint8_t status, uint16_t connection_handle);
 
@@ -138,7 +141,16 @@ void btm_ble_conn_complete(uint8_t* p, UNUSED_ATTR uint16_t evt_len,
      * address, or Random Static Address, we convert it into the "pseudo"
      * address here. */
     if (!addr_is_rpa || peer_addr_type & BLE_ADDR_TYPE_ID_BIT) {
+#ifdef ADV_AUDIO_FEATURE
+      if (is_remote_support_adv_audio(bda)) {
+        match = false;
+        addr_is_rpa = false;
+      } else {
+        match = btm_identity_addr_to_random_pseudo(&bda, &bda_type, true);
+      }
+#else
       match = btm_identity_addr_to_random_pseudo(&bda, &bda_type, true);
+#endif
     }
 
     /* possiblly receive connection complete with resolvable random while
@@ -160,6 +172,8 @@ void btm_ble_conn_complete(uint8_t* p, UNUSED_ATTR uint16_t evt_len,
       } else {
         LOG(INFO) << __func__ << ": unable to match and resolve random address";
       }
+    } else {
+      LOG(INFO) << __func__ << " BD addr " << bda << " Not resolved ";
     }
 #endif
 
