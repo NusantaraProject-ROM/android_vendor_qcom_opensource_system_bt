@@ -5627,18 +5627,19 @@ static void bta_dm_gattc_callback(tBTA_GATTC_EVT event, tBTA_GATTC* p_data) {
         bta_dm_gatt_disc_complete(p_data->search_cmpl.conn_id,
                                   p_data->search_cmpl.status);
 #ifdef ADV_AUDIO_FEATURE
-        if (is_remote_support_adv_audio(bta_dm_search_cb.peer_bdaddr)) {
-          if (p_data->search_cmpl.status == 0) {
+        if (p_data->search_cmpl.status == 0) {
+          if (is_remote_support_adv_audio(bta_dm_search_cb.peer_bdaddr)) {
             bta_get_adv_audio_role(bta_dm_search_cb.peer_bdaddr,
-              p_data->search_cmpl.conn_id,
-              p_data->search_cmpl.status);
-            if (is_adv_audio_group_supported(bta_dm_search_cb.peer_bdaddr)) {
-              bta_find_adv_audio_group_instance(p_data->search_cmpl.conn_id,
-                  p_data->search_cmpl.status, bta_dm_search_cb.peer_bdaddr);
-            }
-          } else {
-            APPL_TRACE_DEBUG("%s Discovery Failure ", __func__);
+                p_data->search_cmpl.conn_id,
+                p_data->search_cmpl.status);
           }
+          if (is_adv_audio_group_supported(bta_dm_search_cb.peer_bdaddr,
+               p_data->search_cmpl.conn_id)) {
+            bta_find_adv_audio_group_instance(p_data->search_cmpl.conn_id,
+                p_data->search_cmpl.status, bta_dm_search_cb.peer_bdaddr);
+          }
+        } else {
+          APPL_TRACE_DEBUG("%s Discovery Failure ", __func__);
         }
 #endif
       }
