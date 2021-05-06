@@ -921,6 +921,9 @@ void bta_dm_remove_device(tBTA_DM_MSG* p_data) {
 
   RawAddress other_address = p_dev->bd_addr;
   RawAddress peer_id_addr = p_dev->bd_addr;
+#ifdef ADV_AUDIO_FEATURE
+  RawAddress map_addr = btif_get_map_address(p_dev->bd_addr);
+#endif
 
   /* If ACL exists for the device in the remove_bond message*/
   bool continue_delete_dev = false;
@@ -984,6 +987,7 @@ void bta_dm_remove_device(tBTA_DM_MSG* p_data) {
         /* Make sure device is not in white list before we disconnect */
         GATT_CancelConnect(0, p_dev->bd_addr, false);
 
+
         btm_remove_acl(other_address, peer_device.transport);
         break;
       }
@@ -992,6 +996,15 @@ void bta_dm_remove_device(tBTA_DM_MSG* p_data) {
     APPL_TRACE_DEBUG("%s: continue to delete the other dev ", __func__);
     continue_delete_other_dev = true;
   }
+
+#ifdef ADV_AUDIO_FEATURE
+  if ((is_remote_support_adv_audio(p_dev->bd_addr) &&
+        (map_addr != RawAddress::kEmpty))) {
+    APPL_TRACE_DEBUG("%s: map_addr %s ", __func__, map_addr.ToString().c_str());
+    other_address = map_addr;
+    continue_delete_other_dev = true;
+  }
+#endif
   /* Delete the device mentioned in the msg */
   if (continue_delete_dev) bta_dm_process_remove_device(p_dev->bd_addr);
 
