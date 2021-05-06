@@ -133,7 +133,14 @@ typedef enum {
   BT_HOST_REASON_POWER_ON_REGS_STUCK             =  0xC8,
   BT_HOST_REASON_RX_THREAD_START_STUCK           =  0xC9,
   BT_HOST_REASON_GET_LOCALADDR_STUCK             =  0xCA,
-  BT_HOST_REASON_OTP_INFO_GET_CMD_STUCK          =  0xCB
+  BT_HOST_REASON_OTP_INFO_GET_CMD_STUCK          =  0xCB,
+  BT_HOST_REASON_FILE_SYSTEM_CALL_STUCK          =  0xCC,
+  BT_HOST_REASON_PROPERTY_GET_STUCK              =  0xCD,
+  BT_HOST_REASON_PROPERTY_SET_STUCK              =  0xCE,
+  BT_HOST_REASON_RAM_PATCH_READ_STUCK            =  0xCF,
+  BT_HOST_REASON_NVM_PATCH_READ_STUCK            =  0xD0,
+  BT_HOST_REASON_UART_IOCTL_STUCK                =  0xD1,
+  BT_HOST_REASON_POWER_IOCTL_STUCK               =  0xD2
 } soc_crash_reason_e;
 
 typedef struct {
@@ -196,7 +203,14 @@ static secondary_reason secondary_crash_reason [] = {
 { BT_HOST_REASON_POWER_ON_REGS_STUCK           , "SoC Power ON Sequence stuck"},
 { BT_HOST_REASON_RX_THREAD_START_STUCK         , "RX thread start stuck"},
 { BT_HOST_REASON_GET_LOCALADDR_STUCK           , "Get local BD address stuck"},
-{ BT_HOST_REASON_OTP_INFO_GET_CMD_STUCK        , "Get OTP info. cmd stuck"}
+{ BT_HOST_REASON_OTP_INFO_GET_CMD_STUCK        , "Get OTP info. cmd stuck"},
+{ BT_HOST_REASON_FILE_SYSTEM_CALL_STUCK        , "FILE system call stuck"},
+{ BT_HOST_REASON_PROPERTY_GET_STUCK            , "Property get call stuck"},
+{ BT_HOST_REASON_PROPERTY_SET_STUCK            , "Property set call stuck"},
+{ BT_HOST_REASON_RAM_PATCH_READ_STUCK          , "RAM patch open/read stuck"},
+{ BT_HOST_REASON_NVM_PATCH_READ_STUCK          , "NVM file open/read stuck"},
+{ BT_HOST_REASON_UART_IOCTL_STUCK              , "UART IOCTL stuck"},
+{ BT_HOST_REASON_POWER_IOCTL_STUCK             , "Power driver IOCTL stuck"}
 };
 
 enum host_crash_reason_e  {
