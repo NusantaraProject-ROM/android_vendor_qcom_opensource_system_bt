@@ -1070,11 +1070,15 @@ void bta_gattc_op_cmpl(tBTA_GATTC_CLCB* p_clcb, tBTA_GATTC_DATA* p_data) {
 
   if (op < GATTC_OPTYPE_READ) return;
 
-  if (p_clcb) {
-    is_eatt_supported =
-        GATT_GetEattSupportIfConnected(p_clcb->p_rcb->client_if, p_clcb->bda,
-                                       p_clcb->transport);
+  if (!p_clcb) {
+    LOG(ERROR) << "p_clcb is NULL";
+    return;
   }
+
+  is_eatt_supported =
+      GATT_GetEattSupportIfConnected(p_clcb->p_rcb->client_if, p_clcb->bda,
+                                     p_clcb->transport);
+
   VLOG(1) << __func__ << " is_eatt_supported:" << +is_eatt_supported;
 
   if (p_clcb->p_q_cmd == NULL) {
@@ -1488,6 +1492,11 @@ void bta_gattc_proc_other_indication(tBTA_GATTC_CLCB* p_clcb, uint8_t op,
   RawAddress remote_bda;
   tGATT_IF gatt_if;
   tBTA_TRANSPORT transport;
+
+  if (!p_clcb) {
+    LOG(ERROR) << __func__ << ": p_clcb is NULL";
+    return;
+  }
 
   if(bta_gattc_cb.native_access_notif_enabled) {
     //check for native access notification

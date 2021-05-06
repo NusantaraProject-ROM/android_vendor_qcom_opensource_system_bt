@@ -345,7 +345,7 @@ tGATT_STATUS gatt_sr_process_app_rsp(tGATT_TCB& tcb, tGATT_IF gatt_if,
     if (op_code == GATT_REQ_EXEC_WRITE && status != GATT_SUCCESS)
       gatt_sr_reset_cback_cnt(tcb);
 
-    if (tcb.is_eatt_supported)
+    if (tcb.is_eatt_supported && p_eatt_bcb)
       p_eatt_bcb->sr_cmd.status = status;
     else
       tcb.sr_cmd.status = status;

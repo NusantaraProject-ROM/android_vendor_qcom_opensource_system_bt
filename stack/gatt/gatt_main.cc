@@ -289,8 +289,15 @@ bool gatt_connect(const RawAddress& rem_bda, tGATT_TCB* p_tcb,
     /*  very similar to gatt_send_conn_cback, but no good way to reuse the code
      */
 
-    VLOG(1) << __func__ << " is_eatt_supported:" << +p_tcb->is_eatt_supported
-            << " p_reg eatt_support:" << +p_reg_app->eatt_support;
+    VLOG(1) << __func__ << " is_eatt_supported:" << +p_tcb->is_eatt_supported;
+
+    if (!p_reg_app) {
+      VLOG(1) << __func__ << " p_reg_app is null";
+      return false;
+    }
+
+    VLOG(1) << __func__ << " p_reg eatt_support:" << +p_reg_app->eatt_support;
+
     if(!p_tcb->is_eatt_supported || (!p_reg_app->eatt_support)) {
       /* notifying application about the connection up event */
       for (int i = 0; i < GATT_MAX_APPS; i++) {
@@ -338,10 +345,10 @@ bool gatt_connect(const RawAddress& rem_bda, tGATT_TCB* p_tcb,
  ******************************************************************************/
 bool gatt_disconnect(tGATT_TCB* p_tcb, uint16_t lcid) {
   VLOG(1) << __func__;
-  uint16_t cid = p_tcb->att_lcid;
 
   if (!p_tcb) return false;
 
+  uint16_t cid = p_tcb->att_lcid;
   if (p_tcb->is_eatt_supported) {
     cid = lcid;
   }
@@ -489,7 +496,7 @@ void gatt_update_app_use_link_flag(tGATT_IF gatt_if, tGATT_TCB* p_tcb,
                           p_tcb->transport, lcid);
     }
   } else {
-    if (p_tcb->is_eatt_supported && p_reg->eatt_support &&
+    if (p_tcb->is_eatt_supported && (p_reg && p_reg->eatt_support) &&
         (lcid != L2CAP_ATT_CID) &&
         !gatt_remove_app_on_lcid(lcid, gatt_if)) {
       VLOG(1) << __func__ << " EATT disconnect lcid:" << +lcid;
@@ -680,7 +687,7 @@ static void gatt_channel_congestion(tGATT_TCB* p_tcb, bool congested, uint16_t l
   /* notifying all applications for the connection up event */
   for (i = 0, p_reg = gatt_cb.cl_rcb; i < GATT_MAX_APPS; i++, p_reg++) {
     if (p_reg->in_use) {
-      if (p_reg->app_cb.p_congestion_cb) {
+      if (p_reg->app_cb.p_congestion_cb && p_tcb) {
         conn_id = GATT_CREATE_CONN_ID(p_tcb->tcb_idx, p_reg->gatt_if);
         (*p_reg->app_cb.p_congestion_cb)(conn_id, congested);
       }
@@ -797,9 +804,10 @@ static void gatt_l2cif_connect_ind_cback(const RawAddress& bd_addr,
     if (p_tcb == NULL) {
       /* no tcb available, reject L2CAP connection */
       result = L2CAP_CONN_NO_RESOURCES;
-    } else
+    } else {
       p_tcb->att_lcid = lcid;
       p_tcb->is_eatt_supported = false;
+    }
 
   } else /* existing connection , reject it */
   {
@@ -1036,7 +1044,11 @@ static void gatt_l2cif_eatt_connect_ind_cback(tL2CAP_COC_CONN_REQ *p_conn_req,
   tL2CAP_COC_CONN_REQ* p_conn_rsp = &conn_rsp;
   uint16_t remote_rx_mtu = 0;
 
-  if (p_conn_req && (p_conn_req->transport != BT_TRANSPORT_LE)) {
+  if (!p_conn_req) {
+    LOG(ERROR) << " p_conn_req is null";
+    return;
+  }
+  if (p_conn_req->transport != BT_TRANSPORT_LE) {
     LOG(ERROR) << " Unsupported transport";
     return;
   }
@@ -1384,7 +1396,7 @@ static void gatt_l2cif_eatt_reconfig_ind_cback(tL2CAP_COC_CHMAP_INFO* chmap_info
             uint16_t conn_id =
                 GATT_CREATE_CONN_ID(p_eatt_bcb->p_tcb->tcb_idx, gatt_if);
 
-            if (!p_reg->eatt_support)
+            if (p_reg && !p_reg->eatt_support)
               continue;
 
             gatt_sr_send_req_callback(conn_id, 0, GATTS_REQ_TYPE_MTU, &gatts_data);
@@ -1423,8 +1435,10 @@ static void gatt_l2cif_eatt_data_ind_cback(uint16_t l2cap_cid) {
     p_tcb = p_eatt_bcb->p_tcb;
     if (p_tcb && gatt_get_ch_state(p_tcb) == GATT_CH_OPEN) {
       p_buf = L2CA_ReadData(l2cap_cid);
-      /* process the data */
-      gatt_data_process(*p_tcb, l2cap_cid, p_buf);
+      if (p_buf) {
+        /* process the data */
+        gatt_data_process(*p_tcb, l2cap_cid, p_buf);
+      }
     }
   }
   else {
@@ -1733,7 +1747,7 @@ void gatt_establish_eatt_connect(tGATT_TCB* p_tcb, uint8_t num_chnls) {
 
   if ((result == L2C_COC_CONNECT_REQ_SUCCESS) || (result == L2C_SOME_CONNS_ACCEPTED)) {
     for (i=0; i<num_chnls; i++) {
-      if (conn_req.sr_cids[i] > 0) {
+      if (conn_req.sr_cids[i] > 0 && p_tcb) {
         p_eatt_bcb = gatt_eatt_bcb_alloc(p_tcb, conn_req.sr_cids[i], true, false);
       }
       else {

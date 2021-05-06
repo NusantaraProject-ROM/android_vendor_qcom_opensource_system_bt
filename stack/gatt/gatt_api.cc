@@ -420,7 +420,7 @@ tGATT_STATUS GATTS_HandleValueIndication(uint16_t conn_id, uint16_t attr_handle,
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
   uint16_t lcid = 0;
-  tGATT_EBCB* p_eatt_bcb;
+  tGATT_EBCB* p_eatt_bcb = NULL;
   uint16_t indicate_handle = 0;
 
   VLOG(1) << __func__;
@@ -437,6 +437,8 @@ tGATT_STATUS GATTS_HandleValueIndication(uint16_t conn_id, uint16_t attr_handle,
   indication.len = val_len;
   memcpy(indication.value, p_val, val_len);
   indication.auth_req = GATT_AUTH_REQ_NONE;
+  indication.read_sub_type = 0;
+  indication.offset = 0;
 
   lcid = p_tcb->att_lcid;
   indicate_handle = p_tcb->indicate_handle;
@@ -458,7 +460,8 @@ tGATT_STATUS GATTS_HandleValueIndication(uint16_t conn_id, uint16_t attr_handle,
   }
   else if (p_tcb->is_eatt_supported && !p_reg->eatt_support) {
     p_eatt_bcb = gatt_find_eatt_bcb_by_cid(L2CAP_ATT_CID);
-    indicate_handle = p_eatt_bcb->indicate_handle;
+    if (p_eatt_bcb)
+      indicate_handle = p_eatt_bcb->indicate_handle;
   }
 
   if (GATT_HANDLE_IS_VALID(indicate_handle)) {
@@ -475,7 +478,7 @@ tGATT_STATUS GATTS_HandleValueIndication(uint16_t conn_id, uint16_t attr_handle,
 
   tGATT_STATUS cmd_status = attp_send_sr_msg(*p_tcb, lcid, p_msg);
   if (cmd_status == GATT_SUCCESS || cmd_status == GATT_CONGESTED) {
-    if (p_tcb->is_eatt_supported)
+    if (p_tcb->is_eatt_supported && p_eatt_bcb)
       p_eatt_bcb->indicate_handle = indication.handle;
     else
       p_tcb->indicate_handle = indication.handle;
@@ -795,14 +798,18 @@ tGATT_STATUS GATTC_ConfigureMTU(uint16_t conn_id, uint16_t mtu) {
   tGATT_CLCB* p_clcb = gatt_clcb_alloc(conn_id);
   if (!p_clcb) return GATT_NO_RESOURCES;
 
-  p_clcb->p_tcb->payload_size = mtu;
+  if (p_clcb->p_tcb)
+    p_clcb->p_tcb->payload_size = mtu;
   p_clcb->operation = GATTC_OPTYPE_CONFIG;
 
   lcid = p_tcb->att_lcid;
 
   tGATT_CL_MSG gatt_cl_msg;
   gatt_cl_msg.mtu = mtu;
-  return attp_send_cl_msg(*p_clcb->p_tcb, p_clcb, lcid, GATT_REQ_MTU, &gatt_cl_msg);
+  if (p_clcb->p_tcb)
+    return attp_send_cl_msg(*p_clcb->p_tcb, p_clcb, lcid, GATT_REQ_MTU, &gatt_cl_msg);
+
+  return GATT_ERROR;
 }
 
 /*******************************************************************************
@@ -1048,7 +1055,8 @@ tGATT_STATUS GATTC_ExecuteWrite(uint16_t conn_id, bool is_execute) {
   p_clcb->operation = GATTC_OPTYPE_EXE_WRITE;
   tGATT_EXEC_FLAG flag =
       is_execute ? GATT_PREP_WRITE_EXEC : GATT_PREP_WRITE_CANCEL;
-  gatt_send_queue_write_cancel(*p_clcb->p_tcb, p_clcb, flag);
+  if (p_clcb->p_tcb)
+    gatt_send_queue_write_cancel(*p_clcb->p_tcb, p_clcb, flag);
   return GATT_SUCCESS;
 }
 
