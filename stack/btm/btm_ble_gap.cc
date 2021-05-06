@@ -2064,7 +2064,7 @@ static void btm_ble_process_adv_pkt_cont(
   tINQ_DB_ENT* p_i = btm_inq_db_find(bda);
 
   /* Check if this address has already been processed for this inquiry */
-  if (btm_inq_find_bdaddr(bda)) {
+  if (btm_inq_find_bdaddr(bda, BT_DEVICE_TYPE_BLE)) {
     /* never been report as an LE device */
     if (p_i && (!(p_i->inq_info.results.device_type & BT_DEVICE_TYPE_BLE) ||
                 /* scan repsonse to be updated */

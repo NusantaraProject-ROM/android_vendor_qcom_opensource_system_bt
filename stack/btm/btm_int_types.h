@@ -219,6 +219,7 @@ typedef struct {
   /* want to flood the caller with multiple responses from    */
   /* the same device.                                         */
   RawAddress bd_addr;
+  tBT_DEVICE_TYPE device_type;
 } tINQ_BDADDR;
 
 typedef struct {
