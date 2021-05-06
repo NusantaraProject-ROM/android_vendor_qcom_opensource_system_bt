@@ -281,6 +281,7 @@ tGATT_SEC_ACTION gatt_determine_sec_act(tGATT_CLCB* p_clcb) {
   bool is_key_mitm = false;
   uint8_t key_type;
   tBTM_BLE_SEC_REQ_ACT sec_act = BTM_LE_SEC_NONE;
+  tBTM_SEC_DEV_REC* p_dev_rec;
 
   if (auth_req == GATT_AUTH_REQ_NONE) return act;
 
@@ -290,8 +291,19 @@ tGATT_SEC_ACTION gatt_determine_sec_act(tGATT_CLCB* p_clcb) {
   btm_ble_link_sec_check(p_tcb->peer_bda, auth_req, &sec_act);
 
   /* if a encryption is pending, need to wait */
-  if (sec_act == BTM_BLE_SEC_REQ_ACT_DISCARD && auth_req != GATT_AUTH_REQ_NONE)
-    return GATT_SEC_ENC_PENDING;
+  if (sec_act == BTM_BLE_SEC_REQ_ACT_DISCARD && auth_req != GATT_AUTH_REQ_NONE) {
+    if (p_tcb->transport == BT_TRANSPORT_LE) {
+      p_dev_rec = btm_find_dev(p_tcb->peer_bda);
+      if ((p_dev_rec && p_dev_rec->is_le_enc_in_progress) ||
+         ((btm_cb.pairing_flags & BTM_PAIR_FLAGS_LE_ACTIVE) &&
+         (p_dev_rec->sec_state == BTM_SEC_STATE_AUTHENTICATING))) {
+        return GATT_SEC_ENC_PENDING;
+      }
+    }
+    else {
+      return GATT_SEC_ENC_PENDING;
+    }
+  }
 
   if (sec_flag & (BTM_SEC_FLAG_ENCRYPTED | BTM_SEC_FLAG_LKEY_KNOWN)) {
     if (sec_flag & BTM_SEC_FLAG_ENCRYPTED) is_link_encrypted = true;
