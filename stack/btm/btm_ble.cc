@@ -1449,8 +1449,10 @@ void btm_sec_save_le_key(const RawAddress& bd_addr, tBTM_LE_KEY_TYPE key_type,
             p_keys->pid_key.identity_addr.ToString().c_str(),
             p_keys->pid_key.identity_addr_type);
 #ifdef ADV_AUDIO_FEATURE
-        (*btm_cb.api.p_le_id_addr_callback)
-          (p_rec->bd_addr, p_keys->pid_key.identity_addr);
+        if (btm_cb.api.p_le_id_addr_callback) {
+          (*btm_cb.api.p_le_id_addr_callback)
+            (p_rec->bd_addr, p_keys->pid_key.identity_addr);
+        }
 #endif
         /* update device record address as identity address */
         p_rec->bd_addr = p_keys->pid_key.identity_addr;
