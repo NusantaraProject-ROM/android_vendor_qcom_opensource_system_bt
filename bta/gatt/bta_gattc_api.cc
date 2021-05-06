@@ -35,8 +35,15 @@
 #include "bta_gattc_int.h"
 #include "bta_sys.h"
 #include "device/include/controller.h"
+#include "stack/btm/btm_int_types.h"
+#include "btif/include/btif_storage.h"
 
 using bluetooth::Uuid;
+
+#ifdef ADV_AUDIO_FEATURE
+extern tACL_CONN* btm_bda_to_acl(const RawAddress& bda, tBT_TRANSPORT transport);
+extern bool is_remote_support_adv_audio(const RawAddress remote_bdaddr);
+#endif
 
 /*****************************************************************************
  *  Constants
@@ -675,11 +682,29 @@ tGATT_STATUS BTA_GATTC_RegisterForNotifications(tGATT_IF client_if,
   tGATT_STATUS status = GATT_ILLEGAL_PARAMETER;
   uint8_t i;
 
+#ifdef ADV_AUDIO_FEATURE
+  bool reg_addr_change = false;
+  RawAddress map_addr;
+
+  if (is_remote_support_adv_audio(bda)) {
+    auto itr = dev_addr_map.find(client_if);
+    if (itr != dev_addr_map.end()) {
+      if (bda == itr->second) {
+        map_addr = btif_get_map_address(bda);
+        tACL_CONN* p_acl = btm_bda_to_acl(map_addr, BT_TRANSPORT_LE);
+        if (p_acl != NULL) {
+          reg_addr_change = true;
+          LOG(ERROR) << __func__ << " Changing to " << map_addr;
+        }
+      }
+    }
+  }
+#endif
+
   if (!handle) {
     LOG(ERROR) << __func__ << ": registration failed, handle is 0";
     return status;
   }
-
   p_clreg = bta_gattc_cl_get_regcb(client_if);
   if (p_clreg != NULL) {
     for (i = 0; i < BTA_GATTC_NOTIF_REG_MAX; i++) {
@@ -699,7 +724,11 @@ tGATT_STATUS BTA_GATTC_RegisterForNotifications(tGATT_IF client_if,
 
           p_clreg->notif_reg[i].in_use = true;
           p_clreg->notif_reg[i].remote_bda = bda;
-
+#ifdef ADV_AUDIO_FEATURE
+          if (reg_addr_change) {
+            p_clreg->notif_reg[i].remote_bda = map_addr;
+          }
+#endif
           p_clreg->notif_reg[i].handle = handle;
           status = GATT_SUCCESS;
           break;

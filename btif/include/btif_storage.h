@@ -400,4 +400,6 @@ void btif_storage_set_cl_supp_feat(const RawAddress& bda, uint8_t value);
 size_t btif_split_uuids_string(const char* str, bluetooth::Uuid* p_uuid,
                                size_t max_uuids);
 
+RawAddress btif_get_map_address(RawAddress bda);
+
 #endif /* BTIF_STORAGE_H */
