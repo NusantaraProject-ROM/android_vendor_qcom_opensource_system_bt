@@ -1673,7 +1673,7 @@ void bta_av_collission_detected(tBTA_AV_DATA *p_data) {
   tBTA_AV_COLLISSION_DETECTED *p_msg = (tBTA_AV_COLLISSION_DETECTED *)p_data;
   av_coll.peer_addr = p_msg->peer_addr;
   bta_av_data.av_col_detected = av_coll;
-  (*bta_av_cb.p_cback)(BTA_AV_COLL_DETECTED_EVT, (tBTA_AV *) &av_coll);
+  (*bta_av_cb.p_cback)(BTA_AV_COLL_DETECTED_EVT, &bta_av_data);
 }
 
 /*******************************************************************************

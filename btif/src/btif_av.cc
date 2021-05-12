@@ -4142,6 +4142,20 @@ void btif_av_event_deep_copy(uint16_t event, char* p_dest, char* p_src) {
          break;
       }
 
+      case BTA_AV_COLL_DETECTED_EVT: //29
+      {
+         tBTA_AV_COLL_DETECTED* av_src_av_collision_detect =
+                                                 (tBTA_AV_COLL_DETECTED*)p_src;
+         tBTA_AV_COLL_DETECTED* av_dest_av_collision_detect =
+                                                 (tBTA_AV_COLL_DETECTED*)p_dest;
+         BTIF_TRACE_DEBUG("%s: event: %d, size: %d", __func__, event,
+                                      sizeof(*av_src_av_collision_detect));
+         maybe_non_aligned_memcpy(av_dest_av_collision_detect,
+                                  av_src_av_collision_detect,
+                                  sizeof(*av_src_av_collision_detect));
+         break;
+      }
+
     default:
       {
         tBTA_AV* av_src_default = (tBTA_AV*)p_src;

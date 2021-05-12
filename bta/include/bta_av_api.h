@@ -290,8 +290,8 @@ typedef uint8_t tBTA_AV_ERR;
 #define BTA_AV_ROLE_CHANGED_EVT 25
 #define BTA_AV_RC_COLL_DETECTED_EVT 26  /* RC channel collission detected */
 #define BTA_AV_DELAY_REPORT_EVT 27      /* update delay report */
-#define BTA_AV_OFFLOAD_STOP_RSP_EVT 28 /* a2dp offload start response */
-#define BTA_AV_COLL_DETECTED_EVT 29  /* AV channel collission detected */
+#define BTA_AV_OFFLOAD_STOP_RSP_EVT 28  /* a2dp offload start response */
+#define BTA_AV_COLL_DETECTED_EVT 29     /* AV channel collission detected */
 
 /* Max BTA event */
 #define BTA_AV_MAX_EVT 30
