@@ -68,6 +68,10 @@ extern void btm_ble_write_adv_enable_complete(uint8_t* p);
 extern void btm_ble_conn_complete(uint8_t* p, uint16_t evt_len, bool enhanced);
 extern void btm_read_ble_local_supported_states_complete(uint8_t* p,
                                                          uint16_t evt_len);
+
+extern void btm_ble_qll_connection_complete(uint8_t* p);
+extern void btm_ble_read_remote_supported_qll_features_complete(uint8_t* p);
+
 extern tBTM_BLE_CONN_ST btm_ble_get_conn_st(void);
 extern tBTM_STATUS btm_ble_start_adv(void);
 extern tBTM_STATUS btm_ble_stop_adv(void);

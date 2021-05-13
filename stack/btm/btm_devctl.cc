@@ -873,7 +873,25 @@ void btm_vendor_specific_evt(uint8_t* p, uint8_t evt_len) {
         decode_crash_reason(pp, (evt_len - 2));
         return;
       }
-   }
+  } else if (HCI_VSE_SUBCODE_QBCE == vse_subcode) {
+    uint8_t vse_msg_type;
+
+    STREAM_TO_UINT8(vse_msg_type, pp);
+    BTM_TRACE_DEBUG("%s: QBCE VSE event received, msg = %x", __func__,
+                     vse_msg_type);
+    switch(vse_msg_type) {
+      case MSG_QBCE_QLL_CONNECTION_COMPLETE:
+        btm_ble_qll_connection_complete(pp);
+        break;
+      case MSG_QBCE_REMOTE_SUPPORTED_QLL_FEATURES_COMPLETE:
+        btm_ble_read_remote_supported_qll_features_complete(pp);
+        break;
+      default:
+        BTM_TRACE_ERROR("%s: unknown msg type: %d", __func__, vse_msg_type);
+        break;
+    }
+    return;
+  }
 
   BTM_TRACE_DEBUG("BTM Event: Vendor Specific event from controller");
 
