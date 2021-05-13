@@ -88,6 +88,8 @@ extern const btgatt_interface_t* btif_gatt_get_interface();
 bool isDevUiReq = false;
 btav_a2dp_codec_config_t saved_codec_user_config;
 std::string supported_codecs = "";
+static std::map<btav_a2dp_codec_index_t, btav_a2dp_codec_priority_t>
+       codecs_priorities_;
 /*****************************************************************************
  **  Constants
  *****************************************************************************/
@@ -2099,6 +2101,19 @@ void bta_av_co_check_and_add_soc_supported_codecs(const uint8_t* p_codec_info) {
 
   APPL_TRACE_DEBUG("%s: codec_name: %s", __func__, A2DP_CodecName(p_codec_info));
 
+  btav_a2dp_codec_index_t codec_index = A2DP_SourceCodecIndex(p_codec_info);
+  if (codec_index != BTAV_A2DP_CODEC_INDEX_MAX) {
+    btav_a2dp_codec_priority_t codec_priority = BTAV_A2DP_CODEC_PRIORITY_DEFAULT;
+    auto itr = codecs_priorities_.find(codec_index);
+    if (itr != codecs_priorities_.end()) {
+      codec_priority = itr->second;
+    }
+    if (codec_priority == BTAV_A2DP_CODEC_PRIORITY_DISABLED) {
+      APPL_TRACE_DEBUG("%s: codec is disabled, avoid caching", __func__);
+      return;
+    }
+  }
+
   if ((strcmp(codec_name,"SBC") == 0) &&
       A2DP_IsCodecEnabled(BTAV_A2DP_CODEC_INDEX_SOURCE_SBC)) {
     APPL_TRACE_DEBUG("%s: Both SoC and remote supports SBC, append to supported_codecs conf", __func__);
@@ -2160,6 +2175,10 @@ void bta_av_co_init(
     const std::vector<btav_a2dp_codec_config_t>& codec_priorities,
     std::vector<btav_a2dp_codec_config_t>& offload_enabled_codecs_config) {
   APPL_TRACE_DEBUG("%s", __func__);
+  for (auto config : codec_priorities) {
+    codecs_priorities_.insert(
+        std::make_pair(config.codec_type, config.codec_priority));
+  }
   RawAddress bt_addr;
   const char *a2dp_ofload_cap = controller_get_interface()->get_a2dp_offload_cap();
   tBTA_AV_CO_PEER* p_peer;
