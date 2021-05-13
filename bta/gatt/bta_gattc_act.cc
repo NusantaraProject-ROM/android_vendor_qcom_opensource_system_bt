@@ -290,6 +290,7 @@ void bta_gattc_process_api_open(tBTA_GATTC_DATA* p_msg) {
     return;
   }
 
+#ifdef ADV_AUDIO_FEATURE
   RawAddress bd_addr = p_msg->api_conn.remote_bda;
   if (is_remote_support_adv_audio(bd_addr)) {
     RawAddress map_addr = btif_get_map_address(bd_addr);
@@ -307,6 +308,8 @@ void bta_gattc_process_api_open(tBTA_GATTC_DATA* p_msg) {
       }
     }
   }
+#endif /* ADV_AUDIO_FEATURE */
+
   if (!p_msg->api_conn.is_direct) {
     bta_gattc_init_bk_conn(&p_msg->api_conn, p_clreg);
     return;
