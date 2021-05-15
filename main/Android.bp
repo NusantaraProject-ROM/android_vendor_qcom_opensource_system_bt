@@ -22,6 +22,7 @@ bredr_vs_btadva_cc_defaults {
               cflags: [
                  "-DADV_AUDIO_FEATURE=1",
               ],
+              required: ["leaudio_configs.xml"],
            }
        }
    }
