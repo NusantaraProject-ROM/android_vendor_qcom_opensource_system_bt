@@ -21,7 +21,7 @@ cc_library {
     shared_libs: [
         "liblog",
     ],
-    static_libs: ["libosi"],
+    static_libs: ["libosi_qti"],
 }
 
 cc_library_static {
@@ -46,6 +46,6 @@ cc_test {
     ],
     static_libs: [
         "audio.hearing_aid.default_qti",
-        "libosi",
+        "libosi_qti",
     ],
 }

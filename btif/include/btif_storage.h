@@ -35,6 +35,7 @@
 #define BT_PROPERTY_UUID_ON_TRANSPORT 0xA2
 #define BT_PROPERTY_REM_DEV_IDENT_BD_ADDR 0xA4
 #define BT_PROPERTY_REM_UUID_BY_TRANSPORT 0xA5
+#define BT_PROPERTY_REM_DEV_IS_ADV_AUDIO 0xA6
 
 #define BTIF_STORAGE_FILL_PROPERTY(p_prop, t, l, p_v) \
   do {                                                \
@@ -399,5 +400,8 @@ void btif_storage_set_cl_supp_feat(const RawAddress& bda, uint8_t value);
  *****************************************************************************/
 size_t btif_split_uuids_string(const char* str, bluetooth::Uuid* p_uuid,
                                size_t max_uuids);
+
+RawAddress btif_get_map_address(RawAddress bda);
+int btif_get_is_adv_audio_pair_info(RawAddress bda);
 
 #endif /* BTIF_STORAGE_H */

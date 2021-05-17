@@ -82,6 +82,11 @@ const char* const op_code_name[] = {"UNKNOWN",
                                     "Reserved",
                                     "ATT_HANDLE_VALUE_IND",
                                     "ATT_HANDLE_VALUE_CONF",
+                                    "Reserved",
+                                    "GATT_REQ_READ_MULTI_VARIABLE",
+                                    "GATT_RSP_READ_MULTI_VARIABLE",
+                                    "Reserved",
+                                    "GATT_MULTI_HANDLE_VALUE_NOTIF",
                                     "ATT_OP_CODE_MAX"};
 
 /*******************************************************************************
@@ -826,8 +831,11 @@ void gatt_ind_ack_timeout(void* data) {
  ******************************************************************************/
 void gatt_ind_ack_eatt_timeout(void* data) {
   tGATT_EBCB* p_eatt_bcb = (tGATT_EBCB*)data;
+  CHECK(p_eatt_bcb);
+
   uint16_t lcid = p_eatt_bcb->cid;
   tGATT_TCB* p_tcb = p_eatt_bcb->p_tcb;
+  CHECK(p_tcb);
 
   LOG(WARNING) << __func__ << ": send ack now, lcid: " << +lcid;
   p_tcb->ind_count = 0;
@@ -1319,7 +1327,8 @@ bool gatt_cancel_open(tGATT_IF gatt_if, const RawAddress& bda) {
 
   if(p_tcb->is_eatt_supported) {
     p_eatt_bcb = gatt_find_eatt_bcb_by_gatt_if(gatt_if, bda);
-    lcid = p_eatt_bcb->cid;
+    if (p_eatt_bcb)
+      lcid = p_eatt_bcb->cid;
   }
 
   if (gatt_get_ch_state(p_tcb) == GATT_CH_OPEN) {
@@ -1498,10 +1507,10 @@ void gatt_cleanup_upon_disc(const RawAddress& bda, uint16_t reason,
   VLOG(1) << __func__;
 
   tGATT_TCB* p_tcb = gatt_find_tcb_by_addr(bda, transport);
-  uint16_t lcid = p_tcb->att_lcid;
 
   if (!p_tcb) return;
 
+  uint16_t lcid = p_tcb->att_lcid;
   gatt_set_ch_state(p_tcb, GATT_CH_CLOSE);
   for (uint8_t i = 0; i < GATT_CL_MAX_LCB; i++) {
     tGATT_CLCB* p_clcb = &gatt_cb.clcb[i];

@@ -1522,13 +1522,16 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
     codec_config->codecType = CodecType_2_1::LC3;
     codec_config->config.lc3Config = {};
     auto lc3Config = codec_config->config.lc3Config;
-    lc3Config.txConfig.sampleRate = btif_lc3_sample_rate(pclient_cbs[profile - 1]->get_sample_rate_cb());
-    lc3Config.txConfig.channelMode = btif_lc3_channel_mode(0x02);
-    lc3Config.txConfig.bitrate = pclient_cbs[profile - 1]->get_bitrate_cb();
-    lc3Config.txConfig.octetsPerFrame = pclient_cbs[profile - 1]->get_mtu_cb(0);
-    lc3Config.txConfig.frameDuration = pclient_cbs[profile - 1]->get_frame_length_cb();
-    lc3Config.txConfig.bitsPerSample = BitsPerSample::BITS_24;
-    lc3Config.txConfig.numBlocks = 1;
+    uint16_t type = pclient_cbs[profile - 1]->get_profile_status_cb();
+    if (type != 0x04) {
+      lc3Config.txConfig.sampleRate = btif_lc3_sample_rate(pclient_cbs[profile - 1]->get_sample_rate_cb());
+      lc3Config.txConfig.channelMode = btif_lc3_channel_mode(0x02);
+      lc3Config.txConfig.bitrate = pclient_cbs[profile - 1]->get_bitrate_cb();
+      lc3Config.txConfig.octetsPerFrame = pclient_cbs[profile - 1]->get_mtu_cb(0);
+      lc3Config.txConfig.frameDuration = pclient_cbs[profile - 1]->get_frame_length_cb();
+      lc3Config.txConfig.bitsPerSample = BitsPerSample::BITS_24;
+      lc3Config.txConfig.numBlocks = 1;
+    }
     uint8_t cs[16] = {0};
     for (int i = 0; i  < 16; i++) {
       lc3Config.codecSpecific[i] = cs[i];
@@ -1538,9 +1541,18 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
     lc3Config.rxConfigSet = 0;
     lc3Config.decoderOuputChannels = 0;
     int numBises = 2;
+    if (type == 0x04) {
+      lc3Config.rxConfigSet = 1;
+      lc3Config.rxConfig.sampleRate = ExtSampleRate::RATE_16000;
+      lc3Config.rxConfig.channelMode = LC3ChannelMode::STEREO;
+      lc3Config.rxConfig.bitrate = 48000;
+      lc3Config.rxConfig.octetsPerFrame = 60;
+      lc3Config.rxConfig.frameDuration = 10000;
+      lc3Config.rxConfig.bitsPerSample = BitsPerSample::BITS_24;
+    }
     lc3Config.NumStreamIDGroup = numBises;
     for (int i = 0; i < numBises; i++) {
-      if (lc3Config.txConfig.channelMode == LC3ChannelMode::STEREO) {
+      if (type == 0x04 ? lc3Config.rxConfig.channelMode == LC3ChannelMode::STEREO : lc3Config.txConfig.channelMode == LC3ChannelMode::STEREO) {
         lc3Config.streamMap[(i*3)] = (CHANNEL_FL + (i % 2));
       } else if (lc3Config.txConfig.channelMode == LC3ChannelMode::JOINT_STEREO) {
         lc3Config.streamMap[(i*3)] = (CHANNEL_FR | CHANNEL_FL);

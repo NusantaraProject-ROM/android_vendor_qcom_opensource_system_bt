@@ -680,3 +680,16 @@ tBTA_GATTC_CLCB* bta_gattc_find_int_disconn_clcb(tBTA_GATTC_DATA* p_msg) {
   }
   return p_clcb;
 }
+
+tBTA_GATTC_CLCB* bta_gattc_cl_get_regcb_by_bdaddr(RawAddress bd_addr,
+    tBTA_TRANSPORT transport) {
+  tBTA_GATTC_CLCB* p_clcb = &bta_gattc_cb.clcb[0];
+  uint8_t i;
+
+  for (i = 0; i < BTA_GATTC_CLCB_MAX; i++, p_clcb++) {
+    if (p_clcb->in_use && (p_clcb->transport == transport)
+        && (p_clcb->bda == bd_addr))
+      return p_clcb;
+  }
+  return NULL;
+}

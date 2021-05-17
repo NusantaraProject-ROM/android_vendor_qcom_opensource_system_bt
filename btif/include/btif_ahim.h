@@ -61,6 +61,7 @@ typedef uint32_t (* ahim_get_mtu_callback)(uint32_t bit_rate);
 typedef uint16_t (* ahim_get_frame_length)();
 typedef uint8_t (* ahim_get_ch_count_callback)();
 typedef bool (* ahim_get_simulcast_status)();
+typedef uint16_t (* ahim_get_profile_status)();
 typedef struct {
     uint8_t mode;
     ahim_client_cb client_cb;
@@ -71,6 +72,7 @@ typedef struct {
     ahim_get_frame_length get_frame_length_cb;
     ahim_get_ch_count_callback get_ch_count_cb;
     ahim_get_simulcast_status get_simulcast_status_cb;
+    ahim_get_profile_status get_profile_status_cb;
 }btif_ahim_client_callbacks_t;
 
 extern btif_ahim_client_callbacks_t* pclient_cbs[MAX_CLIENT];

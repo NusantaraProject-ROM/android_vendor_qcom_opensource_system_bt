@@ -40,6 +40,8 @@
 #include "stack/l2cap/l2c_int.h"
 #include "utl.h"
 #include "device/include/interop.h"
+#include "stack/btm/btm_int_types.h"
+#include "btif/include/btif_storage.h"
 
 #if (BTA_HH_LE_INCLUDED == TRUE)
 #include "bta_hh_int.h"
@@ -55,6 +57,11 @@
 
 using base::StringPrintf;
 using bluetooth::Uuid;
+
+#ifdef ADV_AUDIO_FEATURE
+extern tACL_CONN* btm_bda_to_acl(const RawAddress& bda, tBT_TRANSPORT transport);
+extern bool is_remote_support_adv_audio(const RawAddress remote_bdaddr);
+#endif
 
 /*****************************************************************************
  *  Constants
@@ -111,6 +118,8 @@ static const char* bta_gattc_op_code_name[] = {
     "Notification", /* GATTC_OPTYPE_NOTIFICATION */
     "Indication"    /* GATTC_OPTYPE_INDICATION */
 };
+
+std::map <uint8_t, RawAddress> dev_addr_map;
 
 /*****************************************************************************
  *  Action Functions
@@ -273,12 +282,33 @@ void bta_gattc_deregister(tBTA_GATTC_RCB* p_clreg) {
 void bta_gattc_process_api_open(tBTA_GATTC_DATA* p_msg) {
   uint16_t event = ((BT_HDR*)p_msg)->event;
 
+
   tBTA_GATTC_RCB* p_clreg = bta_gattc_cl_get_regcb(p_msg->api_conn.client_if);
   if (!p_clreg) {
     LOG(ERROR) << __func__
                << ": Failed, unknown client_if=" << +p_msg->api_conn.client_if;
     return;
   }
+
+#ifdef ADV_AUDIO_FEATURE
+  RawAddress bd_addr = p_msg->api_conn.remote_bda;
+  if (is_remote_support_adv_audio(bd_addr)) {
+    RawAddress map_addr = btif_get_map_address(bd_addr);
+    if (map_addr != RawAddress::kEmpty) {
+      //Checking whether ACL connection is UP or not?
+      LOG(INFO) << __func__ << " Valid Mapaddr ";
+      tACL_CONN* p_acl = btm_bda_to_acl(map_addr, BT_TRANSPORT_LE);
+      if (p_acl != NULL) {
+        tBTA_GATTC_CLCB* p_clcb =
+          bta_gattc_cl_get_regcb_by_bdaddr(map_addr, BT_TRANSPORT_LE);
+        if (p_clcb != NULL) {
+          dev_addr_map[p_msg->api_conn.client_if] = bd_addr;
+          p_msg->api_conn.remote_bda = map_addr;
+        }
+      }
+    }
+  }
+#endif /* ADV_AUDIO_FEATURE */
 
   if (!p_msg->api_conn.is_direct) {
     bta_gattc_init_bk_conn(&p_msg->api_conn, p_clreg);
@@ -546,10 +576,21 @@ void bta_gattc_conn(tBTA_GATTC_CLCB* p_clcb, tBTA_GATTC_DATA* p_data) {
     /* there is no RM for GATT */
     if (p_clcb->transport == BTA_TRANSPORT_BR_EDR)
       bta_sys_conn_open(BTA_ID_GATTC, BTA_ALL_APP_ID, p_clcb->bda);
-
+#ifdef ADV_AUDIO_FEATURE
+    if (is_remote_support_adv_audio(p_clcb->bda)) {
+      auto itr = dev_addr_map.find(p_clcb->p_rcb->client_if);
+      if (itr != dev_addr_map.end()) {
+        bta_gattc_send_open_cback(p_clcb->p_rcb, GATT_SUCCESS, itr->second,
+            p_clcb->bta_conn_id, p_clcb->transport,
+            p_clcb->p_srcb->mtu);
+        return;
+      }
+    }
+#endif
     bta_gattc_send_open_cback(p_clcb->p_rcb, GATT_SUCCESS, p_clcb->bda,
-                              p_clcb->bta_conn_id, p_clcb->transport,
-                              p_clcb->p_srcb->mtu);
+        p_clcb->bta_conn_id, p_clcb->transport,
+        p_clcb->p_srcb->mtu);
+
   }
 }
 
@@ -586,6 +627,15 @@ void bta_gattc_close(tBTA_GATTC_CLCB* p_clcb, tBTA_GATTC_DATA* p_data) {
   cb_data.close.status = p_clcb->status;
   cb_data.close.remote_bda = p_clcb->bda;
 
+#ifdef ADV_AUDIO_FEATURE
+  if (is_remote_support_adv_audio(p_clcb->bda)) {
+    auto itr = dev_addr_map.find(p_clcb->p_rcb->client_if);
+    if (itr != dev_addr_map.end()) {
+      cb_data.close.remote_bda = itr->second;
+      dev_addr_map.erase(p_clcb->p_rcb->client_if);
+    }
+  }
+#endif
   if (p_clcb->transport == BTA_TRANSPORT_BR_EDR)
     bta_sys_conn_close(BTA_ID_GATTC, BTA_ALL_APP_ID, p_clcb->bda);
 
@@ -1023,11 +1073,15 @@ void bta_gattc_op_cmpl(tBTA_GATTC_CLCB* p_clcb, tBTA_GATTC_DATA* p_data) {
 
   if (op < GATTC_OPTYPE_READ) return;
 
-  if (p_clcb) {
-    is_eatt_supported =
-        GATT_GetEattSupportIfConnected(p_clcb->p_rcb->client_if, p_clcb->bda,
-                                       p_clcb->transport);
+  if (!p_clcb) {
+    LOG(ERROR) << "p_clcb is NULL";
+    return;
   }
+
+  is_eatt_supported =
+      GATT_GetEattSupportIfConnected(p_clcb->p_rcb->client_if, p_clcb->bda,
+                                     p_clcb->transport);
+
   VLOG(1) << __func__ << " is_eatt_supported:" << +is_eatt_supported;
 
   if (p_clcb->p_q_cmd == NULL) {
@@ -1442,6 +1496,11 @@ void bta_gattc_proc_other_indication(tBTA_GATTC_CLCB* p_clcb, uint8_t op,
   tGATT_IF gatt_if;
   tBTA_TRANSPORT transport;
 
+  if (!p_clcb) {
+    LOG(ERROR) << __func__ << ": p_clcb is NULL";
+    return;
+  }
+
   if(bta_gattc_cb.native_access_notif_enabled) {
     //check for native access notification
     if(op == GATTC_OPTYPE_NOTIFICATION) {
@@ -1463,6 +1522,14 @@ void bta_gattc_proc_other_indication(tBTA_GATTC_CLCB* p_clcb, uint8_t op,
   memcpy(p_notify->value, p_data->att_value.value, p_data->att_value.len);
   p_notify->conn_id = p_clcb->bta_conn_id;
 
+#ifdef ADV_AUDIO_FEATURE
+  if (is_remote_support_adv_audio(p_clcb->bda)) {
+    auto itr = dev_addr_map.find(p_notify->conn_id);
+    if (itr != dev_addr_map.end()) {
+      p_notify->bda = itr->second;
+    }
+  }
+#endif
   if (p_clcb->p_rcb->p_cback) {
     tBTA_GATTC bta_gattc;
     bta_gattc.notify = *p_notify;
@@ -1502,6 +1569,8 @@ void bta_gattc_process_indicate(uint16_t conn_id, tGATTC_OPTYPE op,
     return;
   }
 
+  LOG(INFO) << __func__ << " conn_id " << conn_id << " gatt_if "
+    << loghex(gatt_if);
   tBTA_GATTC_CLCB* p_clcb = bta_gattc_find_clcb_by_conn_id(conn_id);
 
   notify.handle = handle;
@@ -1521,6 +1590,7 @@ void bta_gattc_process_indicate(uint16_t conn_id, tGATTC_OPTYPE op,
   /* if app registered for the notification */
   if (bta_gattc_check_notif_registry(p_clrcb, p_srcb, &notify)) {
     /* connection not open yet */
+  LOG(ERROR) << __func__ << " conn_id " << conn_id << " gatt_if " << gatt_if;
     if (p_clcb == NULL) {
       p_clcb = bta_gattc_clcb_alloc(gatt_if, remote_bda, transport);
 

@@ -185,6 +185,7 @@ typedef struct {
   uint8_t timeout_retries;
   uint8_t is_local_initiated;
   uint8_t sdp_attempts;
+  uint8_t is_adv_audio;
   bool is_le_only;
   bool is_le_nc; /* LE Numeric comparison */
   btif_dm_ble_cb_t ble;
@@ -357,6 +358,7 @@ extern void btif_iot_update_remote_info(tBTA_DM_AUTH_CMPL* p_auth_cmpl,
 #ifdef ADV_AUDIO_FEATURE
 extern bool is_remote_support_adv_audio(const RawAddress remote_bdaddr);
 extern void bta_adv_audio_update_bond_db(RawAddress p_bd_addr, uint8_t transport);
+extern void btif_store_adv_audio_pair_info(RawAddress bd_addr);
 #endif
 /******************************************************************************
  *  Functions
@@ -691,6 +693,14 @@ void bond_state_changed(bt_status_t status, const RawAddress& bd_addr,
                                bt_bond_state_t state) {
   btif_stats_add_bond_event(bd_addr, BTIF_DM_FUNC_BOND_STATE_CHANGED, state);
 
+#ifdef ADV_AUDIO_FEATURE
+  if (is_remote_support_adv_audio(bd_addr)) {
+    if (state == BT_BOND_STATE_BONDED) {
+      btif_store_adv_audio_pair_info(bd_addr);
+    }
+  }
+#endif
+
   if ((pairing_cb.state == state) && (state == BT_BOND_STATE_BONDING)) {
     // Cross key pairing so send callback for static address
     if (!pairing_cb.static_bdaddr.IsEmpty()) {
@@ -913,9 +923,9 @@ static void btif_dm_cb_create_bond(const RawAddress& bd_addr,
     if (is_remote_support_adv_audio(bd_addr)) {
       transport = btif_dm_get_adv_audio_transport(bd_addr);
       bta_adv_audio_update_bond_db(bd_addr, transport);
+      pairing_cb.is_adv_audio = 1;
     }
 #endif
-    //TODO Verify it shouldnt impact the legacy
     BTIF_TRACE_DEBUG("%s bonding through TRANPORT %d ",
           __func__, transport);
     BTA_DmBondByTransport(bd_addr, transport);
@@ -4166,3 +4176,26 @@ void btif_reset_sdp_attempts() {
   pairing_cb.sdp_attempts = 0;
 }
 
+#ifdef ADV_AUDIO_FEATURE
+/*******************************************************************************
+ *
+ * Function        btif_store_adv_audio_pair_info
+ *
+ * Description     storing thein conf file that its adv_audio pairing or not
+ *
+ * Returns         void
+ *
+ ******************************************************************************/
+void btif_store_adv_audio_pair_info(RawAddress bd_addr) {
+  bt_property_t prop_dev;
+  int dev_is_adv_audio = pairing_cb.is_adv_audio;
+  prop_dev.type = (bt_property_type_t) BT_PROPERTY_REM_DEV_IS_ADV_AUDIO;
+  prop_dev.val = (void *)&dev_is_adv_audio;
+  prop_dev.len = sizeof(int);
+  BTIF_TRACE_WARNING("%s dev_is_adv_audio %d BDADDR %s", __func__,
+      dev_is_adv_audio, bd_addr.ToString().c_str());
+  int ret = btif_storage_set_remote_device_property(&bd_addr, &prop_dev);
+  ASSERTC(ret == BT_STATUS_SUCCESS, "failed to save remote device type",
+      ret);
+}
+#endif

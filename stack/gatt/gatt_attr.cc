@@ -641,9 +641,10 @@ static void gatt_disc_cmpl_cback(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
                                  tGATT_STATUS status) {
   tGATT_PROFILE_CLCB* p_clcb = gatt_profile_find_clcb_by_conn_id(conn_id);
 
+  if (p_clcb == NULL) return;
+
   VLOG(1) << __func__ << " ccc_stage::" << +p_clcb->ccc_stage
           << " sr_supp_feat_stage::" << +p_clcb->sr_supp_feat_stage;
-  if (p_clcb == NULL) return;
 
   if (status != GATT_SUCCESS || p_clcb->ccc_result == 0) {
     LOG(WARNING) << __func__

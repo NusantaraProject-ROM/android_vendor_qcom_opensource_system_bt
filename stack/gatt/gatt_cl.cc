@@ -453,6 +453,7 @@ void gatt_process_read_info_rsp(UNUSED_ATTR tGATT_TCB& tcb, tGATT_CLCB* p_clcb,
                                 uint8_t* p_data) {
   tGATT_DISC_RES result;
   uint8_t *p = p_data, uuid_len = 0, type;
+  result.handle = 0;
 
   if (len < GATT_INFO_RSP_MIN_LEN) {
     LOG(ERROR) << "invalid Info Response PDU received, discard.";
@@ -1150,7 +1151,7 @@ void gatt_process_mtu_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb, uint16_t len,
         for (size_t i=0; i<tcb.sr_eatt_apps.size(); i++) {
           tGATT_IF gatt_if = tcb.sr_eatt_apps[i];
           tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
-          if (p_reg->app_cb.p_conn_cb) {
+          if (p_reg && p_reg->app_cb.p_conn_cb) {
             uint16_t conn_id = GATT_CREATE_CONN_ID(tcb.tcb_idx, p_reg->gatt_if);
             (*p_reg->app_cb.p_conn_cb)(p_reg->gatt_if, tcb.peer_bda, conn_id,
                                        true, 0, tcb.transport);
@@ -1222,7 +1223,8 @@ bool gatt_cl_send_next_cmd_inq(tGATT_TCB& tcb, uint16_t lcid) {
       tGATT_CLCB* p_clcb = gatt_cmd_dequeue(tcb, lcid, &rsp_code);
 
       /* send command complete callback here */
-      gatt_end_operation(p_clcb, att_ret, NULL);
+      if (p_clcb)
+        gatt_end_operation(p_clcb, att_ret, NULL);
 
       /* if no ack needed, keep sending */
       if (att_ret == GATT_SUCCESS) continue;
