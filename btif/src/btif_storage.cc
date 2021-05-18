@@ -370,7 +370,7 @@ static int prop2cfg(const RawAddress* remote_bd_addr, bt_property_t* prop) {
     if(dev_type == BT_DEVICE_TYPE_BREDR) {
       btif_config_flush();
 #ifdef ADV_AUDIO_FEATURE
-    } else if (is_remote_support_adv_audio(*remote_bd_addr)) {
+    } else if (remote_bd_addr && is_remote_support_adv_audio(*remote_bd_addr)) {
       btif_config_flush();
 #endif
     } else {
