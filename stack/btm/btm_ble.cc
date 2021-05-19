@@ -2438,7 +2438,7 @@ bool BTM_GetRemoteQLLFeatures(uint16_t handle, uint8_t* features) {
   int idx;
   bool res = false;
 
-  if (!controller_get_interface()->is_qbce_qhs_commands_supported()) {
+  if (!controller_get_interface()->is_qbce_QLE_HCI_supported()) {
     BTM_TRACE_DEBUG("%s: QHS not support", __func__);
     return false;
   }

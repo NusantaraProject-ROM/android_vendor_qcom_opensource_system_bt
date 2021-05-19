@@ -1093,6 +1093,8 @@ bt_status_t btif_storage_remove_bonded_device(
     ret &= btif_config_remove(bdstr, "IsAdvAudio");
   if (btif_config_exist(bdstr, "QLL_FEATURES"))
     ret &= btif_config_remove(bdstr, "QLL_FEATURES");
+  if (btif_config_exist(bdstr, "QCM_PHY_STATE"))
+    ret &= btif_config_remove(bdstr, "QCM_PHY_STATE");
   /* Retaining TwsPlusPeerAddr , AvrcpCtVersion and AvrcpFeatures
      as these are needed even after unpair */
   /* write bonded info immediately */

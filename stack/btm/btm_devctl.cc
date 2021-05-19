@@ -886,6 +886,9 @@ void btm_vendor_specific_evt(uint8_t* p, uint8_t evt_len) {
       case MSG_QBCE_REMOTE_SUPPORTED_QLL_FEATURES_COMPLETE:
         btm_ble_read_remote_supported_qll_features_complete(pp);
         break;
+      case MSG_QBCE_QCM_PHY_CHANGE:
+        btm_acl_update_qcm_phy_state(pp);
+        break;
       default:
         BTM_TRACE_ERROR("%s: unknown msg type: %d", __func__, vse_msg_type);
         break;
