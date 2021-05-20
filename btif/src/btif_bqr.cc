@@ -204,14 +204,36 @@ void AddBqrEventToQueue(uint8_t length, uint8_t* p_stream) {
     LOG(WARNING) << __func__ << ": Fail to parse BQR sub event.";
     return;
   }
+  /* BQR RIE Crash reason frame format:
+    * 0xff for VSE | 0x04 for parameter length | 0x58 for BQR sub-event code
+    * | 0x05 for root inflammation event | 0x00 for error code | 0x** for vendor
+    * specific error code(crash reason) | [optional: 0x** for number of vendor specific
+    * parameters | 0x** for first parameter id | 0x** for length of first parameter |
+    * 0x** for first parameter value | ..so on..]
+    */
   if (p_bqr_event->quality_report_id_ == QUALITY_REPORT_ID_ROOT_INFLAMMATION) {
-    uint8_t error_code,vendor_error_code;
+    uint8_t error_code, vendor_error_code;
     STREAM_SKIP_UINT8(p_stream);
     STREAM_TO_UINT8(error_code, p_stream);
     STREAM_TO_UINT8(vendor_error_code, p_stream);
+    std::string vs_params = "";
+    // Check if we have optional vendor specific params available.
+    if (length > bluetooth::bqr::kRootInflammationParamTotalLen) {
+      uint8_t param_id, num_of_vs_params;
+      STREAM_TO_UINT8(num_of_vs_params, p_stream);
+      int pending_bytes = length - bluetooth::bqr::kRootInflammationParamTotalLen - 1;
+      vs_params = " vendor specific params: ";
+      for (uint8_t i = 1; i <= num_of_vs_params && pending_bytes > 0; ++i) {
+        STREAM_TO_UINT8(param_id, p_stream);
+        pending_bytes--;
+        if (pending_bytes > 0) {
+          vs_params += ParseVsBqrRieParams((BqrRieVsParamsId)param_id, &p_stream, pending_bytes);
+        }
+      }
+    }
     LOG(ERROR) << __func__ << " : BQR Root inflammation Reported, error code = "
-               << loghex(error_code) << " and vendor specific error code = "
-               << loghex(vendor_error_code);
+               << loghex(error_code) << " vendor specific error code = "
+               << loghex(vendor_error_code) << vs_params;
     return;
   }
   LOG(WARNING) << *p_bqr_event;
@@ -287,10 +309,19 @@ void EnableBtQualityReport(bool is_enable) {
   osi_property_get(kpPropertyMinReportIntervalMs, bqr_prop_interval_ms, "");
 
   if (strlen(bqr_prop_evtmask) == 0 || strlen(bqr_prop_interval_ms) == 0) {
-    LOG(WARNING) << __func__ << ": Bluetooth Quality Report is disabled."
-                 << " bqr_prop_evtmask: " << bqr_prop_evtmask
+   /* By default BQR RIE is enabled and since BQR RIE dont depend on SoC,
+    * report interval is 0.
+    * For enabling BQR RIE 4th bit should be set considering indexing from 0.
+    */
+    strlcpy(bqr_prop_evtmask, "16", sizeof(bqr_prop_evtmask));
+    strlcpy(bqr_prop_interval_ms, "0", sizeof(bqr_prop_interval_ms));
+    LOG(WARNING) << __func__ << ": Bluetooth Quality Report - Root inflammation"
+                 << " event enabled," <<" bqr_prop_evtmask: " << bqr_prop_evtmask
                  << ", bqr_prop_interval_ms: " << bqr_prop_interval_ms;
-    return;
+  } else {
+    LOG(WARNING) << __func__ << ": Bluetooth Quality Report enabled"
+                 <<" bqr_prop_evtmask: " << bqr_prop_evtmask
+                 << ", bqr_prop_interval_ms: " << bqr_prop_interval_ms;
   }
 
   BqrConfiguration bqr_config = {};
@@ -299,6 +330,11 @@ void EnableBtQualityReport(bool is_enable) {
     bqr_config.report_action = REPORT_ACTION_ADD;
     bqr_config.quality_event_mask =
         static_cast<uint32_t>(atoi(bqr_prop_evtmask));
+    if (!(bqr_config.quality_event_mask & kQualityEventMaskRootInflammation)) {
+      LOG(WARNING) << __func__ << "Enabling Bluetooth Quality Report - Root inflammation event";
+      // Enable BQR RIE by default.
+      bqr_config.quality_event_mask = bqr_config.quality_event_mask | kQualityEventMaskRootInflammation;
+    }
     bqr_config.minimum_report_interval_ms =
         static_cast<uint16_t>(atoi(bqr_prop_interval_ms));
   } else {
@@ -392,6 +428,41 @@ void DebugDump(int fd) {
   }
 
   dprintf(fd, "\n");
+}
+
+std::string ParseVsBqrRieParams(BqrRieVsParamsId param_id,
+                                  uint8_t** p_stream, int& pending_bytes) {
+  uint8_t param_length;
+  STREAM_TO_UINT8(param_length, *p_stream);
+  pending_bytes--;
+  std::stringstream ss;
+  switch(param_id) {
+    case PC_ADDRESS: {
+      ss << " PC_ADDRESS: ";
+      if (pending_bytes < param_length || param_length != sizeof(uint32_t)) {
+        LOG(ERROR) << __func__ << " BQR RIE VS parameter ID " << (int)param_id
+                   << " has invalid value or length, ignoring reset of payload";
+        ss << "invalid pc address value/lenght";
+        // Dont parse rest of payload as it might be corrupted and give wrong information.
+        pending_bytes = 0;
+      } else {
+        uint32_t pc_address;
+        pending_bytes -= param_length;
+        STREAM_TO_UINT32(pc_address, *p_stream);
+        ss << std::showbase << std::uppercase << std::hex << pc_address;
+      }
+      break;
+    }
+    default:
+      LOG(ERROR) << __func__ << " BQR RIE VS parameter ID " << (int)param_id
+                 << " not found, skipping bytes for this parameter";
+      for(int i = 0;i < param_length && pending_bytes > 0; ++i) {
+          pending_bytes--;
+          STREAM_SKIP_UINT8(*p_stream);
+      }
+      break;
+  }
+  return ss.str();
 }
 
 }  // namespace bqr
