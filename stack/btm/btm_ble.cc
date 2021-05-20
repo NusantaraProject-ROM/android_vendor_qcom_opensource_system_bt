@@ -47,6 +47,7 @@
 #include "btif/include/btif_storage.h"
 #include "stack_config.h"
 #include "stack/gatt/connection_manager.h"
+#include "btif/include/btif_config.h"
 
 extern void gatt_notify_phy_updated(uint8_t status, uint16_t handle,
                                     uint8_t tx_phy, uint8_t rx_phy);
@@ -2420,6 +2421,79 @@ extern uint8_t BTM_BleGetSupportedKeySize(const RawAddress& bd_addr) {
 #else
   return 0;
 #endif
+}
+
+/*******************************************************************************
+ *
+ * Function         BTM_GetRemoteQLLFeatures
+ *
+ * Description      This function is called to get remote QLL features
+ *
+ * Parameters       features - 8 bytes array for features value
+ *
+ * Returns          true if feature value is available
+ *
+ ******************************************************************************/
+bool BTM_GetRemoteQLLFeatures(uint16_t handle, uint8_t* features) {
+  int idx;
+  bool res = false;
+
+  if (!controller_get_interface()->is_qbce_qhs_commands_supported()) {
+    BTM_TRACE_DEBUG("%s: QHS not support", __func__);
+    return false;
+  }
+
+  idx = btm_handle_to_acl_index(handle);
+  if (idx == MAX_L2CAP_LINKS) {
+    BTM_TRACE_ERROR("%s: can't find acl for handle: 0x%04x", __func__, handle);
+    return false;
+  }
+
+  BTM_TRACE_DEBUG("%s: qll_features_state = %x", __func__,
+         btm_cb.acl_db[idx].qll_features_state);
+
+  if (btm_cb.acl_db[idx].qll_features_state != BTM_QLL_FEATURES_STATE_FEATURE_COMPLETE) {
+    BD_FEATURES value;
+    size_t length = sizeof(value);
+
+    if (btif_config_get_bin(btm_cb.acl_db[idx].remote_addr.ToString().c_str(),
+                "QLL_FEATURES", value, &length)) {
+      BTM_TRACE_DEBUG("%s: reading feature from config file", __func__);
+      btm_cb.acl_db[idx].qll_features_state = BTM_QLL_FEATURES_STATE_FEATURE_COMPLETE;
+      memcpy(btm_cb.acl_db[idx].remote_qll_features, value, BD_FEATURES_LEN);
+      res = true;
+    }
+  } else {
+    res = true;
+  }
+
+  if (res && features) {
+    memcpy(features, btm_cb.acl_db[idx].remote_qll_features, BD_FEATURES_LEN);
+  }
+  return res;
+}
+
+/*******************************************************************************
+ *
+ * Function         BTM_QHS_Phy_supported
+ *
+ * Description      This function is called to determine if QHS phy can be used
+ *
+ * Parameter        connection handle
+ *
+ * Returns          bool true if qhs phy can be used
+ *
+ ******************************************************************************/
+bool BTM_QHS_Phy_supported(uint16_t handle) {
+  bool qhs_phy = false;
+  bool ret;
+  BD_FEATURES features;
+
+  ret = BTM_GetRemoteQLLFeatures(handle, (uint8_t *)&features);
+  if (ret && (features[2] & 0x40))
+    qhs_phy = true;
+
+  return qhs_phy;
 }
 
 /*******************************************************************************

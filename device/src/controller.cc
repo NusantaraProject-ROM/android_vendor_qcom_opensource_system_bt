@@ -60,6 +60,12 @@ const uint8_t SCO_HOST_BUFFER_SIZE = 0xff;
 #define ISO_CHANNEL_HOST_SUPPORT_BIT 32
 #define UNUSED(x) (void)(x)
 
+#define QHS_TRANSPORT_LE_ISO 2
+#define QHS_HOST_MODE_HOST_AWARE 3
+
+const bt_event_mask_t QBCE_QLL_EVENT_MASK = {
+  {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x40}};
+
 static const hci_t* hci;
 static const hci_packet_factory_t* packet_factory;
 static const hci_packet_parser_t* packet_parser;
@@ -641,6 +647,16 @@ static future_t* start_up(void) {
   snprintf(adv_audio_property, 2, "%d", adv_audio_support_mask);
   osi_property_set("persist.vendor.service.bt.adv_audio_mask", adv_audio_property);
 
+  if (HCI_QBCE_QHS_COMMANDS_SUPPORTED(soc_add_on_features.as_array)) {
+    response = AWAIT_COMMAND(packet_factory->make_qbce_set_qhs_host_mode(
+                   QHS_TRANSPORT_LE_ISO, QHS_HOST_MODE_HOST_AWARE));
+    packet_parser->parse_generic_command_complete(response);
+
+    response = AWAIT_COMMAND(packet_factory->make_qbce_set_qll_event_mask(
+                   &QBCE_QLL_EVENT_MASK));
+    packet_parser->parse_generic_command_complete(response);
+  }
+
   if (!HCI_READ_ENCR_KEY_SIZE_SUPPORTED(supported_commands)) {
     LOG(FATAL) << " Controller must support Read Encryption Key Size command";
   }
@@ -1098,6 +1114,11 @@ static bool is_adv_audio_supported(void) {
     return false;
 }
 
+static bool is_qbce_qhs_commands_supported(void) {
+  return HCI_QBCE_QHS_COMMANDS_SUPPORTED(
+               soc_add_on_features.as_array);
+}
+
 static const controller_t interface = {
     get_is_ready,
 
@@ -1178,6 +1199,7 @@ static const controller_t interface = {
     is_pathloss_monitoring_supported,
     get_max_power_values,
     is_adv_audio_supported,
+    is_qbce_qhs_commands_supported,
 };
 
 const controller_t* controller_get_interface() {

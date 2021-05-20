@@ -110,6 +110,16 @@ typedef struct {
                                       connection */
   BD_FEATURES peer_le_features; /* Peer LE Used features mask for the device */
 
+#define BTM_QLL_FEATURES_STATE_IDLE 0 /* initial state */
+#define BTM_QLL_FEATURES_STATE_CONN_COMPLETE 1 /* QLL connection complete event received */
+#define BTM_QLL_FEATURES_STATE_FEATURE_COMPLETE 2 /* remote QLL features complete event received */
+#define BTM_QLL_FEATURES_STATE_ERROR 3 /* error status */
+
+  uint8_t qll_features_state;
+
+  /* available when qll_features_state is BTM_QLL_FEATURES_STATE_FEATURE_COMPLETE */
+  BD_FEATURES remote_qll_features;
+
 } tACL_CONN;
 
 /* Define the Device Management control structure
