@@ -2497,6 +2497,27 @@ bool BTM_QHS_Phy_supported(uint16_t handle) {
 }
 
 /*******************************************************************************
+ *
+ * Function         BTM_BleIsQHSPhySupported
+ *
+ * Description      This function is called to determine if QHS phy can be used
+ *
+ * Parameter        bda: BD address of the remote device
+ *
+ * Returns          bool true if qhs phy can be used, false otherwise
+ *
+ ******************************************************************************/
+bool BTM_BleIsQHSPhySupported(const RawAddress& bda) {
+  tACL_CONN* p = btm_bda_to_acl(bda, BT_TRANSPORT_LE);
+  if (p == NULL) {
+    BTM_TRACE_ERROR("%s: invalid bda %s", __func__,
+                     bda.ToString().c_str());
+    return false;
+  }
+  return BTM_QHS_Phy_supported(p->hci_handle);
+}
+
+/*******************************************************************************
  *  Utility functions for LE device IR/ER generation
  ******************************************************************************/
 /** This function is to notify application new keys have been generated. */
