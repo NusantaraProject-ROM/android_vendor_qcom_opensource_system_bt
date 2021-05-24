@@ -52,6 +52,10 @@
 #define APTX_LL_LATENCY 700
 #define APTX_ULL_LATENCY 700
 
+#define QHS_SUPPORT_MASK 0x00000C00
+#define QHS_SUPPORT_NOT_AVAILABLE 0x00000400
+#define QHS_SUPPORT_AVAILABLE 0x00000800
+
 /*******************************************************************************
  *  Type definitions for callback functions
  ******************************************************************************/

@@ -82,6 +82,8 @@
 #include "btif_bat.h"
 #include "bta/av/bta_av_int.h"
 #include "device/include/device_iot_config.h"
+#include "bt_types.h"
+#include "btm_int.h"
 
 #ifdef ADV_AUDIO_FEATURE
 #include "btif_bap_broadcast.h"
@@ -741,6 +743,13 @@ static void btif_report_source_codec_state(UNUSED_ATTR void* p_data,
         } else {
           btif_av_cb[index].codec_latency = APTX_HQ_LATENCY;
         }
+      }
+      if (btm_acl_qhs_phy_supported(*bd_addr, BT_TRANSPORT_BR_EDR)) {
+        codec_config.codec_specific_3 &= ~((int64_t)QHS_SUPPORT_MASK);
+        codec_config.codec_specific_3 |=  (int64_t)QHS_SUPPORT_AVAILABLE;
+      } else {
+        codec_config.codec_specific_3 &= ~((int64_t)QHS_SUPPORT_MASK);
+        codec_config.codec_specific_3 |=  (int64_t)QHS_SUPPORT_NOT_AVAILABLE;
       }
     } else {
       btif_av_cb[index].codec_latency = 0;
