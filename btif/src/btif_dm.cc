@@ -2023,7 +2023,6 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
           (tBTA_SERVICE_MASK)(BTA_SERVICE_ID_TO_SERVICE_MASK(BTA_BLE_SERVICE_ID))) {
         btif_in_execute_service_request(BTA_BLE_SERVICE_ID, FALSE);
       }
-      bluetooth::bqr::EnableBtQualityReport(false);
       btif_disable_bluetooth_evt();
       break;
 
@@ -2406,6 +2405,11 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
      }
 
     break;
+
+    case BTA_DM_DISABLE_BQR_EVT: {
+      bluetooth::bqr::EnableBtQualityReport(false);
+      break;
+    }
 
     case BTA_DM_AUTHORIZE_EVT:
     case BTA_DM_SIG_STRENGTH_EVT:
