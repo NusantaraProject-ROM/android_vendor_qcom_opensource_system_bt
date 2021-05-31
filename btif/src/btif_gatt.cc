@@ -26,6 +26,10 @@
 
 #define LOG_TAG "bt_btif_gatt"
 
+#include <base/bind.h>
+#include <base/run_loop.h>
+#include <base/threading/thread.h>
+
 #include <errno.h>
 #include <hardware/bluetooth.h>
 #include <hardware/bt_gatt.h>
@@ -41,8 +45,65 @@
 #include "btif_gatt.h"
 #include "btif_gatt_util.h"
 #include "btif_storage.h"
+#include "osi/include/thread.h"
+
+#define MAX_SCANNER_WORKQUEUE_COUNT    (1024)
 
 const btgatt_callbacks_t* bt_gatt_callbacks = NULL;
+
+thread_t* ble_scanner_workqueue_thread;
+static const char* BLE_SCANNER_WORKQUEUE_NAME = "ble_scanner_workqueue";
+static base::MessageLoop* scanner_message_loop_ = NULL;
+static base::RunLoop* scanner_run_loop_ = NULL;
+
+/**
+ * This function posts a task into the scanner message loop, that executes it in
+ * the scanner message loop.
+ **/
+bt_status_t do_in_ble_scanner_thread(const base::Location& from_here,
+                             const base::Closure& task) {
+  if (!scanner_message_loop_ || !scanner_message_loop_->task_runner().get()) {
+    BTIF_TRACE_WARNING("%s: Dropped message, message_loop not initialized yet!",
+                       __func__);
+    return BT_STATUS_FAIL;
+  }
+
+  if (scanner_message_loop_->task_runner()->PostTask(from_here, task))
+    return BT_STATUS_SUCCESS;
+
+  BTIF_TRACE_ERROR("%s: Post task to task runner failed!", __func__);
+  return BT_STATUS_FAIL;
+}
+
+bt_status_t do_in_ble_scanner_thread(const base::Closure& task) {
+  return do_in_ble_scanner_thread(FROM_HERE, task);
+}
+
+static void ble_scanner_msg_loop_start_cb() {
+  LOG_INFO(LOG_TAG, "%s", __func__);;
+}
+
+static void run_ble_scanner_message_loop(UNUSED_ATTR void* context) {
+  LOG_INFO(LOG_TAG, "%s entered", __func__);
+
+  scanner_message_loop_ = new base::MessageLoop(base::MessageLoop::Type::TYPE_DEFAULT);
+  scanner_run_loop_ = new base::RunLoop();
+
+  scanner_message_loop_->task_runner()->PostTask(FROM_HERE,
+                                         base::Bind(&ble_scanner_msg_loop_start_cb));
+
+  scanner_run_loop_->Run();
+
+  delete scanner_message_loop_;
+  scanner_message_loop_ = NULL;
+
+  delete scanner_run_loop_;
+  scanner_run_loop_ = NULL;
+
+  LOG_INFO(LOG_TAG, "%s finished", __func__);
+}
+
+
 
 /*******************************************************************************
  *
@@ -54,8 +115,25 @@ const btgatt_callbacks_t* bt_gatt_callbacks = NULL;
  *
  ******************************************************************************/
 static bt_status_t btif_gatt_init(const btgatt_callbacks_t* callbacks) {
+  ble_scanner_workqueue_thread = thread_new_sized(BLE_SCANNER_WORKQUEUE_NAME,
+                                                  MAX_SCANNER_WORKQUEUE_COUNT);
+  if (ble_scanner_workqueue_thread == NULL) {
+    LOG_ERROR(LOG_TAG, "%s Unable to create thread %s", __func__,
+              BLE_SCANNER_WORKQUEUE_NAME);
+    goto error_exit;
+  }
+
+  thread_post(ble_scanner_workqueue_thread, run_ble_scanner_message_loop, nullptr);
+
   bt_gatt_callbacks = callbacks;
   return BT_STATUS_SUCCESS;
+
+  error_exit:
+    thread_free(ble_scanner_workqueue_thread);
+
+    ble_scanner_workqueue_thread = NULL;
+
+    return BT_STATUS_FAIL;
 }
 
 /*******************************************************************************
@@ -68,6 +146,15 @@ static bt_status_t btif_gatt_init(const btgatt_callbacks_t* callbacks) {
  *
  ******************************************************************************/
 static void btif_gatt_cleanup(void) {
+
+  if (scanner_run_loop_ && scanner_message_loop_) {
+    scanner_message_loop_->task_runner()->PostTask(FROM_HERE,
+                                           scanner_run_loop_->QuitClosure());
+  }
+
+  thread_free(ble_scanner_workqueue_thread);
+  ble_scanner_workqueue_thread = NULL;
+
   if (bt_gatt_callbacks) bt_gatt_callbacks = NULL;
 
   BTA_GATTC_Disable();

@@ -153,7 +153,7 @@ void bta_scan_results_cb_impl(RawAddress bd_addr, tBT_DEVICE_TYPE device_type,
   btif_storage_set_remote_device_property(&(bd_addr), &properties);
 
   btif_storage_set_remote_addr_type(&bd_addr, addr_type);
-  HAL_CBACK(bt_gatt_callbacks, scanner->scan_result_cb, ble_evt_type, addr_type,
+  SCAN_CBACK_IN_JNI(scan_result_cb, ble_evt_type, addr_type,
             &bd_addr, ble_primary_phy, ble_secondary_phy, ble_advertising_sid,
             ble_tx_power, rssi, ble_periodic_adv_int, std::move(value));
 }
@@ -184,7 +184,7 @@ void bta_scan_results_cb(tBTA_DM_SEARCH_EVT event, tBTA_DM_SEARCH* p_data) {
   }
 
   tBTA_DM_INQ_RES* r = &p_data->inq_res;
-  do_in_jni_thread(Bind(bta_scan_results_cb_impl, r->bd_addr, r->device_type,
+  do_in_ble_scanner_thread(Bind(bta_scan_results_cb_impl, r->bd_addr, r->device_type,
                         r->rssi, r->ble_addr_type, r->ble_evt_type,
                         r->ble_primary_phy, r->ble_secondary_phy,
                         r->ble_advertising_sid, r->ble_tx_power,
