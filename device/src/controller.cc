@@ -170,11 +170,21 @@ static bool is_soc_logging_enabled() {
 
 bool is_soc_lpa_enh_pwr_enabled() {
   char lpa_enh_pwr_enabled[PROPERTY_VALUE_MAX] = {0};
+  bt_soc_type_t socs[] = { BT_SOC_TYPE_HASTINGS,
+                           BT_SOC_TYPE_CHEROKEE,
+                           BT_SOC_TYPE_MOSELLE };
+  int i, num = sizeof(socs)/sizeof(socs[0]);
 
-  if (soc_type != BT_SOC_TYPE_HASTINGS &&
-       soc_type != BT_SOC_TYPE_CHEROKEE) {
+  for (i = 0; i < num; i++) {
+    if (soc_type == socs[i]) {
+      break;
+    }
+  }
+
+  if (i >= num) {
     return false;
   }
+
   osi_property_get("persist.vendor.btstack.enable.lpa", lpa_enh_pwr_enabled, "false");
   return strncmp(lpa_enh_pwr_enabled, "true", 4) == 0;
 }
