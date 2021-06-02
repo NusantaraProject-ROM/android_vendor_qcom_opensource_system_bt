@@ -131,6 +131,8 @@ typedef enum {
 
   INTEROP_HFP_1_7_BLACKLIST,
 
+  INTEROP_HFP_1_8_BLACKLIST,
+
   // Some Carkits are not initiating AVRCP Browse Channel on
   // seeing DUT's AVRCP version as v1.6. Hence fallback DUT's
   // AVRCP version to v1.4 for those Carkits

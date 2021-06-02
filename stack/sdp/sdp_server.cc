@@ -430,7 +430,8 @@ bool sdp_reset_avrcp_cover_art_bit (tSDP_ATTRIBUTE attr, tSDP_ATTRIBUTE *p_attr,
 +***************************************************************************************/
 bool sdp_change_hfp_version (tSDP_ATTRIBUTE *p_attr, RawAddress remote_address)
 {
-    bool is_blacklisted = FALSE;
+    bool is_blacklisted_1_7 = FALSE;
+    bool is_blacklisted_1_8 = FALSE;
     char value[PROPERTY_VALUE_MAX];
     if ((p_attr->id == ATTR_ID_BT_PROFILE_DESC_LIST) &&
         (p_attr->len >= SDP_PROFILE_DESC_LENGTH))
@@ -439,15 +440,28 @@ bool sdp_change_hfp_version (tSDP_ATTRIBUTE *p_attr, RawAddress remote_address)
         if (((p_attr->value_ptr[3] << 8) | (p_attr->value_ptr[4])) ==
                 UUID_SERVCLASS_HF_HANDSFREE)
         {
-            is_blacklisted = interop_match_addr_or_name(INTEROP_HFP_1_7_BLACKLIST,
+            is_blacklisted_1_7 = interop_match_addr_or_name(INTEROP_HFP_1_7_BLACKLIST,
                                                            &remote_address);
-            SDP_TRACE_DEBUG("%s: HF version is 1.7 for BD addr: %s",\
-                           __func__, remote_address.ToString().c_str());
-            /* For PTS we should show AG's HFP version as 1.7 */
-            if (is_blacklisted ||
+            is_blacklisted_1_8 = interop_match_addr_or_name(INTEROP_HFP_1_8_BLACKLIST,
+                                                           &remote_address);
+            /* For PTS we should update AG's HFP version as 1.8 */
+            if (is_blacklisted_1_8 ||
                 (property_get("vendor.bt.pts.certification", value, "false") &&
                 strcmp(value, "true") == 0))
             {
+                SDP_TRACE_DEBUG("%s: HF version is 1.8 for BD addr: %s",\
+                        __func__, remote_address.ToString().c_str());
+
+                p_attr->value_ptr[PROFILE_VERSION_POSITION] = 0x08; // Update HFP version as 1.8
+                SDP_TRACE_ERROR("SDP Change HFP Version = 0x%x",
+                        p_attr->value_ptr[PROFILE_VERSION_POSITION]);
+                return TRUE;
+            }
+            else if (is_blacklisted_1_7)
+            {
+                SDP_TRACE_DEBUG("%s: HF version is 1.7 for BD addr: %s",\
+                       __func__, remote_address.ToString().c_str());
+
                 p_attr->value_ptr[PROFILE_VERSION_POSITION] = 0x07; // Update HFP version as 1.7
                 SDP_TRACE_ERROR("SDP Change HFP Version = 0x%x",
                          p_attr->value_ptr[PROFILE_VERSION_POSITION]);

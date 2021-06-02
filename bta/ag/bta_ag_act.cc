@@ -728,6 +728,11 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
          interop_database_add_addr(INTEROP_HFP_1_7_BLACKLIST,
                           &p_scb->peer_addr, 3);
       }
+      else if (p_scb->peer_version == HFP_VERSION_1_8) {
+         APPL_TRACE_DEBUG("%s: version is 1.8, store in a file", __func__);
+         interop_database_add_addr(INTEROP_HFP_1_8_BLACKLIST,
+                          &p_scb->peer_addr, 3);
+      }
 #if (BT_IOT_LOGGING_ENABLED == TRUE)
     device_iot_config_addr_set_hex_if_greater(p_scb->peer_addr,
         IOT_CONF_KEY_HFP_VERSION, p_scb->peer_version, IOT_CONF_BYTE_NUM_2);
