@@ -575,7 +575,14 @@ bt_status_t btif_a2dp_source_setup_codec(tBTA_AV_HNDL hndl) {
 
     } else if (codec_config.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_AAC) {
       if (btif_av_is_split_a2dp_enabled()) {
-        flow_spec.peak_bandwidth = (165*1000)/8; /* bytes/second */
+        char prop_value[PROPERTY_VALUE_MAX] = "false";
+        property_get("persist.vendor.qcom.bluetooth.aac_abr_support", prop_value, "false");
+        ALOGE("%s: AAC ABR support : %s", __func__, prop_value);
+        if (!strcmp(prop_value, "true")) {
+          flow_spec.peak_bandwidth = 0;//ABR enabled
+        } else {
+          flow_spec.peak_bandwidth = (165*1000)/8; /* bytes/second */
+        }
       } else {
         flow_spec.peak_bandwidth = (320*1000)/8; /* bytes/second */
       }
