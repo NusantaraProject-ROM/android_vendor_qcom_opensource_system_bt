@@ -97,6 +97,10 @@ void btm_free(void) {
   fixed_queue_free(btm_cb.sec_pending_q, NULL);
   btm_cb.sec_pending_q = NULL;
 
+  btm_dev_free();
+
+  btm_inq_db_free();
+
   list_free(btm_cb.sec_dev_rec);
   btm_cb.sec_dev_rec = NULL;
 
