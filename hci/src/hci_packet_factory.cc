@@ -231,6 +231,17 @@ static BT_HDR* make_qbce_set_qll_event_mask(const bt_event_mask_t* event_mask) {
   return packet;
 }
 
+static BT_HDR* make_qbce_set_qlm_event_mask(const bt_event_mask_t* event_mask) {
+  uint8_t* stream;
+  const uint8_t parameter_size = sizeof(bt_event_mask_t) + 1;
+  BT_HDR* packet =
+      make_command(HCI_VS_QBCE_OCF, parameter_size, &stream);
+
+  UINT8_TO_STREAM(stream, QBCE_SET_QLM_EVENT_MASK);
+  ARRAY8_TO_STREAM(stream, event_mask->as_array);
+  return packet;
+}
+
 // Internal functions
 
 static BT_HDR* make_command_no_params(uint16_t opcode) {
@@ -291,6 +302,7 @@ static const hci_packet_factory_t interface = {
     make_ble_read_buffer_size_v2,
     make_qbce_set_qhs_host_mode,
     make_qbce_set_qll_event_mask,
+    make_qbce_set_qlm_event_mask,
 };
 
 const hci_packet_factory_t* hci_packet_factory_get_interface() {

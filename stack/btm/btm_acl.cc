@@ -57,6 +57,7 @@
 #include "device/include/device_iot_config.h"
 #include "controller.h"
 #include <btcommon_interface_defs.h>
+#include "btif/include/btif_config.h"
 
 static void btm_read_remote_features(uint16_t handle);
 static void btm_read_remote_ext_features(uint16_t handle, uint8_t page_number);
@@ -3128,4 +3129,103 @@ uint16_t BTM_GetNumSlaveAclLinks(void) {
   }
 
   return num_acl;
+}
+
+/*******************************************************************************
+ *
+ * Function        btm_acl_get_qcm_phy_state
+ *
+ * Description     This function returns the phy state of ACL connection.
+ *
+ *
+ * Parameters      bda : BD address of the remote device
+ *
+ * Returns         Returns qcm phy state of ACL connection.
+ *                 Returns default value as BR/EDR if it fails.
+ *
+ *
+ ******************************************************************************/
+uint8_t btm_acl_get_qcm_phy_state(const RawAddress& bda) {
+  bool ret;
+  // Default value for QCM PHY state
+  uint16_t qcm_phy_state = QCM_PHY_STATE_BR_EDR;
+
+  ret = btif_config_get_uint16(bda.ToString().c_str(),
+                                 "QCM_PHY_STATE", &qcm_phy_state);
+  if (ret == 0) {
+    BTM_TRACE_ERROR("%s: can't find phy state for BdAddr %s in btconfig file",
+                      __func__, bda.ToString().c_str());
+  }
+  return (uint8_t)qcm_phy_state;
+}
+
+/*******************************************************************************
+ *
+ * Function        btm_acl_update_qcm_phy_state
+ *
+ * Description     This function updates the qcm phy state of ACL connection.
+ *
+ * Returns         void
+ *
+ ******************************************************************************/
+void btm_acl_update_qcm_phy_state(uint8_t* p) {
+  uint16_t handle;
+  uint8_t status, qcm_phy_state;
+  int idx;
+
+  STREAM_TO_UINT8(status, p);
+  STREAM_TO_UINT16(handle, p);
+
+  handle = handle & 0x0FFF;
+  idx = btm_handle_to_acl_index(handle);
+
+  if (idx == MAX_L2CAP_LINKS) {
+    BTM_TRACE_ERROR("%s: can't find acl for handle: 0x%04x", __func__, handle);
+    return;
+  }
+
+  if (status != HCI_SUCCESS) {
+    BTM_TRACE_ERROR("%s: failed for handle: 0x%04x, status 0x%02x", __func__,
+                      handle, status);
+    // Setting qcm phy state to default value: 0x00 BR/EDR
+    btif_config_set_uint16(btm_cb.acl_db[idx].remote_addr.ToString().c_str(),
+                           "QCM_PHY_STATE", QCM_PHY_STATE_BR_EDR);
+    return;
+  }
+
+  STREAM_TO_UINT8(qcm_phy_state, p);
+  // Setting qcm phy state as 0x00 BR/EDR, 0x01 QHS
+  btif_config_set_uint16(btm_cb.acl_db[idx].remote_addr.ToString().c_str(),
+                           "QCM_PHY_STATE", (uint16_t)qcm_phy_state);
+}
+
+/*******************************************************************************
+ *
+ * Function        btm_acl_qhs_phy_supported
+ *
+ * Description     This function is called to determine if QHS is supported or not.
+ *
+ * Parameters      bda : BD address of the remote device
+ *                 transport : Physical transport used for ACL connection
+ *                 (BR/EDR or LE)
+ *
+ * Returns         True if qhs phy can be used, false otherwise.
+ *
+ ******************************************************************************/
+bool btm_acl_qhs_phy_supported(const RawAddress& bda, tBT_TRANSPORT transport) {
+  bool ret = false;
+  if (transport == BT_TRANSPORT_LE) {
+    ret = BTM_BleIsQHSPhySupported(bda);
+  }
+  if (transport ==  BT_TRANSPORT_BR_EDR) {
+    uint8_t qcm_phy_state = btm_acl_get_qcm_phy_state(bda);
+    if (qcm_phy_state == QCM_PHY_STATE_QHS) {
+      ret = true;
+    }
+  }
+  if (ret == false) {
+    BTM_TRACE_DEBUG("%s: QHS not supported for transport = %d and BdAddr = %s",
+                      __func__, transport, bda.ToString().c_str());
+  }
+  return ret;
 }

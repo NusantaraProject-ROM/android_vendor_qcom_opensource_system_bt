@@ -751,6 +751,10 @@ typedef uint8_t tBLE_ADDR_TYPE;
 #define BT_TRANSPORT_LE 2
 typedef uint8_t tBT_TRANSPORT;
 
+/* QCM PHY state */
+#define QCM_PHY_STATE_BR_EDR 0
+#define QCM_PHY_STATE_QHS 1
+
 #define PHY_LE_1M_MASK 1
 #define PHY_LE_2M_MASK 2
 #define PHY_LE_CODED_MASK 4
