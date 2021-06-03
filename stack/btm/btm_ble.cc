@@ -1069,7 +1069,7 @@ void BTM_BleSetPhy(const RawAddress& bd_addr, uint8_t tx_phys, uint8_t rx_phys,
  *
  * Function         BTM_BleGetLTK
  *
- * Description      This function returns LTK of the LE connection.
+ * Description      This function returns peer LTK of the LE connection.
  *
  * Parameter        bdaddr: remote device address
  *
@@ -1093,7 +1093,7 @@ Octet16 BTM_BleGetLTK(const RawAddress& bd_addr) {
   }
 
   if (p_rec->ble.key_type && (p_rec->sec_flags & BTM_SEC_LE_LINK_KEY_KNOWN)) {
-    ltk = p_rec->ble.keys.lltk;
+    ltk = p_rec->ble.keys.pltk;
   }
   return ltk;
 }
