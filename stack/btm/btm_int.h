@@ -48,6 +48,7 @@ extern tBTM_CB btm_cb;
  *******************************************
 */
 extern void btm_init(void);
+extern void btm_free(void);
 
 /* Internal functions provided by btm_inq.cc
  ******************************************
@@ -64,6 +65,7 @@ extern void btm_inq_remote_name_timer_timeout(void* data);
 /* Inquiry related functions */
 extern void btm_clr_inq_db(const RawAddress* p_bda);
 extern void btm_inq_db_init(void);
+extern void btm_inq_db_free(void);
 extern void btm_process_inq_results(uint8_t* p, uint8_t inq_res_mode);
 extern void btm_process_inq_complete(uint8_t status, uint8_t mode);
 extern void btm_process_cancel_complete(uint8_t status, uint8_t mode);
@@ -184,6 +186,7 @@ extern void btm_sco_flush_sco_data(uint16_t sco_inx);
  *********************************************
 */
 extern void btm_dev_init(void);
+extern void btm_dev_free(void);
 extern void btm_read_local_name_timeout(void* data);
 extern void btm_read_local_name_complete(uint8_t* p, uint16_t evt_len);
 

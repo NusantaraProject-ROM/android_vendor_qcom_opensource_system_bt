@@ -538,6 +538,21 @@ static void bta_dm_sys_hw_cback(tBTA_SYS_HW_EVT status) {
 
 /*******************************************************************************
  *
+ * Function         bta_dm_disable_bqr
+ *
+ * Description      notify application to send disable bqr event
+ *
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void bta_dm_disable_bqr() {
+   if (bta_dm_cb.p_sec_cback != NULL)
+     bta_dm_cb.p_sec_cback(BTA_DM_DISABLE_BQR_EVT, NULL);
+}
+
+/*******************************************************************************
+ *
  * Function         bta_dm_disable
  *
  * Description      Disables the BT device manager
@@ -584,6 +599,8 @@ void bta_dm_disable(UNUSED_ATTR tBTA_DM_MSG* p_data) {
     BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE, 2, param, NULL);
   }
 
+  /* Disable BQR events */
+  bta_dm_disable_bqr();
   if (BTM_GetNumAclLinks() == 0) {
 #if (BTA_DISABLE_DELAY > 0)
     /* If BTA_DISABLE_DELAY is defined and greater than zero, then delay the
