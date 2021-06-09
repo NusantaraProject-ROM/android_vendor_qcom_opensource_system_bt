@@ -1558,6 +1558,8 @@ typedef struct {
 #define HCI_SWB_VOICE_WITH_APTX_ADAPTIVE_SUPPORTED(x) ((x)[3] & 0x04)
 #define HCI_QBCE_QLE_HCI_SUPPORTED(x) ((x)[3] & 0x10)
 #define HCI_QBCE_QCM_HCI_SUPPORTED(x) ((x)[3] & 0x20)
+#define HCI_SPLIT_A2DP_SOURCE_AAC_ABR_SUPPORTED(x) ((x)[3] & 0x40)
+#define HCI_SPLIT_A2DP_SOURCE_Tx_Split_APTX_ADAPTIVE_SUPPORTED(x) ((x)[3] & 0x80)
 
 #define HCI_BROADCAST_AUDIO_TX_WITH_EC_2_5(x) ((x)[4] & 0x01)
 #define HCI_BROADCAST_AUDIO_TX_WITH_EC_3_9(x) ((x)[4] & 0x02)
