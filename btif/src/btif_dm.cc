@@ -711,7 +711,7 @@ void bond_state_changed(bt_status_t status, const RawAddress& bd_addr,
     return;
   }
 
-  if (pairing_cb.bond_type == tBTM_SEC_DEV_REC::BOND_TYPE_TEMPORARY) {
+  if (pairing_cb.bond_type == BOND_TYPE_TEMPORARY) {
     state = BT_BOND_STATE_NONE;
   }
 
@@ -2860,7 +2860,7 @@ bt_status_t btif_dm_create_bond(const RawAddress* bd_addr, int transport) {
  * Returns          bt_status_t
  *
  *****************************************************************************/
-bt_status_t btif_dm_create_bond_out_of_band(const RawAddress * bd_addr,
+void btif_dm_create_bond_out_of_band(const RawAddress * bd_addr,
                                             tBT_TRANSPORT transport,
                                             const bt_oob_data_t p192_data,
                                             const bt_oob_data_t p256_data) {
@@ -2893,38 +2893,38 @@ bt_status_t btif_dm_create_bond_out_of_band(const RawAddress * bd_addr,
       // The controller only supports P192
       switch (oob_cb.data_present) {
         case BTM_OOB_PRESENT_192_AND_256:
-          LOG_INFO("Have both P192 and  P256");
+          LOG_INFO(LOG_TAG, "Have both P192 and  P256");
           [[fallthrough]];
         case BTM_OOB_PRESENT_192:
-          LOG_INFO("Using P192");
+          LOG_INFO(LOG_TAG, "Using P192");
           break;
         case BTM_OOB_PRESENT_256:
-          LOG_INFO("Using P256");
+          LOG_INFO(LOG_TAG, "Using P256");
           [[fallthrough]];
         default:
           // TODO(181889116):
           // Upgrade to support p256 (for now we just ignore P256)
           // because the controllers do not yet support it.
-          LOG_ERROR("Invalid data present for controller: %d",
+          LOG_ERROR(LOG_TAG, "Invalid data present for controller: %d",
                     oob_cb.data_present);
           bond_state_changed(BT_STATUS_FAIL, *bd_addr, BT_BOND_STATE_NONE);
           return;
       }
       pairing_cb.is_local_initiated = true;
-      LOG_ERROR("Classic not implemented yet");
+      LOG_ERROR(LOG_TAG, "Classic not implemented yet");
       bond_state_changed(BT_STATUS_FAIL, *bd_addr, BT_BOND_STATE_NONE);
       return;
     case BT_TRANSPORT_LE: {
       // Guess default RANDOM for address type for LE
       tBLE_ADDR_TYPE address_type = BLE_ADDR_RANDOM;
-      LOG_INFO("Using LE Transport");
+      LOG_INFO(LOG_TAG, "Using LE Transport");
       switch (oob_cb.data_present) {
         case BTM_OOB_PRESENT_192_AND_256:
-          LOG_INFO("Have both P192 and  P256");
+          LOG_INFO(LOG_TAG, "Have both P192 and  P256");
           [[fallthrough]];
         // Always prefer 256 for LE
         case BTM_OOB_PRESENT_256:
-          LOG_INFO("Using P256");
+          LOG_INFO(LOG_TAG, "Using P256");
           // If we have an address, lets get the type
           if (memcmp(p256_data.address, empty, 7) != 0) {
             /* byte no 7 is address type in LE Bluetooth Address OOB data */
@@ -2932,7 +2932,7 @@ bt_status_t btif_dm_create_bond_out_of_band(const RawAddress * bd_addr,
           }
           break;
         case BTM_OOB_PRESENT_192:
-          LOG_INFO("Using P192");
+          LOG_INFO(LOG_TAG, "Using P192");
           // If we have an address, lets get the type
           if (memcmp(p192_data.address, empty, 7) != 0) {
             /* byte no 7 is address type in LE Bluetooth Address OOB data */
@@ -2941,12 +2941,12 @@ bt_status_t btif_dm_create_bond_out_of_band(const RawAddress * bd_addr,
           break;
       }
       pairing_cb.is_local_initiated = true;
-      BTM_SecAddBleDevice(*bd_addr, BT_DEVICE_TYPE_BLE, address_type);
-      BTA_DmBond(*bd_addr, address_type, transport, BT_DEVICE_TYPE_BLE);
+      BTM_SecAddBleDevice(*bd_addr, NULL, BT_DEVICE_TYPE_BLE, address_type);
+      BTA_DmBond(*bd_addr);
       break;
     }
     default:
-      LOG_ERROR("Invalid transport: %d", transport);
+      LOG_ERROR(LOG_TAG, "Invalid transport: %d", transport);
       bond_state_changed(BT_STATUS_FAIL, *bd_addr, BT_BOND_STATE_NONE);
       return;
   }
@@ -3364,11 +3364,11 @@ void btif_dm_set_oob_for_le_io_req(const RawAddress& bd_addr,
                                    tBTM_LE_AUTH_REQ* p_auth_req) {
   switch (oob_cb.data_present) {
     case BTM_OOB_PRESENT_192_AND_256:
-      LOG_INFO("Have both P192 and  P256");
+      LOG_INFO(LOG_TAG, "Have both P192 and  P256");
       [[fallthrough]];
     // Always prefer 256 for LE
     case BTM_OOB_PRESENT_256:
-      LOG_INFO("Using P256");
+      LOG_INFO(LOG_TAG, "Using P256");
       if (!is_empty_128bit(oob_cb.p256_data.c) &&
           !is_empty_128bit(oob_cb.p256_data.r)) {
         /* make sure OOB data is for this particular device */
@@ -3377,7 +3377,7 @@ void btif_dm_set_oob_for_le_io_req(const RawAddress& bd_addr,
           *p_has_oob_data = true;
         } else {
           *p_has_oob_data = false;
-          LOG_WARN("P256-1: Remote address didn't match OOB data address");
+          LOG_WARN(LOG_TAG, "P256-1: Remote address didn't match OOB data address");
         }
       } else if (!is_empty_128bit(oob_cb.p256_data.sm_tk)) {
         /* We have security manager TK */
@@ -3390,14 +3390,14 @@ void btif_dm_set_oob_for_le_io_req(const RawAddress& bd_addr,
           *p_has_oob_data = true;
         } else {
           *p_has_oob_data = false;
-          LOG_WARN("P256-2: Remote address didn't match OOB data address");
+          LOG_WARN(LOG_TAG, "P256-2: Remote address didn't match OOB data address");
         }
       } else {
         *p_has_oob_data = false;
       }
       break;
     case BTM_OOB_PRESENT_192:
-      LOG_INFO("Using P192");
+      LOG_INFO(LOG_TAG, "Using P192");
       if (!is_empty_128bit(oob_cb.p192_data.c) &&
           !is_empty_128bit(oob_cb.p192_data.r)) {
         /* make sure OOB data is for this particular device */
@@ -3406,7 +3406,7 @@ void btif_dm_set_oob_for_le_io_req(const RawAddress& bd_addr,
           *p_has_oob_data = true;
         } else {
           *p_has_oob_data = false;
-          LOG_WARN("P192-1: Remote address didn't match OOB data address");
+          LOG_WARN(LOG_TAG, "P192-1: Remote address didn't match OOB data address");
         }
       } else if (!is_empty_128bit(oob_cb.p192_data.sm_tk)) {
         /* We have security manager TK */
@@ -3419,7 +3419,7 @@ void btif_dm_set_oob_for_le_io_req(const RawAddress& bd_addr,
           *p_has_oob_data = true;
         } else {
           *p_has_oob_data = false;
-          LOG_WARN("P192-2: Remote address didn't match OOB data address");
+          LOG_WARN(LOG_TAG, "P192-2: Remote address didn't match OOB data address");
         }
       } else {
         *p_has_oob_data = false;
@@ -3460,7 +3460,7 @@ static void stop_oob_advertiser() {
  *
  ******************************************************************************/
 void btif_dm_generate_local_oob_data(tBT_TRANSPORT transport) {
-  LOG_DEBUG("Transport %s", bt_transport_text(transport).c_str());
+  LOG_DEBUG(LOG_TAG, "Transport %s", bt_transport_text(transport).c_str());
   if (transport == BT_TRANSPORT_BR_EDR) {
     BTM_ReadLocalOobData();
   } else if (transport == BT_TRANSPORT_LE) {
@@ -3493,21 +3493,21 @@ static void start_advertising_callback(uint8_t id, tBT_TRANSPORT transport,
                                        bool is_valid, const Octet16& c,
                                        const Octet16& r, uint8_t status) {
   if (status != 0) {
-    LOG_INFO("OOB get advertiser ID failed with status %hhd", status);
+    LOG_INFO(LOG_TAG, "OOB get advertiser ID failed with status %hhd", status);
     invoke_oob_data_request_cb(transport, false, c, r, RawAddress{}, 0x00);
     SMP_ClearLocScOobData();
     waiting_on_oob_advertiser_start = false;
     oob_advertiser_id = 0;
     return;
   }
-  LOG_DEBUG("OOB advertiser with id %hhd", id);
+  LOG_DEBUG(LOG_TAG, "OOB advertiser with id %hhd", id);
   auto advertiser = get_ble_advertiser_instance();
   advertiser->GetOwnAddress(
       id, base::Bind(&get_address_callback, transport, is_valid, c, r));
 }
 
 static void timeout_cb(uint8_t id, uint8_t status) {
-  LOG_INFO("OOB advertiser with id %hhd timed out with status %hhd", id,
+  LOG_INFO(LOG_TAG, "OOB advertiser with id %hhd timed out with status %hhd", id,
            status);
   auto advertiser = get_ble_advertiser_instance();
   advertiser->Unregister(id);
@@ -3521,7 +3521,7 @@ static void id_status_callback(tBT_TRANSPORT transport, bool is_valid,
                                const Octet16& c, const Octet16& r, uint8_t id,
                                uint8_t status) {
   if (status != 0) {
-    LOG_INFO("OOB get advertiser ID failed with status %hhd", status);
+    LOG_INFO(LOG_TAG, "OOB get advertiser ID failed with status %hhd", status);
     invoke_oob_data_request_cb(transport, false, c, r, RawAddress{}, 0x00);
     SMP_ClearLocScOobData();
     waiting_on_oob_advertiser_start = false;
@@ -4045,7 +4045,7 @@ static void btif_dm_ble_sc_oob_req_evt(tBTA_DM_SP_RMT_OOB* req_oob_type) {
 
   /* make sure OOB data is for this particular device */
   if (req_oob_type->bd_addr != oob_cb.bdaddr) {
-    LOG_ERROR("remote address didn't match OOB data address");
+    LOG_ERROR(LOG_TAG, "remote address didn't match OOB data address");
     return;
   }
 
@@ -4056,23 +4056,23 @@ static void btif_dm_ble_sc_oob_req_evt(tBTA_DM_SP_RMT_OOB* req_oob_type) {
   bt_oob_data_t oob_data_to_use = {};
   switch (oob_cb.data_present) {
     case BTM_OOB_PRESENT_192_AND_256:
-      LOG_INFO("Have both P192 and  P256");
+      LOG_INFO(LOG_TAG, "Have both P192 and  P256");
       [[fallthrough]];
     // Always prefer 256 for LE
     case BTM_OOB_PRESENT_256:
-      LOG_INFO("Using P256");
+      LOG_INFO(LOG_TAG, "Using P256");
       if (is_empty_128bit(oob_cb.p256_data.c) &&
           is_empty_128bit(oob_cb.p256_data.r)) {
-        LOG_WARN("P256 LE SC OOB data is empty");
+        LOG_WARN(LOG_TAG, "P256 LE SC OOB data is empty");
         return;
       }
       oob_data_to_use = oob_cb.p256_data;
       break;
     case BTM_OOB_PRESENT_192:
-      LOG_INFO("Using P192");
+      LOG_INFO(LOG_TAG, "Using P192");
       if (is_empty_128bit(oob_cb.p192_data.c) &&
           is_empty_128bit(oob_cb.p192_data.r)) {
-        LOG_WARN("P192 LE SC OOB data is empty");
+        LOG_WARN(LOG_TAG, "P192 LE SC OOB data is empty");
         return;
       }
       oob_data_to_use = oob_cb.p192_data;

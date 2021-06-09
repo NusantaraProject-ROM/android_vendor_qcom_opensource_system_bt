@@ -58,11 +58,13 @@
  *
  ******************************************************************************/
 #include <base/logging.h>
+#include <array>
 #include <string.h>
 #include <string>
 #include <vector>
 #include <iostream>
 #include <algorithm>
+#include <openssl/rand.h>
 
 #include "bt_target.h"
 #include "bt_utils.h"
@@ -77,7 +79,6 @@
 
 #include "btu.h"
 #include "p_256_ecc_pp.h"
-
 /*******************************************************************************
  *
  * Function         SMP_Init

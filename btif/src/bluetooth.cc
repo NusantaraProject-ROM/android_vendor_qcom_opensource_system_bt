@@ -26,6 +26,7 @@
 
 #define LOG_TAG "bt_btif"
 
+#include <base/bind.h>
 #include <base/logging.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,6 +54,7 @@
 #include <hardware/bt_ba.h>
 #include <hardware/bt_vendor_rc.h>
 #include "bt_utils.h"
+#include "bta_sys.h"
 #include "bta/include/bta_hearing_aid_api.h"
 #include "bta/include/bta_hf_client_api.h"
 #include "btif/include/btif_debug_btsnoop.h"
@@ -83,6 +85,7 @@
 #include "stack_interface.h"
 #include "stack/include/btm_api.h"
 
+using base::Bind;
 using bluetooth::hearing_aid::HearingAidInterface;
 
 /*******************************************************************************
@@ -300,15 +303,18 @@ static int create_bond_out_of_band(const RawAddress* bd_addr, int transport,
   /* sanity check */
   if (interface_ready() == false) return BT_STATUS_NOT_READY;
 
-  return btif_dm_create_bond_out_of_band(bd_addr, transport, *p192_data,*p256_data);
+  do_in_bta_thread(FROM_HERE, base::Bind(&btif_dm_create_bond_out_of_band, bd_addr,
+                   transport, *p192_data, *p256_data));
+  return BT_STATUS_SUCCESS;
 }
 
 static int generate_local_oob_data(tBT_TRANSPORT transport) {
-  LOG_INFO("%s", __func__);
+  LOG_INFO(LOG_TAG, "%s", __func__);
   if (!interface_ready()) return BT_STATUS_NOT_READY;
 
-  return do_in_main_thread(
-      FROM_HERE, base::BindOnce(btif_dm_generate_local_oob_data, transport));
+  do_in_bta_thread(
+      FROM_HERE, Bind(&btif_dm_generate_local_oob_data, transport));
+  return BT_STATUS_SUCCESS;
 }
 
 static int cancel_bond(const RawAddress* bd_addr) {
@@ -513,10 +519,6 @@ static int set_dynamic_audio_buffer_size(int codec, int size) {
   return btif_set_dynamic_audio_buffer_size(codec, size);
 }
 
-static int generate_local_oob_data(tBT_TRANSPORT transport) {
-  return 0;
-}
-
 EXPORT_SYMBOL bt_interface_t bluetoothInterface = {
     sizeof(bluetoothInterface),
     init,
@@ -561,7 +563,7 @@ EXPORT_SYMBOL bt_interface_t bluetoothInterface = {
 void invoke_oob_data_request_cb(tBT_TRANSPORT t, bool valid, Octet16 c,
                                 Octet16 r, RawAddress raw_address,
                                 uint8_t address_type) {
-  LOG_INFO("%s", __func__);
+  LOG_INFO(LOG_TAG, "%s", __func__);
   bt_oob_data_t oob_data = {};
   char* local_name;
   BTM_ReadLocalDeviceName(&local_name);
@@ -592,13 +594,13 @@ void invoke_oob_data_request_cb(tBT_TRANSPORT t, bool valid, Octet16 c,
   oob_data.oob_data_length[0] = 0;
   oob_data.oob_data_length[1] = 34;
   bt_status_t status = do_in_jni_thread(
-      FROM_HERE, base::BindOnce(
+      FROM_HERE, Bind(
                      [](tBT_TRANSPORT t, bt_oob_data_t oob_data) {
                        HAL_CBACK(bt_hal_cbacks, generate_local_oob_data_cb, t,
                                  oob_data);
                      },
                      t, oob_data));
   if (status != BT_STATUS_SUCCESS) {
-    LOG_ERROR("%s: Failed to call callback!", __func__);
+    LOG_ERROR(LOG_TAG, "%s: Failed to call callback!", __func__);
   }
 }

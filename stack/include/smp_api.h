@@ -26,7 +26,6 @@
 
 #include "bt_target.h"
 #include "smp_api_types.h"
-#include "types/bt_transport.h"
 
 /*****************************************************************************
  *  External Function Declarations

@@ -23,7 +23,6 @@
 #include "bt_types.h"
 #include "bt_utils.h"
 #include "btm_ble_api.h"
-#include "btm_dev.h"
 #include "btm_int.h"
 #include "btu.h"
 #include "device/include/controller.h"
@@ -738,7 +737,7 @@ void BTM_LE_PF_set(tBTM_BLE_PF_FILT_INDEX filt_index,
           // Save index and addr
           auto entry = remove_me_later_map.find(filt_index);
           if (entry != remove_me_later_map.end()) {
-            LOG_WARN("Replacing existing filter index entry with new address");
+            LOG_WARN(LOG_TAG, "Replacing existing filter index entry with new address");
             // If device is not bonded, then try removing the device
             // If the device doesn't get removed then it is currently connected
             // (may be pairing?) If we do delete the device we want to erase the
@@ -747,7 +746,7 @@ void BTM_LE_PF_set(tBTM_BLE_PF_FILT_INDEX filt_index,
             // BTM_LE_PF_clear call.
             if (!btm_sec_is_a_bonded_dev(entry->second)) {
               if (!BTM_SecDeleteDevice(entry->second)) {
-                LOG_WARN("Unable to remove device, still connected.");
+                LOG_WARN(LOG_TAG, "Unable to remove device, still connected.");
                 return;
               }
             }
@@ -760,7 +759,7 @@ void BTM_LE_PF_set(tBTM_BLE_PF_FILT_INDEX filt_index,
             // value is managed by the Java layer) then we might have a device
             // record here, in which case something else is managing the device
             // and we do not want to interfere with that experience.
-            LOG_WARN("Address record already exists...this is unexpected...");
+            LOG_WARN(LOG_TAG, "Address record already exists...this is unexpected...");
             return;
           }
           // Allocate a new "temporary" device record
@@ -1001,7 +1000,7 @@ void BTM_BleAdvFilterParamSetup(
 
     auto entry = remove_me_later_map.find(filt_index);
     if (entry != remove_me_later_map.end()) {
-      LOG_WARN("Replacing existing filter index entry with new address");
+      LOG_WARN(LOG_TAG, "Replacing existing filter index entry with new address");
       // If device is not bonded, then try removing the device
       // If the device doesn't get removed then it is currently connected
       // (may be pairing?) If we do delete the device we want to erase the
@@ -1010,7 +1009,7 @@ void BTM_BleAdvFilterParamSetup(
       // BTM_LE_PF_clear call.
       if (!btm_sec_is_a_bonded_dev(entry->second)) {
         if (!BTM_SecDeleteDevice(entry->second)) {
-          LOG_WARN("Unable to remove device, still connected.");
+          LOG_WARN(LOG_TAG, "Unable to remove device, still connected.");
           return;
         }
       }

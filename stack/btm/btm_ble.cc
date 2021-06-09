@@ -2191,7 +2191,7 @@ uint8_t btm_proc_smp_cback(tSMP_EVT event, const RawAddress& bd_addr,
     if (event == SMP_SC_LOC_OOB_DATA_UP_EVT) {
       btm_sec_cr_loc_oob_data_cback_event(bd_addr, p_data->loc_oob_data);
     } else {
-      LOG_WARN("Unexpected event '%d' without p_dev_rec", event);
+      LOG_WARN(LOG_TAG, "Unexpected event '%d' without p_dev_rec", event);
     }
   }
 

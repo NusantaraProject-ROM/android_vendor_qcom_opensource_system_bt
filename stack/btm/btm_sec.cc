@@ -5974,9 +5974,12 @@ static const char* btm_pair_state_descr(tBTM_PAIRING_STATE state) {
  ******************************************************************************/
 void btm_sec_dev_rec_cback_event(tBTM_SEC_DEV_REC* p_dev_rec,
                                  tBTM_STATUS btm_status, bool is_le_transport) {
-  ASSERT(p_dev_rec != nullptr);
-  LOG_DEBUG("transport=%s, btm_status=%s", is_le_transport ? "le" : "classic",
-            btm_status_text(btm_status).c_str());
+  if (!p_dev_rec) {
+    LOG_ERROR(LOG_TAG, "p_dev_rec is null");
+    return;
+  }
+  LOG_DEBUG(LOG_TAG, "transport=%s, btm_status=%d", is_le_transport ? "le" : "classic",
+            btm_status);
 
   tBTM_SEC_CALLBACK* p_callback = p_dev_rec->p_callback;
   p_dev_rec->p_callback = NULL;

@@ -276,6 +276,8 @@ extern void btm_sec_dev_rec_cback_event(tBTM_SEC_DEV_REC* p_dev_rec,
                                         uint8_t res, bool is_le_trasnport);
 extern void btm_sec_set_peer_sec_caps(tACL_CONN* p_acl_cb,
                                       tBTM_SEC_DEV_REC* p_dev_rec);
+extern void btm_sec_cr_loc_oob_data_cback_event(const RawAddress& address,
+                                         tSMP_LOC_OOB_DATA loc_oob_data);
 
 extern void btm_sec_clear_ble_keys(tBTM_SEC_DEV_REC* p_dev_rec);
 extern bool btm_sec_is_a_bonded_dev(const RawAddress& bda);
