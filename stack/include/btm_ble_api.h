@@ -701,6 +701,31 @@ extern bool BTM_GetRemoteDeviceName(const RawAddress& bda, BD_NAME bd_name);
 
 /*******************************************************************************
  *
+ * Function         BTM_GetRemoteQLLFeatures
+ *
+ * Description      This function is called to get remote QLL features
+ *
+ * Returns          true if feature value is available
+ *
+ *
+ ******************************************************************************/
+extern bool BTM_GetRemoteQLLFeatures(uint16_t handle, uint8_t* features);
+
+/*******************************************************************************
+ *
+ * Function         BTM_QHS_Phy_supported
+ *
+ * Description      This function is called to determine if QHS phy can be used
+ *
+ * Parameter        connection handle
+ *
+ * Returns          bool true if qhs phy can be used
+ *
+ ******************************************************************************/
+extern bool BTM_QHS_Phy_supported(uint16_t handle);
+
+/*******************************************************************************
+ *
  * Function         BTM_BleSecurityProcedureIsRunning
  *
  * Description      This function indicates if LE security procedure is

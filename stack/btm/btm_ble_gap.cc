@@ -53,6 +53,7 @@
 #include "osi/include/log.h"
 #include "device/include/device_iot_config.h"
 #include "bt_features.h"
+#include "btif/include/btif_config.h"
 
 #define BTM_BLE_NAME_SHORT 0x01
 #define BTM_BLE_NAME_CMPL 0x02
@@ -64,6 +65,7 @@
 #define MIN_ADV_LENGTH 2
 #define BTM_VSC_CHIP_CAPABILITY_RSP_LEN_L_RELEASE 9
 #define BTM_VSC_CHIP_CAPABILITY_RSP_LEN_S_RELEASE 25
+#define BTM_QBCE_READ_REMOTE_QLL_SUPPORTED_FEATURE_LEN 3
 
 namespace {
 
@@ -3253,14 +3255,14 @@ void btm_ble_read_remote_features_complete(uint8_t* p) {
   handle = handle & 0x0FFF;  // only 12 bits meaningful
 
   if (status != HCI_SUCCESS) {
-    BTM_TRACE_ERROR("%s: failed for handle: 0x%04d, status 0x%02x", __func__,
+    BTM_TRACE_ERROR("%s: failed for handle: 0x%04x, status 0x%02x", __func__,
                     handle, status);
     if (status != HCI_ERR_UNSUPPORTED_REM_FEATURE) return;
   }
 
   int idx = btm_handle_to_acl_index(handle);
   if (idx == MAX_L2CAP_LINKS) {
-    BTM_TRACE_ERROR("%s: can't find acl for handle: 0x%04d", __func__, handle);
+    BTM_TRACE_ERROR("%s: can't find acl for handle: 0x%04x", __func__, handle);
     return;
   }
 
@@ -3297,6 +3299,98 @@ void btm_ble_write_adv_enable_complete(uint8_t* p) {
     /* toggle back the adv mode */
     p_cb->adv_mode = !p_cb->adv_mode;
   }
+}
+
+void btm_ble_read_remote_supported_qll_features_status_cback(tBTM_VSC_CMPL* param);
+
+/*******************************************************************************
+ *
+ * Function         btm_ble_qll_connection_complete
+ *
+ * Description      This function process the QLL connection complete event.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void btm_ble_qll_connection_complete(uint8_t* p) {
+  uint16_t handle;
+  uint8_t  status, param[3] = {0}, *p_param = param;
+  int idx;
+
+  STREAM_TO_UINT8(status, p);
+  STREAM_TO_UINT16(handle, p);
+  handle = handle & 0x0FFF;
+
+  idx = btm_handle_to_acl_index(handle);
+  if (idx == MAX_L2CAP_LINKS) {
+    BTM_TRACE_ERROR("%s: can't find acl for handle: 0x%04x", __func__, handle);
+    return;
+  }
+
+  if (status != HCI_SUCCESS) {
+    BTM_TRACE_ERROR("%s: failed for handle: 0x%04x, status 0x%02x", __func__,
+                    handle, status);
+    btm_cb.acl_db[idx].qll_features_state = BTM_QLL_FEATURES_STATE_ERROR;
+    return;
+  }
+
+  btm_cb.acl_db[idx].qll_features_state = BTM_QLL_FEATURES_STATE_CONN_COMPLETE;
+
+  UINT8_TO_STREAM(p_param, QBCE_READ_REMOTE_QLL_SUPPORTED_FEATURE);
+  UINT16_TO_STREAM(p_param, handle);
+  BTM_VendorSpecificCommand(HCI_VS_QBCE_OCF,
+                   BTM_QBCE_READ_REMOTE_QLL_SUPPORTED_FEATURE_LEN, param,
+                   btm_ble_read_remote_supported_qll_features_status_cback);
+}
+
+void btm_ble_read_remote_supported_qll_features_status_cback(tBTM_VSC_CMPL* param) {
+  uint8_t status;
+
+  BTM_TRACE_DEBUG("%s, op: %x, param_len: %d", __func__, param->opcode,
+                     param->param_len);
+  if (param->param_len == 1) {
+    status = *param->p_param_buf;
+    BTM_TRACE_DEBUG("%s, status = %d", __func__, status);
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         btm_ble_read_remote_supported_qll_features_complete
+ *
+ * Description      This function process the read remote supported QLL features
+ *                  complete event.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void btm_ble_read_remote_supported_qll_features_complete(uint8_t* p) {
+  uint16_t handle;
+  uint8_t  status;
+  int idx;
+
+  STREAM_TO_UINT8(status, p);
+  STREAM_TO_UINT16(handle, p);
+  handle = handle & 0x0FFF;
+
+  idx = btm_handle_to_acl_index(handle);
+  if (idx == MAX_L2CAP_LINKS) {
+    BTM_TRACE_ERROR("%s: can't find acl for handle: 0x%04x", __func__, handle);
+    return;
+  }
+
+  if (status != HCI_SUCCESS) {
+    BTM_TRACE_ERROR("%s: failed for handle: 0x%04x, status 0x%02x", __func__,
+                    handle, status);
+    btm_cb.acl_db[idx].qll_features_state = BTM_QLL_FEATURES_STATE_ERROR;
+    return;
+  }
+
+  btm_cb.acl_db[idx].qll_features_state = BTM_QLL_FEATURES_STATE_FEATURE_COMPLETE;
+  STREAM_TO_ARRAY(btm_cb.acl_db[idx].remote_qll_features, p, BD_FEATURES_LEN);
+  btif_config_set_bin(btm_cb.acl_db[idx].remote_addr.ToString().c_str(),
+              "QLL_FEATURES", btm_cb.acl_db[idx].remote_qll_features,
+               BD_FEATURES_LEN);
 }
 
 /*******************************************************************************

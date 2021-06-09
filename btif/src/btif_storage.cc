@@ -370,7 +370,7 @@ static int prop2cfg(const RawAddress* remote_bd_addr, bt_property_t* prop) {
     if(dev_type == BT_DEVICE_TYPE_BREDR) {
       btif_config_flush();
 #ifdef ADV_AUDIO_FEATURE
-    } else if (is_remote_support_adv_audio(*remote_bd_addr)) {
+    } else if (remote_bd_addr && is_remote_support_adv_audio(*remote_bd_addr)) {
       btif_config_flush();
 #endif
     } else {
@@ -1091,6 +1091,8 @@ bt_status_t btif_storage_remove_bonded_device(
     ret &= btif_config_remove(bdstr, "AdvAudioService");
   if (btif_config_exist(bdstr, "IsAdvAudio"))
     ret &= btif_config_remove(bdstr, "IsAdvAudio");
+  if (btif_config_exist(bdstr, "QLL_FEATURES"))
+    ret &= btif_config_remove(bdstr, "QLL_FEATURES");
   /* Retaining TwsPlusPeerAddr , AvrcpCtVersion and AvrcpFeatures
      as these are needed even after unpair */
   /* write bonded info immediately */
