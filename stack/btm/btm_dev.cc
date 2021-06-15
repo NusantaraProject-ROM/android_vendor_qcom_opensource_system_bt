@@ -71,6 +71,8 @@
 #include "hcidefs.h"
 #include "hcimsgs.h"
 #include "l2c_api.h"
+#include "btif_util.h"
+#include "btif_storage.h"
 
 /*******************************************************************************
  *
@@ -299,6 +301,7 @@ char* BTM_SecReadDevName(const RawAddress& bd_addr) {
  ******************************************************************************/
 tBTM_SEC_DEV_REC* btm_sec_alloc_dev(const RawAddress& bd_addr) {
   tBTM_INQ_INFO* p_inq_info;
+  uint32_t cod = 0;
 
   tBTM_SEC_DEV_REC* p_dev_rec = btm_sec_allocate_dev_rec();
 
@@ -313,8 +316,14 @@ tBTM_SEC_DEV_REC* btm_sec_alloc_dev(const RawAddress& bd_addr) {
 
     p_dev_rec->device_type = p_inq_info->results.device_type;
     p_dev_rec->ble.ble_addr_type = p_inq_info->results.ble_addr_type;
-  } else if (bd_addr == btm_cb.connecting_bda)
+  } else if (bd_addr == btm_cb.connecting_bda) {
     memcpy(p_dev_rec->dev_class, btm_cb.connecting_dc, DEV_CLASS_LEN);
+  } else if ((cod = BTM_GetRemoteCoD(bd_addr)) > 0) {
+    BTM_TRACE_EVENT("%s remote_cod from config = 0x%08x", __func__, cod);
+    DEV_CLASS dev_class = {0, 0, 0};
+    uint2devclass((uint32_t)cod, dev_class);
+    memcpy(p_dev_rec->dev_class, dev_class, DEV_CLASS_LEN);
+  }
 
   /* update conn params, use default value for background connection params */
   memset(&p_dev_rec->conn_params, 0xff, sizeof(tBTM_LE_CONN_PRAMS));
@@ -665,4 +674,30 @@ bool btm_is_sm4_dev(const RawAddress& bd_addr) {
   if (p_dev_rec == NULL) return false;
 
   return BTM_SEC_IS_SM4(p_dev_rec->sm4);
+}
+
+/*******************************************************************************
+ *
+ * Function         BTM_GetRemoteCoD
+ *
+ * Description      This function fetches remote cod from config memory
+ *
+ *
+ * Returns          cod if cod avaliable, otherwise zero
+ *
+ ******************************************************************************/
+uint32_t BTM_GetRemoteCoD(const RawAddress& bd_addr)
+{
+  uint32_t remote_cod;
+  bt_property_t prop_name;
+
+  /* check if we already have it in our btif_storage cache */
+  BTIF_STORAGE_FILL_PROPERTY(&prop_name, BT_PROPERTY_CLASS_OF_DEVICE,
+                             sizeof(uint32_t), &remote_cod);
+  if (btif_storage_get_remote_device_property(
+      &bd_addr, &prop_name) == BT_STATUS_SUCCESS) {
+    BTM_TRACE_EVENT("%s remote_cod = 0x%08x", __func__, remote_cod);
+    return remote_cod;
+   }
+   return 0;
 }

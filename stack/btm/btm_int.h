@@ -225,7 +225,7 @@ extern tBTM_BOND_TYPE btm_get_bond_type_dev(const RawAddress& bd_addr);
 extern bool btm_set_bond_type_dev(const RawAddress& bd_addr,
                                   tBTM_BOND_TYPE bond_type);
 extern bool btm_is_sm4_dev(const RawAddress&  bd_addr);
-
+extern uint32_t BTM_GetRemoteCoD(const RawAddress& bd_addr);
 /* Internal functions provided by btm_sec.cc
  *********************************************
 */
