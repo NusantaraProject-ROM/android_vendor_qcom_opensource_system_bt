@@ -325,7 +325,6 @@ void EnableBtQualityReport(bool is_enable) {
   }
 
   BqrConfiguration bqr_config = {};
-
   if (is_enable) {
     bqr_config.report_action = REPORT_ACTION_ADD;
     bqr_config.quality_event_mask =
@@ -335,11 +334,19 @@ void EnableBtQualityReport(bool is_enable) {
       // Enable BQR RIE by default.
       bqr_config.quality_event_mask = bqr_config.quality_event_mask | kQualityEventMaskRootInflammation;
     }
+#ifdef BLUEDROID_DEBUG
+    // Enable FW dumps by default in userdebug/eng. builds.
+    bqr_config.quality_event_mask = bqr_config.quality_event_mask | kQualityEventMaskDebugInfo;
+#endif
     bqr_config.minimum_report_interval_ms =
         static_cast<uint16_t>(atoi(bqr_prop_interval_ms));
   } else {
-    bqr_config.report_action = REPORT_ACTION_CLEAR;
-    bqr_config.quality_event_mask = kQualityEventMaskAllOff;
+    bqr_config.report_action = REPORT_ACTION_DELETE;
+    bqr_config.quality_event_mask = kQualityEventMaskAll;
+#ifdef BLUEDROID_DEBUG
+    // Dont disable FW dumps in userdebug/eng. builds.
+    bqr_config.quality_event_mask = bqr_config.quality_event_mask & ~kQualityEventMaskDebugInfo;
+#endif
     bqr_config.minimum_report_interval_ms = kMinReportIntervalNoLimit;
   }
 
@@ -386,7 +393,7 @@ void ConfigureBqr(const BqrConfiguration& bqr_config) {
       bqr_config.quality_event_mask > kQualityEventMaskAll ||
       bqr_config.minimum_report_interval_ms > kMinReportIntervalMaxMs) {
     LOG(FATAL) << __func__ << ": Invalid Parameter"
-               << ", Action: " << bqr_config.report_action
+               << ", Action: " << (int)bqr_config.report_action
                << ", Mask: " << loghex(bqr_config.quality_event_mask)
                << ", Interval: " << bqr_config.minimum_report_interval_ms;
     return;

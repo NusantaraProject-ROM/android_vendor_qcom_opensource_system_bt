@@ -51,6 +51,9 @@ namespace bqr {
 //     connection fail event to the host. However, if remote doesn't respond
 //     at all(most likely remote is powered off or out of range), controller
 //     will not report this event.
+//   [Debug Info]
+//     Enable/disable the Controller Debug information mechanism
+//     on the controller side.
 
 // Bit masks for the selected quality event reporting.
 static constexpr uint32_t kQualityEventMaskAllOff = 0;
@@ -60,10 +63,12 @@ static constexpr uint32_t kQualityEventMaskA2dpAudioChoppy = 0x00000004;
 static constexpr uint32_t kQualityEventMaskScoVoiceChoppy = 0x00000008;
 static constexpr uint32_t kQualityEventMaskRootInflammation = 0x00000010;
 static constexpr uint32_t kQualityEventMaskConnectFail = 0x80000000;
+static constexpr uint32_t kQualityEventMaskDebugInfo = 0x00040000;
 static constexpr uint32_t kQualityEventMaskAll =
     kQualityEventMaskMonitorMode | kQualityEventMaskApproachLsto |
     kQualityEventMaskA2dpAudioChoppy | kQualityEventMaskScoVoiceChoppy |
-    kQualityEventMaskRootInflammation | kQualityEventMaskConnectFail;
+    kQualityEventMaskRootInflammation | kQualityEventMaskConnectFail |
+    kQualityEventMaskDebugInfo;
 // Define the minimum time interval (in ms) of quality event reporting for the
 // selected quality event(s). Controller Firmware should not report the next
 // event within the defined time interval.
