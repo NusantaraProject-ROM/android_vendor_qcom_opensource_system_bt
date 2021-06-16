@@ -104,6 +104,7 @@ typedef struct controller_t {
   bool (*supports_wipower)();
   bool (*is_multicast_enabled)();
   bool (*supports_twsp_remote_state)();
+  bool (*get_max_power_values)(uint8_t *);
 } controller_t;
 
 const controller_t* controller_get_interface();

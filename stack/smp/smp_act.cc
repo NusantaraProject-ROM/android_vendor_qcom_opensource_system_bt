@@ -53,7 +53,7 @@ static bool pts_test_send_authentication_complete_failure(tSMP_CB* p_cb) {
   uint8_t reason = p_cb->cert_failure;
   if (reason == SMP_PAIR_AUTH_FAIL || reason == SMP_PAIR_FAIL_UNKNOWN ||
       reason == SMP_PAIR_NOT_SUPPORT || reason == SMP_PASSKEY_ENTRY_FAIL ||
-      reason == SMP_REPEATED_ATTEMPTS) {
+      reason == SMP_REPEATED_ATTEMPTS || reason == SMP_ENC_KEY_SIZE) {
     tSMP_INT_DATA smp_int_data;
     smp_int_data.status = reason;
     smp_sm_event(p_cb, SMP_AUTH_CMPL_EVT, &smp_int_data);
@@ -196,6 +196,11 @@ void smp_send_app_cback(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
             p_cb->loc_auth_req &= ~SMP_H7_SUPPORT_BIT;
           }
 
+          if (smp_cb.cert_disable_h7_support) {
+            SMP_TRACE_WARNING("Disabling H7 support for PTS testcase");
+            p_cb->loc_auth_req &= ~SMP_H7_SUPPORT_BIT;
+          }
+
           SMP_TRACE_WARNING(
               "set auth_req: 0x%02x, local_i_key: 0x%02x, local_r_key: 0x%02x",
               p_cb->loc_auth_req, p_cb->local_i_key, p_cb->local_r_key);
@@ -211,6 +216,11 @@ void smp_send_app_cback(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
 
           p_cb->local_i_key &= ~SMP_SEC_KEY_TYPE_LK;
           p_cb->local_r_key &= ~SMP_SEC_KEY_TYPE_LK;
+
+          if (smp_cb.cert_disable_h7_support) {
+            SMP_TRACE_WARNING("Disabling H7 support for PTS testcase");
+            p_cb->loc_auth_req &= ~SMP_H7_SUPPORT_BIT;
+          }
 
           SMP_TRACE_WARNING(
               "for SMP over BR max_key_size: 0x%02x, local_i_key: 0x%02x, "
@@ -804,6 +814,12 @@ void smp_br_process_pairing_command(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
   tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(p_cb->pairing_bda);
 
   SMP_TRACE_DEBUG("%s", __func__);
+
+  if (p_dev_rec == NULL) {
+    SMP_TRACE_ERROR("%s: pairing command for unknown device: %s",
+      __func__, p_cb->pairing_bda.ToString().c_str());
+    return;
+  }
   /* rejecting BR pairing request over non-SC BR link */
   if (!p_dev_rec->new_encryption_key_is_p256 && p_cb->role == HCI_ROLE_SLAVE) {
     tSMP_INT_DATA smp_int_data;
@@ -813,7 +829,7 @@ void smp_br_process_pairing_command(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
   }
 
   /* erase all keys if it is slave proc pairing req*/
-  if (p_dev_rec && (p_cb->role == HCI_ROLE_SLAVE))
+  if (p_cb->role == HCI_ROLE_SLAVE)
     btm_sec_clear_ble_keys(p_dev_rec);
 
   p_cb->flags |= SMP_PAIR_FLAG_ENC_AFTER_PAIR;
@@ -1276,7 +1292,7 @@ void smp_key_distribution(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
     if (smp_get_state() == SMP_STATE_BOND_PENDING) {
       if (p_cb->derive_lk) {
         tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(p_cb->pairing_bda);
-        if (!(p_dev_rec->sec_flags & BTM_SEC_LE_LINK_KEY_AUTHED) &&
+        if (p_dev_rec && !(p_dev_rec->sec_flags & BTM_SEC_LE_LINK_KEY_AUTHED) &&
             (p_dev_rec->sec_flags & BTM_SEC_LINK_KEY_AUTHED)) {
           SMP_TRACE_DEBUG(
               "%s BR key is higher security than existing LE keys, don't "

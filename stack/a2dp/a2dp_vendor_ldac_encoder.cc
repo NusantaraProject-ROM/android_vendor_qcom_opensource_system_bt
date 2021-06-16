@@ -113,6 +113,8 @@ static tLDAC_GET_ERROR_CODE ldac_get_error_code_func;
 #define A2DP_LDAC_OFFSET (AVDT_MEDIA_OFFSET + A2DP_LDAC_MPL_HDR_LEN)
 #endif
 
+#define L2CA_BASIC_MODE_HDR_SIZE 4
+
 typedef struct {
   uint32_t sample_rate;
   uint8_t channel_mode;
@@ -498,8 +500,8 @@ static void a2dp_vendor_ldac_encoder_update(uint16_t peer_mtu,
   // NOTE: MTU in the initialization must include the AVDT media header size.
   int result = ldac_init_handle_encode_func(
       a2dp_ldac_encoder_cb.ldac_handle,
-      a2dp_ldac_encoder_cb.TxAaMtuSize + AVDT_MEDIA_HDR_SIZE, ldac_eqmid,
-      p_encoder_params->channel_mode, p_encoder_params->pcm_fmt,
+      a2dp_ldac_encoder_cb.TxAaMtuSize + AVDT_MEDIA_HDR_SIZE + L2CA_BASIC_MODE_HDR_SIZE,
+      ldac_eqmid, p_encoder_params->channel_mode, p_encoder_params->pcm_fmt,
       p_encoder_params->sample_rate);
   if (result != 0) {
     LOG_ERROR(LOG_TAG, "%s: error initializing the LDAC encoder: %d", __func__,
@@ -655,15 +657,15 @@ static void a2dp_ldac_encode_frames(uint8_t nb_frame) {
 
     count = 0;
     do {
-      //
       // Read the PCM data and encode it
-      //
       uint32_t temp_bytes_read = 0;
       if (a2dp_ldac_read_feeding(read_buffer, &temp_bytes_read)) {
         bytes_read += temp_bytes_read;
         uint8_t* packet = (uint8_t*)(p_buf + 1) + p_buf->offset + p_buf->len;
         if (a2dp_ldac_encoder_cb.ldac_handle == NULL) {
           LOG_ERROR(LOG_TAG, "%s: invalid LDAC handle", __func__);
+          LOG_WARN(LOG_TAG, "%s: nb_frame: %d, bytes_read: %d, count: %d, len: %d",
+                   __func__, nb_frame, bytes_read, count, p_buf->len);
           a2dp_ldac_encoder_cb.stats.media_read_total_dropped_packets++;
           osi_free(p_buf);
           return;
@@ -679,6 +681,8 @@ static void a2dp_ldac_encode_frames(uint8_t nb_frame) {
                     "handle_error = %d block_error = %d",
                     __func__, result, LDACBT_API_ERR(err_code),
                     LDACBT_HANDLE_ERR(err_code), LDACBT_BLOCK_ERR(err_code));
+          LOG_WARN(LOG_TAG, "%s: nb_frame: %d, bytes_read: %d count: %d, len: %d",
+                   __func__, nb_frame, bytes_read, count, p_buf->len);
           a2dp_ldac_encoder_cb.stats.media_read_total_dropped_packets++;
           osi_free(p_buf);
           return;
@@ -711,8 +715,12 @@ static void a2dp_ldac_encode_frames(uint8_t nb_frame) {
       uint8_t done_nb_frame = remain_nb_frame - nb_frame;
       remain_nb_frame = nb_frame;
       if (!a2dp_ldac_encoder_cb.enqueue_callback(p_buf, done_nb_frame,
-                                                 bytes_read))
+                                                 bytes_read)) {
+        LOG_WARN(LOG_TAG, "%s: enqueue discarded done_nb_frame: %d"
+                 " bytes_read: %d, len: %d, count: %d",
+                 __func__, done_nb_frame, bytes_read, p_buf->len, count);
         return;
+      }
     } else {
       // NOTE: Unlike the execution path for other codecs, it is normal for
       // LDAC to NOT write encoded data to the last buffer if there wasn't

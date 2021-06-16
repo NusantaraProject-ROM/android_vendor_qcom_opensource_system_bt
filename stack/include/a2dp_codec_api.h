@@ -405,7 +405,7 @@ class A2dpCodecs {
   bool setCodecOtaConfig(const uint8_t* p_ota_codec_config,
                          const tA2DP_ENCODER_INIT_PEER_PARAMS* p_peer_params,
                          uint8_t* p_result_codec_config, bool* p_restart_input,
-                         bool* p_restart_output, bool* p_config_updated);
+                         bool* p_restart_output, bool* p_config_updated, RawAddress addr);
 
   // Gets the current codec configuration and the capabilities of
   // all configured codecs.
@@ -689,7 +689,8 @@ bool A2DP_IsScramblingSupported();
 bool A2DP_Is44p1kFreqSupported();
 bool A2DP_IsCodecEnabled(btav_a2dp_codec_index_t codec_index);
 bool A2DP_IsCodecEnabledInSoftware(btav_a2dp_codec_index_t codec_index);
-bool A2DP_Get_AAC_VBR_Status();
+bool A2DP_Get_AAC_VBR_Status(const RawAddress *remote_bdaddr);
+bool A2DP_Get_Aptx_AdaptiveR2_1_Supported();
 
 bool A2DP_IsCodecEnabledInOffload(btav_a2dp_codec_index_t codec_index);
 // Decodes and displays A2DP codec info when using |LOG_DEBUG|.

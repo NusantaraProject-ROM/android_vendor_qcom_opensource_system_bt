@@ -41,6 +41,8 @@
 #include "osi/include/allocator.h"
 #include "osi/include/time.h"
 
+#define MAX_ACL_SLAVE_LINKS  0x03
+
 /*******************************************************************************
  *
  * Function         l2cu_can_allocate_lcb
@@ -1585,11 +1587,16 @@ void l2cu_release_ccb(tL2C_CCB* p_ccb) {
   p_lcb = p_ccb->p_lcb;
   p_rcb = p_ccb->p_rcb;
 
+  if (p_rcb && p_lcb && p_ccb->chnl_state >= CST_OPEN) {
+    btsnoop_get_interface()->set_l2cap_channel_close(p_ccb->p_lcb->handle,
+                                        p_ccb->local_cid, p_ccb->remote_cid);
+  }
 #if (defined(LE_L2CAP_CFC_INCLUDED) && (LE_L2CAP_CFC_INCLUDED == TRUE))
   if (p_rcb && p_lcb && (p_rcb->psm != p_rcb->real_psm)) {
 #else
-  btsnoop_get_interface()->clear_l2cap_whitelist(
-      p_lcb->handle, p_ccb->local_cid, p_ccb->remote_cid);
+  if (p_lcb)
+    btsnoop_get_interface()->clear_l2cap_whitelist(
+        p_lcb->handle, p_ccb->local_cid, p_ccb->remote_cid);
 
   if (p_rcb && (p_rcb->psm != p_rcb->real_psm)) {
 #endif
@@ -2263,19 +2270,19 @@ bool l2cu_create_conn_after_switch(tL2C_LCB* p_lcb) {
   uint8_t page_scan_mode;
   uint16_t clock_offset;
   uint8_t* p_features;
-  uint16_t num_acl = BTM_GetNumAclLinks();
+  uint16_t num_slave_acl_links = BTM_GetNumSlaveAclLinks();
   tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(p_lcb->remote_bd_addr);
   uint8_t no_hi_prio_chs = l2cu_get_num_hi_priority();
 
   p_features = BTM_ReadLocalFeatures();
 
   L2CAP_TRACE_DEBUG(
-      "l2cu_create_conn_after_switch :%d num_acl:%d no_hi: %d is_bonding:%d",
-      l2cb.disallow_switch, num_acl, no_hi_prio_chs, p_lcb->is_bonding);
+      "l2cu_create_conn_after_switch :%d num_slave_acl_links :%d no_hi: %d is_bonding:%d",
+      l2cb.disallow_switch, num_slave_acl_links, no_hi_prio_chs, p_lcb->is_bonding);
   /* FW team says that we can participant in 4 piconets
    * typically 3 piconet + 1 for scanning.
    * We can enhance the code to count the number of piconets later. */
-  if (((!l2cb.disallow_switch && (num_acl < 3)) ||
+  if (((!l2cb.disallow_switch && (num_slave_acl_links < MAX_ACL_SLAVE_LINKS)) ||
        (p_lcb->is_bonding && (no_hi_prio_chs == 0))) &&
       HCI_SWITCH_SUPPORTED(p_features))
     allow_switch = HCI_CR_CONN_ALLOW_SWITCH;
@@ -2414,10 +2421,6 @@ bool l2cu_set_acl_priority(const RawAddress& bd_addr, uint8_t priority,
     return (false);
   }
 
-  if (p_lcb->acl_priority != priority) {
-    p_lcb->acl_priority = priority;
-    l2c_link_adjust_allocation();
-  }
   if (BTM_IS_BRCM_CONTROLLER()) {
     /* Called from above L2CAP through API; send VSC if changed */
     if ((!reset_after_rs && (priority != p_lcb->acl_priority)) ||

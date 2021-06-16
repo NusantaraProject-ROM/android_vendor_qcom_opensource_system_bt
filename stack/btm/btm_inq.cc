@@ -1228,6 +1228,10 @@ void btm_inq_db_init(void) {
   btm_cb.btm_inq_vars.no_inc_ssp = BTM_NO_SSP_ON_INQUIRY;
 }
 
+void btm_inq_db_free(void) {
+  alarm_free(btm_cb.btm_inq_vars.remote_name_timer);
+}
+
 /*******************************************************************************
  *
  * Function         btm_inq_stop_on_ssp
@@ -1340,7 +1344,7 @@ static void btm_clr_inq_result_flt(void) {
  * Returns          true if found, else false (new entry)
  *
  ******************************************************************************/
-bool btm_inq_find_bdaddr(const RawAddress& p_bda) {
+bool btm_inq_find_bdaddr(const RawAddress& p_bda, tBT_DEVICE_TYPE p_dev_type) {
   tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
   tINQ_BDADDR* p_db = &p_inq->p_bd_db[0];
   uint16_t xx;
@@ -1350,13 +1354,15 @@ bool btm_inq_find_bdaddr(const RawAddress& p_bda) {
     return (false);
 
   for (xx = 0; xx < p_inq->num_bd_entries; xx++, p_db++) {
-    if (p_db->bd_addr == p_bda && p_db->inq_count == p_inq->inq_counter)
+    if (p_db->bd_addr == p_bda && p_db->inq_count == p_inq->inq_counter &&
+        p_db->device_type == p_dev_type)
       return (true);
   }
 
   if (xx < p_inq->max_bd_entries) {
     p_db->inq_count = p_inq->inq_counter;
     p_db->bd_addr = p_bda;
+    p_db->device_type = p_dev_type;
     p_inq->num_bd_entries++;
   }
 
@@ -1752,7 +1758,7 @@ void btm_process_inq_results(uint8_t* p, uint8_t inq_res_mode) {
     }
 
     /* Check if this address has already been processed for this inquiry */
-    if (btm_inq_find_bdaddr(bda)) {
+    if (btm_inq_find_bdaddr(bda, BT_DEVICE_TYPE_BREDR)) {
       /* BTM_TRACE_DEBUG("BDA seen before [%02x%02x %02x%02x %02x%02x]",
                       bda[0], bda[1], bda[2], bda[3], bda[4], bda[5]);*/
       /* By default suppose no update needed */

@@ -1251,6 +1251,12 @@ static void btif_dm_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
                    pairing_cb.state, p_auth_cmpl->success,
                    p_auth_cmpl->key_present);
 
+  if (btm_get_bond_type_dev(p_auth_cmpl->bd_addr) == BOND_TYPE_PERSISTENT) {
+    BTIF_TRACE_DEBUG("%s: setting bond type for persistance pairing",
+                     __func__);
+    pairing_cb.bond_type = BOND_TYPE_PERSISTENT;
+  }
+
   RawAddress bd_addr = p_auth_cmpl->bd_addr;
   if ((p_auth_cmpl->success == true) && (p_auth_cmpl->key_present)) {
     if ((p_auth_cmpl->key_type < HCI_LKEY_TYPE_DEBUG_COMB) ||
@@ -2017,7 +2023,6 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
           (tBTA_SERVICE_MASK)(BTA_SERVICE_ID_TO_SERVICE_MASK(BTA_BLE_SERVICE_ID))) {
         btif_in_execute_service_request(BTA_BLE_SERVICE_ID, FALSE);
       }
-      bluetooth::bqr::EnableBtQualityReport(false);
       btif_disable_bluetooth_evt();
       break;
 
@@ -2400,6 +2405,11 @@ static void btif_dm_upstreams_evt(uint16_t event, char* p_param) {
      }
 
     break;
+
+    case BTA_DM_DISABLE_BQR_EVT: {
+      bluetooth::bqr::EnableBtQualityReport(false);
+      break;
+    }
 
     case BTA_DM_AUTHORIZE_EVT:
     case BTA_DM_SIG_STRENGTH_EVT:
@@ -2882,6 +2892,10 @@ bt_status_t btif_dm_pin_reply(const RawAddress* bd_addr, uint8_t accept,
     int i;
     uint32_t passkey = 0;
     int multi[] = {100000, 10000, 1000, 100, 10, 1};
+    if(pin_len != 6){
+      BTIF_TRACE_ERROR("btif_dm_pin_reply: pin length: %d", pin_len);
+      return BT_STATUS_FAIL;
+    }
     for (i = 0; i < 6; i++) {
       passkey += (multi[i] * (pin_code->pin[i] - '0'));
     }
@@ -3419,11 +3433,24 @@ static void btif_dm_ble_auth_cmpl_evt(tBTA_DM_AUTH_CMPL* p_auth_cmpl) {
 
       case BTA_DM_AUTH_SMP_CONN_TOUT: {
         if (btm_sec_is_a_bonded_dev(bd_addr)) {
-          LOG(INFO) << __func__ << " Bonded device addr=" << bd_addr
+          uint8_t dev_type;
+          uint8_t addr_type;
+          BTM_ReadDevInfo(bd_addr, &dev_type, &addr_type);
+
+          if ((pairing_cb.state == BT_BOND_STATE_BONDING) &&
+            (dev_type == BT_DEVICE_TYPE_DUMO) &&
+            (addr_type == BLE_ADDR_PUBLIC) &&
+            !btm_sec_is_a_bonded_dev_by_transport(bd_addr, BT_TRANSPORT_LE)) {
+            btif_storage_remove_bonded_device(&bd_addr);
+            status = BT_STATUS_AUTH_FAILURE;
+            break;
+          } else {
+            LOG(INFO) << __func__ << " Bonded device addr=" << bd_addr
                     << " timed out - will not remove the keys";
-          // Don't send state change to upper layers - otherwise Java think we
-          // unbonded, and will disconnect HID profile.
-          return;
+            // Don't send state change to upper layers - otherwise Java think we
+            // unbonded, and will disconnect HID profile.
+            return;
+          }
         }
 
         btif_dm_remove_ble_bonding_keys();

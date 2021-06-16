@@ -4284,8 +4284,7 @@ void btm_sec_encrypt_change(uint16_t handle, uint8_t status,
       (p_dev_rec->hci_handle == handle)) {
     /* if BR key is temporary no need for LE LTK derivation */
     bool derive_ltk = true;
-    if (p_dev_rec->rmt_auth_req == BTM_AUTH_SP_NO &&
-        btm_cb.devcb.loc_auth_req == BTM_AUTH_SP_NO) {
+    if (p_dev_rec->bond_type == BOND_TYPE_TEMPORARY) {
       derive_ltk = false;
       BTM_TRACE_DEBUG("%s: BR key is temporary, skip derivation of LE LTK",
                       __func__);
@@ -6263,6 +6262,32 @@ void btm_sec_clear_ble_keys(tBTM_SEC_DEV_REC* p_dev_rec) {
 #if (BLE_PRIVACY_SPT == TRUE)
   btm_ble_resolving_list_remove_dev(p_dev_rec);
 #endif
+}
+
+/*******************************************************************************
+ *
+ * Function         btm_sec_is_a_bonded_dev_by_transport
+ *
+ * Description       Is the specified device is a bonded device on a specific transport
+ *
+ * Returns          true - dev is bonded
+ *
+ ******************************************************************************/
+bool btm_sec_is_a_bonded_dev_by_transport(const RawAddress& bda, tBT_TRANSPORT transport) {
+  tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(bda);
+  bool is_bonded = false;
+
+  if (p_dev_rec) {
+    if ((transport == BT_TRANSPORT_LE) &&
+        (p_dev_rec->ble.key_type && (p_dev_rec->sec_flags & BTM_SEC_LE_LINK_KEY_KNOWN))) {
+      is_bonded = true;
+    } else if ((transport == BT_TRANSPORT_BR_EDR) &&
+        (p_dev_rec->sec_flags & BTM_SEC_LINK_KEY_KNOWN)) {
+      is_bonded = true;
+    }
+  }
+  BTM_TRACE_DEBUG("%s() is_bonded=%d, transport=%d", __func__, is_bonded, transport);
+  return (is_bonded);
 }
 
 /*******************************************************************************

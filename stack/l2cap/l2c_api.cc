@@ -220,6 +220,11 @@ uint16_t L2CA_AllocateLePSM(void) {
     }
 
     psm++;
+    if (psm < LE_DYNAMIC_PSM_START) {
+      L2CAP_TRACE_ERROR("%s: Invalid BLE PSM", __func__);
+      return 0;
+    }
+
     if (psm > LE_DYNAMIC_PSM_END) {
       psm = LE_DYNAMIC_PSM_START;
     }

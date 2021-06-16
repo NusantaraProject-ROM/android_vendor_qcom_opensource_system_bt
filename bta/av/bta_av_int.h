@@ -120,6 +120,7 @@ enum {
   BTA_AV_API_OFFLOAD_START_EVT,
   BTA_AV_API_OFFLOAD_START_RSP_EVT,
   BTA_AV_RECONFIG_FAIL_EVT,
+  BTA_AV_COLLISION_EVT,
 
   /* these events are handled outside of the state machine */
   BTA_AV_API_ENABLE_EVT,
@@ -148,6 +149,7 @@ enum {
   BTA_AV_RC_COLLISSION_DETECTED_EVT,
   BTA_AV_UPDATE_ENCODER_MODE_EVT,
   BTA_AV_UPDATE_APTX_DATA_EVT,
+  BTA_AV_COLLISSION_DETECTED_EVT,
 #if (TWS_ENABLED == TRUE)
 #if (TWS_STATE_ENABLED == TRUE)
   BTA_AV_SET_EARBUD_STATE_EVT, /* Set TWS earbud state */
@@ -493,6 +495,12 @@ typedef struct {
   RawAddress peer_addr;
   uint8_t handle;
 } tBTA_AV_RC_COLLISSION_DETECTED;
+
+/* data type for BTA_AV_AV_COLL_DETECTED_EVT */
+typedef struct {
+  BT_HDR hdr;
+  RawAddress peer_addr;
+} tBTA_AV_COLLISSION_DETECTED;
 
 /* data associated with BTA_AV_BROWSE_ACTIVE_EVT */
 typedef struct {
@@ -885,6 +893,8 @@ extern const char* bta_av_evt_code(uint16_t evt_code);
 extern bool bta_av_switch_if_needed(tBTA_AV_SCB* p_scb);
 extern bool bta_av_link_role_ok(tBTA_AV_SCB* p_scb, uint8_t bits);
 extern bool bta_av_is_rcfg_sst(tBTA_AV_SCB* p_scb);
+extern void bta_av_collision_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
+                                   uint8_t app_id, const RawAddress& peer_addr);
 
 /* nsm action functions */
 extern void bta_av_api_disconnect(tBTA_AV_DATA* p_data);
@@ -902,6 +912,7 @@ extern void bta_av_rc_collission_detected(tBTA_AV_DATA *p_data);
 extern void bta_av_update_enc_mode(tBTA_AV_DATA* p_data);
 extern void bta_av_update_aptx_data(tBTA_AV_DATA* p_data);
 extern void bta_av_active_browse(tBTA_AV_DATA *p_data);
+extern void bta_av_collission_detected(tBTA_AV_DATA *p_data);
 
 /* sm action functions */
 extern void bta_av_disable(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
@@ -914,6 +925,7 @@ extern void bta_av_rc_close(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
 extern void bta_av_rc_meta_rsp(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
 extern void bta_av_rc_free_rsp(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
 extern void bta_av_rc_free_browse_msg(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
+extern void bta_av_rc_browse_close(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
 
 extern tBTA_AV_RCB* bta_av_get_rcb_by_shdl(uint8_t shdl);
 extern void bta_av_del_rc(tBTA_AV_RCB* p_rcb);
@@ -972,6 +984,7 @@ extern void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
 extern void bta_av_offload_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
 extern void bta_av_vendor_offload_stop(tBTA_AV_SCB* p_scb);
 extern void bta_av_disc_fail_as_acp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+extern void bta_av_handle_collision(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
 #if (TWS_ENABLED == TRUE)
 extern void bta_av_set_tws_chn_mode(tBTA_AV_SCB* p_scb, bool adjust);
 #endif

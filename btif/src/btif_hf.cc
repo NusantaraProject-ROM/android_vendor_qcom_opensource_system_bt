@@ -66,6 +66,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <hardware/bluetooth_headset_interface.h>
 #include <hardware/bt_hf.h>
 #include <log/log.h>
+#include "device/include/interop.h"
 
 #include "bta/include/bta_ag_api.h"
 #if (SWB_ENABLED == TRUE)
@@ -132,6 +133,8 @@ static uint32_t btif_hf_features = BTIF_HF_FEATURES;
 
 /* Assigned number for mSBC codec */
 #define BTA_AG_MSBC_CODEC 5
+
+#define BTA_AG_CALL_INDEX 1
 
 /* Max HF clients supported from App */
 uint16_t btif_max_hf_clients = 1;
@@ -543,8 +546,10 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       if (btif_hf_cb[idx].state == BTHF_CONNECTION_STATE_DISCONNECTED)
         btif_hf_cb[idx].connected_bda = RawAddress::kAny;
 
-      if (p_data->open.status != BTA_AG_SUCCESS)
+      if (p_data->open.status != BTA_AG_SUCCESS) {
+        btif_disconnect_queue_advance_by_uuid(UUID_SERVCLASS_AG_HANDSFREE, &bd_addr);
         btif_queue_advance_by_uuid(UUID_SERVCLASS_AG_HANDSFREE, &bd_addr);
+      }
       break;
 
     case BTA_AG_CLOSE_EVT:
@@ -572,6 +577,8 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
          due to collision */
       if (!((btif_max_hf_clients > 1) && (is_connected(&btif_hf_cb[idx].connected_bda))))
       {
+        btif_disconnect_queue_advance_by_uuid(UUID_SERVCLASS_AG_HANDSFREE,
+            &btif_hf_cb[idx].connected_bda);
         HAL_HF_CBACK(bt_hf_callbacks, ConnectionStateCallback, btif_hf_cb[idx].state,
                   &btif_hf_cb[idx].connected_bda);
       }
@@ -642,19 +649,31 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       break;
 
     case BTA_AG_AUDIO_OPENING_EVT:
-      BTIF_TRACE_DEBUG("%s:  Moving the audio_state to CONNECTING for device %s",
-                      __FUNCTION__, btif_hf_cb[idx].connected_bda.ToString().c_str());
-      btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_CONNECTING;
-      HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_CONNECTING,
-                &btif_hf_cb[idx].connected_bda);
+      if (btif_hf_cb[idx].state == BTHF_CONNECTION_STATE_DISCONNECTED ||
+          btif_hf_cb[idx].state == BTHF_CONNECTION_STATE_DISCONNECTING) {
+        BTIF_TRACE_WARNING("%s: Ignoring event BTA_AG_AUDIO_OPENING_EVT, btif_hf_cb[idx].state:%d",
+                          __FUNCTION__, btif_hf_cb[idx].state);
+      } else {
+        BTIF_TRACE_DEBUG("%s:  Moving the audio_state to CONNECTING for device %s",
+                        __FUNCTION__, btif_hf_cb[idx].connected_bda.ToString().c_str());
+        btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_CONNECTING;
+        HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_CONNECTING,
+                  &btif_hf_cb[idx].connected_bda);
+      }
       break;
 
     case BTA_AG_AUDIO_OPEN_EVT:
-      BTIF_TRACE_DEBUG("%s: Moving the audio_state to CONNECTED for device %s",
-                      __FUNCTION__, btif_hf_cb[idx].connected_bda.ToString().c_str());
-      btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_CONNECTED;
-      HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_CONNECTED,
-                &btif_hf_cb[idx].connected_bda);
+      if (btif_hf_cb[idx].state == BTHF_CONNECTION_STATE_DISCONNECTED ||
+          btif_hf_cb[idx].state == BTHF_CONNECTION_STATE_DISCONNECTING) {
+        BTIF_TRACE_WARNING("%s: Ignoring event BTA_AG_AUDIO_OPEN_EVT, btif_hf_cb[idx].state:%d",
+                          __FUNCTION__, btif_hf_cb[idx].state);
+      } else {
+        BTIF_TRACE_DEBUG("%s: Moving the audio_state to CONNECTED for device %s",
+                        __FUNCTION__, btif_hf_cb[idx].connected_bda.ToString().c_str());
+        btif_hf_cb[idx].audio_state = BTHF_AUDIO_STATE_CONNECTED;
+        HAL_HF_CBACK(bt_hf_callbacks, AudioStateCallback, BTHF_AUDIO_STATE_CONNECTED,
+                  &btif_hf_cb[idx].connected_bda);
+      }
       break;
 
     case BTA_AG_AUDIO_CLOSE_EVT:
@@ -1074,7 +1093,10 @@ static bt_status_t connect_int(RawAddress* bd_addr, uint16_t uuid) {
     if (((btif_hf_cb[i].state == BTHF_CONNECTION_STATE_CONNECTED) ||
          (btif_hf_cb[i].state == BTHF_CONNECTION_STATE_SLC_CONNECTED)))
       i++;
-    else
+    else if(!((btif_hf_cb[i].handle > 0) && (btif_hf_cb[i].handle <= btif_max_hf_clients))){
+      BTIF_TRACE_WARNING("%s: index %d, handle %d, not correct", __func__, i, btif_hf_cb[i].handle);
+      i++;
+    }else
       break;
   }
 
@@ -1140,6 +1162,29 @@ bt_status_t HeadsetInterface::Connect(RawAddress* bd_addr) {
  * Returns         bt_status_t
  *
  ******************************************************************************/
+static bt_status_t disconnect_int(RawAddress* bd_addr, uint16_t uuid) {
+  CHECK_BTHF_INIT();
+
+  BTIF_TRACE_EVENT("%s: addr=%s, UUID=%04X",
+      __func__, bd_addr->ToString().c_str(), uuid);
+
+  int idx = btif_hf_idx_by_bdaddr(bd_addr);
+
+  if ((idx < 0) || (idx >= BTA_AG_MAX_NUM_CLIENTS)) {
+    BTIF_TRACE_ERROR("%s: Invalid index %d", __func__, idx);
+    btif_disconnect_queue_advance_by_uuid(UUID_SERVCLASS_AG_HANDSFREE, bd_addr);
+    return BT_STATUS_FAIL;
+  }
+
+  if (idx != BTIF_HF_INVALID_IDX) {
+    BTA_AgClose(btif_hf_cb[idx].handle);
+    return BT_STATUS_SUCCESS;
+  }
+
+  btif_disconnect_queue_advance_by_uuid(UUID_SERVCLASS_AG_HANDSFREE, bd_addr);
+  return BT_STATUS_FAIL;
+}
+
 bt_status_t HeadsetInterface::Disconnect(RawAddress* bd_addr) {
   CHECK_BTHF_INIT();
 
@@ -1150,12 +1195,7 @@ bt_status_t HeadsetInterface::Disconnect(RawAddress* bd_addr) {
     return BT_STATUS_FAIL;
   }
 
-  if (idx != BTIF_HF_INVALID_IDX) {
-    BTA_AgClose(btif_hf_cb[idx].handle);
-    return BT_STATUS_SUCCESS;
-  }
-
-  return BT_STATUS_FAIL;
+  return btif_disconnect_queue_disconnect(UUID_SERVCLASS_AG_HANDSFREE, *bd_addr, disconnect_int);
 }
 
 /*******************************************************************************
@@ -1637,6 +1677,11 @@ bt_status_t HeadsetInterface::ClccResponse(int index, bthf_call_direction_t dir,
     if (index == 0) {
       ag_res.ok_flag = BTA_AG_OK_DONE;
     } else {
+      bool is_ind_blacklisted = interop_match_addr_or_name(INTEROP_SKIP_INCOMING_STATE, bd_addr);
+      if (is_ind_blacklisted && index > BTA_AG_CALL_INDEX && state == BTHF_CALL_STATE_INCOMING) {
+              BTIF_TRACE_ERROR("%s: device is blacklisted for incoming state %d", __func__, idx);
+              state = BTHF_CALL_STATE_WAITING;
+      }
       BTIF_TRACE_EVENT(
           "clcc_response: [%d] dir %d state %d mode %d number = %s type = %d",
           index, dir, state, mode, number, type);
@@ -1886,9 +1931,12 @@ bt_status_t HeadsetInterface::PhoneStateChange(
                  strcmp(value, "true")) {
               if (is_active_device(*bd_addr) &&
                   get_connected_dev_count() == 1) {
-                BTIF_TRACE_IMP("%s, pts property is set to false, send BSIR 1", __func__);
+                // send BSIR:1 only if BSIR:0 was sent earlier
+                if (BTA_AgInbandEnabled(control_block.handle) == false) {
+                  BTIF_TRACE_IMP("%s, pts property is set to false, send BSIR 1", __func__);
 
-                SendBsir(1, bd_addr);
+                  SendBsir(1, bd_addr);
+                }
                 ag_res.audio_handle = control_block.handle;
                 btif_transfer_context(btif_in_hf_generic_evt, BTIF_HFP_CB_AUDIO_CONNECTING,
                     (char*)(&btif_hf_cb[idx].connected_bda), sizeof(RawAddress), NULL);
@@ -2132,6 +2180,7 @@ void HeadsetInterface::Cleanup(void) {
   BTIF_TRACE_EVENT("%s", __func__);
 
   btif_queue_cleanup(UUID_SERVCLASS_AG_HANDSFREE);
+  btif_disconnect_queue_cleanup(UUID_SERVCLASS_AG_HANDSFREE);
 #if (defined(BTIF_HF_SERVICES) && (BTIF_HF_SERVICES & BTA_HFP_SERVICE_MASK))
     btif_disable_service(BTA_HFP_SERVICE_ID);
 #else

@@ -104,7 +104,9 @@ void bta_hh_api_enable(tBTA_HH_DATA* p_data) {
     /* signal BTA call back event */
     tBTA_HH bta_hh;
     bta_hh.status = status;
-    (*bta_hh_cb.p_cback)(BTA_HH_ENABLE_EVT, &bta_hh);
+
+    if (bta_hh_cb.p_cback != NULL)
+      (*bta_hh_cb.p_cback)(BTA_HH_ENABLE_EVT, &bta_hh);
   }
 }
 /*******************************************************************************
@@ -779,8 +781,10 @@ void bta_hh_ctrl_dat_act(tBTA_HH_DEV_CB* p_cb, tBTA_HH_DATA* p_data) {
 
   (*bta_hh_cb.p_cback)(p_cb->w4_evt, (tBTA_HH*)&hs_data);
 
+  if (p_cb->w4_evt != BTA_HH_GET_RPT_EVT) {
+      osi_free_and_reset((void**)&pdata);
+  }
   p_cb->w4_evt = 0;
-  osi_free_and_reset((void**)&pdata);
 }
 
 /*******************************************************************************

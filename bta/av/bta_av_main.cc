@@ -135,6 +135,10 @@ const tBTA_AV_ACTION bta_av_action[] = {
     bta_av_rc_meta_rsp,
     bta_av_rc_msg,
     bta_av_rc_close,
+    /* Fix for below KW issue
+     * Array 'bta_av_action' of size 10 may use index value(s) 10 */
+    bta_av_rc_browse_close,
+    NULL,
 };
 
 /* state table information */
@@ -232,6 +236,7 @@ const tBTA_AV_NSM_ACT bta_av_nsm_act[] = {
     bta_av_rc_collission_detected, /* BTA_AV_RC_COLLISSION_DETECTED_EVT */
     bta_av_update_enc_mode, /* BTA_AV_UPDATE_ENCODER_MODE_EVT */
     bta_av_update_aptx_data,     /* BTA_AV_UPDATE_APTX_DATA_EVT */
+    bta_av_collission_detected,  /* BTA_AV_COLLISSION_DETECTED_EVT */
 #if (TWS_ENABLED == TRUE)
 #if (TWS_STATE_ENABLED == TRUE)
     bta_av_api_set_tws_earbud_state, /* BTA_AV_SET_EARBUD_STATE_EVT */
@@ -262,6 +267,7 @@ static bool is_multicast_enabled = false;
  *
  ******************************************************************************/
 static void bta_av_api_enable(tBTA_AV_DATA* p_data) {
+  APPL_TRACE_WARNING("%s ",__func__);
   /* initialize control block */
   memset(&bta_av_cb, 0, sizeof(tBTA_AV_CB));
 
@@ -295,6 +301,8 @@ static void bta_av_api_enable(tBTA_AV_DATA* p_data) {
   if (!(bta_av_cb.features & BTA_AV_FEAT_NO_SCO_SSPD)) {
     bta_sys_sco_register(bta_av_sco_chg_cback);
   }
+
+  bta_sys_collision_register(BTA_ID_AV, bta_av_collision_cback);
 
   /* call callback with enable event */
   tBTA_AV bta_av_data;
@@ -523,12 +531,14 @@ static void bta_av_api_register(tBTA_AV_DATA* p_data) {
 
   do {
     p_scb = bta_av_alloc_scb(registr.chnl);
-    cs.registration_id = p_scb->hdi;
+    /* Fix for below KW issue
+     * Suspicious dereference of pointer 'p_scb' before NULL check at line 527 */
     if (p_scb == NULL) {
       APPL_TRACE_ERROR("failed to alloc SCB");
       break;
     }
 
+    cs.registration_id = p_scb->hdi;
     registr.hndl = p_scb->hndl;
     p_scb->app_id = registr.app_id;
 
@@ -1635,6 +1645,37 @@ static const char* bta_av_st_code(uint8_t state) {
       return "unknown";
   }
 }
+
+void bta_av_collision_cback(UNUSED_ATTR tBTA_SYS_CONN_STATUS status, uint8_t id,
+                            UNUSED_ATTR uint8_t app_id, const RawAddress& peer_addr) {
+  APPL_TRACE_WARNING("%s: ACL Collision detected for device %s",__func__,
+                      peer_addr.ToString().c_str());
+  tBTA_AV_SCB* p_scb =  bta_av_addr_to_scb(peer_addr);
+  if (id == BTA_ID_SYS) {
+    if (p_scb == NULL) {
+      APPL_TRACE_WARNING("%s:Collision happen before triggering connection update btif",__func__);
+      tBTA_AV_COLLISSION_DETECTED *p_msg =
+        (tBTA_AV_COLLISSION_DETECTED *)osi_malloc(sizeof(tBTA_AV_COLLISSION_DETECTED));
+      p_msg->hdr.event = BTA_AV_COLLISSION_DETECTED_EVT;
+      p_msg->peer_addr = peer_addr;
+      bta_sys_sendmsg(p_msg);
+    } else {
+      APPL_TRACE_WARNING("%s:Collision happen post connection handle from BTA SM",__func__);
+      bta_av_ssm_execute(p_scb, BTA_AV_COLLISION_EVT, NULL);
+    }
+  }
+}
+
+void bta_av_collission_detected(tBTA_AV_DATA *p_data) {
+  APPL_TRACE_WARNING("%s:Send Collision detection callback to btif for handling",__func__);
+  tBTA_AV bta_av_data;
+  tBTA_AV_COLL_DETECTED av_coll;
+  tBTA_AV_COLLISSION_DETECTED *p_msg = (tBTA_AV_COLLISSION_DETECTED *)p_data;
+  av_coll.peer_addr = p_msg->peer_addr;
+  bta_av_data.av_col_detected = av_coll;
+  (*bta_av_cb.p_cback)(BTA_AV_COLL_DETECTED_EVT, (tBTA_AV *) &av_coll);
+}
+
 /*******************************************************************************
  *
  * Function         bta_av_evt_code
@@ -1776,6 +1817,8 @@ const char* bta_av_evt_code(uint16_t evt_code) {
       return "UPDATE_APTX_DATA";
     case BTA_AV_RECONFIG_FAIL_EVT:
       return "RECONFIG_FAIL";
+    case BTA_AV_COLLISION_EVT:
+      return "COLLISION_EVT";
     default:
       return "unknown";
   }

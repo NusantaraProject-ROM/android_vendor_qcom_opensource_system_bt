@@ -169,17 +169,18 @@ void bta_gattc_disable() {
 #endif
   }
 
+  if (bta_gattc_cb.gatt_skt_fd > -1)
+    close(bta_gattc_cb.gatt_skt_fd);
+  bta_gattc_cb.is_gatt_skt_connected = false;
+  bta_gattc_cb.gatt_skt_fd = -1;
+  bta_gattc_cb.native_access_uuid_list.clear();
+  bta_gattc_cb.native_access_notif_enabled = false;
+
   /* no registered apps, indicate disable completed */
   if (bta_gattc_cb.state != BTA_GATTC_STATE_DISABLING) {
     bta_gattc_cb = tBTA_GATTC_CB();
     bta_gattc_cb.state = BTA_GATTC_STATE_DISABLED;
   }
-
-  close(bta_gattc_cb.gatt_skt_fd);
-  bta_gattc_cb.is_gatt_skt_connected = false;
-  bta_gattc_cb.gatt_skt_fd = -1;
-  bta_gattc_cb.native_access_uuid_list.clear();
-  bta_gattc_cb.native_access_notif_enabled = false;
 }
 
 /** start an application interface */
@@ -1092,7 +1093,8 @@ static void bta_gattc_conn_cback(tGATT_IF gattc_if, const RawAddress& bdaddr,
   else {
     btif_debug_conn_state(bdaddr, BTIF_DEBUG_DISCONNECTED, reason);
     //close native socket during disconnection.
-    close(bta_gattc_cb.gatt_skt_fd);
+    if (bta_gattc_cb.gatt_skt_fd > -1)
+      close(bta_gattc_cb.gatt_skt_fd);
     bta_gattc_cb.is_gatt_skt_connected = false;
     bta_gattc_cb.gatt_skt_fd = -1;
   }
@@ -1288,7 +1290,6 @@ bool bta_gattc_write_to_socket(tGATT_CL_COMPLETE* p_data, Uuid char_uuid) {
     if (bta_gattc_cb.gatt_skt_fd < 0) {
       VLOG(1) << __func__ << " failed to create socket";
       bta_gattc_cb.is_gatt_skt_connected = false;
-      close(bta_gattc_cb.gatt_skt_fd);
       bta_gattc_cb.gatt_skt_fd = -1;
       return false;
     }
@@ -1319,6 +1320,7 @@ bool bta_gattc_write_to_socket(tGATT_CL_COMPLETE* p_data, Uuid char_uuid) {
         bta_gattc_cb.is_gatt_skt_connected = false;
         close(bta_gattc_cb.gatt_skt_fd);
         bta_gattc_cb.gatt_skt_fd = -1;
+        delete[] p_skt_data;
         return false;
       }
     }
@@ -1326,6 +1328,7 @@ bool bta_gattc_write_to_socket(tGATT_CL_COMPLETE* p_data, Uuid char_uuid) {
     p_skt_data = (uint8_t*)p_skt_data + sent;
   }
 
+  delete[] p_skt_data;
   return true;
 }
 

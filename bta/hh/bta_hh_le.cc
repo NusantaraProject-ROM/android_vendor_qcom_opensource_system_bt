@@ -1621,6 +1621,19 @@ void bta_hh_le_srvc_search_cmpl(tBTA_GATTC_SEARCH_CMPL* p_data) {
         if (p_dev_cb->scan_refresh_char_handle && p_dev_cb->scan_int_char_handle)
            break;
       }
+    } else if (service.uuid == Uuid::From16Bit(UUID_SERVCLASS_GAP_SERVER)) {
+       // TODO(jpawlowski): this should be done by GAP profile, remove when GAP
+       // is fixed
+       for (const gatt::Characteristic& charac : service.characteristics) {
+         if (charac.uuid == Uuid::From16Bit(GATT_UUID_GAP_PREF_CONN_PARAM)&&
+            interop_match_addr_or_name(INTEROP_ENABLE_PREFERRED_CONN_PARAMETER, &p_dev_cb->addr)) {
+            /* read the char value */
+            BtaGattQueue::ReadCharacteristic(p_dev_cb->conn_id,
+                                            charac.value_handle,
+                                            read_pref_conn_params_cb, p_dev_cb);
+                 break;
+          }
+       }
     }
   }
 
@@ -1878,7 +1891,6 @@ static void read_report_cb(uint16_t conn_id, tGATT_STATUS status,
   p_dev_cb->w4_evt = 0;
   (*bta_hh_cb.p_cback)(BTA_HH_GET_RPT_EVT, (tBTA_HH*)&hs_data);
 
-  osi_free_and_reset((void**)&p_buf);
 }
 
 /*******************************************************************************

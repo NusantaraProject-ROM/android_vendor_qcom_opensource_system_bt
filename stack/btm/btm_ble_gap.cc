@@ -842,13 +842,15 @@ static uint8_t btm_set_conn_mode_adv_init_addr(
 }
 
 uint8_t btm_ble_get_scan_phy(uint8_t scan_phy_input) {
-  switch(scan_phy_input) {
-    case PHY_LE_1M_IN:
-      return SCAN_PHY_LE_1M;
-    case PHY_LE_CODED_IN:
-      return SCAN_PHY_LE_CODED;
-    case PHY_LE_ALL_SUPPORTED_IN:
-      return SCAN_PHY_LE_ALL_SUPPORTED;
+  if (controller_get_interface()->supports_ble_coded_phy()) {
+    switch(scan_phy_input) {
+      case PHY_LE_1M_IN:
+        return SCAN_PHY_LE_1M;
+      case PHY_LE_CODED_IN:
+        return SCAN_PHY_LE_CODED;
+      case PHY_LE_ALL_SUPPORTED_IN:
+        return SCAN_PHY_LE_ALL_SUPPORTED;
+    }
   }
   return SCAN_PHY_LE_1M;
 }
@@ -2062,7 +2064,7 @@ static void btm_ble_process_adv_pkt_cont(
   tINQ_DB_ENT* p_i = btm_inq_db_find(bda);
 
   /* Check if this address has already been processed for this inquiry */
-  if (btm_inq_find_bdaddr(bda)) {
+  if (btm_inq_find_bdaddr(bda, BT_DEVICE_TYPE_BLE)) {
     /* never been report as an LE device */
     if (p_i && (!(p_i->inq_info.results.device_type & BT_DEVICE_TYPE_BLE) ||
                 /* scan repsonse to be updated */

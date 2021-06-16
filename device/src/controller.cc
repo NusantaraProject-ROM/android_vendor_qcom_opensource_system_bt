@@ -109,10 +109,13 @@ static bool aac_frame_ctl_enabled = false;
 
 static bool a2dp_multicast_enabled = false;
 static bool twsp_state_supported = false;
+static bool max_power_prop_enabled = false;
+static uint8_t max_power_prop_value[3];
 static bt_configstore_interface_t* bt_configstore_intf = NULL;
 static void *bt_configstore_lib_handle = NULL;
 
 static int load_bt_configstore_lib();
+bool decode_max_power_values(char *);
 
 #define AWAIT_COMMAND(command) \
   static_cast<BT_HDR*>(future_await(hci->transmit_command_futured(command)))
@@ -167,11 +170,21 @@ static bool is_soc_logging_enabled() {
 
 bool is_soc_lpa_enh_pwr_enabled() {
   char lpa_enh_pwr_enabled[PROPERTY_VALUE_MAX] = {0};
+  bt_soc_type_t socs[] = { BT_SOC_TYPE_HASTINGS,
+                           BT_SOC_TYPE_CHEROKEE,
+                           BT_SOC_TYPE_MOSELLE };
+  int i, num = sizeof(socs)/sizeof(socs[0]);
 
-  if (soc_type != BT_SOC_TYPE_HASTINGS &&
-       soc_type != BT_SOC_TYPE_CHEROKEE) {
+  for (i = 0; i < num; i++) {
+    if (soc_type == socs[i]) {
+      break;
+    }
+  }
+
+  if (i >= num) {
     return false;
   }
+
   osi_property_get("persist.vendor.btstack.enable.lpa", lpa_enh_pwr_enabled, "false");
   return strncmp(lpa_enh_pwr_enabled, "true", 4) == 0;
 }
@@ -196,7 +209,7 @@ static future_t* start_up(void) {
    }
    LOG_INFO(LOG_TAG, "%s soc_type= %d ", __func__, soc_type);
 #else
-// get properties from configstore for device
+ // get properties from configstore for device
   load_bt_configstore_lib();
   if (bt_configstore_intf != NULL) {
      std::vector<vendor_property_t> vPropList;
@@ -269,6 +282,11 @@ static future_t* start_up(void) {
             }
             LOG_INFO(LOG_TAG, "%s:: twsp_state_supported = %d", __func__,
                 twsp_state_supported);
+           break;
+          case BT_PROP_MAX_POWER:
+            max_power_prop_enabled = decode_max_power_values((char *)vendorProp.value);
+            LOG_INFO(LOG_TAG, "%s:: max_power_prop_enabled = %d", __func__,
+                max_power_prop_enabled);
            break;
          default:
             break;
@@ -906,6 +924,12 @@ static bool is_multicast_enabled() {
 static bool supports_twsp_remote_state() {
   return twsp_state_supported;
 }
+
+static bool get_max_power_values(uint8_t *power_val) {
+  memcpy(power_val, max_power_prop_value, sizeof(max_power_prop_value));
+  return max_power_prop_enabled;
+}
+
 static const controller_t interface = {
     get_is_ready,
 
@@ -972,6 +996,7 @@ static const controller_t interface = {
     supports_wipower,
     is_multicast_enabled,
     supports_twsp_remote_state,
+    get_max_power_values,
 };
 
 const controller_t* controller_get_interface() {
@@ -1032,4 +1057,45 @@ error:
   return -EINVAL;
 }
 
+static inline bool is_byte_valid(char ch)
+{
+  return ((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') ||
+         (ch >= 'A' && ch <= 'F'));
+}
 
+bool decode_max_power_values(char * power_val) {
+  bool status = false;
+  char *token, *reset = power_val;
+  int i;
+
+  if (!strcmp(power_val, "false")) {
+      LOG_INFO(LOG_TAG, "%s: MAX POW property is not set", __func__);
+      return false;
+  } else if (!strchr(power_val, '-') || (!strchr(power_val, 'x') &&
+             !strchr(power_val, 'X')) || strlen(power_val) != 14) {
+    LOG_WARN(LOG_TAG, "%s: MAX POW property is not in required order", __func__);
+    return false;
+  } else {
+    status = true;
+    for (i = 0; (i < 3 && status); i++) {
+      token = strtok_r(reset, "-", &reset);
+      if (token && strlen(token) == 4 && (token[0] == '0' &&
+         (token[1] == 'x' || token[1] == 'X') &&
+         (is_byte_valid(token[2]) && is_byte_valid(token[3])))) {
+      max_power_prop_value[i] = (uint8_t)strtoul(token, NULL, 16);
+      } else {
+        status = false;
+      }
+    }
+  }
+
+  if (status) {
+    LOG_DEBUG(LOG_TAG, "%s MAX_POW_ID: BR MAX POW:%02x, EDR MAX POW:%02x, BLE MAX POW:%02x",
+              __func__, max_power_prop_value[0], max_power_prop_value[1],
+              max_power_prop_value[2]);
+  } else {
+    LOG_ERROR(LOG_TAG, "%s: MAX POW property is not in required order", __func__);
+  }
+
+  return status;
+}

@@ -89,6 +89,9 @@
 /* maximum AT command length */
 #define BTA_AG_CMD_MAX 512
 
+/* SLC TIMER exception for IOT devices */
+#define SLC_EXCEPTION_TIMEOUT_MS 10000
+
 const uint16_t bta_ag_uuid[BTA_AG_NUM_IDX] = {
     UUID_SERVCLASS_HEADSET_AUDIO_GATEWAY, UUID_SERVCLASS_AG_HANDSFREE};
 
@@ -570,6 +573,7 @@ void bta_ag_rfc_close(tBTA_AG_SCB* p_scb, UNUSED_ATTR tBTA_AG_DATA* p_data) {
  *
  ******************************************************************************/
 void bta_ag_rfc_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
+  int ag_conn_timeout = p_bta_ag_cfg->conn_tout;
   /* initialize AT feature variables */
   p_scb->clip_enabled = false;
   p_scb->ccwa_enabled = false;
@@ -597,9 +601,15 @@ void bta_ag_rfc_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
 
   bta_ag_cback_open(p_scb, NULL, BTA_AG_SUCCESS);
 
+  if (interop_match_addr(INTEROP_INCREASE_AG_CONN_TIMEOUT, &p_scb->peer_addr)) {
+    /* use higher value for ag conn timeout */
+    ag_conn_timeout = SLC_EXCEPTION_TIMEOUT_MS;
+  }
+
+  APPL_TRACE_IMP ("bta_ag_rfc_open: ag_conn_timeout: %d", ag_conn_timeout);
   if (p_scb->conn_service == BTA_AG_HFP) {
     /* if hfp start timer for service level conn */
-    bta_sys_start_timer(p_scb->ring_timer, p_bta_ag_cfg->conn_tout,
+    bta_sys_start_timer(p_scb->ring_timer,ag_conn_timeout,
                         BTA_AG_SVC_TIMEOUT_EVT, bta_ag_scb_to_idx(p_scb));
 #if (TWS_AG_ENABLED == TRUE)
     //Update TWS+ data structure
@@ -667,6 +677,7 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
             bta_ag_handle_collision(ag_scb, NULL);
             ag_scb->state = BTA_AG_INIT_ST;
             ag_scb->peer_addr = RawAddress::kEmpty;
+            ag_scb->conn_handle = 0;
           }
           /* Outgoing RFCOMM is just connected, SLC didn't finish.
              If there is an incoming RFCOMM conn from the same device,

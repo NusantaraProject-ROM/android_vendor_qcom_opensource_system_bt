@@ -206,11 +206,15 @@ UNUSED_ATTR static tA2DP_STATUS A2DP_CodecInfoMatchesCapabilityAac(
 static tA2DP_STATUS A2DP_BuildInfoAac(uint8_t media_type,
                                       const tA2DP_AAC_CIE* p_ie,
                                       uint8_t* p_result) {
-  LOG_DEBUG(LOG_TAG, "%s: media_type: %u, p_ie->bitRate: %u",
-                       __func__, media_type, p_ie->bitRate);
   if (p_ie == NULL || p_result == NULL) {
     return A2DP_INVALID_PARAMS;
   }
+
+  /* Fix for below KW issue
+   * Suspicious dereference of pointer 'p_ie' before NULL check at line 217
+   */
+  LOG_DEBUG(LOG_TAG, "%s: media_type: %u, p_ie->bitRate: %u",
+                       __func__, media_type, p_ie->bitRate);
 
   *p_result++ = A2DP_AAC_CODEC_LEN;
   *p_result++ = (media_type << 4);
@@ -1081,6 +1085,7 @@ bool A2dpCodecConfigAac::setCodecConfig(const uint8_t* p_peer_codec_info,
   std::lock_guard<std::recursive_mutex> lock(codec_mutex_);
   tA2DP_AAC_CIE sink_info_cie;
   tA2DP_AAC_CIE result_config_cie;
+  uint32_t peer_bitrate;
   uint8_t channelMode;
   uint16_t sampleRate;
   btav_a2dp_codec_bits_per_sample_t bits_per_sample;
@@ -1131,12 +1136,19 @@ bool A2dpCodecConfigAac::setCodecConfig(const uint8_t* p_peer_codec_info,
   // In either case, the actual streaming bit rate will also consider the MTU.
   LOG_DEBUG(LOG_TAG, "%s: sink_info_cie.bitRate: %u, a2dp_aac_caps.bitRate: %u",
                       __func__, sink_info_cie.bitRate, a2dp_aac_caps.bitRate);
-  if (sink_info_cie.bitRate < A2DP_AAC_MIN_BITRATE) {
+  peer_bitrate = sink_info_cie.bitRate;
+  if (peer_bitrate < A2DP_AAC_MIN_BITRATE) {
+    peer_bitrate *= 1000;
+    LOG_DEBUG(LOG_TAG, "%s: after multiplying by 1000, peer_bitrate is: %u",
+                       __func__, peer_bitrate);
+  }
+
+  if (peer_bitrate < A2DP_AAC_MIN_BITRATE) {
     // Bogus bit rate
     result_config_cie.bitRate = a2dp_aac_caps.bitRate;
   } else {
     result_config_cie.bitRate =
-        std::min(a2dp_aac_caps.bitRate, sink_info_cie.bitRate);
+        std::min(a2dp_aac_caps.bitRate, peer_bitrate);
   }
   LOG_DEBUG(LOG_TAG, "%s: result_config_cie.bitRate: %u", __func__, result_config_cie.bitRate);
 

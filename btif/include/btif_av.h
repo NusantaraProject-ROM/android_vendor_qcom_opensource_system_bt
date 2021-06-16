@@ -48,6 +48,7 @@
 #define APTX_BATTERY_INFO 0X0F
 
 #define APTX_HQ_LATENCY 2000
+#define APTX_R2_1_HQ_LATENCY 3200
 #define APTX_LL_LATENCY 700
 #define APTX_ULL_LATENCY 700
 
@@ -569,6 +570,8 @@ int btif_get_max_allowable_sink_connections();
 ** Returns          tBTA_AV_HNDL
 *******************************************************************************/
 tBTA_AV_HNDL btif_av_get_hndl_by_addr(RawAddress peer_address);
+
+void btif_av_clear_cached_src_codec_config(const RawAddress& address);
 
 bool btif_device_in_sink_role();
 void btif_av_signal_session_ready();

@@ -203,11 +203,12 @@ const tBTA_AV_SACT bta_av_a2dp_action[] = {
     bta_av_cco_close,       /* BTA_AV_CCO_CLOSE */
     bta_av_switch_role,     /* BTA_AV_SWITCH_ROLE */
     bta_av_role_res,        /* BTA_AV_ROLE_RES */
-    bta_av_delay_rpt,        /* BTA_AV_DELAY_RPT */
+    bta_av_delay_rpt,       /* BTA_AV_DELAY_RPT */
     bta_av_open_at_inc,     /* BTA_AV_OPEN_AT_INC */
     bta_av_offload_req,     /* BTA_AV_OFFLOAD_REQ */
     bta_av_offload_rsp,     /* BTA_AV_OFFLOAD_RSP */
     bta_av_disc_fail_as_acp,/* BTA_AV_DISC_FAIL */
+    bta_av_handle_collision,/* BTA_AV_HANDLE_COLLISION */
     NULL};
 
 /* these tables translate AVDT events to SSM events */
@@ -3447,6 +3448,8 @@ void bta_av_rcfg_str_ok(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
   bta_av_st_rc_timer(p_scb, NULL);
   osi_free_and_reset((void**)&p_scb->p_cap);
 
+  if (p_scb->suspend_local_sent)
+    p_scb->suspend_local_sent = false;
   /* No need to keep the role bits once reconfig is done. */
   p_scb->role &= ~BTA_AV_ROLE_AD_ACP;
   p_scb->role &= ~BTA_AV_ROLE_SUSPEND_OPT;
@@ -3519,9 +3522,15 @@ void bta_av_rcfg_connect(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
   if (p_scb->num_recfg > BTA_AV_RECONFIG_RETRY) {
     /* let bta_av_rcfg_failed report fail */
     bta_av_rcfg_failed(p_scb, NULL);
-  } else
+  } else {
+    if (BTM_IS_QTI_CONTROLLER() && p_scb->offload_supported) {
+      APPL_TRACE_DEBUG("%s: stream closed, stop vendor offload", __func__);
+      bta_av_vendor_offload_stop(p_scb);
+    }
+
     AVDT_ConnectReq(p_scb->peer_addr, p_scb->sec_mask,
                     bta_av_dt_cback[p_scb->hdi]);
+  }
 }
 
 /*******************************************************************************
@@ -4422,7 +4431,11 @@ void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     if ((codec_type == 0) &&
         (A2DP_GetMaxBitpoolSbc(p_scb->cfg.codec_info) <= BTIF_A2DP_MAX_BITPOOL_MQ)) {
       APPL_TRACE_IMP("Restricting streaming MTU size for MQ Bitpool");
-      mtu = MAX_2MBPS_AVDTP_MTU;
+      if (p_scb->stream_mtu > 0 &&
+        p_scb->stream_mtu < MAX_2MBPS_AVDTP_MTU)
+        mtu = p_scb->stream_mtu;
+      else
+        mtu = MAX_2MBPS_AVDTP_MTU;
     }
 
     mtu = mtu + AVDT_MEDIA_HDR_SIZE;
@@ -4715,4 +4728,31 @@ void bta_av_disc_fail_as_acp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
     if (p_scb->uuid_int == 0) p_scb->uuid_int = UUID_SERVCLASS_AUDIO_SOURCE;
       bta_av_next_getcap(p_scb, p_data);
   }
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_av_handle_collision
+ *
+ * Description      This function is called when lower level ACL collision occurs
+ *                  where we drop outgoing connection and update failure to btif
+ *                  layer which later retries for connection as part of recovery.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void bta_av_handle_collision(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
+  APPL_TRACE_IMP("%s: sending AVDTP fail event to btif for device %s",
+                  __func__, p_scb->peer_addr.ToString().c_str());
+  APPL_TRACE_IMP("%s: Stop ongoing SDP %d and perform cleaanup as part of collission",
+                  __func__, p_scb->sdp_discovery_started);
+
+  /* Cancel SDP discovery procedure and send fail event to upper layer */
+  if (p_scb->sdp_discovery_started)
+    p_scb->sdp_discovery_started = false;
+
+  p_scb->open_status = BTA_AV_FAIL;
+  bta_av_str_closed(p_scb, p_data);
+
+  /* connection is retried from upper layers, no need for connection attempt again */
 }

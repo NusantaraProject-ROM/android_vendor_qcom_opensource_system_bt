@@ -117,6 +117,10 @@ typedef enum {
   // disable AAC for those headsets so that it switch to SBC
   INTEROP_DISABLE_AAC_CODEC,
 
+  // certain remote A2DP sinks have issue playing back Music in AAC VBR format.
+  // disable AAC for those headsets so that it switch to AAC CBR
+  INTEROP_DISABLE_AAC_VBR_CODEC,
+
   // Enable AAC only for whitelist of devices
   INTEROP_ENABLE_AAC_CODEC,
 
@@ -233,6 +237,48 @@ typedef enum {
   //list of whitelisted media players
   INTEROP_BROWSE_PLAYER_WHITE_LIST,
 
+  //skip sending incoming state to blacklisted devices
+  INTEROP_SKIP_INCOMING_STATE,
+
+  // Don't update avrcp paused status to some certain remote devices when a2dp is still playing.
+  INTEROP_NOT_UPDATE_AVRCP_PAUSED_TO_REMOTE,
+
+  // Some certain devices reject DUT initiated connection
+  // when DUT tries to connect other auto-connectable profiles 6s after
+  // peer connects the first one. To avoid such race condition, raised
+  // connect other profiles timeout to 10s to make sure there is no
+  // connection rejection from remote because of connection collision.
+  INTEROP_PHONE_POLICY_INCREASED_DELAY_CONNECT_OTHER_PROFILES,
+
+  // As per the implementation for the incoming connection scenario if one
+  // profile got connected and other profile didn't get connected, DUT starts
+  // connect other profiles after 6sec timeout. For some certain device,
+  // this timeout has been reduced to 2sec for triggering auto connect to
+  // otherprofiles from DUT. So that Audio will get routed to BT device with
+  // reduced delay.
+  INTEROP_PHONE_POLICY_REDUCED_DELAY_CONNECT_OTHER_PROFILES,
+
+  // Some remote devices are misbehaving when there is an active
+  // call and MT call is in progress. We send call indicators for
+  // active call and MT Call in progess. When active call is
+  // terminated, we send call end indicator only to remote. This
+  // is confusing remote and remotes are going into bad state.
+  // Blacklist remote devices to disconnect SCO when active call is
+  // ended, fake MT call indicator again with some delay.
+  INTEROP_HFP_FAKE_INCOMING_CALL_INDICATOR,
+
+  // Some certain devices not rendering VOIP call audio if call indicators
+  // are sent with a delay. Blacklist the devices to send call
+  // indicators back to back.
+  INTEROP_HFP_SEND_CALL_INDICATORS_BACK_TO_BACK,
+
+  // Some remotes need SCO immediately after SLC if there is an ongoing
+  // call on the phone
+  INTEROP_SETUP_SCO_WITH_NO_DELAY_AFTER_SLC_DURING_CALL,
+
+  //Some LE mouses want to use preferred connection parameters
+  INTEROP_ENABLE_PREFERRED_CONN_PARAMETER,
+
   END_OF_INTEROP_LIST
 } interop_feature_t;
 
@@ -295,3 +341,7 @@ bool interop_match_addr_get_max_lat(const interop_feature_t feature,
 // If whitelisted media players list found it will assign the media players list
 // pointer to the argument passed and  return true else return false.
 bool interop_get_whitelisted_media_players_list(list_t** p_bl_devices);
+
+// Return feature's enum value according to feature'name.
+int interop_feature_name_to_feature_id(const char* feature_name);
+

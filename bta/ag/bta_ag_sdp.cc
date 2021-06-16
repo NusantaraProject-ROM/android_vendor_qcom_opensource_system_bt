@@ -464,13 +464,19 @@ void bta_ag_do_disc(tBTA_AG_SCB* p_scb, tBTA_SERVICE_MASK service) {
   /* set up service discovery database; attr happens to be attr_list len */
   if (SDP_InitDiscoveryDb(p_scb->p_disc_db, BTA_AG_DISC_BUF_SIZE, num_uuid,
                           uuid_list, num_attr, attr_list)) {
-    if (SDP_ServiceSearchAttributeRequest(
-            p_scb->peer_addr, p_scb->p_disc_db,
-            bta_ag_sdp_cback_tbl[bta_ag_scb_to_idx(p_scb) - 1])) {
-      return;
+    uint16_t index = bta_ag_scb_to_idx(p_scb) - 1;
+    if (index >= 0 && index < BTA_AG_MAX_NUM_CLIENTS) {
+      if (SDP_ServiceSearchAttributeRequest(
+              p_scb->peer_addr, p_scb->p_disc_db,
+              bta_ag_sdp_cback_tbl[index])) {
+        return;
+      } else {
+        LOG(ERROR) << __func__ << ": failed to start SDP discovery for "
+                   << p_scb->peer_addr;
+      }
     } else {
-      LOG(ERROR) << __func__ << ": failed to start SDP discovery for "
-                 << p_scb->peer_addr;
+      LOG(ERROR) << __func__ << ": invalid index "
+                   << index;
     }
   } else {
     LOG(ERROR) << __func__ << ": failed to init SDP discovery database for "

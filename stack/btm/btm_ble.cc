@@ -634,6 +634,62 @@ void BTM_ReadDevInfo(const RawAddress& remote_bda, tBT_DEVICE_TYPE* p_dev_type,
 
 /*******************************************************************************
  *
+ * Function         BTM_ReadDevScanInfo
+ *
+ * Description      This function is called to read the device/address type
+ *                  of BD address.
+ *
+ * Parameter        remote_bda: remote device address
+ *                  p_dev_type: output parameter to read the device type.
+ *                  p_addr_type: output parameter to read the address type.
+ *
+ ******************************************************************************/
+void BTM_ReadDevScanInfo(const RawAddress& remote_bda, tBT_DEVICE_TYPE* p_dev_type,
+                     tBLE_ADDR_TYPE* p_addr_type) {
+  tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(remote_bda);
+  tBTM_INQ_INFO* p_inq_info = BTM_InqDbRead(remote_bda);
+
+  *p_addr_type = BLE_ADDR_PUBLIC_ID;
+
+  if (!p_dev_rec) {
+    *p_dev_type = BT_DEVICE_TYPE_BREDR;
+    /* Check with the BT manager if details about remote device are known */
+    if (p_inq_info != NULL) {
+      *p_dev_type = p_inq_info->results.device_type;
+      *p_addr_type = p_inq_info->results.ble_addr_type;
+    } else {
+      /* unknown device, assume BR/EDR */
+      BTM_TRACE_DEBUG("btm_find_dev_type - unknown device, BR/EDR assumed");
+    }
+  } else /* there is a security device record exisitng */
+  {
+    /* new inquiry result, overwrite device type in security device record */
+    if (p_inq_info) {
+      BTM_TRACE_DEBUG("p_dev_rec->device_type -%d",p_dev_rec->device_type);
+      p_dev_rec->device_type |= p_inq_info->results.device_type;
+      p_dev_rec->ble.ble_addr_type = p_inq_info->results.ble_addr_type;
+    }
+    if (p_dev_rec->bd_addr == remote_bda &&
+        p_dev_rec->ble.pseudo_addr == remote_bda) {
+      *p_dev_type = p_dev_rec->device_type;
+      *p_addr_type = p_dev_rec->ble.ble_addr_type;
+    } else if (p_dev_rec->ble.pseudo_addr == remote_bda) {
+      *p_dev_type = BT_DEVICE_TYPE_BLE;
+      *p_addr_type = p_dev_rec->ble.ble_addr_type;
+    } else /* matching static adddress only */
+    {
+      *p_dev_type = BT_DEVICE_TYPE_BREDR;
+      *p_addr_type = BLE_ADDR_PUBLIC;
+    }
+  }
+
+  BTM_TRACE_DEBUG("btm_find_dev_type - device_type = %d addr_type = %d",
+                  *p_dev_type, *p_addr_type);
+}
+
+
+/*******************************************************************************
+ *
  * Function         BTM_ReadConnectedTransportAddress
  *
  * Description      This function is called to read the paired device/address

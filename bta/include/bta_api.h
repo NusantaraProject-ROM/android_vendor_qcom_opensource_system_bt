@@ -393,12 +393,13 @@ typedef uint8_t tBTA_SIG_STRENGTH_MASK;
                                     */
 #define BTA_DM_ENER_INFO_READ 28 /* Energy info read */
 #define BTA_DM_BLE_SC_OOB_REQ_EVT 29 /* SMP SC OOB request event */
-#define BTA_DM_SOC_LOGGING_EVT 31 /* SOC LOGGING event. */
 #define BTA_DM_PKT_TYPE_CHG_EVT 30 /* PACKET TYPE Change event. */
+#define BTA_DM_SOC_LOGGING_EVT 31 /* SOC LOGGING event. */
 #define BTA_DM_REM_NAME_EVT 32 /* Remote name event */
 #define BTA_DM_IOT_INFO_EVT 33 /* IOT device info */
 #define BTA_DM_SSR_EVT 34 /* SSR event */
 #define BTA_DM_BLE_CONSENT_REQ_EVT 35 /* SMP consent request event */
+#define BTA_DM_DISABLE_BQR_EVT  36 /* Disable BQR events */
 
 typedef uint8_t tBTA_DM_SEC_EVT;
 

@@ -303,7 +303,7 @@ void smp_br_state_machine_event(tSMP_CB* p_cb, tSMP_BR_EVENT event,
   tSMP_BR_STATE curr_state = p_cb->br_state;
   tSMP_BR_SM_TBL state_table;
   uint8_t action, entry;
-  tSMP_BR_ENTRY_TBL entry_table = smp_br_entry_table[p_cb->role];
+  tSMP_BR_ENTRY_TBL entry_table;
 
   SMP_TRACE_EVENT("main %s", __func__);
   if (curr_state >= SMP_BR_STATE_MAX) {
@@ -316,6 +316,9 @@ void smp_br_state_machine_event(tSMP_CB* p_cb, tSMP_BR_EVENT event,
     android_errorWriteLog(0x534e4554, "80145946");
     return;
   }
+
+  // entry table is initialized based on the role, role can't be greater than HCI_ROLE_SLAVE
+  entry_table = smp_br_entry_table[p_cb->role];
 
   SMP_TRACE_DEBUG("SMP Role: %s State: [%s (%d)], Event: [%s (%d)]",
                   (p_cb->role == HCI_ROLE_SLAVE) ? "Slave" : "Master",

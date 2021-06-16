@@ -444,6 +444,11 @@ void on_connection_timed_out(uint8_t app_id, const RawAddress& address) {
   gatt_le_connect_cback(L2CAP_ATT_CID, address, false, 0xff, BT_TRANSPORT_LE);
 }
 }  // namespace connection_manager
+namespace connection_manager {
+void on_connection_cancelled(uint8_t app_id, const RawAddress& address) {
+  gatt_le_connect_cback(L2CAP_ATT_CID, address, false, 0xff, BT_TRANSPORT_LE);
+}
+}  // namespace connection_manager
 
 /** This callback function is called by L2CAP to indicate that the ATT fixed
  * channel for LE is connected (conn = true)/disconnected (conn = false).

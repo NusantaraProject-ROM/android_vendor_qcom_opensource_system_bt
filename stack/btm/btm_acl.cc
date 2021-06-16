@@ -293,8 +293,9 @@ void btm_acl_created(const RawAddress& bda, DEV_CLASS dc, BD_NAME bdn,
 
         btsnd_hcic_read_rmt_clk_offset(p->hci_handle);
 
-        if ((soc_type == BT_SOC_TYPE_CHEROKEE || soc_type == BT_SOC_TYPE_HASTINGS) &&
-            interop_match_addr_or_name(INTEROP_ENABLE_PL10_ADAPTIVE_CONTROL, &bda)) {
+        if ((soc_type == BT_SOC_TYPE_CHEROKEE || soc_type == BT_SOC_TYPE_HASTINGS ||
+             BT_SOC_TYPE_MOSELLE) && interop_match_addr_or_name(
+                     INTEROP_ENABLE_PL10_ADAPTIVE_CONTROL, &bda)) {
           btm_enable_link_PL10_adaptive_ctrl(hci_handle, true);
         }
 
@@ -672,6 +673,7 @@ tBTM_STATUS BTM_SwitchRole(const RawAddress& remote_bd_addr, uint8_t new_role,
         (interop_match_addr_or_name(
                 INTEROP_DISABLE_ROLE_SWITCH, &remote_bd_addr)) ||
                 (!btm_cb.is_wifi_connected && (btm_get_bredr_acl_count() <= 1) &&
+                (!BTM_SecIsTwsPlusDev(remote_bd_addr)) &&
                 (!IsHighQualityCodecSelected(remote_bd_addr))))
       return(BTM_SUCCESS);
 
@@ -3005,7 +3007,20 @@ void btm_acl_paging(BT_HDR* p, const RawAddress& bda) {
     if (!BTM_ACL_IS_CONNECTED(bda)) {
       VLOG(1) << "connecting_bda: " << btm_cb.connecting_bda;
       if (btm_cb.paging && bda == btm_cb.connecting_bda) {
-        fixed_queue_enqueue(btm_cb.page_queue, p);
+        p_dev_rec = btm_find_dev(bda);
+        /* Accepted incoming connection from legacy remote
+         * we can send RNR on link ,its not a page request now
+         */
+        if (p_dev_rec && (p_dev_rec->sm4 & BTM_SM4_CONN_PEND) &&
+            BTM_SEC_IS_SM4_LEGACY(p_dev_rec->sm4) &&
+            (HCI_GET_CMD_HDR_OPCODE(p) == HCI_RMT_NAME_REQUEST)) {
+          BTM_TRACE_DEBUG("%s: sending rnr for : %s as link up",
+                              __func__, bda.ToString().c_str());
+          btu_hcif_send_cmd(LOCAL_BR_EDR_CONTROLLER_ID, p);
+          return;
+        } else {
+          fixed_queue_enqueue(btm_cb.page_queue, p);
+        }
       } else {
         p_dev_rec = btm_find_or_alloc_dev(bda);
         btm_cb.connecting_bda = p_dev_rec->bd_addr;
@@ -3092,4 +3107,25 @@ void btm_acl_chk_peer_pkt_type_support(tACL_CONN* p, uint16_t* p_pkt_type) {
       *p_pkt_type |=
           (BTM_ACL_PKT_TYPES_MASK_NO_2_DH5 + BTM_ACL_PKT_TYPES_MASK_NO_3_DH5);
   }
+}
+
+/*******************************************************************************
+ *
+ * Function         BTM_GetNumSlaveAclLinks
+ *
+ * Description      This function is called to count the number of
+ *                  ACL links with slave role that are active.
+ *
+ * Returns          uint16_t Number of active ACL Slave links
+ *
+ ******************************************************************************/
+uint16_t BTM_GetNumSlaveAclLinks(void) {
+  uint16_t num_acl = 0;
+
+  for (uint16_t i = 0; i < MAX_L2CAP_LINKS; ++i) {
+    if (btm_cb.acl_db[i].in_use && btm_cb.acl_db[i].link_role == HCI_ROLE_SLAVE)
+      ++num_acl;
+  }
+
+  return num_acl;
 }

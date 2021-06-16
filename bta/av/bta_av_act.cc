@@ -121,9 +121,8 @@ struct blacklist_entry
 std::vector<RawAddress> active_device_priority_list;
 extern fixed_queue_t* btu_bta_alarm_queue;
 extern bool btif_av_is_split_a2dp_enabled(void);
-static void bta_av_browsing_channel_open_retry(uint8_t handle);
+static void bta_av_retry_browsing_channel_open_timer_cback(void *data);
 static void bta_av_accept_signalling_timer_cback(void* data);
-static void bta_av_browsing_channel_open_timer_cback(void* data);
 static int browse_conn_retry_count = 1;
 #ifndef AVRC_MIN_META_CMD_LEN
 #define AVRC_MIN_META_CMD_LEN 20
@@ -155,6 +154,9 @@ tBTA_AV_RCB* bta_av_get_rcb_by_shdl(uint8_t shdl) {
   int i;
 
   for (i = 0; i < BTA_AV_NUM_RCB; i++) {
+    APPL_TRACE_WARNING(
+        "%s: shdl = %d, rcb[i].shdl = %d, rcb[i].handle = %d, rcb[i].lidx = %d",
+        __func__, shdl, bta_av_cb.rcb[i].shdl, bta_av_cb.rcb[i].handle, bta_av_cb.rcb[i].lidx);
     if (bta_av_cb.rcb[i].shdl == shdl &&
         bta_av_cb.rcb[i].handle != BTA_AV_RC_HANDLE_NONE) {
       p_rcb = &bta_av_cb.rcb[i];
@@ -203,14 +205,18 @@ void bta_av_del_rc(tBTA_AV_RCB* p_rcb) {
   uint8_t rc_handle; /* connected AVRCP handle */
 
   p_scb = NULL;
-  if (p_rcb->handle != BTA_AV_RC_HANDLE_NONE) {
+
+  /* Fix for below KW issue
+   * Array 'avrc_cb.ccb_int' of size 8 may use index value(s) 8..254
+   */
+  if ((p_rcb->handle != BTA_AV_RC_HANDLE_NONE) && (p_rcb->handle < AVCT_NUM_CONN)) {
     if (p_rcb->shdl) {
       /* Validate array index*/
       if ((p_rcb->shdl - 1) < BTA_AV_NUM_STRS) {
         p_scb = bta_av_cb.p_scb[p_rcb->shdl - 1];
       }
       if (p_scb) {
-        APPL_TRACE_DEBUG("bta_av_del_rc shdl:%d, srch:%d rc_handle:%d",
+        APPL_TRACE_DEBUG("%s: shdl:%d, srch:%d rc_handle:%d", __func__,
                          p_rcb->shdl, p_scb->rc_handle, p_rcb->handle);
         if (p_scb->rc_handle == p_rcb->handle)
           p_scb->rc_handle = BTA_AV_RC_HANDLE_NONE;
@@ -222,9 +228,8 @@ void bta_av_del_rc(tBTA_AV_RCB* p_rcb) {
       }
     }
 
-    APPL_TRACE_IMP(
-        "bta_av_del_rc  handle: %d status=0x%x, rc_acp_handle:%d, idx:%d",
-        p_rcb->handle, p_rcb->status, bta_av_cb.rc_acp_handle,
+    APPL_TRACE_IMP("%s: handle: %d status=0x%x, rc_acp_handle:%d, idx:%d",
+        __func__, p_rcb->handle, p_rcb->status, bta_av_cb.rc_acp_handle,
         bta_av_cb.rc_acp_idx);
     rc_handle = p_rcb->handle;
     if (!(p_rcb->status & BTA_AV_RC_CONN_MASK) ||
@@ -241,9 +246,9 @@ void bta_av_del_rc(tBTA_AV_RCB* p_rcb) {
     AVRC_Close(rc_handle);
     if (rc_handle == bta_av_cb.rc_acp_handle)
       bta_av_cb.rc_acp_handle = BTA_AV_RC_HANDLE_NONE;
-    APPL_TRACE_EVENT(
-        "end del_rc handle: %d status=0x%x, rc_acp_handle:%d, lidx:%d",
-        p_rcb->handle, p_rcb->status, bta_av_cb.rc_acp_handle, p_rcb->lidx);
+
+    APPL_TRACE_EVENT("%s: Exit with handle: %d status=0x%x, rc_acp_handle:%d, lidx:%d",
+        __func__, p_rcb->handle, p_rcb->status, bta_av_cb.rc_acp_handle, p_rcb->lidx);
   }
 }
 
@@ -318,9 +323,6 @@ static void bta_av_rc_ctrl_cback(uint8_t handle, uint8_t event,
 
   APPL_TRACE_IMP("%s handle: %d, result %d, event=0x%x", __func__, handle, result, event);
   if (event == AVRC_OPEN_IND_EVT) {
-    /* save handle of opened connection
-    bta_av_cb.rc_handle = handle;*/
-
     msg_event = BTA_AV_AVRC_OPEN_EVT;
   } else if (event == AVRC_CLOSE_IND_EVT) {
     msg_event = BTA_AV_AVRC_CLOSE_EVT;
@@ -328,7 +330,11 @@ static void bta_av_rc_ctrl_cback(uint8_t handle, uint8_t event,
       if (result != 0 && (rc_handle != BTA_AV_RC_HANDLE_NONE)) {
         if (browse_conn_retry_count <= 1) {
           browse_conn_retry_count++;
-          bta_av_browsing_channel_open_retry(handle);
+          if (alarm_is_scheduled(p_cb->browsing_channel_open_timer))
+            alarm_cancel(p_cb->browsing_channel_open_timer);
+          alarm_set_on_mloop(p_cb->browsing_channel_open_timer,
+                             BTA_AV_BROWSINIG_CHANNEL_INT_TIMEOUT_MS,
+                             bta_av_retry_browsing_channel_open_timer_cback, UINT_TO_PTR(handle));
           p_cb->rcb[handle].browse_open = true;
         } else {
           browse_conn_retry_count = 1;
@@ -337,6 +343,16 @@ static void bta_av_rc_ctrl_cback(uint8_t handle, uint8_t event,
         return;
       }
       else {
+        if (result == 0) {
+          if (browse_conn_retry_count > 1) {
+            browse_conn_retry_count = 1;
+            APPL_TRACE_IMP("%s Connection success after retry, reset retry count ", __func__);
+          }
+          if (alarm_is_scheduled(p_cb->browsing_channel_open_timer)) {
+            APPL_TRACE_IMP("%s Connection success cancel the collision alarm timer ", __func__);
+            alarm_cancel(p_cb->browsing_channel_open_timer);
+          }
+        }
         msg_event = BTA_AV_AVRC_BROWSE_OPEN_EVT;
       }
   } else if (event == AVRC_BROWSE_CLOSE_IND_EVT) {
@@ -448,8 +464,12 @@ uint8_t bta_av_rc_create(tBTA_AV_CB* p_cb, uint8_t role, uint8_t shdl,
     if (addr)
     bda = *addr;
     if (p_rcb != NULL) {
-      APPL_TRACE_ERROR("bta_av_rc_create ACP handle exist for shdl:%d", shdl);
-      return p_rcb->handle;
+      if (shdl == 0 && p_rcb ->rc_opened == true && p_rcb->peer_addr != bda) {
+        APPL_TRACE_WARNING("bta_av_rc_create ACP channel opened for other rc only device", shdl);
+      } else {
+        APPL_TRACE_ERROR("bta_av_rc_create ACP handle exist for shdl:%d", shdl);
+        return p_rcb->handle;
+      }
     }
   }
 
@@ -490,7 +510,7 @@ uint8_t bta_av_rc_create(tBTA_AV_CB* p_cb, uint8_t role, uint8_t shdl,
   p_rcb->is_browse_active = false;
   p_rcb->peer_addr = bda;
   /* handle 0 is reserved for acceptor handle so no need to change acceptor handle */
-  if (role == AVCT_ACP && rc_handle == 0 && lidx == (BTA_AV_NUM_LINKS + 1)) {
+  if (role == AVCT_ACP && lidx == (BTA_AV_NUM_LINKS + 1)) {
     /* this LIDX is reserved for the AVRCP ACP connection */
     p_cb->rc_acp_handle = p_rcb->handle;
     p_cb->rc_acp_idx = (i + 1);
@@ -684,6 +704,10 @@ void bta_av_rc_opened(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
       p_cb->rc_acp_idx = (p_rcb - p_cb->rcb) + 1;
       APPL_TRACE_DEBUG("switching RCB rc_acp_handle:%d idx:%d",
                        p_cb->rc_acp_handle, p_cb->rc_acp_idx);
+    } else {
+       /* clear RC ACP handle when rc is opened on the RC only ACP channel */
+      APPL_TRACE_DEBUG("%s: clear rc ACP handle", __func__);
+      p_cb->rc_acp_handle = BTA_AV_RC_HANDLE_NONE;
     }
   }
 
@@ -710,6 +734,11 @@ void bta_av_rc_opened(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
                      p_lcb->conn_msk);
     disc = p_data->rc_conn_chg.handle | BTA_AV_CHNL_MSK;
   }
+
+  /* if the AVRCP is no longer listening, create the listening channel */
+  if (bta_av_cb.rc_acp_handle == BTA_AV_RC_HANDLE_NONE &&
+      bta_av_cb.features & BTA_AV_FEAT_RCTG)
+    bta_av_rc_create(&bta_av_cb, AVCT_ACP, 0, BTA_AV_NUM_LINKS + 1, NULL);
 
   rc_open.peer_addr = p_data->rc_conn_chg.peer_addr;
   rc_open.peer_features = p_cb->rcb[i].peer_features;
@@ -751,31 +780,18 @@ void bta_av_rc_opened(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
   if ((p_cb->features & BTA_AV_FEAT_BROWSE) &&
       (rc_open.peer_features & BTA_AV_FEAT_BROWSE) &&
       ((p_cb->rcb[i].status & BTA_AV_RC_ROLE_MASK) == BTA_AV_RC_ROLE_INT)) {
-    APPL_TRACE_DEBUG("%s opening AVRC Browse channel", __func__);
-
-    if (interop_match_addr_or_name(INTEROP_AVRCP_BROWSE_OPEN_CHANNEL_COLLISION, &p_data->rc_conn_chg.peer_addr)) {
-      alarm_set_on_mloop(p_cb->browsing_channel_open_timer,
-                                 BTA_AV_BROWSINIG_CHANNEL_INT_TIMEOUT_MS,
-                                 bta_av_browsing_channel_open_timer_cback,
-                                 UINT_TO_PTR(p_data->rc_conn_chg.handle));
-    }
-    else {
+    APPL_TRACE_DEBUG("%s opening AVRC Browse channel for %d", __func__, p_data->rc_conn_chg.handle);
+    if (interop_match_addr_or_name(INTEROP_AVRCP_BROWSE_OPEN_CHANNEL_COLLISION,
+        &p_data->rc_conn_chg.peer_addr)) {
+      if (alarm_is_scheduled(p_cb->browsing_channel_open_timer))
+        alarm_cancel(p_cb->browsing_channel_open_timer);
+      APPL_TRACE_DEBUG("%s Blacklisted delay AVRC Browse channel by for 1 sec", __func__);
+      alarm_set_on_mloop(p_cb->browsing_channel_open_timer, BTA_AV_BROWSINIG_CHANNEL_INT_TIMEOUT_MS,
+            bta_av_retry_browsing_channel_open_timer_cback,UINT_TO_PTR(p_data->rc_conn_chg.handle));
+    } else {
       AVRC_OpenBrowse(p_data->rc_conn_chg.handle, AVCT_INT);
     }
   }
-}
-/*******************************************************************************
- *
- * Function         bta_av_browsing_channel_open_timer_cback
- *
- * Description      Send AVRCP command to open browsing channel after timer expires.
- *
- * Returns          void
- *
- ******************************************************************************/
-static void bta_av_browsing_channel_open_timer_cback(void* data) {
-  uint32_t handle = PTR_TO_UINT(data);
-  AVRC_OpenBrowse(handle, AVCT_INT);
 }
 
 /*******************************************************************************
@@ -860,7 +876,11 @@ void bta_av_rc_meta_rsp(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
     if ((p_data->api_meta_rsp.is_rsp && (p_cb->features & BTA_AV_FEAT_RCTG)) ||
         (!p_data->api_meta_rsp.is_rsp && (p_cb->features & BTA_AV_FEAT_RCCT))) {
       p_rcb = &p_cb->rcb[p_data->hdr.layer_specific];
-      if (p_rcb->handle != BTA_AV_RC_HANDLE_NONE) {
+      /* Fix for below KW issue
+       * Either Array 'avrc_cb.ccb_int' of size 8 may use index value(s) 0..254
+       * Or Array 'avrc_cb.fcb' of size 8 may use index value(s) 0..254
+       */
+      if ((p_rcb->handle != BTA_AV_RC_HANDLE_NONE) && (p_rcb->handle < AVCT_NUM_CONN)) {
         AVRC_MsgReq(p_rcb->handle, p_data->api_meta_rsp.label,
                     p_data->api_meta_rsp.rsp_code, p_data->api_meta_rsp.p_pkt);
         do_free = false;
@@ -1127,20 +1147,23 @@ void bta_av_rc_msg(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
   tBTA_AV_EVT evt = 0;
   tBTA_AV av;
   BT_HDR* p_pkt = NULL;
-  tAVRC_MSG_VENDOR* p_vendor = &p_data->rc_msg.msg.vendor;
-  bool is_inquiry = ((p_data->rc_msg.msg.hdr.ctype == AVRC_CMD_SPEC_INQ) ||
-                     p_data->rc_msg.msg.hdr.ctype == AVRC_CMD_GEN_INQ);
+
 #if (AVRC_METADATA_INCLUDED == TRUE)
   uint8_t ctype = 0;
   tAVRC_RESPONSE rc_rsp;
-
   rc_rsp.rsp.status = BTA_AV_STS_NO_RSP;
 #endif
 
+  /* Fix for below KW issue
+   * Suspicious dereference of pointer 'p_data' before NULL check at line 1152 */
   if (NULL == p_data) {
     APPL_TRACE_ERROR("Message from peer with no data in %s", __func__);
     return;
   }
+
+  tAVRC_MSG_VENDOR* p_vendor = &p_data->rc_msg.msg.vendor;
+  bool is_inquiry = ((p_data->rc_msg.msg.hdr.ctype == AVRC_CMD_SPEC_INQ) ||
+                     p_data->rc_msg.msg.hdr.ctype == AVRC_CMD_GEN_INQ);
 
   APPL_TRACE_DEBUG("%s: opcode=%x, ctype=%x", __func__, p_data->rc_msg.opcode,
                    p_data->rc_msg.msg.hdr.ctype);
@@ -1328,7 +1351,11 @@ void bta_av_rc_close(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
 
     APPL_TRACE_DEBUG("%s handle: %d, status=0x%x", __func__, p_rcb->handle,
                      p_rcb->status);
-    if (p_rcb->handle != BTA_AV_RC_HANDLE_NONE) {
+
+    /* Fix for below KW issue
+     * Array 'avrc_cb.ccb_int' of size 8 may use index value(s) 0..254
+     */
+    if ((p_rcb->handle != BTA_AV_RC_HANDLE_NONE) && (p_rcb->handle < AVCT_NUM_CONN)) {
       if (p_rcb->shdl) {
         p_scb = bta_av_cb.p_scb[p_rcb->shdl - 1];
         if (p_scb) {
@@ -1461,9 +1488,12 @@ void bta_av_conn_chg(tBTA_AV_DATA* p_data) {
   tBTA_AV_LCB* p_lcb_rc;
   tBTA_AV_RCB *p_rcb, *p_rcb2;
   bool chk_restore = false;
+  uint8_t shdl;
 
   /* Validate array index*/
-  if (index < BTA_AV_NUM_STRS) {
+  /* Fix for below KW issue
+   * Array 'p_scb' of size 5 may use index value(s) -1 */
+  if (index >= 0 && index < BTA_AV_NUM_STRS) {
     p_scb = p_cb->p_scb[index];
   }
   mask = BTA_AV_HNDL_TO_MSK(index);
@@ -1526,11 +1556,11 @@ void bta_av_conn_chg(tBTA_AV_DATA* p_data) {
           p_lcb_rc->lidx = 0;
           p_scb->rc_handle = p_cb->rc_acp_handle;
           p_rcb = &p_cb->rcb[p_cb->rc_acp_idx - 1];
-          p_rcb->shdl = bta_av_get_shdl(p_scb);
+          shdl = bta_av_get_shdl(p_scb);
           APPL_TRACE_DEBUG("%s: update rc_acp shdl:%d/%d srch:%d",
               __func__, index + 1, p_rcb->shdl, p_scb->rc_handle);
 
-          p_rcb2 = bta_av_get_rcb_by_shdl(p_rcb->shdl);
+          p_rcb2 = bta_av_get_rcb_by_shdl(shdl);
           if (p_rcb2) {
             /* found the RCB that was created to associated with this SCB */
             p_cb->rc_acp_handle = p_rcb2->handle;
@@ -1540,7 +1570,12 @@ void bta_av_conn_chg(tBTA_AV_DATA* p_data) {
             p_rcb2->lidx = (BTA_AV_NUM_LINKS + 1);
             APPL_TRACE_DEBUG("%s: rc2 handle:%d lidx:%d/%d", p_rcb2->handle,
                              __func__, p_rcb2->lidx, p_cb->lcb[p_rcb2->lidx - 1].lidx);
+          } else {
+            /* clear RC ACP handle when rc is opened on the RC only ACP channel */
+            APPL_TRACE_DEBUG("%s: clear rc ACP handle", __func__);
+            p_cb->rc_acp_handle = BTA_AV_RC_HANDLE_NONE;
           }
+          p_rcb->shdl = shdl;
           p_rcb->lidx = p_lcb->lidx;
           APPL_TRACE_DEBUG("%s: rc handle:%d lidx:%d/%d", __func__, p_rcb->handle,
                            p_rcb->lidx, p_cb->lcb[p_rcb->lidx - 1].lidx);
@@ -1652,6 +1687,7 @@ void bta_av_conn_chg(tBTA_AV_DATA* p_data) {
  *
  ******************************************************************************/
 void bta_av_disable(tBTA_AV_CB* p_cb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
+  APPL_TRACE_WARNING("%s ",__func__);
   BT_HDR hdr;
   uint16_t xx;
 
@@ -1679,6 +1715,8 @@ void bta_av_disable(tBTA_AV_CB* p_cb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
   p_cb->browsing_channel_open_timer = NULL;
   alarm_free(p_cb->link_signalling_timer);
   p_cb->link_signalling_timer = NULL;
+
+  bta_sys_collision_register(BTA_ID_AV, NULL);
 }
 
 /*******************************************************************************
@@ -1736,7 +1774,8 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
   uint8_t mask;
   uint16_t timeout = 0;
   tBTA_AV_LCB* p_lcb = NULL;
-  uint8_t handle;
+  uint8_t handle = BTA_AV_RC_HANDLE_NONE;
+  uint8_t tmp_acp_handle = BTA_AV_RC_HANDLE_NONE;
   tBTA_AV_RCB *tmp_rcb = NULL;
   APPL_TRACE_IMP("%s:event: %d, conn_acp: %d addr %s", __func__, event,
                  p_data->hdr.offset, p_data->str_msg.bd_addr.ToString().c_str());
@@ -1790,8 +1829,11 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
           /* start listening when the signal channel is open */
           if ((p_cb->features & BTA_AV_FEAT_RCTG) &&
               (bta_av_map_scb_rc(p_data->str_msg.bd_addr, p_cb->rcb) == NULL)) {
-            if ((handle = bta_av_rc_create(p_cb, AVCT_ACP, 0, p_lcb->lidx, &p_data->str_msg.bd_addr)) != 0 &&
-                 (handle != BTA_AV_RC_HANDLE_NONE)) {
+            tmp_acp_handle = p_cb->rc_acp_handle;
+            handle = bta_av_rc_create(p_cb, AVCT_ACP, 0, p_lcb->lidx, &p_data->str_msg.bd_addr);
+            if ((handle != BTA_AV_RC_HANDLE_NONE) &&
+                 (handle != tmp_acp_handle)) {
+              APPL_TRACE_DEBUG("%s: acp handle %d", __func__, p_cb->rc_acp_handle);
               p_cb->p_scb[xx]->rc_ccb_alloc_handle = handle;
             }
           }
@@ -1886,10 +1928,15 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
         }
       }
     }
-    if (((tmp_rcb = bta_av_map_scb_rc(p_data->str_msg.bd_addr, p_cb->rcb))
-         != NULL) && tmp_rcb->handle != BTA_AV_RC_HANDLE_NONE) {
+
+    /* Fix for below KW issue
+     * Array 'avrc_cb.ccb_int' of size 8 may use index value(s) 1..254
+     */
+    if (((tmp_rcb = bta_av_map_scb_rc(p_data->str_msg.bd_addr, p_cb->rcb)) != NULL) &&
+        (tmp_rcb->handle != BTA_AV_RC_HANDLE_NONE) &&
+        (tmp_rcb->handle < AVCT_NUM_CONN)) {
       //get rcb as per bd address to initiate cleanup
-      APPL_TRACE_IMP("%s:bta_av_sig_chg event: closing unmaped RC handle %d",
+      APPL_TRACE_IMP("%s: event: closing unmaped RC handle %d",
         __func__, tmp_rcb->handle)
       if (tmp_rcb->handle) {
         // rc handle 0 is reserved for acceptor, need to cleanup from old path
@@ -2335,6 +2382,8 @@ void bta_av_rc_disc_done(UNUSED_ATTR tBTA_AV_DATA* p_data) {
           if (p_scb->rc_ccb_alloc_handle != BTA_AV_RC_HANDLE_NONE) {
             APPL_TRACE_DEBUG("closing previous allocating unnecessary ccb %d", p_scb->rc_ccb_alloc_handle);
             AVRC_Close(p_scb->rc_ccb_alloc_handle);
+            //clearing acp handle to open again
+            p_cb->rcb[p_scb->rc_ccb_alloc_handle].handle = BTA_AV_RC_HANDLE_NONE;
             p_scb->rc_ccb_alloc_handle = BTA_AV_RC_HANDLE_NONE;
           }
           rc_handle = bta_av_rc_create(p_cb, AVCT_INT,
@@ -2918,8 +2967,9 @@ void bta_av_dereg_comp(tBTA_AV_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-static void bta_av_browsing_channel_open_retry(uint8_t handle) {
-  APPL_TRACE_IMP("%s Retry Browse connection", __func__);
+static void bta_av_retry_browsing_channel_open_timer_cback(void *data) {
+  uint32_t handle = PTR_TO_UINT(data);
+  APPL_TRACE_IMP("%s Retry Browse connection for handle %d", __func__, handle);
   AVRC_OpenBrowse(handle, AVCT_INT);
 }
 

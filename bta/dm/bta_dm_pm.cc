@@ -141,7 +141,7 @@ void bta_dm_disable_pm(void) {
  ******************************************************************************/
 uint8_t bta_dm_get_av_count(void) {
   uint8_t count = 0;
-  for (int i = 0; i < bta_dm_conn_srvcs.count; i++) {
+  for (int i = 0; i < bta_dm_conn_srvcs.count && i < BTA_DM_NUM_CONN_SRVS; i++) {
     if (bta_dm_conn_srvcs.conn_srvc[i].id == BTA_ID_AV) ++count;
   }
   return count;
@@ -381,7 +381,7 @@ static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
       return;
   }
 
-  for (j = 0; j < bta_dm_conn_srvcs.count; j++) {
+  for (j = 0; j < bta_dm_conn_srvcs.count && j < BTA_DM_NUM_CONN_SRVS; j++) {
     /* check if an entry already present */
     if ((bta_dm_conn_srvcs.conn_srvc[j].id == id) &&
         (bta_dm_conn_srvcs.conn_srvc[j].app_id == app_id) &&
@@ -401,7 +401,7 @@ static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
       APPL_TRACE_DEBUG("%s: Removed power mode entry for service id = %d, count = %d",
                        __func__, p_bta_dm_pm_cfg[i].id, bta_dm_conn_srvcs.count);
 
-      for (; j < bta_dm_conn_srvcs.count; j++) {
+      for (; j < bta_dm_conn_srvcs.count && j < BTA_DM_NUM_CONN_SRVS - 1; j++) {
         memcpy(&bta_dm_conn_srvcs.conn_srvc[j],
                &bta_dm_conn_srvcs.conn_srvc[j + 1],
                sizeof(bta_dm_conn_srvcs.conn_srvc[j]));
@@ -430,8 +430,10 @@ static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
     APPL_TRACE_WARNING("%s: new conn_srvc id:%d, app_id:%d count:%d", __func__,
                            id, app_id, bta_dm_conn_srvcs.count);
   } else {
-    /* no service is added or removed. only updating status. */
-    bta_dm_conn_srvcs.conn_srvc[j].state = status;
+    if (j < BTA_DM_NUM_CONN_SRVS) {
+      /* no service is added or removed. only updating status. */
+      bta_dm_conn_srvcs.conn_srvc[j].state = status;
+    }
   }
 
   /* stop timer */
@@ -491,26 +493,30 @@ static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
         bta_dm_pm_is_sco_active()) {
       /* Check if DUT is slave on SCO Link to decide if sniff needs to be disabled or not */
       uint8_t role_on_sco_link;
-      BTM_GetRole(bta_dm_conn_srvcs.conn_srvc[bta_dm_get_sco_index()].peer_bdaddr,
-        &role_on_sco_link);
-      APPL_TRACE_DEBUG("%s: Role on SCO Link = %d", __func__, role_on_sco_link);
-      if (role_on_sco_link == BTM_ROLE_SLAVE) {
-        uint16_t manufacturer = 0;
-        uint16_t  lmp_sub_version = 0;
-        uint8_t lmp_version = 0;
-        tBTA_DM_PEER_DEVICE *p_rem_dev = NULL;
-        if (BTM_ReadRemoteVersion(peer_addr, &lmp_version,
-            &manufacturer, &lmp_sub_version) == BTM_SUCCESS) {
-          p_rem_dev = bta_dm_find_peer_device(peer_addr);
-          /* Disable sniff policy on the HID link since SCO is Up on Slave Link */
-          if ((p_rem_dev) && (interop_match_addr_or_name(
-              INTEROP_DISABLE_SNIFF_DURING_SCO,
-              &peer_addr) ||
-              interop_match_manufacturer(
-              INTEROP_DISABLE_SNIFF_DURING_SCO, manufacturer))) {
-              APPL_TRACE_DEBUG("%s: disable sniff for manufacturer:%d "
-                  "addr = %s", __func__, manufacturer, peer_addr.ToString().c_str());
-              bta_dm_pm_set_sniff_policy(p_rem_dev, true);
+      int index = bta_dm_get_sco_index();
+
+      if (index != -1) {
+        BTM_GetRole(bta_dm_conn_srvcs.conn_srvc[index].peer_bdaddr,
+          &role_on_sco_link);
+        APPL_TRACE_DEBUG("%s: Role on SCO Link = %d", __func__, role_on_sco_link);
+        if (role_on_sco_link == BTM_ROLE_SLAVE) {
+          uint16_t manufacturer = 0;
+          uint16_t  lmp_sub_version = 0;
+          uint8_t lmp_version = 0;
+          tBTA_DM_PEER_DEVICE *p_rem_dev = NULL;
+          if (BTM_ReadRemoteVersion(peer_addr, &lmp_version,
+              &manufacturer, &lmp_sub_version) == BTM_SUCCESS) {
+            p_rem_dev = bta_dm_find_peer_device(peer_addr);
+            /* Disable sniff policy on the HID link since SCO is Up on Slave Link */
+            if ((p_rem_dev) && (interop_match_addr_or_name(
+                INTEROP_DISABLE_SNIFF_DURING_SCO,
+                &peer_addr) ||
+                interop_match_manufacturer(
+                INTEROP_DISABLE_SNIFF_DURING_SCO, manufacturer))) {
+                APPL_TRACE_DEBUG("%s: disable sniff for manufacturer:%d "
+                    "addr = %s", __func__, manufacturer, peer_addr.ToString().c_str());
+                bta_dm_pm_set_sniff_policy(p_rem_dev, true);
+            }
           }
         }
       }
@@ -523,19 +529,26 @@ static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
        const bool bScoActive = (status == BTA_SYS_SCO_OPEN);
        APPL_TRACE_DEBUG("%s: bta_dm_pm_hid_check with bScoActive = %d", __func__, bScoActive);
        bta_dm_pm_hid_check(bScoActive);
-       bool is_blacklisted =
-          interop_match_addr_or_name(INTEROP_DISABLE_SNIFF_LINK_DURING_SCO, &peer_addr);
-       bool is_blacklisted_for_call =
-          interop_match_addr_or_name(INTEROP_DISABLE_SNIFF_DURING_CALL, &peer_addr);
-       if ((id == BTA_ID_AG) && is_blacklisted &&
-            !(is_blacklisted_for_call && bta_ag_is_call_present(&peer_addr))) {
-          APPL_TRACE_IMP("%s: The device %s is blacklisted to disable sniff mode during SCO",
-                          __func__, peer_addr.ToString().c_str());
-          tBTA_DM_PEER_DEVICE *p_rem_dev = NULL;
-          p_rem_dev = bta_dm_find_peer_device(peer_addr);
-          if(p_rem_dev) {
-             APPL_TRACE_IMP("%s: BTA_ID_AG with bScoActive = %d", __func__, bScoActive);
-             bta_dm_pm_set_sniff_policy(p_rem_dev, bScoActive);
+       uint16_t manufacturer = 0;
+       uint16_t lmp_sub_version = 0;
+       uint8_t  lmp_version = 0;
+       if (BTM_ReadRemoteVersion(peer_addr, &lmp_version,
+           &manufacturer, &lmp_sub_version) == BTM_SUCCESS) {
+          bool is_blacklisted =
+             (interop_match_addr_or_name(INTEROP_DISABLE_SNIFF_LINK_DURING_SCO, &peer_addr) ||
+              interop_match_manufacturer(INTEROP_DISABLE_SNIFF_LINK_DURING_SCO, manufacturer));
+          bool is_blacklisted_for_call =
+             interop_match_addr_or_name(INTEROP_DISABLE_SNIFF_DURING_CALL, &peer_addr);
+          if ((id == BTA_ID_AG) && is_blacklisted &&
+               !(is_blacklisted_for_call && bta_ag_is_call_present(&peer_addr))) {
+             APPL_TRACE_IMP("%s: The device %s is blacklisted to disable sniff mode during SCO",
+                             __func__, peer_addr.ToString().c_str());
+             tBTA_DM_PEER_DEVICE *p_rem_dev = NULL;
+             p_rem_dev = bta_dm_find_peer_device(peer_addr);
+             if(p_rem_dev) {
+                APPL_TRACE_IMP("%s: BTA_ID_AG with bScoActive = %d", __func__, bScoActive);
+                bta_dm_pm_set_sniff_policy(p_rem_dev, bScoActive);
+             }
           }
        }
     }
@@ -582,7 +595,7 @@ static void bta_dm_pm_set_mode(const RawAddress& peer_addr,
 
   failed_pm = p_peer_device->pm_mode_failed;
 
-  for (i = 0; i < bta_dm_conn_srvcs.count; i++) {
+  for (i = 0; i < bta_dm_conn_srvcs.count && i < BTA_DM_NUM_CONN_SRVS; i++) {
     p_srvcs = &bta_dm_conn_srvcs.conn_srvc[i];
     if (p_srvcs->peer_bdaddr == peer_addr) {
       /* p_bta_dm_pm_cfg[0].app_id is the number of entries */
@@ -820,7 +833,7 @@ static void bta_dm_pm_ssr(const RawAddress& peer_addr) {
   int ssr = BTA_DM_PM_SSR0;
 
   /* go through the connected services */
-  for (i = 0; i < bta_dm_conn_srvcs.count; i++) {
+  for (i = 0; i < bta_dm_conn_srvcs.count && i < BTA_DM_NUM_CONN_SRVS; i++) {
     if (bta_dm_conn_srvcs.conn_srvc[i].peer_bdaddr == peer_addr) {
       /* p_bta_dm_pm_cfg[0].app_id is the number of entries */
       for (j = 1; j <= p_bta_dm_pm_cfg[0].app_id; j++) {
@@ -1134,7 +1147,7 @@ static bool bta_dm_pm_is_sco_active() {
   int j;
   bool bScoActive = false;
 
-  for (j = 0; j < bta_dm_conn_srvcs.count; j++) {
+  for (j = 0; j < bta_dm_conn_srvcs.count && j < BTA_DM_NUM_CONN_SRVS; j++) {
     /* check if an entry already present */
     if ((bta_dm_conn_srvcs.conn_srvc[j].id == BTA_ID_AG) &&
         (bta_dm_conn_srvcs.conn_srvc[j].state == BTA_SYS_SCO_OPEN)) {
@@ -1157,7 +1170,7 @@ static bool bta_dm_pm_is_sco_active() {
  *
  ******************************************************************************/
 static int bta_dm_get_sco_index() {
-  for (int j = 0; j < bta_dm_conn_srvcs.count; j++) {
+  for (int j = 0; j < bta_dm_conn_srvcs.count && j < BTA_DM_NUM_CONN_SRVS; j++) {
     /* check for SCO connected index */
     if ((bta_dm_conn_srvcs.conn_srvc[j].id == BTA_ID_AG) &&
         (bta_dm_conn_srvcs.conn_srvc[j].state == BTA_SYS_SCO_OPEN)) {
@@ -1179,16 +1192,20 @@ static int bta_dm_get_sco_index() {
 static void bta_dm_pm_hid_check(bool bScoActive)
 {
   uint8_t role_on_sco_link;
+  int index = bta_dm_get_sco_index();
+
+  if (index == -1)
+    return;
 
   if (bScoActive) {
-    BTM_GetRole(bta_dm_conn_srvcs.conn_srvc[bta_dm_get_sco_index()].peer_bdaddr,
+    BTM_GetRole(bta_dm_conn_srvcs.conn_srvc[index].peer_bdaddr,
       &role_on_sco_link);
     APPL_TRACE_DEBUG("%s: Role on SCO Link = %d", __func__, role_on_sco_link);
   }
 
   int j;
 
-  for(j = 0; j < bta_dm_conn_srvcs.count; j++) {
+  for(j = 0; j < bta_dm_conn_srvcs.count && j < BTA_DM_NUM_CONN_SRVS; j++) {
     /* check if an entry already present */
     if(((bScoActive && (role_on_sco_link == BTM_ROLE_SLAVE)) ||
         !bScoActive) && bta_dm_conn_srvcs.conn_srvc[j].id == BTA_ID_HH) {

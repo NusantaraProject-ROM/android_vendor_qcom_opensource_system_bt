@@ -1126,7 +1126,8 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
               if (bta_ag_create_sco(p_scb, TRUE)) {
                   p_sco->state = BTA_AG_SCO_OPENING_ST;
               } else {
-                  APPL_TRACE_WARNING("%s: create sco connection failed", __func__);
+                  APPL_TRACE_WARNING("%s: BTA_AG_SCO_OPEN_E: create sco connection failed", __func__);
+                  p_sco->p_curr_scb = NULL;
                   p_sco->state = BTA_AG_SCO_LISTEN_ST;
                   bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
               }
@@ -1227,7 +1228,8 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           if (bta_ag_create_sco(p_scb, true)) {
               p_sco->state = BTA_AG_SCO_OPENING_ST;
           } else {
-              APPL_TRACE_WARNING("%s: create sco connection failed", __func__);
+              APPL_TRACE_WARNING("%s: BTA_AG_SCO_CN_DONE_E: create sco connection failed", __func__);
+              p_sco->p_curr_scb = NULL;
               p_sco->state = BTA_AG_SCO_LISTEN_ST;
               bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
           }
@@ -1793,7 +1795,8 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
               if (bta_ag_create_sco(p_scb, TRUE)) {
                   p_sco->state = BTA_AG_SCO_OPENING_ST;
               } else {
-                  APPL_TRACE_WARNING("%s: create sco connection failed", __func__);
+                  APPL_TRACE_WARNING("%s: BTA_AG_SCO_CONN_CLOSE_E: create sco connection failed", __func__);
+                  p_sco->p_curr_scb = NULL;
                   p_sco->state = BTA_AG_SCO_LISTEN_ST;
                   bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_CLOSE_EVT);
               }
@@ -1833,10 +1836,16 @@ void bta_ag_sco_event(tBTA_AG_SCB* p_scb, uint8_t event) {
           break;
 
         case BTA_AG_SCO_CLOSE_E:
-          /* clear xfer scb */
-          p_sco->p_xfer_scb = NULL;
 
-          p_sco->state = BTA_AG_SCO_CLOSING_ST;
+          if (p_scb == p_sco->p_curr_scb) {
+            APPL_TRACE_WARNING(
+              "%s: BTA_AG_SCO_CLOSE_XFER_ST: SCO xfer in prog from pscb %x, Ignoring event %s[%d]",
+               __func__, p_scb, bta_ag_sco_evt_str(event), event);
+          } else {
+            /* clear xfer scb */
+            p_sco->p_xfer_scb = NULL;
+            p_sco->state = BTA_AG_SCO_CLOSING_ST;
+          }
           break;
 
         case BTA_AG_SCO_SHUTDOWN_E:

@@ -599,9 +599,7 @@ static void a2dp_sbc_encode_frames(uint8_t nb_frame) {
       memset(a2dp_sbc_encoder_cb.pcmBuffer, 0,
              blocm_x_subband * p_encoder_params->s16NumOfChannels);
 
-      //
       // Read the PCM data and encode it. If necessary, upsample the data.
-      //
       uint32_t num_bytes = 0;
       if (a2dp_sbc_read_feeding(&num_bytes)) {
         uint8_t* output = (uint8_t*)(p_buf + 1) + p_buf->offset + p_buf->len;
@@ -641,8 +639,12 @@ static void a2dp_sbc_encode_frames(uint8_t nb_frame) {
       uint8_t done_nb_frame = remain_nb_frame - nb_frame;
       remain_nb_frame = nb_frame;
       if (!a2dp_sbc_encoder_cb.enqueue_callback(p_buf, done_nb_frame,
-                                                bytes_read))
+                                                bytes_read)) {
+        LOG_WARN(LOG_TAG, "%s: enqueue discarded done_nb_frame: %d,"
+                 "bytes_read: %d, len: %d, last_frame_len: %d",
+                 __func__, done_nb_frame, bytes_read, p_buf->len, last_frame_len);
         return;
+      }
     } else {
       a2dp_sbc_encoder_cb.stats.media_read_total_dropped_packets++;
       osi_free(p_buf);

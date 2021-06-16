@@ -46,6 +46,7 @@
 #include <btcommon_interface_defs.h>
 #include "bta/include/bta_av_api.h"
 #include "btif/include/btif_config.h"
+#include "a2dp_aac_constants.h"
 int avdt_ccb_get_num_allocated_seps();
 /*******************************************************************************
  *
@@ -246,7 +247,8 @@ bool avdt_ccb_check_peer_eligible_for_aac_codec(tAVDT_CCB* p_ccb) {
  *
  ******************************************************************************/
 void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
-  tAVDT_SEP_INFO sep_info[AVDT_NUM_SEPS];
+  tAVDT_SEP_INFO* sep_info =
+            (tAVDT_SEP_INFO*)osi_malloc(AVDT_NUM_SEPS*sizeof(tAVDT_SEP_INFO));
   tAVDT_SCB* p_scb = &avdt_cb.scb[0];
   int i;
   int num_conn = avdt_scb_get_max_av_client();
@@ -266,6 +268,14 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
 
   AVDT_TRACE_WARNING("%s: soc_type: %d", __func__, soc_type);
 
+  /* Fix for below KW issue
+   * Address of a local variable is returned through
+   * formal argument 'p_data->msg.discover_rsp.p_sep_info'
+   */
+  if (sep_info == NULL) {
+    AVDT_TRACE_ERROR("%s: sep_info in null, return", __func__);
+    return;
+  }
   p_data->msg.discover_rsp.p_sep_info = sep_info;
   p_data->msg.discover_rsp.num_seps = 0;
 
@@ -276,7 +286,7 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
      * we should show SEP for which setconfig was done earlier
      * This is done for IOP with some remotes */
   for (i = 0; i < AVDT_NUM_SEPS; i++, p_scb++) {
-    if((p_ccb != NULL)&& (p_scb->p_ccb != NULL)&&(p_scb->p_ccb == p_ccb)) {
+    if((p_ccb != NULL) && (p_scb->p_ccb != NULL) && (p_scb->p_ccb == p_ccb)) {
       AVDT_TRACE_EVENT(" CCB already tied to SCB[%d] ",i);
       /* copy sep info */
       sep_info[p_data->msg.discover_rsp.num_seps].in_use = p_scb->in_use;
@@ -342,7 +352,7 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
       APPL_TRACE_DEBUG("codec name %s", A2DP_CodecName(p_scb->cs.cfg.codec_info));
       if ((soc_type != BT_SOC_TYPE_SMD && soc_type != BT_SOC_TYPE_ROME)) {
         if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC) {
-          if (A2DP_Get_AAC_VBR_Status()) {
+          if (A2DP_Get_AAC_VBR_Status(&p_ccb->peer_addr)) {
             APPL_TRACE_DEBUG("%s: AAC VBR is enabled, show AAC SEP for this peer device", __func__);
           } else if (avdt_ccb_check_peer_eligible_for_aac_codec(p_ccb)) {
             APPL_TRACE_DEBUG("%s: Show AAC SEP for this peer device", __func__);
@@ -357,7 +367,7 @@ void avdt_ccb_hdl_discover_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
           continue;
         } else {
           if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC) {
-            if (A2DP_Get_AAC_VBR_Status()) {
+            if (A2DP_Get_AAC_VBR_Status(&p_ccb->peer_addr)) {
               APPL_TRACE_DEBUG("%s: AAC VBR is enabled, show AAC SEP for this peer device", __func__);
             } else if (avdt_ccb_check_peer_eligible_for_aac_codec(p_ccb)) {
               APPL_TRACE_DEBUG("%s: Show AAC SEP for this peer device", __func__);
@@ -443,15 +453,32 @@ void avdt_ccb_hdl_discover_rsp(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
  ******************************************************************************/
 void avdt_ccb_hdl_getcap_cmd(tAVDT_CCB* p_ccb, tAVDT_CCB_EVT* p_data) {
   tAVDT_SCB* p_scb;
-
+  int vbr = 0;
   AVDT_TRACE_DEBUG("%s: bd_add: %s", __func__, p_ccb->peer_addr.ToString().c_str());
   /* look up scb for seid sent to us */
   p_scb = avdt_scb_by_hdl(p_data->msg.single.seid);
-
+  if (p_scb == NULL) {
+      AVDT_TRACE_WARNING("%s: scb is null", __func__);
+      return;
+  }
   p_data->msg.svccap.p_cfg = &p_scb->cs.cfg;
-
+  if (p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC) {
+      if (!A2DP_Get_AAC_VBR_Status(&p_ccb->peer_addr)) {
+         vbr = p_scb->cs.cfg.codec_info[6] & A2DP_AAC_VARIABLE_BIT_RATE_MASK;
+         APPL_TRACE_DEBUG("%s, original vbr %d",__func__, vbr);
+         if (vbr == A2DP_AAC_VARIABLE_BIT_RATE_ENABLED) {
+            APPL_TRACE_DEBUG("%s, reset vbr to disabled ",__func__);
+            p_scb->cs.cfg.codec_info[6] = p_scb->cs.cfg.codec_info[6] & ~A2DP_AAC_VARIABLE_BIT_RATE_ENABLED;
+         }
+      }
+  }
   bta_av_refresh_accept_signalling_timer(p_ccb->peer_addr);
   avdt_ccb_event(p_ccb, AVDT_CCB_API_GETCAP_RSP_EVT, p_data);
+  if ((p_scb->cs.cfg.codec_info[AVDT_CODEC_TYPE_INDEX] == A2DP_MEDIA_CT_AAC)
+     && (vbr == A2DP_AAC_VARIABLE_BIT_RATE_ENABLED)) {
+    APPL_TRACE_DEBUG("%s, reset vbr to enabled",__func__);
+    p_scb->cs.cfg.codec_info[6] = p_scb->cs.cfg.codec_info[6] | A2DP_AAC_VARIABLE_BIT_RATE_ENABLED;
+  }
 }
 
 /*******************************************************************************

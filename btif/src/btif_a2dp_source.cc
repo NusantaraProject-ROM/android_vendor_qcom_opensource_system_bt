@@ -333,8 +333,6 @@ static void btif_a2dp_source_shutdown_delayed(UNUSED_ATTR void* context) {
   btif_a2dp_source_state = BTIF_A2DP_SOURCE_STATE_OFF;
   APPL_TRACE_EVENT("%s: enc_update_in_progress = %d", __func__, enc_update_in_progress);
   enc_update_in_progress = FALSE;
-  BluetoothMetricsLogger::GetInstance()->LogBluetoothSessionEnd(
-      system_bt_osi::DISCONNECT_REASON_UNKNOWN, 0);
 }
 
 bool btif_a2dp_source_media_task_is_running(void) {
@@ -1036,6 +1034,10 @@ static uint32_t btif_a2dp_source_read_callback(uint8_t* p_buf, uint32_t len) {
     btif_a2dp_source_cb.stats.media_read_last_underflow_us =
         time_get_os_boottime_us();
   }
+
+  // For debugging purpose of any OOB condition
+  if (bytes_read > len)
+    LOG_WARN(LOG_TAG, "%s: READ %d BYTES OUT OF %d", __func__, bytes_read, len);
 
   return bytes_read;
 }

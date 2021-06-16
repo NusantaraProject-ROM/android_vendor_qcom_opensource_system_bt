@@ -178,6 +178,8 @@ static void bta_dm_ctrl_features_rd_cmpl_cback(tBTM_STATUS result);
 #define BTA_DM_SWITCH_DELAY_TIMER_MS 500
 #endif
 
+#define BT_DEFAULT_POWER (0x80)
+
 static void bta_dm_reset_sec_dev_pending(const RawAddress& remote_bd_addr);
 static void bta_dm_remove_sec_dev_entry(const RawAddress& remote_bd_addr);
 static void bta_dm_observe_results_cb(tBTM_INQ_RESULTS* p_inq, uint8_t* p_eir,
@@ -536,6 +538,21 @@ static void bta_dm_sys_hw_cback(tBTA_SYS_HW_EVT status) {
 
 /*******************************************************************************
  *
+ * Function         bta_dm_disable_bqr
+ *
+ * Description      notify application to send disable bqr event
+ *
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void bta_dm_disable_bqr() {
+   if (bta_dm_cb.p_sec_cback != NULL)
+     bta_dm_cb.p_sec_cback(BTA_DM_DISABLE_BQR_EVT, NULL);
+}
+
+/*******************************************************************************
+ *
  * Function         bta_dm_disable
  *
  * Description      Disables the BT device manager
@@ -582,6 +599,8 @@ void bta_dm_disable(UNUSED_ATTR tBTA_DM_MSG* p_data) {
     BTM_VendorSpecificCommand(HCI_VS_HOST_LOG_OPCODE, 2, param, NULL);
   }
 
+  /* Disable BQR events */
+  bta_dm_disable_bqr();
   if (BTM_GetNumAclLinks() == 0) {
 #if (BTA_DISABLE_DELAY > 0)
     /* If BTA_DISABLE_DELAY is defined and greater than zero, then delay the
@@ -1740,6 +1759,7 @@ static void bta_dm_store_profiles_version() {
     IOT_CONF_KEY_HFP_VERSION,
     IOT_CONF_KEY_AVRCP_CTRL_VERSION,
     IOT_CONF_KEY_AVRCP_TG_VERSION,
+    IOT_CONF_KEY_MAP_VERSION,
   };
 #endif
 
@@ -3961,6 +3981,7 @@ static void bta_dm_adjust_roles(bool delay_role_switch) {
 
         if ((bta_dm_cb.device_list.peer_device[i].pref_role ==
              BTA_MASTER_ROLE_ONLY) ||
+             BTM_SecIsTwsPlusDev(bta_dm_cb.device_list.peer_device[i].peer_bdaddr) ||
             (br_count > 1)) {
           /* Initiating immediate role switch with certain remote devices
             has caused issues due to role  switch colliding with link encryption
@@ -4049,6 +4070,48 @@ void bta_dm_link_power_cntrl_callback(tBTM_VSC_CMPL *param)
                       param->p_param_buf[0]);
  }
 
+bool get_max_power_values(max_pow_feature_t *tech_based_max_power) {
+  bool status;
+  uint8_t power_val[3] = {0};
+
+  status = controller_get_interface()->get_max_power_values(power_val);
+
+  if (!status)
+    return status;
+
+  if (power_val[0] != BT_DEFAULT_POWER) {
+    LOG_DEBUG(LOG_TAG, "%s using BR MAX POW from property", __func__);
+    tech_based_max_power->BR_max_pow_feature = true;
+    tech_based_max_power->BR_max_pow_support = power_val[0];
+  } else {
+    LOG_DEBUG(LOG_TAG,
+              "%s discarding BR MAX POW from property as it set to default",
+              __func__);
+  }
+
+  if (power_val[1] != BT_DEFAULT_POWER) {
+    LOG_DEBUG(LOG_TAG, "%s using EDR MAX POW from property", __func__);
+    tech_based_max_power->EDR_max_pow_feature = true;
+    tech_based_max_power->EDR_max_pow_support = power_val[1];
+  } else {
+    LOG_DEBUG(LOG_TAG,
+              "%s discarding EDR MAX POW from property as it set to default",
+              __func__);
+  }
+
+  if (power_val[2] != BT_DEFAULT_POWER) {
+    LOG_DEBUG(LOG_TAG, "%s using BLE MAX POW from property", __func__);
+    tech_based_max_power->BLE_max_pow_feature = true;
+    tech_based_max_power->BLE_max_pow_support = power_val[2];
+  } else {
+    LOG_DEBUG(LOG_TAG,
+              "%s discarding BLE MAX POW from property as it set to default",
+              __func__);
+  }
+
+  return status;
+}
+
 /*******************************************************************************
  *
  * Function         bta_dm_set_tech_based_max_power
@@ -4061,20 +4124,31 @@ void bta_dm_link_power_cntrl_callback(tBTM_VSC_CMPL *param)
  ******************************************************************************/
 static void bta_dm_set_tech_based_max_power(bool status) {
   uint8_t param[8] = {0};
-  param[0] = HCI_VS_SET_MAX_RADIATED_POWER_SUB_OPCODE;
   uint8_t HCI_VS_LINK_POWER_CTRL_PARAM_SIZE;
 
+  param[0] = HCI_VS_SET_MAX_RADIATED_POWER_SUB_OPCODE;
   if (status == true) {
     static max_pow_feature_t tech_based_max_power;
     uint8_t tech_count = 0, i = 2;
+    static bool is_values_read = false;
 
     APPL_TRACE_DEBUG("%s",__func__);
 
-    int tech_name;
-    for (tech_name = BR_MAX_POW_SUPPORT;tech_name <= BLE_MAX_POW_SUPPORT;tech_name++) {
-      tech_based_max_power = max_radiated_power_fetch(MAX_POW_ID, (profile_info_t)tech_name);
+    /* check whether the property is set, if property is enabled
+     * use those power values, else fall back to values set in config
+     * file.
+     */
+    if (!is_values_read && !get_max_power_values(&tech_based_max_power)) {
+      APPL_TRACE_DEBUG("%s will use MAX POW values from config file", __func__);
+      int tech_name;
+      for (tech_name = BR_MAX_POW_SUPPORT; tech_name <= BLE_MAX_POW_SUPPORT;
+           tech_name++) {
+        tech_based_max_power = max_radiated_power_fetch(MAX_POW_ID,
+                                (profile_info_t)tech_name);
+      }
     }
 
+    is_values_read = true;
     if (tech_based_max_power.BR_max_pow_feature == true) {
       param[1] = ++tech_count;
       param[i++] = BR_TECH_VALUE;

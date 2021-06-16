@@ -1266,9 +1266,12 @@ class HearingAidImpl : public HearingAid {
     size_t encoded_data_size =
         std::max(encoded_data_left.size(), encoded_data_right.size());
 
+    VLOG(2) << "encoded_data_size : " << encoded_data_size;
     uint16_t packet_size =
         CalcCompressedAudioPacketSize(codec_in_use, default_data_interval_ms);
-
+    if (encoded_data_size != 0 && packet_size > encoded_data_size)
+      packet_size = encoded_data_size;
+    VLOG(2) << "packet_size : " << packet_size;
     for (size_t i = 0; i < encoded_data_size; i += packet_size) {
       if (left) {
         left->audio_stats.packet_send_count++;
@@ -1417,8 +1420,13 @@ class HearingAidImpl : public HearingAid {
       }
 
       char eventtime[20];
-      char temptime[20];
-      struct tm* tstamp = localtime(&rssi_logs.timestamp.tv_sec);
+
+      /* Fix for below KW issue
+       * 'temptime' array elements might be used uninitialized in this function.
+       */
+      char temptime[20] = {0};
+
+        struct tm* tstamp = localtime(&rssi_logs.timestamp.tv_sec);
       if (tstamp && !strftime(temptime, sizeof(temptime), "%H:%M:%S", tstamp)) {
         LOG(ERROR) << __func__ << ": strftime fails. tm_sec=" << tstamp->tm_sec << ", tm_min=" << tstamp->tm_min
                    << ", tm_hour=" << tstamp->tm_hour;
