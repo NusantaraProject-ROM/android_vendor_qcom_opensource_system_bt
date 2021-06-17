@@ -4334,6 +4334,11 @@ bool l2cu_check_for_valid_sr_cids(tL2C_CCB** p_ccb, uint16_t* dest_cids,
     case L2CAP_ECFC_SOME_CONNS_REFUSED_INVALID_SOURCE_CID:
     case L2CAP_ECFC_SOME_CONNS_REFUSED_SOURCE_CID_ALREADY_ALLOCATED:
       //TODO move this functionality to separate API
+      if ((result != L2CAP_ECFC_ALL_CONNS_SUCCESSFUL) &&
+          (num_chnls == 1)) {
+          status = false;
+          break;
+      }
       for (int i = 0; i < num_chnls; i++) {
         if (dest_cids[i] == 0) {
           tL2C_CCB* tmp_ccb = l2cu_find_ccb_by_cid(p_lcb, actual_sr_cids[i]);
