@@ -34,7 +34,7 @@
 #include "bta_sys.h"
 #include "btm_api.h"
 #include "btm_int.h"
-#include "btif_sock_sdp.h"
+#include "btif/include/btif_sock_sdp.h"
 #include "osi/include/allocator.h"
 #include "sdp_api.h"
 #include "stack/sdp/sdpint.h"
