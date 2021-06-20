@@ -37,6 +37,7 @@
 #define HFP_VERSION_1_5 0x0105
 #define HFP_VERSION_1_6 0x0106
 #define HFP_VERSION_1_7 0x0107
+#define HFP_VERSION_1_8 0x0108
 
 #define HSP_VERSION_1_0 0x0100
 #define HSP_VERSION_1_2 0x0102
@@ -45,7 +46,7 @@
  * bta_hs_api.h, they are meant to be the same.
  */
 #ifndef BTA_HFP_VERSION
-#define BTA_HFP_VERSION HFP_VERSION_1_7
+#define BTA_HFP_VERSION HFP_VERSION_1_8
 #endif
 
 /* AG feature masks */
@@ -66,6 +67,14 @@
 /* HFP 1.7+ */
 #define BTA_AG_FEAT_HF_IND 0x00000400 /* HF Indicators */
 #define BTA_AG_FEAT_ESCO 0x00000800   /* eSCO S4 (and T2) setting supported */
+
+/* HFP 1.8+ */
+#define BTA_AG_FEAT_ENHC_VREC 0x00001000 /* Voice enhanced recognition status*/
+#define BTA_AG_FEAT_VREC_TEXT 0x00002000 /* Voice recognition text*/
+
+/* HFP 1.8+ for SDP supported features*/
+#define BTA_AG_SDP_FEAT_ENHC_VREC 0x00000040 /* Voice enhanced recognition status*/
+#define BTA_AG_SDP_FEAT_VREC_TEXT 0x00000080 /* Voice recognition text*/
 
 /* Proprietary features: using 31 ~ 16 bits */
 #define BTA_AG_FEAT_BTRH 0x00010000    /* CCAP incoming call hold */
@@ -143,6 +152,9 @@ typedef uint8_t tBTA_AG_STATUS;
 #define BTA_AG_UNAT_RES 20         /* Response to unknown AT command event */
 #define BTA_AG_MULTI_CALL_RES 21   /* SLC at three way call */
 #define BTA_AG_BIND_RES 22         /* Activate/Deactivate HF indicator */
+
+/* Enhanced voice recogniton activation */
+#define BTA_AG_ENHC_BVRA_RES 23     /* Update enhanced voice recognition state */
 #define BTA_AG_IND_RES_ON_DEMAND 33 /* Update an indicator value forcible */
 
 typedef uint8_t tBTA_AG_RES;
@@ -158,7 +170,8 @@ typedef uint8_t tBTA_AG_RES;
 #define BTA_AG_PEER_FEAT_CODEC 0x0080  /* Codec Negotiation */
 #define BTA_AG_PEER_FEAT_HF_IND 0x0100 /* HF Indicators */
 #define BTA_AG_PEER_FEAT_ESCO 0x0200   /* eSCO S4 (and T2) setting supported */
-
+#define BTA_AG_PEER_FEAT_ENHC_VREC 0x0400 /* Voice enhanced recognition */
+#define BTA_AG_PEER_FEAT_VREC_TEXT 0x0800 /* Voice recognition text */
 /* Proprietary features: using bits after 12 */
 
 /* Pass unknown AT command responses to application */

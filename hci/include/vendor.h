@@ -163,6 +163,7 @@ typedef enum {
   BT_HOST_REASON_NVM_PATCH_READ_STUCK            =  0x34,
   BT_HOST_REASON_UART_IOCTL_STUCK                =  0x35,
   BT_HOST_REASON_POWER_IOCTL_STUCK               =  0x36,
+  BT_HOST_REASON_PATCH_CONFIG_CMD_STUCK          =  0x37,
 
   // UART driver crash reasons
   UART_REASON_DEFAULT                            =  0x51,
@@ -279,6 +280,7 @@ static secondary_reason secondary_crash_reason [] = {
 { BT_HOST_REASON_RAM_PATCH_READ_STUCK            ,  "RAM patch open/read stuck"},
 { BT_HOST_REASON_NVM_PATCH_READ_STUCK            ,  "NVM file open/read stuck"},
 { BT_HOST_REASON_UART_IOCTL_STUCK                ,  "UART IOCTL stuck"},
+{ BT_HOST_REASON_PATCH_CONFIG_CMD_STUCK          ,  "Patch config cmd stuck"},
 { UART_REASON_DEFAULT                            ,  "UART reason Default"},
 { UART_REASON_INVALID_FW_LOADED                  ,  "UART invalid FW loaded"},
 { UART_REASON_CLK_GET_FAIL                       ,  "UART CLK get failed"},

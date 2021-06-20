@@ -359,9 +359,15 @@ bool bta_ag_sdp_find_attr(tBTA_AG_SCB* p_scb, tBTA_SERVICE_MASK service) {
           p_scb->peer_features = p_attr->attr_value.v.u16;
       }
 
-      /* Remote supports 1.7, store it in the file */
+      /* Remote supports 1.7, store it in HFP 1.7 BL file */
       if (p_scb->peer_version == HFP_VERSION_1_7) {
          interop_database_add_addr(INTEROP_HFP_1_7_BLACKLIST,
+                          &p_scb->peer_addr, 3);
+      }
+
+      /* Remote supports 1.8, store it in the HFP 1.8 BL file */
+      if (p_scb->peer_version == HFP_VERSION_1_8) {
+         interop_database_add_addr(INTEROP_HFP_1_8_BLACKLIST,
                           &p_scb->peer_addr, 3);
       }
     } else /* HSP */

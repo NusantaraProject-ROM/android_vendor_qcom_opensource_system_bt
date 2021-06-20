@@ -65,6 +65,7 @@ extern void btm_inq_remote_name_timer_timeout(void* data);
 /* Inquiry related functions */
 extern void btm_clr_inq_db(const RawAddress* p_bda);
 extern void btm_inq_db_init(void);
+extern void btm_inq_db_free(void);
 extern void btm_process_inq_results(uint8_t* p, uint8_t inq_res_mode);
 extern void btm_process_inq_complete(uint8_t status, uint8_t mode);
 extern void btm_process_cancel_complete(uint8_t status, uint8_t mode);
@@ -185,6 +186,7 @@ extern void btm_sco_flush_sco_data(uint16_t sco_inx);
  *********************************************
 */
 extern void btm_dev_init(void);
+extern void btm_dev_free(void);
 extern void btm_read_local_name_timeout(void* data);
 extern void btm_read_local_name_complete(uint8_t* p, uint16_t evt_len);
 
@@ -299,5 +301,10 @@ extern void btm_acl_reset_paging(void);
 extern void btm_acl_paging(BT_HDR* p, const RawAddress& dest);
 extern uint8_t btm_sec_clr_service_by_psm(uint16_t psm);
 extern void btm_sec_clr_temp_auth_service(const RawAddress& bda);
+
+extern uint8_t btm_acl_get_qcm_phy_state(const RawAddress& bda);
+extern void btm_acl_update_qcm_phy_state(uint8_t* p);
+extern bool btm_acl_qhs_phy_supported(const RawAddress& bda,
+                                        tBT_TRANSPORT transport);
 
 #endif

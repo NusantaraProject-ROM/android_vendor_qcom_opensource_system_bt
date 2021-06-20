@@ -107,6 +107,17 @@ void btm_dev_init(void) {
       ESCO_PKT_TYPES_MASK_EV4 + ESCO_PKT_TYPES_MASK_EV5;
 }
 
+void btm_dev_free() {
+  alarm_free(btm_cb.devcb.read_local_name_timer);
+  alarm_free(btm_cb.devcb.read_rssi_timer);
+  alarm_free(btm_cb.devcb.read_failed_contact_counter_timer);
+  alarm_free(btm_cb.devcb.read_automatic_flush_timeout_timer);
+  alarm_free(btm_cb.devcb.read_link_quality_timer);
+  alarm_free(btm_cb.devcb.read_inq_tx_power_timer);
+  alarm_free(btm_cb.devcb.qos_setup_timer);
+  alarm_free(btm_cb.devcb.read_tx_power_timer);
+}
+
 /*******************************************************************************
  *
  * Function         btm_db_reset
@@ -885,6 +896,9 @@ void btm_vendor_specific_evt(uint8_t* p, uint8_t evt_len) {
         break;
       case MSG_QBCE_REMOTE_SUPPORTED_QLL_FEATURES_COMPLETE:
         btm_ble_read_remote_supported_qll_features_complete(pp);
+        break;
+      case MSG_QBCE_QCM_PHY_CHANGE:
+        btm_acl_update_qcm_phy_state(pp);
         break;
       default:
         BTM_TRACE_ERROR("%s: unknown msg type: %d", __func__, vse_msg_type);

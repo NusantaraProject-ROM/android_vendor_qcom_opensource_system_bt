@@ -726,6 +726,19 @@ extern bool BTM_QHS_Phy_supported(uint16_t handle);
 
 /*******************************************************************************
  *
+ * Function         BTM_BleIsQHSPhySupported
+ *
+ * Description      This function is called to determine if QHS phy can be used
+ *
+ * Parameter        bda: BD address of the remote device
+ *
+ * Returns          bool true if qhs phy can be used, false otherwise
+ *
+ ******************************************************************************/
+extern bool BTM_BleIsQHSPhySupported(const RawAddress& bda);
+
+/*******************************************************************************
+ *
  * Function         BTM_BleSecurityProcedureIsRunning
  *
  * Description      This function indicates if LE security procedure is
