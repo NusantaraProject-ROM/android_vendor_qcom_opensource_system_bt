@@ -83,6 +83,9 @@ typedef struct {
 #define XMEM_STARTUP_TIMEOUT_MS    19900
 
 #define STRING_VALUE_OF(x) #x
+#define MAX_CMD_TIMEOUT           5000
+#define MAX_INC_CMD_TIMEOUT       3000
+#define INC_TIMEOUT_THRESHOLD     100
 
 // RT priority for HCI thread
 static const int BT_HCI_RT_PRIORITY = 1;
@@ -120,6 +123,16 @@ static alarm_t* command_response_timer;
 static list_t* commands_pending_response;
 static std::recursive_mutex commands_pending_response_mutex;
 
+static std::mutex monitor_cmd_stats;
+struct monitor_command {
+  period_ms_t lapsed_timeout;
+  unsigned int no_packets_rx;
+  unsigned int prev_no_packets;
+  bool is_monitor_enabled;
+};
+
+struct monitor_command cmd_stats;
+
 // The hand-off point for data going to a higher layer, set by the higher layer
 static base::Callback<void(const base::Location&, BT_HDR*)>
     send_data_upwards;
@@ -144,6 +157,15 @@ static void dispatch_reassembled(BT_HDR* packet);
 static void fragmenter_transmit_finished(BT_HDR* packet,
                                          bool all_fragments_sent);
 
+void inc_rx_packet_counter() {
+  std::lock_guard<std::mutex> lock(monitor_cmd_stats);
+
+  if (!cmd_stats.is_monitor_enabled)
+    return;
+
+  cmd_stats.no_packets_rx++;
+}
+
 static const packet_fragmenter_callbacks_t packet_fragmenter_callbacks = {
     transmit_fragment, dispatch_reassembled, fragmenter_transmit_finished};
 
@@ -155,6 +177,8 @@ void initialization_complete() {
 
 void hci_event_received(const base::Location& from_here,
                         BT_HDR* packet) {
+
+  inc_rx_packet_counter();
   btsnoop->capture(packet, true);
 
   if (!filter_incoming_event(packet)) {
@@ -163,6 +187,7 @@ void hci_event_received(const base::Location& from_here,
 }
 
 void acl_event_received(BT_HDR* packet) {
+  inc_rx_packet_counter();
   btsnoop->capture(packet, true);
   packet_fragmenter->reassemble_and_dispatch(packet);
 }
@@ -518,6 +543,30 @@ static void hci_timeout_abort(UNUSED_ATTR void *context) {
 // Print debugging information and quit. Don't dereference original_wait_entry.
 static void command_timed_out(void* original_wait_entry) {
   std::unique_lock<std::recursive_mutex> lock(commands_pending_response_mutex);
+  // Dynamically increase command timeout if applicable.
+  {
+    std::unique_lock<std::mutex> lock(monitor_cmd_stats);
+    if (cmd_stats.is_monitor_enabled && cmd_stats.no_packets_rx > 0 &&
+        cmd_stats.no_packets_rx > cmd_stats.prev_no_packets &&
+        cmd_stats.lapsed_timeout < MAX_CMD_TIMEOUT) {
+      unsigned int curr_no_packets = cmd_stats.no_packets_rx - cmd_stats.prev_no_packets;
+      cmd_stats.prev_no_packets = cmd_stats.no_packets_rx;
+      period_ms_t remaining_time = MAX_CMD_TIMEOUT - cmd_stats.lapsed_timeout;
+      period_ms_t new_timeout = (period_ms_t)(curr_no_packets * INC_TIMEOUT_THRESHOLD);
+      new_timeout = new_timeout > remaining_time ? remaining_time : new_timeout;
+
+      LOG_WARN(LOG_TAG, "%s: %d commands pending response "
+               "total no of packet rx: %u lapsed timeout:%llums "
+               "new timeout configured as %llums",
+               __func__, get_num_waiting_commands(), cmd_stats.no_packets_rx,
+              (unsigned long long)cmd_stats.lapsed_timeout,
+              (unsigned long long)new_timeout);
+      cmd_stats.lapsed_timeout += new_timeout;
+      alarm_set(command_response_timer, new_timeout, command_timed_out,
+                list_front(commands_pending_response));
+      return;
+    }
+  }
 
   LOG_ERROR(LOG_TAG, "%s: %d commands pending response", __func__,
             get_num_waiting_commands());
@@ -767,9 +816,23 @@ static void update_command_response_timer(void) {
       LOG_DEBUG(LOG_TAG,"%s command_response_timer not scheduled",
                 __func__);
     }
+    // Stop monitoring incoming events
+    {
+      std::unique_lock<std::mutex> lock(monitor_cmd_stats);
+      memset(&cmd_stats, 0, sizeof(struct monitor_command));
+    }
   } else {
     alarm_set(command_response_timer, COMMAND_PENDING_TIMEOUT_MS,
               command_timed_out, list_front(commands_pending_response));
+    /* This block of code executes when command is sent out.
+     * Start monitoring incoming events.
+     */
+    {
+      std::unique_lock<std::mutex> lock(monitor_cmd_stats);
+      memset(&cmd_stats, 0, sizeof(struct monitor_command));
+      cmd_stats.is_monitor_enabled = true;
+      cmd_stats.lapsed_timeout = COMMAND_PENDING_TIMEOUT_MS;
+    }
   }
 }
 
