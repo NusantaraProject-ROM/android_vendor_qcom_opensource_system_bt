@@ -2236,6 +2236,14 @@ bt_status_t HeadsetInterface::SendBsir(bool value, RawAddress* bd_addr) {
 bt_status_t HeadsetInterface::SetActiveDevice(RawAddress* active_device_addr) {
   CHECK_BTHF_INIT();
 
+  int idx = btif_hf_idx_by_bdaddr(active_device_addr);
+  if (idx < 0 || idx >= BTA_AG_MAX_NUM_CLIENTS) {
+     BTIF_TRACE_WARNING("%s: invalid index %d for %s", __func__, idx,
+                        active_device_addr->ToString().c_str());
+     return BT_STATUS_FAIL;
+  }
+
+  btif_hf_cb_t& control_block = btif_hf_cb[idx];
   if (!active_device_addr->IsEmpty()) {
     //If the app is setting a device as active, which is already active in stack,
     //return success
@@ -2256,6 +2264,13 @@ bt_status_t HeadsetInterface::SetActiveDevice(RawAddress* active_device_addr) {
     }
 
     active_bda = *active_device_addr;
+    if (btif_hf_features & BTA_AG_FEAT_INBAND) {
+       if ((BTA_AgInbandEnabled(control_block.handle) == false) && (get_connected_dev_count() == 1))
+       {
+          BTIF_TRACE_IMP("%s, Active device is being set, send BSIR 1 if it is disabled", __func__);
+          SendBsir(1, active_device_addr);
+       }
+    }
   } else {
     BTIF_TRACE_IMP("%s: set active bda to Empty", __func__);
     active_bda = RawAddress::kEmpty;
