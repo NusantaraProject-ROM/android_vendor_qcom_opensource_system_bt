@@ -2066,9 +2066,12 @@ bool btif_storage_is_restricted_device(const RawAddress* remote_bd_addr) {
 }
 
 int btif_storage_get_num_bonded_devices(void) {
-  btif_bonded_devices_t bonded_devices;
+  uint32_t num_bonded_devices = 0;
+  list_t *bonded_devices = list_new(osi_free);
   btif_in_fetch_bonded_devices(&bonded_devices, 0);
-  return bonded_devices.num_devices;
+  num_bonded_devices = list_length(bonded_devices);
+  list_free(bonded_devices);
+  return num_bonded_devices;
 }
 
 /*******************************************************************************
