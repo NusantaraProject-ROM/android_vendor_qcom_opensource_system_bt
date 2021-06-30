@@ -392,12 +392,16 @@ void bta_gattc_open_error(tBTA_GATTC_CLCB* p_clcb,
 }
 
 void bta_gattc_open_fail(tBTA_GATTC_CLCB* p_clcb,
-                         UNUSED_ATTR tBTA_GATTC_DATA* p_data) {
-  LOG(WARNING) << __func__ << ": Cannot establish Connection. conn_id="
-               << loghex(p_clcb->bta_conn_id) << ". Return GATT_ERROR("
-               << +GATT_ERROR << ")";
+                         tBTA_GATTC_DATA* p_data) {
+  tGATT_DISCONN_REASON disc_reason = GATT_ERROR;
 
-  bta_gattc_send_open_cback(p_clcb->p_rcb, GATT_ERROR, p_clcb->bda,
+  if (p_data != NULL) {
+    disc_reason = p_data->int_conn.reason;
+  }
+  LOG(WARNING) << __func__ << ": Cannot establish Connection. conn_id="
+               << loghex(p_clcb->bta_conn_id) << ". Return GATT_Status("
+               << +disc_reason << ")";
+  bta_gattc_send_open_cback(p_clcb->p_rcb, disc_reason, p_clcb->bda,
                             p_clcb->bta_conn_id, p_clcb->transport, 0);
   /* open failure, remove clcb */
   bta_gattc_clcb_dealloc(p_clcb);
@@ -412,7 +416,7 @@ void bta_gattc_open(tBTA_GATTC_CLCB* p_clcb, tBTA_GATTC_DATA* p_data) {
                     p_data->api_conn.transport, p_data->api_conn.opportunistic,
                     p_data->api_conn.initiating_phys)) {
     LOG(ERROR) << "Connection open failure";
-
+    p_data->int_conn.reason = GATT_ERROR;
     bta_gattc_sm_execute(p_clcb, BTA_GATTC_INT_OPEN_FAIL_EVT, p_data);
     return;
   }
