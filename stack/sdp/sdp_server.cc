@@ -280,27 +280,10 @@ int sdp_get_stored_avrc_tg_version(RawAddress addr)
 *******************************************************************************/
 bool sdp_dev_blacklisted_for_avrcp15 (RawAddress addr)
 {
-    if (interop_match_addr(INTEROP_ADV_AVRCP_VER_1_3, &addr)) {
-        bt_property_t prop_name;
-        bt_bdname_t bdname;
-
-        BTIF_STORAGE_FILL_PROPERTY(&prop_name, BT_PROPERTY_BDNAME,
-                               sizeof(bt_bdname_t), &bdname);
-        if (btif_storage_get_remote_device_property(&addr,
-                                              &prop_name) != BT_STATUS_SUCCESS)
-        {
-            SDP_TRACE_ERROR("%s: BT_PROPERTY_BDNAME failed, returning false", __func__);
-            return FALSE;
-        }
-
-        if (strlen((const char *)bdname.name) != 0 &&
-            interop_match_name(INTEROP_ADV_AVRCP_VER_1_3, (const char *)bdname.name))
-        {
-            SDP_TRACE_DEBUG("%s: advertise AVRCP version 1.3 for device", __func__);
-            return TRUE;
-        }
+    if (interop_match_addr_or_name(INTEROP_ADV_AVRCP_VER_1_3, &addr)) {
+        SDP_TRACE_DEBUG("%s: advertise AVRCP version 1.3 for devicei matched in BL DB", __func__);
+        return TRUE;
     }
-
     return FALSE;
 }
 
