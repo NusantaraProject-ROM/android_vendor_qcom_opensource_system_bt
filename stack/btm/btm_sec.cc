@@ -1487,6 +1487,11 @@ static tBTM_STATUS btm_sec_send_hci_disconnect(tBTM_SEC_DEV_REC* p_dev_rec,
       break;
   }
 
+  if (p_dev_rec->sec_state & BTM_SEC_STATE_DISCONNECTING_BLE) {
+    p_dev_rec->is_le_disc_pending = true;
+    BTM_TRACE_EVENT("btm_sec_send_hci_disconnect:  handle:0x%x, state =0x%x",
+        conn_handle, p_dev_rec->sec_state);
+  }
   /* If a role switch is in progress, delay the HCI Disconnect to avoid
    * controller problem */
   if (p_dev_rec->rs_disc_pending == BTM_SEC_RS_PENDING &&
