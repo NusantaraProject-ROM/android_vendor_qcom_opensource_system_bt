@@ -228,25 +228,28 @@ bool btm_ble_addr_resolvable(const RawAddress& rpa,
  * starting from calculating IRK. If the record index exceeds the maximum record
  * number, matching failed and send a callback. */
 static bool btm_ble_match_random_bda(void* data, void* context) {
-  BTM_TRACE_EVENT("%s next iteration", __func__);
   RawAddress* random_bda = (RawAddress*)context;
 
   tBTM_SEC_DEV_REC* p_dev_rec = static_cast<tBTM_SEC_DEV_REC*>(data);
 
-  BTM_TRACE_DEBUG("sec_flags = %02x device_type = %d", p_dev_rec->sec_flags,
-                  p_dev_rec->device_type);
 
   if (!(p_dev_rec->device_type & BT_DEVICE_TYPE_BLE) ||
-      !(p_dev_rec->ble.key_type & BTM_LE_KEY_PID))
+      !(p_dev_rec->ble.key_type & BTM_LE_KEY_PID)) {
+    BTM_TRACE_EVENT("%s not a LE paired device ,sec_flags = %02x device_type = %d", __func__,
+                  p_dev_rec->sec_flags, p_dev_rec->device_type);
     return true;
+  }
 
   if (rpa_matches_irk(*random_bda, p_dev_rec->ble.keys.irk)) {
-    BTM_TRACE_EVENT("match is found");
+    BTM_TRACE_EVENT("%s match is found ,sec_flags = %02x device_type = %d", __func__,
+                  p_dev_rec->sec_flags, p_dev_rec->device_type);
     // if it was match, finish iteration, otherwise continue
     return false;
   }
 
   // not a match, continue iteration
+  BTM_TRACE_DEBUG("%s next iteration ,sec_flags = %02x device_type = %d", __func__,
+                  p_dev_rec->sec_flags, p_dev_rec->device_type);
   return true;
 }
 
