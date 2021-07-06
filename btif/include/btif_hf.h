@@ -97,6 +97,9 @@ bt_status_t btif_hf_execute_service(bool b_enable);
 bt_status_t btif_hf_check_if_sco_connected();
 bool is_connected(RawAddress* bd_addr);
 void btif_in_hf_generic_evt(uint16_t event, char* p_param);
+#ifdef ADV_AUDIO_FEATURE
+void btif_ag_result(uint16_t enum_value, char* param);
+#endif
 
 
 }  // namespace headset
