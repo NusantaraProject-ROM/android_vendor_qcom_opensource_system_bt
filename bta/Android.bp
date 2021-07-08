@@ -155,6 +155,7 @@ cc_test {
     defaults: ["fluoride_bta_defaults_qti"],
     srcs: [
         "test/bta_hf_client_test.cc",
+        "test/bta_dip_test.cc",
         "test/gatt/database_builder_test.cc",
         "test/gatt/database_builder_sample_device_test.cc",
         "test/gatt/database_test.cc",

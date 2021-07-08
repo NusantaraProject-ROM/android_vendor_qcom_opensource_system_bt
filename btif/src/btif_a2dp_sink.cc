@@ -527,12 +527,15 @@ static void btif_a2dp_sink_decoder_update_event(
   }
 
   APPL_TRACE_DEBUG("%s: A2dpSink: SBC create track", __func__);
-  btif_a2dp_sink_cb.audio_track =
+  btif_a2dp_sink_cb.audio_track = NULL;
+  // TODO(b/190634467) troubleshoot root problem
+  /*
 #ifndef OS_GENERIC
       BtifAvrcpAudioTrackCreate(sample_rate, channel_type);
 #else
       NULL;
 #endif
+   * */
   if (btif_a2dp_sink_cb.audio_track == NULL) {
     APPL_TRACE_ERROR("%s: A2dpSink: Track creation failed", __func__);
     return;

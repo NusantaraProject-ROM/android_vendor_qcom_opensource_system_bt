@@ -211,13 +211,36 @@ void BTA_GATTC_Close(uint16_t conn_id) {
  * Returns          void
  *
  ******************************************************************************/
+
 void BTA_GATTC_ConfigureMTU(uint16_t conn_id, uint16_t mtu) {
+  BTA_GATTC_ConfigureMTU(conn_id, mtu, NULL, NULL);
+}
+
+/*******************************************************************************
+ *
+ * Function         BTA_GATTC_ConfigureMTU
+ *
+ * Description      Configure the MTU size in the GATT channel. This can be done
+ *                  only once per connection.
+ *
+ * Parameters       conn_id: connection ID.
+ *                  mtu: desired MTU size to use.
+ *                  callback: callback function
+ *                  cb_data:  parameter for callback function
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void BTA_GATTC_ConfigureMTU(uint16_t conn_id, uint16_t mtu,
+                            GATT_CONFIGURE_MTU_OP_CB callback, void* cb_data) {
   tBTA_GATTC_API_CFG_MTU* p_buf =
       (tBTA_GATTC_API_CFG_MTU*)osi_malloc(sizeof(tBTA_GATTC_API_CFG_MTU));
 
   p_buf->hdr.event = BTA_GATTC_API_CFG_MTU_EVT;
   p_buf->hdr.layer_specific = conn_id;
   p_buf->mtu = mtu;
+  p_buf->mtu_cb = callback;
+  p_buf->mtu_cb_data = cb_data;
 
   bta_sys_sendmsg(p_buf);
 }

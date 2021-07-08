@@ -573,7 +573,9 @@ bt_status_t btif_gattc_read_remote_rssi(int client_if,
 bt_status_t btif_gattc_configure_mtu(int conn_id, int mtu) {
   CHECK_BTGATT_INIT();
   return do_in_jni_thread(
-      Bind(base::IgnoreResult(&BTA_GATTC_ConfigureMTU), conn_id, mtu));
+      Bind(base::IgnoreResult(
+        static_cast<void (*)(uint16_t,uint16_t)>(&BTA_GATTC_ConfigureMTU)),
+        conn_id, mtu));
 }
 
 void btif_gattc_conn_parameter_update_impl(RawAddress addr, int min_interval,

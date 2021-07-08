@@ -578,6 +578,8 @@ typedef void (*GATT_WRITE_OP_CB)(uint16_t conn_id, tGATT_STATUS status,
                                  uint16_t handle, void* data);
 typedef void (*GATT_READ_MULTI_OP_CB)(uint16_t conn_id, tGATT_STATUS status,
                                       bool is_variable_len, uint16_t len, uint8_t* value);
+typedef void (*GATT_CONFIGURE_MTU_OP_CB)(uint16_t conn_id, tGATT_STATUS status,
+                                         void* data);
 
 /*******************************************************************************
  *
@@ -805,6 +807,25 @@ extern void BTA_GATTC_Refresh(const RawAddress& remote_bda);
  *
  ******************************************************************************/
 extern void BTA_GATTC_ConfigureMTU(uint16_t conn_id, uint16_t mtu);
+
+/*******************************************************************************
+ *
+ * Function         BTA_GATTC_ConfigureMTU
+ *
+ * Description      Configure the MTU size in the GATT channel. This can be done
+ *                  only once per connection.
+ *
+ * Parameters       conn_id: connection ID.
+ *                  mtu: desired MTU size to use.
+ *                  callback: callback function
+ *                  cb_data:  parameter for callback function
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+extern void BTA_GATTC_ConfigureMTU(uint16_t conn_id, uint16_t mtu,
+                                   GATT_CONFIGURE_MTU_OP_CB callback,
+                                   void* cb_data);
 
 /*******************************************************************************
  *  BTA GATT Server API
