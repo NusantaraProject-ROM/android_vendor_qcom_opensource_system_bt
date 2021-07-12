@@ -64,6 +64,7 @@ static void btm_read_remote_ext_features(uint16_t handle, uint8_t page_number);
 static void btm_process_remote_ext_features(tACL_CONN* p_acl_cb,
                                             uint8_t num_read_pages);
 static void btm_enable_link_PL10_adaptive_ctrl(uint16_t handle, bool enable);
+static bool btm_lmp_ver_blacklisted(const interop_feature_t feature, const RawAddress *addr);
 #if (BT_IOT_LOGGING_ENABLED == TRUE)
 extern void btm_iot_save_remote_properties(tACL_CONN *p_acl_cb);
 extern void btm_iot_save_remote_versions(tACL_CONN *p_acl_cb);
@@ -71,6 +72,8 @@ extern void btm_iot_save_remote_versions(tACL_CONN *p_acl_cb);
 
 /* 3 seconds timeout waiting for responses */
 #define BTM_DEV_REPLY_TIMEOUT_MS (3 * 1000)
+
+static uint16_t Whitelisted_lmp_manufacture = 0x000a;
 
 /*******************************************************************************
  *
@@ -881,7 +884,8 @@ tBTM_STATUS BTM_SetLinkPolicy(const RawAddress& remote_bda,
                     *settings);
     }
     if ((*settings & HCI_ENABLE_MASTER_SLAVE_SWITCH) &&
-        (interop_match_addr_or_name(INTEROP_DISABLE_ROLE_SWITCH_POLICY, &remote_bda)) ) {
+        (interop_match_addr_or_name(INTEROP_DISABLE_ROLE_SWITCH_POLICY, &remote_bda) ||
+         btm_lmp_ver_blacklisted(INTEROP_DISABLE_ROLE_SWITCH_POLICY, &remote_bda))) {
       *settings &= (~HCI_ENABLE_MASTER_SLAVE_SWITCH);
       BTM_TRACE_API ("BTM_SetLinkPolicy switch not supported (settings: 0x%04x)", *settings );
     }
@@ -3229,4 +3233,46 @@ bool btm_acl_qhs_phy_supported(const RawAddress& bda, tBT_TRANSPORT transport) {
                       __func__, transport, bda.ToString().c_str());
   }
   return ret;
+}
+
+/*******************************************************************************
+ *
+ * Function        btm_lmp_ver_blacklisted
+ *
+ * Description     This function is called to determine if remote blacklisted
+ *                 under lmp version
+ *
+ * Parameters      feature : blacklisted feature
+ *                 addr : BD address of the remote device
+ *
+ * Returns         True if remote blacklisted for lmp version, false otherwise.
+ *
+ ******************************************************************************/
+static bool btm_lmp_ver_blacklisted(const interop_feature_t feature, const RawAddress *addr) {
+  uint16_t manufacturer = 0;
+  uint16_t lmp_sub_version = 0;
+  uint8_t  lmp_version = 0;
+
+  if (BTM_ReadRemoteVersion(*addr, &lmp_version,
+      &manufacturer, &lmp_sub_version) == BTM_SUCCESS) {
+    if ((manufacturer == 0) ||
+        (lmp_version == 0) ||
+        (lmp_sub_version == 0)) {
+      return false;
+    } else if (manufacturer  == Whitelisted_lmp_manufacture) {
+      uint16_t interop_lmp_sub_version = 0;
+      uint8_t  interop_lmp_version = 0;
+      if (interop_database_match_addr_get_lmp_ver(feature,addr,
+          &interop_lmp_version,&interop_lmp_sub_version)) {
+        if ((interop_lmp_version == 0) || (interop_lmp_sub_version == 0)) {
+          return false;
+        } else if ((lmp_version < interop_lmp_version) ||
+                   ((lmp_version == interop_lmp_version) &&
+                   (lmp_sub_version < interop_lmp_sub_version))) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
 }
