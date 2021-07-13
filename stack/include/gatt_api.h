@@ -1218,4 +1218,7 @@ extern void gatt_notify_enc_cmpl(const RawAddress& bd_addr);
  * true, as there is no need to wipe controller white list in this case. */
 extern void gatt_reset_bgdev_list(bool after_reset);
 
+// Updates EATT support
+extern void gatt_update_eatt_support(RawAddress& bda);
+
 #endif /* GATT_API_H */

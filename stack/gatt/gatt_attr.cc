@@ -33,6 +33,7 @@
 #include "l2c_api.h"
 #include "btif_storage.h"
 #include "stack/gatt/eatt_int.h"
+#include "stack/btm/btm_int.h"
 
 using base::StringPrintf;
 using bluetooth::Uuid;
@@ -111,6 +112,7 @@ bool gatt_profile_sr_is_eatt_supported(uint16_t conn_id, uint16_t handle) {
   uint8_t cl_supp_feat = 0;
   uint8_t tcb_idx = GATT_GET_TCB_IDX(conn_id);
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
+  tBTM_SEC_DEV_REC* p_dev_rec = NULL;
 
   if (!gatt_cb.eatt_enabled) {
     VLOG(1) << __func__ << " EATT is not enabled";
@@ -139,9 +141,11 @@ bool gatt_profile_sr_is_eatt_supported(uint16_t conn_id, uint16_t handle) {
 
   cl_supp_feat = btif_storage_get_cl_supp_feat(p_tcb->peer_bda);
 
+  p_dev_rec = btm_find_dev(p_tcb->peer_bda);
   //EATT supported check for server side
   if(((cl_supp_feat & CL_EATT_SUPPORTED) == CL_EATT_SUPPORTED) &&
-      (gatt_attr_db[0].value[0] == SR_EATT_SUPPORTED)) {
+      (gatt_attr_db[0].value[0] == SR_EATT_SUPPORTED) &&
+      (p_dev_rec && (p_dev_rec->sec_flags & BTM_SEC_LE_ENCRYPTED))) {
     VLOG(1) << __func__ << " EATT is supported";
     return true;
   }
@@ -355,7 +359,6 @@ tGATT_STATUS proc_read(uint16_t conn_id, tGATT_READ_REQ* p_data,
 tGATT_STATUS proc_write_req(uint16_t conn_id, tGATT_WRITE_REQ* p_data) {
   tGATT_PROFILE_CLCB* p_clcb = NULL;
   uint8_t cl_supp_feat;
-  tGATT_TCB* p_tcb = NULL;
   VLOG(1) << __func__ << " conn_id:" << +conn_id;
 
   for (tGATT_ATTR_INFO& db_attr : gatt_attr_db) {
@@ -369,22 +372,9 @@ tGATT_STATUS proc_write_req(uint16_t conn_id, tGATT_WRITE_REQ* p_data) {
 
         uint8_t* p = p_data->value;
         STREAM_TO_UINT8(cl_supp_feat, p);
-
         btif_storage_set_cl_supp_feat(p_clcb->bda, cl_supp_feat);
 
-        if ((gatt_attr_db[0].value[0] == SR_EATT_SUPPORTED) &&
-           ((cl_supp_feat & CL_EATT_SUPPORTED) == CL_EATT_SUPPORTED)
-           && (p_clcb->transport == BT_TRANSPORT_LE)) {
-           p_tcb = gatt_find_tcb_by_addr(p_clcb->bda, BT_TRANSPORT_LE);
-           if (p_tcb) {
-             VLOG(1) << __func__ << " Set EATT Support";
-             p_tcb->is_eatt_supported = true;
-             gatt_eatt_bcb_alloc(p_tcb, L2CAP_ATT_CID, false, false);
-             //Add bda to EATT devices storage
-             btif_storage_add_eatt_support(p_clcb->bda);
-             gatt_add_eatt_device(p_clcb->bda);
-           }
-        }
+        gatt_update_eatt_support(p_clcb->bda);
         return GATT_SUCCESS;
       }
     }
@@ -945,4 +935,39 @@ void GATT_CheckEATTSupport(const RawAddress& remote_bda,
 
   p_clcb->sr_supp_feat_stage++;
   gatt_cl_check_eatt_support(p_clcb);
+}
+
+/*******************************************************************************
+ *
+ * Function         gatt_update_eatt_support
+ *
+ * Description      Update EATT Support
+ *
+ * Returns          none
+ *
+ ******************************************************************************/
+void gatt_update_eatt_support(RawAddress& bda) {
+  tGATT_TCB* p_tcb = gatt_find_tcb_by_addr(bda, BT_TRANSPORT_LE);
+  tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(bda);
+  if (!p_tcb) {
+    VLOG(1) << __func__ << " Error while updating EATT support";
+    return;
+  }
+
+  VLOG(1) << __func__;
+  if (!p_tcb->is_eatt_supported) {
+    uint8_t cl_supp_feat = btif_storage_get_cl_supp_feat(bda);
+    //EATT supported check for server side
+    if(((cl_supp_feat & CL_EATT_SUPPORTED) == CL_EATT_SUPPORTED) &&
+       (gatt_attr_db[0].value[0] == SR_EATT_SUPPORTED) &&
+       (p_dev_rec && (p_dev_rec->sec_flags & BTM_SEC_LE_ENCRYPTED))) {
+      VLOG(1) << __func__ << " Set EATT is supported";
+      p_tcb->is_eatt_supported = true;
+
+      gatt_eatt_bcb_alloc(p_tcb, L2CAP_ATT_CID, false, false);
+      //Add bda to EATT devices storage
+      btif_storage_add_eatt_support(bda);
+      gatt_add_eatt_device(bda);
+    }
+  }
 }
