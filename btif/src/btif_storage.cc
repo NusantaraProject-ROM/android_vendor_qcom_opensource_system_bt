@@ -2065,6 +2065,12 @@ bool btif_storage_is_restricted_device(const RawAddress* remote_bd_addr) {
   return btif_config_exist(remote_bd_addr->ToString().c_str(), "Restricted");
 }
 
+int btif_storage_get_num_bonded_devices(void) {
+  btif_bonded_devices_t bonded_devices;
+  btif_in_fetch_bonded_devices(&bonded_devices, 0);
+  return bonded_devices.num_devices;
+}
+
 /*******************************************************************************
  * Function         btif_storage_load_hidd
  *
