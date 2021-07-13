@@ -24,7 +24,6 @@
 #include <ctype.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
-#include <private/android_filesystem_config.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -41,6 +40,7 @@
 #include "btif_config_transcode.h"
 #include "btif_util.h"
 #include "common/address_obfuscator.h"
+#include "common/os_utils.h"
 #include "osi/include/alarm.h"
 #include "osi/include/allocator.h"
 #include "osi/include/compat.h"
@@ -90,9 +90,7 @@ static config_t* btif_config_open(const char* filename);
 static bool config_checksum_pass(int check_bit) {
   return ((get_niap_config_compare_result() & check_bit) == check_bit);
 }
-static bool btif_is_niap_mode() {
-  return getuid() == AID_BLUETOOTH && is_niap_mode();
-}
+static bool btif_is_niap_mode() { return is_bluetooth_uid() && is_niap_mode(); }
 static bool btif_in_encrypt_key_name_list(std::string key);
 
 static const int CONFIG_FILE_COMPARE_PASS = 1;

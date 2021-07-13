@@ -38,6 +38,7 @@
 #include "bt_utils.h"
 #include "btu.h"
 #include "btif/include/btif_av.h"
+#include "log/log.h"
 #include "osi/include/osi.h"
 #include "stack/include/a2dp_sbc_constants.h"
 
