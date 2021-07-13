@@ -834,9 +834,6 @@ void l2c_lcc_proc_pdu(tL2C_CCB* p_ccb, BT_HDR* p_buf) {
   }
 
   if (p_ccb->is_first_seg) {
-    //TODO remove this log after testing
-    L2CAP_TRACE_WARNING("%s: buffer length=%d ",
-                        __func__, p_buf->len);
     if (p_buf->len < sizeof(sdu_length)) {
       L2CAP_TRACE_ERROR("%s: buffer length=%d too small. Need at least 2.",
                         __func__, p_buf->len);
@@ -879,10 +876,6 @@ void l2c_lcc_proc_pdu(tL2C_CCB* p_ccb, BT_HDR* p_buf) {
 
   } else {
     p_data = p_ccb->ble_sdu;
-	//TODO remove this log after testing
-    L2CAP_TRACE_WARNING("%s: buffer length=%d max=%d ",
-                        __func__, p_data->len,
-                        (p_ccb->ble_sdu_length - p_data->len));
     if (p_buf->len > (p_ccb->ble_sdu_length - p_data->len)) {
       L2CAP_TRACE_ERROR("%s: buffer length=%d too big. max=%d. Dropped",
                         __func__, p_data->len,
