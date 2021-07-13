@@ -761,6 +761,13 @@ void l2cble_process_sig_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
         LOG(ERROR) << "invalid CMD LEN L2CAP_CMD_CREDIT_BASED_CONNECTION_REQ";
         return;
       }
+
+      if (p + L2CAP_CMD_CREDIT_BASED_CONN_MIN_LEN > p_pkt_end ||
+          cmd_len > L2CAP_CMD_CREDIT_BASED_CONN_MAX_LEN) {
+        LOG(ERROR) << "invalid cmd length";
+        return;
+      }
+
       /* ECFC contains max 5 channels and each channels will be 2 bytes. Hence
        * Divided by 2 will get number of channels
        */
