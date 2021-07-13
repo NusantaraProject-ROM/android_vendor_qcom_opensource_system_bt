@@ -40,6 +40,7 @@
 
 using bluetooth::Uuid;
 
+extern bool BTM_GetLeDisconnectStatus(const RawAddress& address);
 extern bool BTM_BackgroundConnectAddressKnown(const RawAddress& address);
 /**
  * Add an service handle range to the list in decending order of the start
@@ -1380,6 +1381,11 @@ bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, bool is_direct,
 
   if (!is_direct && transport != BT_TRANSPORT_LE) {
     LOG(ERROR) << "Unsupported transport for background connection";
+    return false;
+  }
+
+  if (BTM_GetLeDisconnectStatus(bd_addr)) {
+    LOG(ERROR) << "Link Level Disconnection is progress. Wait for it";
     return false;
   }
 

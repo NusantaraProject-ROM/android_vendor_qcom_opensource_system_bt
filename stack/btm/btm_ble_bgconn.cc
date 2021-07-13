@@ -551,3 +551,15 @@ void BTM_WhiteListClear() {
   btsnd_hcic_ble_clear_white_list(base::Bind(&wl_clear_complete));
   background_connections_clear();
 }
+
+/** Returns the hci disconnect is in progress or not */
+bool BTM_GetLeDisconnectStatus(const RawAddress& address) {
+  tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(address);
+
+  if (p_dev_rec != NULL) {
+    VLOG(1) << __func__ << " is_le_disc_pending " << p_dev_rec->is_le_disc_pending;
+    return p_dev_rec->is_le_disc_pending;
+  }
+
+  return false;
+}

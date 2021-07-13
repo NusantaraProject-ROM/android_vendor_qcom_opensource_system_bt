@@ -439,6 +439,7 @@ void btm_acl_removed(const RawAddress& bda, tBT_TRANSPORT transport) {
       BTM_TRACE_DEBUG("before update p_dev_rec->sec_flags=0x%x",
                       p_dev_rec->sec_flags);
       if (p->transport == BT_TRANSPORT_LE) {
+        p_dev_rec->is_le_disc_pending = false;
         BTM_TRACE_DEBUG("LE link down");
         p_dev_rec->sec_flags &= ~(BTM_SEC_LE_ENCRYPTED | BTM_SEC_ROLE_SWITCHED);
         if ((p_dev_rec->sec_flags & BTM_SEC_LE_LINK_KEY_KNOWN) == 0) {
