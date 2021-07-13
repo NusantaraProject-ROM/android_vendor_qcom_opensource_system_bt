@@ -396,8 +396,7 @@ tGATT_EBCB* gatt_find_best_eatt_bcb(tGATT_TCB* p_tcb, tGATT_IF gatt_if, uint16_t
   for (i = 0; i < GATT_MAX_EATT_CHANNELS; i++) {
     if (gatt_cb.eatt_bcb[i].in_use && (gatt_cb.eatt_bcb[i].p_tcb->peer_bda == p_tcb->peer_bda)
         && (!gatt_cb.eatt_bcb[i].create_in_prg) && (!gatt_cb.eatt_bcb[i].disconn_in_prg)
-        && (gatt_cb.eatt_bcb[i].cid != L2CAP_ATT_CID) && (p_reg && p_reg->eatt_support)
-        && (!gatt_cb.eatt_bcb[i].is_remote_initiated)) {
+        && (gatt_cb.eatt_bcb[i].cid != L2CAP_ATT_CID) && (p_reg && p_reg->eatt_support)) {
       if (old_cid > 0) {
         if ((p_eatt_bcb_old) && (gatt_cb.eatt_bcb[i].payload_size < p_eatt_bcb_old->payload_size)) {
           continue;

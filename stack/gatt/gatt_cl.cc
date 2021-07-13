@@ -1147,18 +1147,6 @@ void gatt_process_mtu_rsp(tGATT_TCB& tcb, tGATT_CLCB* p_clcb, uint16_t len,
       p_eatt_bcb->payload_size = tcb.payload_size;
 
     if (tcb.is_eatt_supported) {
-      if (!tcb.is_conn_cb_sent_eatt_sr_apps) {
-        for (size_t i=0; i<tcb.sr_eatt_apps.size(); i++) {
-          tGATT_IF gatt_if = tcb.sr_eatt_apps[i];
-          tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
-          if (p_reg && p_reg->app_cb.p_conn_cb) {
-            uint16_t conn_id = GATT_CREATE_CONN_ID(tcb.tcb_idx, p_reg->gatt_if);
-            (*p_reg->app_cb.p_conn_cb)(p_reg->gatt_if, tcb.peer_bda, conn_id,
-                                       true, 0, tcb.transport);
-          }
-        }
-      }
-
       VLOG(1) << __func__ << " upgrade to EATT conn after LE connection";
       gatt_upgrade_conn(&tcb);
     }
