@@ -29,7 +29,7 @@
  *  Constants & Macros
  ******************************************************************************/
 #define BT_PROPERTY_REM_DEViCE_VALID_ADDR 0xA3
-#define BT_PROPERTY_GROUP_DETAILS 0x10
+#define BT_PROPERTY_GROUP_DETAILS 0x11
 #define BT_PROPERTY_ADV_AUDIO_UUIDS 0xA0
 #define BT_PROPERTY_ADV_AUDIO_ACTION_UUID 0xA1
 #define BT_PROPERTY_UUID_ON_TRANSPORT 0xA2
