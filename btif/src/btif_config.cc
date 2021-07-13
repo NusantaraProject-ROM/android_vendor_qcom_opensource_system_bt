@@ -88,9 +88,12 @@ static config_t* btif_config_open(const char* filename);
 
 // Key attestation
 static bool config_checksum_pass(int check_bit) {
-  return ((get_niap_config_compare_result() & check_bit) == check_bit);
+  return ((get_common_criteria_config_compare_result() & check_bit) ==
+          check_bit);
 }
-static bool btif_is_niap_mode() { return is_bluetooth_uid() && is_niap_mode(); }
+static bool btif_is_common_criteria_mode() {
+  return is_bluetooth_uid() && is_common_criteria_mode();
+}
 static bool btif_in_encrypt_key_name_list(std::string key);
 
 static const int CONFIG_FILE_COMPARE_PASS = 1;
@@ -496,7 +499,7 @@ bool btif_config_get_bin(const char* section, const char* key, uint8_t* value,
     sscanf(cvalue_str, "%02hhx", &value[*length]);
   }
 
-  if (btif_is_niap_mode()) {
+  if (btif_is_common_criteria_mode()) {
     if (in_encrypt_key_name_list && !is_key_encrypted) {
       get_bluetooth_keystore_interface()->set_encrypt_key_or_remove_key(
           section + std::string("-") + key, &value_str_from_config[0]);
@@ -542,7 +545,7 @@ bool btif_config_set_bin(const char* section, const char* key,
   }
 
   std::string value_str;
-  if ((length > 0) && btif_is_niap_mode() &&
+  if ((length > 0) && btif_is_common_criteria_mode() &&
       btif_in_encrypt_key_name_list(key)) {
     get_bluetooth_keystore_interface()->set_encrypt_key_or_remove_key(
         section + std::string("-") + key, str);
@@ -590,7 +593,7 @@ bool btif_config_remove(const char* section, const char* key) {
   CHECK(section != NULL);
   CHECK(key != NULL);
 
-  if (is_niap_mode() && btif_in_encrypt_key_name_list(key)) {
+  if (is_common_criteria_mode() && btif_in_encrypt_key_name_list(key)) {
     get_bluetooth_keystore_interface()->set_encrypt_key_or_remove_key(
         section + std::string("-") + key, "");
   }
@@ -652,7 +655,7 @@ static void btif_config_write(UNUSED_ATTR uint16_t event,
     config_save(config_paired, CONFIG_FILE_PATH);
     config_free(config_paired);
   }
-  if (btif_is_niap_mode()) {
+  if (btif_is_common_criteria_mode()) {
     get_bluetooth_keystore_interface()->set_encrypt_key_or_remove_key(
         CONFIG_FILE_PREFIX, CONFIG_FILE_HASH);
   }
