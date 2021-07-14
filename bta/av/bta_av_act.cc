@@ -1796,7 +1796,7 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
        * the L2CAP connection stage.
        */
       if ((p_data->hdr.offset == AVDT_ACP) &&
-          (AVDT_GetServiceBusyState() == true)) {
+          (AVDT_GetServiceBusyState(p_data->str_msg.bd_addr) == true)) {
         APPL_TRACE_ERROR("%s(): Incoming conn while processing another.. Reject",
                          __func__);
         AVDT_DisconnectReq(p_data->str_msg.bd_addr, NULL);

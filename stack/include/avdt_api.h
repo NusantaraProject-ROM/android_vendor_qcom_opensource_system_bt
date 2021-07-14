@@ -506,7 +506,7 @@ extern void AVDT_Deregister(void);
  * Returns          void
  *
  ******************************************************************************/
-void AVDT_UpdateServiceBusyState(bool state);
+void AVDT_UpdateServiceBusyState(bool state, RawAddress bd_addr);
 
 /*******************************************************************************
  *
@@ -518,7 +518,7 @@ void AVDT_UpdateServiceBusyState(bool state);
  * Returns          outgoing connection in progress or not
  *
  ******************************************************************************/
-bool AVDT_GetServiceBusyState(void);
+bool AVDT_GetServiceBusyState(RawAddress bd_addr);
 
 /*******************************************************************************
  *

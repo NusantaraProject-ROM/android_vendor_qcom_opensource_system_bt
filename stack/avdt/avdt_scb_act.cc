@@ -607,10 +607,10 @@ void avdt_scb_hdl_setconfig_cmd(tAVDT_SCB* p_scb, tAVDT_SCB_EVT* p_data) {
   tAVDT_CFG* p_cfg;
   tA2DP_CODEC_TYPE codec_type;
   AVDT_TRACE_WARNING("avdt_scb_hdl_setconfig_cmd: SCB in use: %d, Conn in progress: %d, avdt_check_sep_state: %d",
-       p_scb->in_use, avdt_cb.conn_in_progress, avdt_check_sep_state(p_scb));
+       p_scb->in_use, avdt_cb.conn_in_progress[p_scb->peer_addr], avdt_check_sep_state(p_scb));
 
   if ((!p_scb->in_use) && !(avdt_check_sep_state(p_scb)) &&
-      (!avdt_cb.conn_in_progress)) {
+      (!avdt_cb.conn_in_progress[p_scb->peer_addr])) {
     A2DP_DumpCodecInfo(p_scb->cs.cfg.codec_info);
     A2DP_DumpCodecInfo(p_data->msg.config_cmd.p_cfg->codec_info);
     p_cfg = p_data->msg.config_cmd.p_cfg;
