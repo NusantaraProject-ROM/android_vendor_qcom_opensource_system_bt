@@ -336,11 +336,11 @@ void bta_gattc_process_api_open_cancel(tBTA_GATTC_DATA* p_msg) {
   uint16_t event = ((BT_HDR*)p_msg)->event;
 
   if (!p_msg->api_cancel_conn.is_direct) {
-    LOG_DEBUG("Cancel GATT client background connection");
+    LOG(INFO) << "Cancel GATT client background connection";
     bta_gattc_cancel_bk_conn(&p_msg->api_cancel_conn);
     return;
   }
-  LOG_DEBUG("Cancel GATT client direct connection");
+  LOG(INFO) << "Cancel GATT client direct connection";
 
   tBTA_GATTC_CLCB* p_clcb = bta_gattc_find_clcb_by_cif(
       p_msg->api_cancel_conn.client_if, p_msg->api_cancel_conn.remote_bda,
@@ -649,14 +649,14 @@ void bta_gattc_close(tBTA_GATTC_CLCB* p_clcb, tBTA_GATTC_DATA* p_data) {
 
   if (p_data->hdr.event == BTA_GATTC_API_CLOSE_EVT) {
     GATT_Disconnect(p_data->hdr.layer_specific);
-    LOG_DEBUG("Local close event client_if:%hu conn_id:%hu reason:%hu",
-              cb_data.close.client_if, cb_data.close.conn_id,
-              cb_data.close.reason);
+    LOG(INFO) << "Local close event client_if: " << cb_data.close.client_if
+               << " conn_id: " << cb_data.close.conn_id << " reason: "
+               << cb_data.close.reason;
   } else if (p_data->hdr.event == BTA_GATTC_INT_DISCONN_EVT) {
     cb_data.close.reason = p_data->int_conn.reason;
-    LOG_DEBUG(
-        "Peer close disconnect event client_if:%hu conn_id:%hu reason:%hu",
-        cb_data.close.client_if, cb_data.close.conn_id, cb_data.close.reason);
+    LOG(INFO) << "Peer close disconnect event client_if: "
+      << cb_data.close.client_if << " conn_id: " << cb_data.close.conn_id
+      << " reason: " << cb_data.close.reason;
   }
 
   if (p_cback) (*p_cback)(BTA_GATTC_CLOSE_EVT, &cb_data);

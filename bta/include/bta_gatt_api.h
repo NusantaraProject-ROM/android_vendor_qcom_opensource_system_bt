@@ -153,7 +153,6 @@ typedef struct {
 } tBTA_GATTC_OPEN;
 
 typedef struct {
-  tGATT_STATUS status;
   uint16_t conn_id;
   tGATT_STATUS status;
   tGATT_IF client_if;
