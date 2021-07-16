@@ -653,6 +653,7 @@ void bta_gattc_close(tBTA_GATTC_CLCB* p_clcb, tBTA_GATTC_DATA* p_data) {
                << " conn_id: " << cb_data.close.conn_id << " reason: "
                << cb_data.close.reason;
   } else if (p_data->hdr.event == BTA_GATTC_INT_DISCONN_EVT) {
+    cb_data.close.status = p_data->int_conn.reason;
     cb_data.close.reason = p_data->int_conn.reason;
     LOG(INFO) << "Peer close disconnect event client_if: "
       << cb_data.close.client_if << " conn_id: " << cb_data.close.conn_id
