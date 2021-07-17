@@ -89,6 +89,9 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bta_ag_twsp.h"
 #endif
 #include "device/include/device_iot_config.h"
+#ifdef ADV_AUDIO_FEATURE
+#include <hardware/bt_apm.h>
+#endif
 
 namespace bluetooth {
 namespace headset {
@@ -139,6 +142,14 @@ static uint32_t btif_hf_features = BTIF_HF_FEATURES;
 /* Max HF clients supported from App */
 uint16_t btif_max_hf_clients = 1;
 static RawAddress active_bda = {};
+
+#ifdef ADV_AUDIO_FEATURE
+typedef struct {
+    RawAddress peer_bda;
+    uint16_t handle;
+    tBTA_AG_RES_DATA ag_response_structure;
+} btif_post_ag_params_t;
+#endif
 
 /*******************************************************************************
  *  Local type definitions
@@ -351,7 +362,18 @@ static void send_indicator_update(const btif_hf_cb_t& control_block,
   ag_res.ind.id = indicator;
   ag_res.ind.value = value;
 
+#ifdef ADV_AUDIO_FEATURE
+  btif_post_ag_params_t new_bta_ag_params;
+  new_bta_ag_params.peer_bda = control_block.connected_bda;
+  new_bta_ag_params.handle = control_block.handle;
+  memset(&new_bta_ag_params.ag_response_structure, 0, sizeof(tBTA_AG_RES_DATA));
+  memcpy(&new_bta_ag_params.ag_response_structure, &ag_res, sizeof(tBTA_AG_RES_DATA));
+  int btif_transf_status = btif_transfer_context(btif_ag_result, uint8_t(BTA_AG_IND_RES),
+                               (char *)&new_bta_ag_params, sizeof(new_bta_ag_params), NULL);
+  BTIF_TRACE_IMP("%s: btif_trans_status:%d doing it in btif thread", __func__, btif_transf_status);
+#else
   BTA_AgResult(control_block.handle, BTA_AG_IND_RES, &ag_res);
+#endif
 }
 
 void clear_phone_state_multihf(int idx) {
@@ -1747,6 +1769,18 @@ bt_status_t HeadsetInterface::ClccResponse(int index, bthf_call_direction_t dir,
   return BT_STATUS_FAIL;
 }
 
+#ifdef ADV_AUDIO_FEATURE
+/*******************************************************************************
+         Btif_ag_result_function
+*******************************************************************************/
+void btif_ag_result(uint16_t enum_value, char * params) {
+    BTIF_TRACE_IMP("%s: switched to btif context", __func__);
+    btif_post_ag_params_t new_bta_ag_params;
+    memcpy(&new_bta_ag_params, params, sizeof(new_bta_ag_params));
+    call_active_profile_info(new_bta_ag_params.peer_bda, 0);
+    BTA_AgResult(new_bta_ag_params.handle, enum_value, &new_bta_ag_params.ag_response_structure);
+}
+#endif
 /*******************************************************************************
  *
  * Function         PhoneStateChange
@@ -1818,7 +1852,17 @@ bt_status_t HeadsetInterface::PhoneStateChange(
   /* if all indicators are 0, send end call and return */
   if (num_active == 0 && num_held == 0 &&
       call_setup_state == BTHF_CALL_STATE_IDLE) {
-    BTA_AgResult(control_block.handle, BTA_AG_END_CALL_RES, NULL);
+#ifdef ADV_AUDIO_FEATURE
+      btif_post_ag_params_t new_bta_ag_params;
+      new_bta_ag_params.peer_bda = *bd_addr;
+      new_bta_ag_params.handle = control_block.handle;
+      memset(&new_bta_ag_params.ag_response_structure, 0, sizeof(tBTA_AG_RES_DATA));
+      int btif_transf_status = btif_transfer_context(btif_ag_result, uint8_t(BTA_AG_END_CALL_RES),
+                                    (char *)&new_bta_ag_params, sizeof(new_bta_ag_params), NULL);
+      BTIF_TRACE_IMP("%s: btif_trans_status is %d", __func__, btif_transf_status);
+#else
+      BTA_AgResult(control_block.handle, BTA_AG_END_CALL_RES, NULL);
+#endif
 
     /* if held call was present, reset that as well */
     if (control_block.num_held)
@@ -1882,7 +1926,18 @@ bt_status_t HeadsetInterface::PhoneStateChange(
       res = BTA_AG_MULTI_CALL_RES;
     else
       res = BTA_AG_OUT_CALL_CONN_RES;
+#ifdef ADV_AUDIO_FEATURE
+    btif_post_ag_params_t new_bta_ag_params;
+    new_bta_ag_params.peer_bda = *bd_addr;
+    new_bta_ag_params.handle = control_block.handle;
+    memset(&new_bta_ag_params.ag_response_structure, 0, sizeof(tBTA_AG_RES_DATA));
+    memcpy(&new_bta_ag_params.ag_response_structure, &ag_res, sizeof(tBTA_AG_RES_DATA));
+    int btif_transf_status = btif_transfer_context(btif_ag_result, uint8_t(res),
+                              (char *)&new_bta_ag_params, sizeof(new_bta_ag_params), NULL);
+    BTIF_TRACE_IMP("%s: btif_trans_status is %d", __func__, btif_transf_status);
+#else
     BTA_AgResult(control_block.handle, res, &ag_res);
+#endif
     active_call_updated = true;
   }
 
@@ -2083,8 +2138,20 @@ bt_status_t HeadsetInterface::PhoneStateChange(
     BTIF_TRACE_IMP("%s: Call setup state changed. res=%d, audio_handle=%d",
                      __func__, res, ag_res.audio_handle);
 
-    if (res)
-      BTA_AgResult(control_block.handle, res, &ag_res);
+    if (res) {
+#ifdef ADV_AUDIO_FEATURE
+       btif_post_ag_params_t new_bta_ag_params;
+       new_bta_ag_params.peer_bda = *bd_addr;
+       new_bta_ag_params.handle = control_block.handle;
+       memset(&new_bta_ag_params.ag_response_structure, 0, sizeof(tBTA_AG_RES_DATA));
+       memcpy(&new_bta_ag_params.ag_response_structure, &ag_res, sizeof(tBTA_AG_RES_DATA));
+       int btif_transf_status = btif_transfer_context(btif_ag_result, uint8_t(res),
+                               (char *)&new_bta_ag_params, sizeof(new_bta_ag_params), NULL);
+       BTIF_TRACE_IMP("%s: btif_trans_status is %d", __func__, btif_transf_status);
+#else
+       BTA_AgResult(control_block.handle, res, &ag_res);
+#endif
+    }
 
     /* if call setup is idle, we have already updated call indicator, jump out
      */
@@ -2144,7 +2211,18 @@ bt_status_t HeadsetInterface::PhoneStateChange(
     memset(&ag_res, 0, sizeof(tBTA_AG_RES_DATA));
     ag_res.ind.id = BTA_AG_IND_CALL;
     ag_res.ind.value = num_active;
+#ifdef ADV_AUDIO_FEATURE
+    btif_post_ag_params_t new_bta_ag_params;
+    new_bta_ag_params.peer_bda = *bd_addr;
+    new_bta_ag_params.handle = control_block.handle;
+    memset(&new_bta_ag_params.ag_response_structure, 0, sizeof(tBTA_AG_RES_DATA));
+    memcpy(&new_bta_ag_params.ag_response_structure, &ag_res, sizeof(tBTA_AG_RES_DATA));
+    int btif_transf_status =btif_transfer_context(btif_ag_result, uint8_t(BTA_AG_IND_RES_ON_DEMAND),
+                             (char *)&new_bta_ag_params, sizeof(new_bta_ag_params), NULL);
+    BTIF_TRACE_IMP("%s: btif_trans_status is %d", __func__, btif_transf_status);
+#else
     BTA_AgResult(control_block.handle, BTA_AG_IND_RES_ON_DEMAND, &ag_res);
+#endif
   }
 
   UpdateCallStates(&btif_hf_cb[idx], num_active, num_held, call_setup_state);

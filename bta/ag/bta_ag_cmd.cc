@@ -78,6 +78,9 @@
 #if (SWB_ENABLED == TRUE)
 #include "bta_ag_swb.h"
 #endif
+#ifdef ADV_AUDIO_FEATURE
+#include <hardware/bt_apm.h>
+#endif
 
 /*****************************************************************************
  *  Constants
@@ -282,6 +285,30 @@ void bta_ag_send_result(tBTA_AG_SCB* p_scb, size_t code,
               code);
     return;
   }
+
+  #ifdef ADV_AUDIO_FEATURE
+   if ((p_scb->conn_service == BTA_AG_HFP) && (p_scb->svc_conn)) {
+      switch (code) {
+          case BTA_AG_INBAND_RING_RES:
+          case BTA_AG_IND_RES:
+          case BTA_AG_IN_CALL_RES:
+          case BTA_AG_IN_CALL_CONN_RES:
+          case BTA_AG_CALL_WAIT_RES:
+          case BTA_AG_OUT_CALL_ORIG_RES:
+          case BTA_AG_OUT_CALL_ALERT_RES:
+          case BTA_AG_CALL_CANCEL_RES:
+          case BTA_AG_END_CALL_RES:
+          case BTA_AG_IN_CALL_HELD_RES:
+          case BTA_AG_MULTI_CALL_RES:
+              int profile_info = get_active_profile(p_scb->peer_addr, 0);
+              APPL_TRACE_DEBUG("%s: Profile for Call Audio is %d", __func__, profile_info);
+              if (profile_info != 0x0002) {
+                APPL_TRACE_WARNING("%s: HFP is not active, not sending responses", __func__);
+                return;
+              }
+          }
+   }
+  #endif
 
   char buf[BTA_AG_AT_MAX_LEN + 16];
   char* p = buf;
