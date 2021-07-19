@@ -151,7 +151,7 @@ void gatt_init(void) {
   fixed_reg.pL2CA_FixedCong_Cb = gatt_le_cong_cback; /* congestion callback */
   fixed_reg.default_idle_tout = 0xffff; /* 0xffff default idle timeout */
 
-  if (property_get("persist.vendor.btstack.enable.eatt", eatt_enabled_prop, "false")
+  if (property_get("persist.vendor.btstack.enable.eatt", eatt_enabled_prop, "true")
       && !strcmp(eatt_enabled_prop, "true")) {
     gatt_cb.eatt_enabled = true;
   }
