@@ -1039,6 +1039,11 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
   // Select the sample frequency
   //
   sampleRate = a2dp_aptx_adaptive_caps.sampleRate & sink_info_cie.sampleRate;
+  LOG_ERROR(LOG_TAG,
+              "%s: Sample rate: source caps = 0x%x "
+              "sink info = 0x%x",
+              __func__, a2dp_aptx_adaptive_caps.sampleRate,
+              sink_info_cie.sampleRate);
   codec_config_.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_NONE;
   switch (codec_user_config_.sample_rate) {
     case BTAV_A2DP_CODEC_SAMPLE_RATE_44100:
@@ -1075,6 +1080,7 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
   // Select the sample frequency if there is no user preference
   do {
     // Compute the selectable capability
+    codec_selectable_capability_.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_NONE;
     if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_44100) {
       codec_selectable_capability_.sample_rate |=
           BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
