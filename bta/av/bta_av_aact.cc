@@ -1144,7 +1144,7 @@ void bta_av_do_disc_a2dp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
               APPL_TRACE_DEBUG("%s:RS disabled, returning",__func__);
 #if (TWS_ENABLED == TRUE)
               if (p_scbi->tws_device)
-                AVDT_UpdateServiceBusyState(false);
+                AVDT_UpdateServiceBusyState(false, p_scbi->peer_addr);
 #endif
               return;
             }else {

@@ -169,9 +169,10 @@ void AVDT_Deregister(void) {
  * Returns          void
  *
  ******************************************************************************/
-void AVDT_UpdateServiceBusyState(bool state) {
+void AVDT_UpdateServiceBusyState(bool state, RawAddress bd_addr) {
     AVDT_TRACE_DEBUG("%s(): state-%d", __func__, state);
-    avdt_cb.conn_in_progress = state;
+    AVDT_TRACE_DEBUG("%s: address=%s", __func__, bd_addr.ToString().c_str());
+    avdt_cb.conn_in_progress[bd_addr] = state;
 }
 
 /*******************************************************************************
@@ -184,10 +185,11 @@ void AVDT_UpdateServiceBusyState(bool state) {
  * Returns          bool
  *
  ******************************************************************************/
-bool AVDT_GetServiceBusyState(void)
+bool AVDT_GetServiceBusyState(RawAddress bd_addr)
 {
-    AVDT_TRACE_DEBUG("%s(): state-%d", __func__, avdt_cb.conn_in_progress);
-    return avdt_cb.conn_in_progress;
+    AVDT_TRACE_DEBUG("%s(): state-%d", __func__, avdt_cb.conn_in_progress[bd_addr]);
+    AVDT_TRACE_DEBUG("%s: address=%s", __func__, bd_addr.ToString().c_str());
+    return avdt_cb.conn_in_progress[bd_addr];
 }
 
 void AVDT_AbortReq(uint8_t handle) {
