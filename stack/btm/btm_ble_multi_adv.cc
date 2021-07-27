@@ -923,9 +923,8 @@ class BleAdvertisingManagerImpl
     VLOG(1) << __func__ << " inst_id: " << +inst_id;
 
     VLOG(1) << "data is: " << base::HexEncode(data.data(), data.size());
-    uint8_t adv_data[data.size()];
-    memcpy(&adv_data[0], data.data(), data.size());
-    if (adv_data[0] == 3 && adv_data[1] == 0x16 && adv_data[2] == 0xdc && adv_data[3] == 0x8f) {
+    if ((data.size() > 3) && (data[0] == 3 && data[1] == 0x16
+         && data[2] == 0xdc && data[3] == 0x8f)) {
       VLOG(1) << __func__ << "Broadcast UUID";
       adv_inst[inst_id].skip_rpa_count = 15;
       adv_inst[inst_id].skip_rpa = true;
