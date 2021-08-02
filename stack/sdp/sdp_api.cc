@@ -749,7 +749,7 @@ bool SDP_FindAvrcpCoverArtPSM (tSDP_DISC_ATTR *p_attr, uint16_t *p_psm)
   tSDP_DISC_ATTR  *p_sattr;
   tSDP_PROTOCOL_ELEM elem;
   /* Check if it is additional protocol descriptor list attribute */
-  if ((p_attr->attr_id == ATTR_ID_ADDITION_PROTO_DESC_LISTS)
+  if (p_attr && (p_attr->attr_id == ATTR_ID_ADDITION_PROTO_DESC_LISTS)
        && (SDP_DISC_ATTR_TYPE(p_attr->attr_len_type) == DATA_ELE_SEQ_DESC_TYPE))
   {
      /* Pull the PSM first one by one. The last one should be the one for OBEX */
@@ -824,7 +824,7 @@ bool SDP_FindProfileVersionInRec(tSDP_DISC_REC* p_rec, uint16_t profile_uuid,
              * size 2 bytes) */
             p_sattr = p_sattr->p_next_attr;
 
-            if ((SDP_DISC_ATTR_TYPE(p_sattr->attr_len_type) ==
+            if (p_sattr && (SDP_DISC_ATTR_TYPE(p_sattr->attr_len_type) ==
                  UINT_DESC_TYPE) &&
                 (SDP_DISC_ATTR_LEN(p_sattr->attr_len_type) == 2)) {
               /* The high order 8 bits is the major number, low order is the

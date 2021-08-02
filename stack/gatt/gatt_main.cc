@@ -151,7 +151,7 @@ void gatt_init(void) {
   fixed_reg.pL2CA_FixedCong_Cb = gatt_le_cong_cback; /* congestion callback */
   fixed_reg.default_idle_tout = 0xffff; /* 0xffff default idle timeout */
 
-  if (property_get("persist.vendor.btstack.enable.eatt", eatt_enabled_prop, "false")
+  if (property_get("persist.vendor.btstack.enable.eatt", eatt_enabled_prop, "true")
       && !strcmp(eatt_enabled_prop, "true")) {
     gatt_cb.eatt_enabled = true;
   }
@@ -1475,17 +1475,6 @@ static void gatt_send_conn_cback(tGATT_TCB* p_tcb, uint16_t lcid) {
     if (dir_conn_apps.find(p_reg->gatt_if) != dir_conn_apps.end()) {
       if (p_reg->eatt_support)
         is_app_req_eatt_conn = true;
-    }
-
-    //For server apps requested for EATT
-    if (!is_app_req_eatt_conn && p_reg->eatt_support) {
-      if (is_eatt_dev) {
-        is_app_req_eatt_conn = true;
-        p_tcb->sr_eatt_apps.push_back(p_reg->gatt_if);
-      }
-      else {
-        p_tcb->is_conn_cb_sent_eatt_sr_apps = true;
-      }
     }
 
     if (is_eatt_dev && is_app_req_eatt_conn)

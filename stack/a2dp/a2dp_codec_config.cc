@@ -690,7 +690,7 @@ bool A2dpCodecs::init(bool isMulticastEnabled) {
     }
 
     indexed_codecs_.insert(std::make_pair(codec_index, codec_config));
-    if (codec_index < BTAV_A2DP_CODEC_INDEX_SOURCE_MAX) {
+    if (codec_index < BTAV_A2DP_QVA_CODEC_INDEX_SOURCE_MAX) {
       ordered_source_codecs_.push_back(codec_config);
       ordered_source_codecs_.sort(compare_codec_priority);
     } else {
@@ -1753,7 +1753,7 @@ void A2DP_SetOffloadStatus(bool offload_status, const char *offload_cap,
             aptxtws_offload = false;
           }
           break;
-        case BTAV_A2DP_CODEC_INDEX_SOURCE_MAX:
+        case BTAV_A2DP_QVA_CODEC_INDEX_SOURCE_MAX:
         case BTAV_A2DP_CODEC_INDEX_SINK_MAX:
         default:
           break;
@@ -1867,7 +1867,7 @@ bool A2DP_IsCodecEnabledInSoftware(btav_a2dp_codec_index_t codec_index) {
     case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_TWS:
       codec_status = aptxtws_sw;
       break;
-    case BTAV_A2DP_CODEC_INDEX_SOURCE_MAX:
+    case BTAV_A2DP_QVA_CODEC_INDEX_SOURCE_MAX:
     case BTAV_A2DP_CODEC_INDEX_SINK_MAX:
     default:
       break;
@@ -1902,7 +1902,7 @@ bool A2DP_IsCodecEnabledInOffload(btav_a2dp_codec_index_t codec_index) {
     case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_TWS:
       codec_status = aptxtws_offload;
       break;
-    case BTAV_A2DP_CODEC_INDEX_SOURCE_MAX:
+    case BTAV_A2DP_QVA_CODEC_INDEX_SOURCE_MAX:
     case BTAV_A2DP_CODEC_INDEX_SINK_MAX:
     default:
       break;

@@ -29,7 +29,7 @@
  *  Constants & Macros
  ******************************************************************************/
 #define BT_PROPERTY_REM_DEViCE_VALID_ADDR 0xA3
-#define BT_PROPERTY_GROUP_DETAILS 0x10
+#define BT_PROPERTY_GROUP_DETAILS 0x11
 #define BT_PROPERTY_ADV_AUDIO_UUIDS 0xA0
 #define BT_PROPERTY_ADV_AUDIO_ACTION_UUID 0xA1
 #define BT_PROPERTY_UUID_ON_TRANSPORT 0xA2
@@ -280,6 +280,8 @@ bool btif_storage_get_hearing_aid_prop(
  *
  ******************************************************************************/
 bool btif_storage_is_restricted_device(const RawAddress* remote_bd_addr);
+
+int btif_storage_get_num_bonded_devices(void);
 
 bt_status_t btif_storage_add_ble_bonding_key(RawAddress* remote_bd_addr,
                                              const uint8_t* key,

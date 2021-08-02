@@ -1798,7 +1798,7 @@ void btif_av_update_reconfigure_event(int index) {
       btav_a2dp_codec_config_t codec_config;
       std::vector<btav_a2dp_codec_config_t> codecs_local_capabilities;
       std::vector<btav_a2dp_codec_config_t> codecs_selectable_capabilities;
-      codec_config.codec_type = BTAV_A2DP_CODEC_INDEX_SOURCE_MAX;
+      codec_config.codec_type = BTAV_A2DP_QVA_CODEC_INDEX_SOURCE_MAX;
       HAL_CBACK(bt_av_src_callbacks, audio_config_cb,
               (btif_av_cb[index].peer_bda), codec_config,
               codecs_local_capabilities, codecs_selectable_capabilities);

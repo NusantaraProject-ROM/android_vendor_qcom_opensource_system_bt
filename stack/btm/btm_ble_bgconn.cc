@@ -361,6 +361,14 @@ void btm_ble_white_list_init(uint8_t white_list_size) {
   BTM_TRACE_DEBUG("%s white_list_size = %d", __func__, white_list_size);
 }
 
+uint8_t BTM_GetWhiteListSize() {
+  const controller_t* controller = controller_get_interface();
+  if (!controller->supports_ble()) {
+    return 0;
+  }
+  return controller->get_ble_white_list_size();
+}
+
 bool BTM_SetLeConnectionModeToFast() {
   VLOG(2) << __func__;
   tBTM_BLE_CB* p_cb = &btm_cb.ble_ctr_cb;
@@ -542,4 +550,16 @@ void BTM_WhiteListClear() {
   btm_ble_stop_auto_conn();
   btsnd_hcic_ble_clear_white_list(base::Bind(&wl_clear_complete));
   background_connections_clear();
+}
+
+/** Returns the hci disconnect is in progress or not */
+bool BTM_GetLeDisconnectStatus(const RawAddress& address) {
+  tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(address);
+
+  if (p_dev_rec != NULL) {
+    VLOG(1) << __func__ << " is_le_disc_pending " << p_dev_rec->is_le_disc_pending;
+    return p_dev_rec->is_le_disc_pending;
+  }
+
+  return false;
 }

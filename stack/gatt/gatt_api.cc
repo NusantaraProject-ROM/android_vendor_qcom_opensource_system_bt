@@ -40,6 +40,7 @@
 
 using bluetooth::Uuid;
 
+extern bool BTM_GetLeDisconnectStatus(const RawAddress& address);
 extern bool BTM_BackgroundConnectAddressKnown(const RawAddress& address);
 /**
  * Add an service handle range to the list in decending order of the start
@@ -958,7 +959,7 @@ tGATT_STATUS GATTC_Read(uint16_t conn_id, tGATT_READ_TYPE type,
   }
 
   /* start security check */
-  gatt_security_check_start(p_clcb);
+  if (gatt_security_check_start(p_clcb)) p_tcb->pending_enc_clcb.push(p_clcb);
   return GATT_SUCCESS;
 }
 
@@ -1012,7 +1013,7 @@ tGATT_STATUS GATTC_Write(uint16_t conn_id, tGATT_WRITE_TYPE type,
     p->offset = 0;
   }
 
-  gatt_security_check_start(p_clcb);
+  if (gatt_security_check_start(p_clcb)) p_tcb->pending_enc_clcb.push(p_clcb);
   return GATT_SUCCESS;
 }
 
@@ -1380,6 +1381,11 @@ bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, bool is_direct,
 
   if (!is_direct && transport != BT_TRANSPORT_LE) {
     LOG(ERROR) << "Unsupported transport for background connection";
+    return false;
+  }
+
+  if (BTM_GetLeDisconnectStatus(bd_addr)) {
+    LOG(ERROR) << "Link Level Disconnection is progress. Wait for it";
     return false;
   }
 

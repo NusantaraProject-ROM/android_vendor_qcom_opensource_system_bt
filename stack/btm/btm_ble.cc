@@ -1832,6 +1832,10 @@ void btm_ble_link_encrypted(const RawAddress& bd_addr, uint8_t encr_enable) {
   }
   /* to notify GATT to send data if any request is pending */
   gatt_notify_enc_cmpl(p_dev_rec->ble.pseudo_addr);
+
+  /* Update EATT support */
+  if (encr_enable)
+    gatt_update_eatt_support(p_dev_rec->ble.pseudo_addr);
 }
 
 /*******************************************************************************

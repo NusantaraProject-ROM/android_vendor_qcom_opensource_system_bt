@@ -248,7 +248,7 @@ void bta_gattc_deregister(tBTA_GATTC_RCB* p_clreg) {
   }
 
   /* remove bg connection associated with this rcb */
-  for (uint8_t i = 0; i < BTA_GATTC_KNOWN_SR_MAX; i++) {
+  for (uint8_t i = 0; i < BTM_GetWhiteListSize(); i++) {
     if (!bta_gattc_cb.bg_track[i].in_use) continue;
 
     if (bta_gattc_cb.bg_track[i].cif_mask & (1 << (p_clreg->client_if - 1))) {
@@ -331,12 +331,16 @@ void bta_gattc_process_api_open(tBTA_GATTC_DATA* p_msg) {
 
 /** process connect API request */
 void bta_gattc_process_api_open_cancel(tBTA_GATTC_DATA* p_msg) {
+  CHECK(p_msg != nullptr);
+
   uint16_t event = ((BT_HDR*)p_msg)->event;
 
   if (!p_msg->api_cancel_conn.is_direct) {
+    LOG(INFO) << "Cancel GATT client background connection";
     bta_gattc_cancel_bk_conn(&p_msg->api_cancel_conn);
     return;
   }
+  LOG(INFO) << "Cancel GATT client direct connection";
 
   tBTA_GATTC_CLCB* p_clcb = bta_gattc_find_clcb_by_cif(
       p_msg->api_cancel_conn.client_if, p_msg->api_cancel_conn.remote_bda,
@@ -392,12 +396,16 @@ void bta_gattc_open_error(tBTA_GATTC_CLCB* p_clcb,
 }
 
 void bta_gattc_open_fail(tBTA_GATTC_CLCB* p_clcb,
-                         UNUSED_ATTR tBTA_GATTC_DATA* p_data) {
-  LOG(WARNING) << __func__ << ": Cannot establish Connection. conn_id="
-               << loghex(p_clcb->bta_conn_id) << ". Return GATT_ERROR("
-               << +GATT_ERROR << ")";
+                         tBTA_GATTC_DATA* p_data) {
+  tGATT_DISCONN_REASON disc_reason = GATT_ERROR;
 
-  bta_gattc_send_open_cback(p_clcb->p_rcb, GATT_ERROR, p_clcb->bda,
+  if (p_data != NULL) {
+    disc_reason = p_data->int_conn.reason;
+  }
+  LOG(WARNING) << __func__ << ": Cannot establish Connection. conn_id="
+               << loghex(p_clcb->bta_conn_id) << ". Return GATT_Status("
+               << +disc_reason << ")";
+  bta_gattc_send_open_cback(p_clcb->p_rcb, disc_reason, p_clcb->bda,
                             p_clcb->bta_conn_id, p_clcb->transport, 0);
   /* open failure, remove clcb */
   bta_gattc_clcb_dealloc(p_clcb);
@@ -412,7 +420,7 @@ void bta_gattc_open(tBTA_GATTC_CLCB* p_clcb, tBTA_GATTC_DATA* p_data) {
                     p_data->api_conn.transport, p_data->api_conn.opportunistic,
                     p_data->api_conn.initiating_phys)) {
     LOG(ERROR) << "Connection open failure";
-
+    p_data->int_conn.reason = GATT_ERROR;
     bta_gattc_sm_execute(p_clcb, BTA_GATTC_INT_OPEN_FAIL_EVT, p_data);
     return;
   }
@@ -619,13 +627,11 @@ void bta_gattc_close(tBTA_GATTC_CLCB* p_clcb, tBTA_GATTC_DATA* p_data) {
   tBTA_GATTC_RCB* p_clreg = p_clcb->p_rcb;
   tBTA_GATTC cb_data;
 
-  VLOG(1) << __func__ << ": conn_id=" << loghex(p_clcb->bta_conn_id);
-
   cb_data.close.client_if = p_clcb->p_rcb->client_if;
   cb_data.close.conn_id = p_clcb->bta_conn_id;
   cb_data.close.reason = p_clcb->reason;
-  cb_data.close.status = p_clcb->status;
   cb_data.close.remote_bda = p_clcb->bda;
+  cb_data.close.status = GATT_SUCCESS;
 
 #ifdef ADV_AUDIO_FEATURE
   if (is_remote_support_adv_audio(p_clcb->bda)) {
@@ -642,10 +648,16 @@ void bta_gattc_close(tBTA_GATTC_CLCB* p_clcb, tBTA_GATTC_DATA* p_data) {
   bta_gattc_clcb_dealloc(p_clcb);
 
   if (p_data->hdr.event == BTA_GATTC_API_CLOSE_EVT) {
-    cb_data.close.status = GATT_Disconnect(p_data->hdr.layer_specific);
+    GATT_Disconnect(p_data->hdr.layer_specific);
+    LOG(INFO) << "Local close event client_if: " << cb_data.close.client_if
+               << " conn_id: " << cb_data.close.conn_id << " reason: "
+               << cb_data.close.reason;
   } else if (p_data->hdr.event == BTA_GATTC_INT_DISCONN_EVT) {
     cb_data.close.status = p_data->int_conn.reason;
     cb_data.close.reason = p_data->int_conn.reason;
+    LOG(INFO) << "Peer close disconnect event client_if: "
+      << cb_data.close.client_if << " conn_id: " << cb_data.close.conn_id
+      << " reason: " << cb_data.close.reason;
   }
 
   if (p_cback) (*p_cback)(BTA_GATTC_CLOSE_EVT, &cb_data);

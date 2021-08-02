@@ -1543,6 +1543,17 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
       lc3Config.codecSpecific[i] = cs[i];
     }
 
+    if (pclient_cbs[profile - 1]->get_is_codec_type_lc3q()) {
+      LOG(ERROR) << __func__ << ": Lc3q params are updated";
+      lc3Config.codecSpecific[0] = 0x0F;  //Vendor Metadata Length
+      lc3Config.codecSpecific[1] = 0xFF;  //Vendor META data type
+      lc3Config.codecSpecific[2] = 0x0A;  //Qtil ID
+      lc3Config.codecSpecific[3] = 0x00;
+      lc3Config.codecSpecific[4] = 0x0B;  //Vendor Metadata length
+      lc3Config.codecSpecific[5] = 0x10;  //LC3Q Type
+      lc3Config.codecSpecific[6] = pclient_cbs[profile - 1]->get_lc3q_ver(); //0x01;  //LC3Q version
+    }
+
     lc3Config.defaultQlevel = 0;
     lc3Config.mode = pclient_cbs[profile - 1]->mode;
     lc3Config.rxConfigSet = 0;
@@ -1601,16 +1612,6 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
         lc3Config.streamMap[(i*3)+2] = FROM_AIR;  // direction
       }
       lc3Config.NumStreamIDGroup += cis_count;
-
-      if (pclient_cbs[profile - 1]->get_is_codec_type_lc3q()) {
-        lc3Config.codecSpecific[0] = 0x0F;  //Vendor Metadata Length
-        lc3Config.codecSpecific[1] = 0xFF;  //Vendor META data type
-        lc3Config.codecSpecific[2] = 0x0A;  //Qtil ID
-        lc3Config.codecSpecific[3] = 0x00;
-        lc3Config.codecSpecific[4] = 0x0B;  //Vendor Metadata length
-        lc3Config.codecSpecific[5] = 0x10;  //LC3Q Type
-        lc3Config.codecSpecific[6] = pclient_cbs[profile - 1]->get_lc3q_ver(); //0x01;  //LC3Q version
-      }
     }
 
     codec_config->config.lc3Config = lc3Config;

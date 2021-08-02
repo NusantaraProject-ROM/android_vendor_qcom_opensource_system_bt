@@ -47,6 +47,7 @@
 #include "l2c_api.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
+#include "osi/include/properties.h"
 #include "sdp_api.h"
 #include "bta_sdp_api.h"
 #include "stack/gatt/connection_manager.h"
@@ -186,6 +187,13 @@ static void bta_dm_ctrl_features_rd_cmpl_cback(tBTM_STATUS result);
 #endif
 
 #define BT_DEFAULT_POWER (0x80)
+
+#ifdef ADV_AUDIO_FEATURE
+#define BT_ADV_AUDIO_PROPERTY "persist.vendor.service.bt.adv_audio_mask"
+
+/* Set bit 6 of byte 1 for adv audio service */
+#define BT_ADV_AUDIO_SERVICE_BIT_MASK  (1 << 6)
+#endif
 
 static void bta_dm_reset_sec_dev_pending(const RawAddress& remote_bd_addr);
 static void bta_dm_remove_sec_dev_entry(const RawAddress& remote_bd_addr);
@@ -405,6 +413,9 @@ static void bta_dm_sys_hw_cback(tBTA_SYS_HW_EVT status) {
   uint8_t key_mask = 0;
   tBTA_BLE_LOCAL_ID_KEYS id_key;
   tBTA_DM_MSG* p_data;
+#ifdef ADV_AUDIO_FEATURE
+  char adv_audio_support_prop_value[PROPERTY_VALUE_MAX];
+#endif
 
   APPL_TRACE_DEBUG("%s with event: %i", __func__, status);
 
@@ -490,6 +501,17 @@ static void bta_dm_sys_hw_cback(tBTA_SYS_HW_EVT status) {
     memset(&bta_dm_di_cb, 0, sizeof(tBTA_DM_DI_CB));
 
     memcpy(dev_class, p_bta_dm_cfg->dev_class, sizeof(dev_class));
+
+#ifdef ADV_AUDIO_FEATURE
+    osi_property_get(BT_ADV_AUDIO_PROPERTY, adv_audio_support_prop_value, "0");
+
+    if (adv_audio_support_prop_value[0] != '0') {
+        dev_class[1] = dev_class[1] | BT_ADV_AUDIO_SERVICE_BIT_MASK;
+        APPL_TRACE_DEBUG("%s:Dev class: %02x-%02x-%02x", __func__,
+                       dev_class[0], dev_class[1], dev_class[2]);
+    }
+#endif
+
     BTM_SetDeviceClass(dev_class);
 
     /* load BLE local information: ID keys, ER if available */

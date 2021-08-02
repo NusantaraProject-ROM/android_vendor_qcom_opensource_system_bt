@@ -153,8 +153,8 @@ typedef struct {
 } tBTA_GATTC_OPEN;
 
 typedef struct {
-  tGATT_STATUS status;
   uint16_t conn_id;
+  tGATT_STATUS status;
   tGATT_IF client_if;
   RawAddress remote_bda;
   tBTA_GATT_REASON reason; /* disconnect reason code, not useful when connect
@@ -489,7 +489,7 @@ extern void BTA_GATTC_Close(uint16_t conn_id);
  *
  ******************************************************************************/
 extern void BTA_GATTC_ServiceSearchRequest(uint16_t conn_id,
-                                           bluetooth::Uuid* p_srvc_uuid);
+                                           const bluetooth::Uuid* p_srvc_uuid);
 
 /**
  * This function is called to send "Find service by UUID" request. Used only for

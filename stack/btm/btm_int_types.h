@@ -646,6 +646,7 @@ typedef struct {
 #endif
 
   bool is_le_enc_in_progress;
+  bool is_le_disc_pending = false;
 } tBTM_SEC_DEV_REC;
 
 #define BTM_SEC_IS_SM4(sm) ((bool)(BTM_SM4_TRUE == ((sm)&BTM_SM4_TRUE)))
