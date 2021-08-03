@@ -1969,4 +1969,23 @@ static tSDP_RECORD *sdp_upgrade_mse_record(tSDP_RECORD * p_rec,
   return &map_104_sdp_rec;
 }
 
+/*************************************************************************************
+**
+** Function        is_sdp_pbap_pce_disabled
+**
+** Description     Checks if given PBAP record is for PBAP PSE and SDP blacklisted
+**
+** Returns         BOOLEAN
+**
+***************************************************************************************/
+bool is_sdp_pbap_pce_disabled (RawAddress remote_address)
+{
+  if (interop_match_addr_or_name(INTEROP_DISABLE_PCE_SDP_AFTER_PAIRING, &remote_address)) {
+    SDP_TRACE_DEBUG("%s: device is blacklisted for PCE SDP ", __func__);
+    return true;
+  } else {
+    return false;
+  }
+}
+
 #endif /* SDP_SERVER_ENABLED == TRUE */

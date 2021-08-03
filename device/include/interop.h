@@ -209,6 +209,11 @@ typedef enum {
   // as supported version.
   INTEROP_ADV_PBAP_VER_1_2,
 
+  // Disable profile PCE SDP request for headsets/car-kits
+  // Some car kits going bad state when DUT initiate PCE SDP request during BONDING time
+  // Hence don't send PCE SDP request for to prevent this abnormal behaviour.
+  INTEROP_DISABLE_PCE_SDP_AFTER_PAIRING,
+
   //Few remote sends avrcp browsing request just after host sends avrcp browsing request leading
   //collision which results in browsing channel open failure. For such devices, collision timer
   //is used avoid collision.
