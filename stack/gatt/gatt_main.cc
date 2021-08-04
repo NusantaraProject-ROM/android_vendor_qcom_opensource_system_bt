@@ -100,6 +100,9 @@ static void gatt_l2cif_eatt_reconfig_ind_cback(tL2CAP_COC_CHMAP_INFO* chmap_info
 static void gatt_l2cif_eatt_disconnect_ind_cback(uint16_t l2cap_cid, bool ack_needed);
 static void gatt_l2cif_eatt_disconnect_cfm_cback(uint16_t l2cap_cid, uint16_t result);
 static void gatt_l2cif_eatt_data_ind_cback(uint16_t l2cap_cid);
+static void gatt_l2cif_eatt_cong_status_cb(uint16_t cid, bool congested);
+static void gatt_l2cif_eatt_credits_rcvd_cb(uint16_t cid, uint16_t credits_rcvd,
+                                            uint16_t credit_count);
 
 static const tL2CAP_COC_APPL_INFO eatt_dyn_info = {gatt_l2cif_eatt_connect_ind_cback,
                                                    gatt_l2cif_eatt_connect_cfm_cback,
@@ -108,9 +111,9 @@ static const tL2CAP_COC_APPL_INFO eatt_dyn_info = {gatt_l2cif_eatt_connect_ind_c
                                                    gatt_l2cif_eatt_disconnect_ind_cback,
                                                    gatt_l2cif_eatt_disconnect_cfm_cback,
                                                    gatt_l2cif_eatt_data_ind_cback,
+                                                   gatt_l2cif_eatt_cong_status_cb,
                                                    NULL,
-                                                   NULL,
-                                                   NULL,
+                                                   gatt_l2cif_eatt_credits_rcvd_cb,
                                                   };
 
 tGATT_CB gatt_cb;
@@ -1017,6 +1020,90 @@ static void gatt_l2cif_congest_cback(uint16_t lcid, bool congested) {
 
   if (p_tcb != NULL) {
     gatt_channel_congestion(p_tcb, congested, lcid);
+  }
+}
+
+/** EATT channel congestion callback */
+void gatt_notify_eatt_congestion(uint16_t cid, bool congested) {
+  tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(cid);
+  tGATT_TCB* p_tcb = NULL;
+
+  if (!p_eatt_bcb) {
+    VLOG(1) << __func__ << " error, EATT bcb is null";
+    return;
+  }
+
+  p_tcb = p_eatt_bcb->p_tcb;
+
+  if (congested) {
+    eatt_congest_notify_apps(cid, congested);
+    return;
+  }
+
+  if (!congested && p_eatt_bcb->send_uncongestion &&
+      eatt_congest_notify_apps(cid, congested)) {
+    VLOG(1) << __func__ << " sent uncongestion cb to apps";
+    return;
+  }
+
+  /* if uncongested, check to see if there is any pending GATT rsp */
+  if (p_tcb != NULL && !congested && p_eatt_bcb->send_uncongestion) {
+    gatt_send_pending_rsp(*(p_tcb), cid);
+  }
+
+  /* if uncongested, check to see if there is any more pending client ops */
+  if (p_tcb != NULL && !congested && p_eatt_bcb->send_uncongestion) {
+    gatt_cl_send_next_cmd_inq(*p_tcb, cid);
+  }
+
+  /* if uncongested, check to see if there is any more pending indications */
+  if (p_tcb != NULL && !congested && p_eatt_bcb->send_uncongestion) {
+    gatt_send_pending_ind(*(p_tcb), cid);
+  }
+
+  /* if uncongested, check to see if there is any more pending notifications */
+  if (p_tcb != NULL && !congested && p_eatt_bcb->send_uncongestion) {
+    gatt_send_pending_notif(*(p_tcb), cid);
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         gatt_l2cif_eatt_cong_status_cb
+ *
+ * Description      This function handles congestion status callback.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void gatt_l2cif_eatt_cong_status_cb(uint16_t cid, bool congested) {
+  tGATT_TCB* p_tcb = gatt_find_tcb_by_cid(cid);
+  if (!p_tcb) return;
+
+  VLOG(1) << __func__;
+  /* if uncongested, check to see if there is any more pending data */
+  gatt_channel_congestion(p_tcb, congested, cid);
+}
+
+/*******************************************************************************
+ *
+ * Function         gatt_l2cif_eatt_credits_rcvd_cb
+ *
+ * Description      This function handles credits received callback.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void gatt_l2cif_eatt_credits_rcvd_cb(uint16_t cid, uint16_t credits_rcvd,
+                                            uint16_t credit_count) {
+  tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(cid);
+  VLOG(1) << __func__;
+
+  if (p_eatt_bcb && p_eatt_bcb->no_credits && !p_eatt_bcb->send_uncongestion
+      && (credit_count > 0)) {
+    VLOG(1) << __func__ << " EATT channel uncongested";
+    p_eatt_bcb->send_uncongestion = true;
+    gatt_notify_eatt_congestion(cid, false);
   }
 }
 

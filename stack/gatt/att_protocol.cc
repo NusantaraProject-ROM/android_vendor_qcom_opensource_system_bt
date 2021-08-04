@@ -381,6 +381,7 @@ BT_HDR* attp_build_multi_ntf_cmd(uint16_t payload_size, tGATT_MULTI_NOTIF multi_
 tGATT_STATUS attp_send_msg_to_l2cap(tGATT_TCB& tcb, uint16_t cid, BT_HDR* p_toL2CAP) {
   uint16_t l2cap_ret;
   uint16_t lcid;
+  tGATT_EBCB* p_eatt_bcb = NULL;
 
   if (tcb.is_eatt_supported)
     lcid = cid;
@@ -398,6 +399,17 @@ tGATT_STATUS attp_send_msg_to_l2cap(tGATT_TCB& tcb, uint16_t cid, BT_HDR* p_toL2
   } else if (l2cap_ret == L2CAP_DW_CONGESTED) {
     VLOG(1) << StringPrintf("ATT congested, message accepted");
     return GATT_CONGESTED;
+  } else if (l2cap_ret == L2CAP_DW_NO_CREDITS) {
+    VLOG(1) << StringPrintf("congested, L2CAP no credits for channel:%0x", cid);
+    if ((l2cap_ret == L2CAP_DW_NO_CREDITS) && (tcb.is_eatt_supported)) {
+      p_eatt_bcb = gatt_find_eatt_bcb_by_cid(cid);
+      if (p_eatt_bcb) {
+        p_eatt_bcb->no_credits = true;
+        p_eatt_bcb->send_uncongestion = false;
+        gatt_notify_eatt_congestion(cid, true);
+      }
+    }
+    return GATT_NO_CREDITS;
   }
   return GATT_SUCCESS;
 }
@@ -510,8 +522,23 @@ tGATT_STATUS attp_cl_send_cmd(tGATT_TCB& tcb, tGATT_CLCB* p_clcb, uint16_t lcid,
 
   /* no pending request or value confirmation */
   tGATT_STATUS att_ret = attp_send_msg_to_l2cap(tcb, lcid, p_cmd);
-  if (att_ret != GATT_CONGESTED && att_ret != GATT_SUCCESS) {
+  if (att_ret != GATT_CONGESTED && att_ret != GATT_SUCCESS &&
+      att_ret != GATT_NO_CREDITS) {
     return GATT_INTERNAL_ERROR;
+  }
+
+  if (att_ret == GATT_NO_CREDITS && !tcb.is_eatt_supported) {
+    VLOG(1) <<  __func__ << " Error, No credits only applicable for EATT";
+    return GATT_INTERNAL_ERROR;
+  }
+
+  /* No credits */
+  if (att_ret == GATT_NO_CREDITS) {
+    if (tcb.is_eatt_supported && p_eatt_bcb) {
+      gatt_cmd_enq(tcb, p_clcb, p_eatt_bcb, true, cmd_code, p_cmd);
+      att_ret = GATT_CONGESTED;
+      return att_ret;
+    }
   }
 
   /* do not enq cmd if handle value confirmation or set request */

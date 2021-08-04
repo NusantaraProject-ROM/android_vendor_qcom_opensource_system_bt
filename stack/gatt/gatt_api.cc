@@ -485,6 +485,18 @@ tGATT_STATUS GATTS_HandleValueIndication(uint16_t conn_id, uint16_t attr_handle,
       p_tcb->indicate_handle = indication.handle;
     gatt_start_conf_timer(p_tcb, lcid);
   }
+  else if (cmd_status == GATT_NO_CREDITS) {
+    VLOG(1) << "Add a pending indication";
+    if (p_tcb->is_eatt_supported && p_eatt_bcb &&
+       (p_eatt_bcb->ind_no_credits_apps.empty() ||
+        (std::find(p_eatt_bcb->ind_no_credits_apps.begin(), p_eatt_bcb->ind_no_credits_apps.end(),
+        conn_id) == p_eatt_bcb->ind_no_credits_apps.end()))) {
+      p_eatt_bcb->indicate_handle = indication.handle;
+      gatt_add_pending_ind(p_tcb, lcid, &indication);
+      p_eatt_bcb->ind_no_credits_apps.push_back(conn_id);
+      cmd_status = GATT_CONGESTED;
+    }
+  }
   return cmd_status;
 }
 
@@ -529,11 +541,13 @@ tGATT_STATUS GATTS_HandleValueNotification(uint16_t conn_id,
   notif.len = val_len;
   memcpy(notif.value, p_val, val_len);
   notif.auth_req = GATT_AUTH_REQ_NONE;
+  notif.conn_id = conn_id;
 
   lcid = p_tcb->att_lcid;
   if (p_tcb->is_eatt_supported && p_reg->eatt_support) {
     if (is_gatt_conn_id_found(conn_id)) {
       lcid = gatt_get_cid_by_conn_id(conn_id);
+      p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
     }
     else {
       p_eatt_bcb = gatt_find_best_eatt_bcb(p_tcb, gatt_if, 0, false);
@@ -552,6 +566,19 @@ tGATT_STATUS GATTS_HandleValueNotification(uint16_t conn_id,
     cmd_sent = attp_send_sr_msg(*p_tcb, lcid, p_buf);
   } else
     cmd_sent = GATT_NO_RESOURCES;
+
+  if (cmd_sent == GATT_NO_CREDITS) {
+    if (p_tcb->is_eatt_supported && p_eatt_bcb &&
+       (p_eatt_bcb->notif_no_credits_apps.empty()
+        || (std::find(p_eatt_bcb->notif_no_credits_apps.begin(),
+            p_eatt_bcb->notif_no_credits_apps.end(),
+            conn_id) == p_eatt_bcb->notif_no_credits_apps.end()))) {
+      gatt_notif_enq(p_tcb, lcid, &notif);
+      p_eatt_bcb->notif_no_credits_apps.push_back(conn_id);
+      cmd_sent = GATT_CONGESTED;
+    }
+  }
+
   return cmd_sent;
 }
 
@@ -660,6 +687,7 @@ tGATT_STATUS GATTS_SendRsp(uint16_t conn_id, uint32_t trans_id,
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
   uint32_t sr_cmd_trans_id = 0;
   uint8_t op_code = 0;
+  tGATT_EBCB* p_eatt_bcb = NULL;
 
   VLOG(1) << __func__ << ": conn_id=" << loghex(conn_id)
           << ", trans_id=" << loghex(trans_id) << ", status=" << loghex(status);
@@ -670,7 +698,7 @@ tGATT_STATUS GATTS_SendRsp(uint16_t conn_id, uint32_t trans_id,
   }
 
   if (p_tcb->is_eatt_supported) {
-    tGATT_EBCB* p_eatt_bcb =
+    p_eatt_bcb =
             gatt_find_eatt_bcb_by_srv_trans_id(trans_id, p_tcb->peer_bda);
     if (p_eatt_bcb) {
       sr_cmd_trans_id = p_eatt_bcb->sr_cmd.trans_id;
@@ -693,6 +721,19 @@ tGATT_STATUS GATTS_SendRsp(uint16_t conn_id, uint32_t trans_id,
   /* Process App response */
   cmd_sent = gatt_sr_process_app_rsp(*p_tcb, gatt_if, trans_id,
                                      op_code, status, p_msg);
+
+  if (cmd_sent == GATT_NO_CREDITS) {
+    if (p_tcb->is_eatt_supported && p_eatt_bcb && p_eatt_bcb->gatt_rsp_q.empty()) {
+      tGATT_PEND_RSP gatt_rsp;
+      gatt_rsp.conn_id = conn_id;
+      gatt_rsp.trans_id = trans_id;
+      gatt_rsp.status = status;
+      gatt_rsp.p_msg = p_msg;
+
+      gatt_rsp_enq(p_tcb, p_eatt_bcb->cid, &gatt_rsp);
+      cmd_sent = GATT_CONGESTED;
+    }
+  }
 
   return cmd_sent;
 }
@@ -1649,4 +1690,69 @@ uint16_t GATT_GetMtuSize(uint16_t conn_id, const RawAddress& bd_addr,
 
   VLOG(1) << __func__ << " mtu: " << +mtu;
   return mtu;
+}
+
+/*******************************************************************************
+ *
+ * Function         GATT_CheckStatusForApp
+ *
+ * Description      This function checks if an app has an indication or
+ *                  notification already queued because of no credits.
+ *                  If yes, GATT_BUSY is returned
+ *                  else, this notification/indication is sent to lower layer.
+ *
+ * Parameters       conn_id: conn_id
+ *                  confirm: confirm true for indication, false for notification
+ *
+ * Returns          tGATT_STATUS.
+ *
+ ******************************************************************************/
+tGATT_STATUS GATTS_CheckStatusForApp(uint16_t conn_id, bool confirm) {
+  tGATT_IF gatt_if = GATT_GET_GATT_IF(conn_id);
+  uint8_t tcb_idx = GATT_GET_TCB_IDX(conn_id);
+  tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
+  tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
+  uint16_t lcid = 0;
+  tGATT_EBCB* p_eatt_bcb;
+  tGATT_STATUS status = GATT_SUCCESS;
+
+  VLOG(1) << __func__;
+
+  if ((p_reg == NULL) || (p_tcb == NULL)) {
+    LOG(ERROR) << __func__ << "Unknown  conn_id: " << conn_id;
+    return (tGATT_STATUS)GATT_INVALID_CONN_ID;
+  }
+  if (!p_tcb->is_eatt_supported || !p_reg->eatt_support) {
+    return status;
+  }
+
+  lcid = p_tcb->att_lcid;
+  if (p_tcb->is_eatt_supported && p_reg->eatt_support) {
+    if (is_gatt_conn_id_found(conn_id)) {
+      lcid = gatt_get_cid_by_conn_id(conn_id);
+      p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    }
+  }
+
+  if (confirm) {
+    if (p_tcb->is_eatt_supported && p_eatt_bcb && p_eatt_bcb->no_credits &&
+      std::find(p_eatt_bcb->ind_no_credits_apps.begin(),
+      p_eatt_bcb->ind_no_credits_apps.end(),
+      conn_id) != p_eatt_bcb->ind_no_credits_apps.end()) {
+      LOG(ERROR) << __func__ << "Multiple indications from same conn_id when congested:" << conn_id;
+      return GATT_BUSY;
+    }
+  }
+  else {
+    if (p_tcb->is_eatt_supported && p_eatt_bcb && p_eatt_bcb->no_credits &&
+        std::find(p_eatt_bcb->notif_no_credits_apps.begin(),
+        p_eatt_bcb->notif_no_credits_apps.end(),
+        conn_id) != p_eatt_bcb->notif_no_credits_apps.end()) {
+      LOG(ERROR) << __func__ << "Multiple notifications from same conn_id when congested:" << conn_id;
+      return GATT_BUSY;
+    }
+  }
+
+  VLOG(1) << __func__ << " status= " << +status;
+  return status;
 }

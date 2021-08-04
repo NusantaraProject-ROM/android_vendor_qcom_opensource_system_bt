@@ -68,5 +68,11 @@ extern bool is_eatt_device(RawAddress bda);
 extern uint8_t gatt_remove_app_on_lcid(uint16_t lcid, tGATT_IF gatt_if);
 extern void gatt_remove_conns_by_cid(uint16_t lcid);
 extern void eatt_cleanup_upon_disc(const RawAddress& bda);
+extern void gatt_send_pending_ind(tGATT_TCB& tcb, uint16_t lcid);
+extern void gatt_send_pending_notif(tGATT_TCB& tcb, uint16_t lcid);
+extern void gatt_send_pending_rsp(tGATT_TCB& tcb, uint16_t cid);
+extern void gatt_notif_enq(tGATT_TCB* p_tcb, uint16_t cid, tGATT_VALUE* p_notif);
+extern void gatt_rsp_enq(tGATT_TCB* p_tcb, uint16_t cid, tGATT_PEND_RSP* p_rsp);
+extern bool eatt_congest_notify_apps(uint16_t cid, bool congested);
 
 #endif

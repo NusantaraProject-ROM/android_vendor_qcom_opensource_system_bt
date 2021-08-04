@@ -337,6 +337,16 @@ typedef struct {
   bool create_in_prg;
   bool disconn_in_prg;
   bool is_remote_initiated;
+  bool no_credits;
+  bool send_uncongestion;
+
+  //notification queue only for no credits
+  std::deque<tGATT_VALUE> notif_q;
+  //gatt rsp queue only for no credits
+  std::deque<tGATT_PEND_RSP> gatt_rsp_q;
+
+  std::vector<uint16_t> ind_no_credits_apps;
+  std::vector<uint16_t> notif_no_credits_apps;
 } tGATT_EBCB;
 
 typedef struct {
@@ -354,6 +364,7 @@ typedef struct {
   uint16_t lcid;
   bool cl_to_send;
   bool sr_to_send;
+  bool notif_to_send;
 } tGATT_APPS_Q;
 
 typedef struct {
@@ -675,5 +686,7 @@ extern bluetooth::Uuid* gatts_get_service_uuid(tGATT_SVC_DB* p_db);
 extern void gatt_free_pending_ind(tGATT_TCB* p_tcb, uint16_t lcid);
 
 extern bool gatt_profile_sr_is_eatt_supported(uint16_t conn_id, uint16_t handle);
+
+extern void gatt_notify_eatt_congestion(uint16_t cid, bool congested);
 
 #endif
