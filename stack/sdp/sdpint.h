@@ -330,4 +330,6 @@ extern bool sdpu_is_map_0104_enabled();
 
 extern bool sdpu_is_opp_0100_enabled();
 
+extern bool is_sdp_pbap_pce_disabled(RawAddress remote_addr);
+
 #endif

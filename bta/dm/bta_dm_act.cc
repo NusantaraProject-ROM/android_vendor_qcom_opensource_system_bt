@@ -2453,7 +2453,7 @@ static void bta_dm_find_services(const RawAddress& bd_addr) {
 
       } else {
         if (uuid == Uuid::From16Bit(UUID_PROTOCOL_L2CAP)) {
-          if (sdpu_is_pbap_0102_enabled()) {
+          if (sdpu_is_pbap_0102_enabled() && !is_sdp_pbap_pce_disabled(bd_addr)) {
             LOG_DEBUG(LOG_TAG, "%s SDP search for PBAP Client ", __func__);
             BTA_SdpSearch(bd_addr, Uuid::From16Bit(UUID_SERVCLASS_PBAP_PCE));
           }
