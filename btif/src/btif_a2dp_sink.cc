@@ -104,6 +104,7 @@ typedef struct {
   uint8_t frames_to_process;
   tA2DP_SAMPLE_RATE sample_rate;
   tA2DP_CHANNEL_COUNT channel_count;
+  tA2DP_BITS_PER_SAMPLE bits_per_sample;
   btif_a2dp_sink_focus_state_t rx_focus_state; /* audio focus state */
   void* audio_track;
   uint32_t latency; /* latency of rendering Audio samples at MMAudio */
@@ -232,6 +233,10 @@ tA2DP_SAMPLE_RATE btif_a2dp_sink_get_sample_rate(void) {
 
 tA2DP_CHANNEL_COUNT btif_a2dp_sink_get_channel_count(void) {
   return btif_a2dp_sink_cb.channel_count;
+}
+
+tA2DP_BITS_PER_SAMPLE btif_a2dp_sink_get_bits_per_sample() {
+  return btif_a2dp_sink_cb.bits_per_sample;
 }
 
 static void btif_a2dp_sink_command_ready(fixed_queue_t* queue,
@@ -503,11 +508,19 @@ static void btif_a2dp_sink_decoder_update_event(
     APPL_TRACE_ERROR("%s: cannot get the track frequency", __func__);
     return;
   }
+
   int channel_count = A2DP_GetTrackChannelCount(p_buf->codec_info);
   if (channel_count == -1) {
     APPL_TRACE_ERROR("%s: cannot get the channel count", __func__);
     return;
   }
+
+  int bits_per_sample = A2DP_GetTrackBitsPerSample(p_buf->codec_info);
+  if (bits_per_sample == -1) {
+    APPL_TRACE_ERROR(LOG_TAG, "%s: cannot get the bits per sample", __func__);
+    return;
+  }
+
   int channel_type = A2DP_GetSinkTrackChannelType(p_buf->codec_info);
   if (channel_type == -1) {
     APPL_TRACE_ERROR("%s: cannot get the Sink channel type", __func__);
@@ -515,6 +528,7 @@ static void btif_a2dp_sink_decoder_update_event(
   }
   btif_a2dp_sink_cb.sample_rate = sample_rate;
   btif_a2dp_sink_cb.channel_count = channel_count;
+  btif_a2dp_sink_cb.bits_per_sample = bits_per_sample;
 
   btif_a2dp_sink_cb.rx_flush = false;
   APPL_TRACE_DEBUG("%s: Reset to Sink role", __func__);
@@ -527,15 +541,12 @@ static void btif_a2dp_sink_decoder_update_event(
   }
 
   APPL_TRACE_DEBUG("%s: A2dpSink: SBC create track", __func__);
-  btif_a2dp_sink_cb.audio_track = NULL;
-  // TODO(b/190634467) troubleshoot root problem
-  /*
+  btif_a2dp_sink_cb.audio_track =
 #ifndef OS_GENERIC
-      BtifAvrcpAudioTrackCreate(sample_rate, channel_type);
+      BtifAvrcpAudioTrackCreate(sample_rate, bits_per_sample, channel_count);
 #else
       NULL;
 #endif
-   * */
   if (btif_a2dp_sink_cb.audio_track == NULL) {
     APPL_TRACE_ERROR("%s: A2dpSink: Track creation failed", __func__);
     return;
