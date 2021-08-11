@@ -863,7 +863,7 @@ bool A2dpCodecConfigAptxAdaptive::useRtpHeaderMarkerBit() const { return false; 
 static bool select_best_sample_rate(uint8_t sampleRate,
                                     tA2DP_APTX_ADAPTIVE_CIE* p_result,
                                     btav_a2dp_codec_config_t* p_codec_config) {
-  LOG_ERROR(LOG_TAG, "%s: Sample rate: %x", __func__, sampleRate);
+  LOG_DEBUG(LOG_TAG, "%s: Sample rate: %x", __func__, sampleRate);
   if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_48000) {
     p_result->sampleRate = A2DP_APTX_ADAPTIVE_SAMPLERATE_48000;
     p_codec_config->sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_48000;
@@ -967,7 +967,7 @@ static bool select_best_channel_mode(uint8_t channelMode,
                                      tA2DP_APTX_ADAPTIVE_CIE* p_result,
                                      btav_a2dp_codec_config_t* p_codec_config) {
 
-  LOG_ERROR(LOG_TAG, "%s: Channel Mode: %x", __func__, channelMode);
+  LOG_DEBUG(LOG_TAG, "%s: Channel Mode: %x", __func__, channelMode);
   if (channelMode & A2DP_APTX_ADAPTIVE_CHANNELS_TWS_PLUS) {
     p_result->channelMode = A2DP_APTX_ADAPTIVE_CHANNELS_TWS_PLUS;
     p_codec_config->channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO;
@@ -1105,7 +1105,7 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
   // Select the sample frequency
   //
   sampleRate = a2dp_aptx_adaptive_caps.sampleRate & sink_info_cie.sampleRate;
-  LOG_ERROR(LOG_TAG,
+  LOG_DEBUG(LOG_TAG,
               "%s: Sample rate: source caps = 0x%x "
               "sink info = 0x%x",
               __func__, a2dp_aptx_adaptive_caps.sampleRate,
@@ -1398,8 +1398,10 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
   }
 
   LOG_INFO(LOG_TAG, "sink additional supported features: 0x%x", sink_info_cie.aptx_data.aptx_adaptive_sup_features);
+  LOG_INFO(LOG_TAG, "sink cap ext ver num: 0x%x", sink_info_cie.aptx_data.cap_ext_ver_num);
   if (A2DP_Get_Aptx_AdaptiveR2_2_Supported()) {
-    if (sink_info_cie.aptx_data.aptx_adaptive_sup_features & 0x00000080) {
+    if ((sink_info_cie.aptx_data.cap_ext_ver_num == A2DP_APTX_ADAPTIVE_CAP_EXT_VER_NUM) &&
+        (sink_info_cie.aptx_data.aptx_adaptive_sup_features & 0x00000080)){
       LOG_INFO(LOG_TAG, "%s: Sink supports R2.2 decoder ", __func__);
       result_config_cie.aptx_data.aptx_adaptive_sup_features =
             sink_info_cie.aptx_data.aptx_adaptive_sup_features | A2DP_APTX_ADAPTIVE_R2_2_SUPPORTED_FEATURES;
