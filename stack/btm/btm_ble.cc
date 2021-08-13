@@ -3252,6 +3252,11 @@ void btm_ble_set_cig_param_test_cmd_cmpl(uint8_t *param, uint16_t param_len) {
     (*hci_cmd_cmpl.cig_param_test_cmpl) (&ret_param);
   }
 
+  if (ret_param.status == HCI_SUCCESS) {
+    for (int i = 0; i < ret_param.cis_count; i++) {
+      cis_map.insert(std::make_pair(ret_param.conn_handle[i], ret_param.cig_id));
+    }
+  }
   // free memory conn_handle memory
   osi_free(ret_param.conn_handle);
 }
