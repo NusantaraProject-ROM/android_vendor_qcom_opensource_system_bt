@@ -59,6 +59,11 @@ class HearingAidInterfaceImpl
 
   void Init(HearingAidCallbacks* callbacks) override {
     DVLOG(2) << __func__;
+    if(is_initialized) {
+       LOG(WARNING) << __func__ << " Already initialized, return";
+       return;
+    }
+    is_initialized = true;
     this->callbacks = callbacks;
 
     do_in_bta_thread(
@@ -71,6 +76,7 @@ class HearingAidInterfaceImpl
   void OnConnectionState(ConnectionState state,
                          const RawAddress& address) override {
     DVLOG(2) << __func__ << " address: " << address;
+    if(!is_initialized) return;
     do_in_jni_thread(FROM_HERE, Bind(&HearingAidCallbacks::OnConnectionState,
                                      Unretained(callbacks), state, address));
   }
@@ -80,6 +86,7 @@ class HearingAidInterfaceImpl
     DVLOG(2) << __func__ << " address: " << address
              << ", hiSyncId: " << loghex(hiSyncId)
              << ", capabilities: " << loghex(capabilities);
+    if(!is_initialized) return;
     do_in_jni_thread(FROM_HERE, Bind(&HearingAidCallbacks::OnDeviceAvailable,
                                      Unretained(callbacks), capabilities,
                                      hiSyncId, address));
@@ -87,12 +94,14 @@ class HearingAidInterfaceImpl
 
   void Connect(const RawAddress& address) override {
     DVLOG(2) << __func__ << " address: " << address;
+    if(!is_initialized) return;
     do_in_bta_thread(FROM_HERE, Bind(&HearingAid::Connect,
                                       Unretained(HearingAid::Get()), address));
   }
 
   void Disconnect(const RawAddress& address) override {
     DVLOG(2) << __func__ << " address: " << address;
+    if(!is_initialized) return;
     do_in_bta_thread(FROM_HERE, Bind(&HearingAid::Disconnect,
                                       Unretained(HearingAid::Get()), address));
     do_in_jni_thread(FROM_HERE, Bind(&btif_storage_set_hearing_aid_acceptlist,
@@ -101,6 +110,7 @@ class HearingAidInterfaceImpl
 
   void AddToAcceptlist(const RawAddress& address) override {
     VLOG(2) << __func__ << " address: " << address;
+    if(!is_initialized) return;
     do_in_bta_thread(FROM_HERE, Bind(&HearingAid::AddToAcceptlist,
                                       Unretained(HearingAid::Get()), address));
     do_in_jni_thread(FROM_HERE, Bind(&btif_storage_set_hearing_aid_acceptlist,
@@ -109,7 +119,8 @@ class HearingAidInterfaceImpl
 
   void SetVolume(int8_t volume) override {
     DVLOG(2) << __func__ << " volume: " << +volume;
-   do_in_bta_thread(FROM_HERE, Bind(&HearingAid::SetVolume,
+    if(!is_initialized) return;
+    do_in_bta_thread(FROM_HERE, Bind(&HearingAid::SetVolume,
                                       Unretained(HearingAid::Get()), volume));
   }
 
@@ -118,6 +129,7 @@ class HearingAidInterfaceImpl
 
     // RemoveDevice can be called on devices that don't have HA enabled
     if (HearingAid::IsHearingAidRunning()) {
+      if(!is_initialized) return;
       do_in_bta_thread(FROM_HERE,
                         Bind(&HearingAid::Disconnect,
                              Unretained(HearingAid::Get()), address));
@@ -130,9 +142,11 @@ class HearingAidInterfaceImpl
   void Cleanup(void) override {
     DVLOG(2) << __func__;
     do_in_bta_thread(FROM_HERE, Bind(&HearingAid::CleanUp));
+    is_initialized = false;
   }
 
  private:
+  bool is_initialized = false;
   HearingAidCallbacks* callbacks;
 };
 
