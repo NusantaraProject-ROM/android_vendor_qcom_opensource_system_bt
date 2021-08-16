@@ -76,8 +76,9 @@ static void btif_sdp_search_comp_evt(uint16_t event, char* p_param) {
 }
 
 static void sdp_search_comp_copy_cb(uint16_t event, char* p_dest, char* p_src) {
+  tBTA_SDP* p_src_sdp_data = (tBTA_SDP*)p_src;
   tBTA_SDP_SEARCH_COMP* p_dest_data = (tBTA_SDP_SEARCH_COMP*)p_dest;
-  tBTA_SDP_SEARCH_COMP* p_src_data = (tBTA_SDP_SEARCH_COMP*)p_src;
+  tBTA_SDP_SEARCH_COMP* p_src_data = (tBTA_SDP_SEARCH_COMP*)&(p_src_sdp_data->sdp_search_comp);
 
   if (!p_src) return;
 

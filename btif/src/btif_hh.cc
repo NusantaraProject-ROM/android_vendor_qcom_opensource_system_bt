@@ -1261,6 +1261,7 @@ void btif_hh_timer_timeout(void* data) {
  ******************************************************************************/
 static bt_status_t init(bthh_callbacks_t* callbacks) {
   uint32_t i;
+  char value[PROPERTY_VALUE_MAX] = {'\0'};
   BTIF_TRACE_EVENT("%s", __func__);
 
   bt_hh_callbacks = callbacks;
@@ -1268,6 +1269,11 @@ static bt_status_t init(bthh_callbacks_t* callbacks) {
   for (i = 0; i < BTIF_HH_MAX_HID; i++) {
     btif_hh_cb.devices[i].dev_status = BTHH_CONN_STATE_UNKNOWN;
   }
+  osi_property_get("persist.vendor.btstack.hid_3d_audio",value,"false");
+  if (strcmp(value, "true") == 0)
+    btif_hh_cb.hid_3d_audio = true;
+  else
+    btif_hh_cb.hid_3d_audio = false;
   /* Invoke the enable service API to the core to set the appropriate service_id
    */
   btif_enable_service(BTA_HID_SERVICE_ID);
