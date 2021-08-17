@@ -390,6 +390,7 @@ extern void btif_media_send_reset_vendor_state();
 extern tBTIF_A2DP_SOURCE_VSC btif_a2dp_src_vsc;
 extern uint8_t* bta_av_co_get_peer_codec_info(uint8_t hdl);
 extern bool bta_avk_is_avdt_sync(uint16_t handle);
+extern bool is_peer_avrcp_only_device(RawAddress bd_addr);
 
 /*****************************************************************************
  * Local helper functions
@@ -487,6 +488,10 @@ static void btif_initiate_av_open_timer_timeout(void* data) {
   RawAddress *bd_add = (RawAddress *)data;
   if (bd_add == nullptr) return;
   BTIF_TRACE_DEBUG("%s: bd_add: %s", __func__, bd_add->ToString().c_str());
+  if (is_peer_avrcp_only_device(*bd_add)) {
+    BTIF_TRACE_DEBUG("%s: Peer RC Only device...don't try for AV Connection", __func__);
+    return;
+  }
 
   memset(&connect_req, 0, sizeof(btif_av_connect_req_t));
   /* is there at least one RC connection - There should be */

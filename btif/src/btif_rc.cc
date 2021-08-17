@@ -447,7 +447,6 @@ static void btif_rc_upstreams_rsp_evt(uint16_t event,
 
 static void rc_start_play_status_timer(btif_rc_device_cb_t* p_dev);
 static bool absolute_volume_disabled(void);
-static bool is_peer_avrcp_only_device(RawAddress bd_addr);
 static bt_status_t set_volume(uint8_t volume, RawAddress*bd_addr);
 /*****************************************************************************
  *  Static variables
@@ -826,8 +825,20 @@ void btif_rc_clear_playing_state(bool state) {
   }
 }
 
+bool is_peer_avrcp_only_device(RawAddress bd_addr) {
+  uint16_t version = 0;
+  if (bd_addr == RawAddress::kEmpty)
+    return false;
+  bool a2dp_supported = btif_config_get_uint16(bd_addr.ToString().c_str(),
+                             AVDTP_VERSION_CONFIG_KEY, (uint16_t*)&version);
+  bool avrcp_supported = btif_config_get_uint16(bd_addr.ToString().c_str(),
+                             AV_REM_CTRL_VERSION_CONFIG_KEY, (uint16_t*)&version);
+  BTIF_TRACE_WARNING("peer supports a2dp: %d, avrcp: %d", a2dp_supported, avrcp_supported);
+  return (!a2dp_supported && avrcp_supported);
+}
+
 /***************************************************************************
- *  Function       handle_rc__browse_connect
+ *  Function       handle_rc_browse_connect
  *
  *  - Argument:    tBTA_AV_RC_OPEN  browse RC open data structure
  *
@@ -7044,18 +7055,6 @@ static void sleep_ms(period_ms_t timeout_ms) {
   delay.tv_nsec = 1000 * 1000 * (timeout_ms % 1000);
 
   OSI_NO_INTR(nanosleep(&delay, &delay));
-}
-
-static bool is_peer_avrcp_only_device(RawAddress bd_addr) {
-  uint16_t version = 0;
-  if (bd_addr == RawAddress::kEmpty)
-    return false;
-  bool a2dp_supported = btif_config_get_uint16(bd_addr.ToString().c_str(),
-                             AVDTP_VERSION_CONFIG_KEY, (uint16_t*)&version);
-  bool avrcp_supported = btif_config_get_uint16(bd_addr.ToString().c_str(),
-                             AV_REM_CTRL_VERSION_CONFIG_KEY, (uint16_t*)&version);
-  BTIF_TRACE_WARNING("peer supports a2dp: %d, avrcp: %d", a2dp_supported, avrcp_supported);
-  return (!a2dp_supported && avrcp_supported);
 }
 
 static bool absolute_volume_disabled() {
