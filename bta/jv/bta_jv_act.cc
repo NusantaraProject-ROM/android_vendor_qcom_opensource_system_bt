@@ -1362,7 +1362,6 @@ void bta_jv_l2cap_write(uint32_t handle, uint32_t req_id, BT_HDR* msg,
   evt_data.status = BTA_JV_FAILURE;
   evt_data.handle = handle;
   evt_data.req_id = req_id;
-  evt_data.p_data = p_data;
   evt_data.cong = p_cb->cong;
   evt_data.len = msg->len;
 
@@ -1406,7 +1405,7 @@ void bta_jv_l2cap_write_fixed(tBTA_JV_MSG* p_data) {
   evt_data.len = 0;
 
   msg->offset = L2CAP_MIN_OFFSET;
-  msg->len = len;
+  msg->len = ls->len;
   memcpy((uint8_t*)(msg) + BT_HDR_SIZE + msg->offset, p_data, msg->len);
 
   osi_free(p_data);

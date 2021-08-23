@@ -548,51 +548,6 @@ uint16_t GAP_ConnWriteData(uint16_t gap_handle, BT_HDR* msg) {
 
 /*******************************************************************************
  *
- * Function         GAP_ConnWriteData
- *
- * Description      Normally not GKI aware application will call this function
- *                  to send data to the connection.
- *
- * Parameters:      handle      - Handle of the connection returned in the Open
- *                  p_data      - Data area
- *                  max_len     - Byte count requested
- *                  p_len       - Byte count received
- *
- * Returns          BT_PASS                 - data read
- *                  GAP_ERR_BAD_HANDLE      - invalid handle
- *                  GAP_ERR_BAD_STATE       - connection not established
- *                  GAP_CONGESTION          - system is congested
- *
- ******************************************************************************/
-uint16_t GAP_ConnWriteData(uint16_t gap_handle, BT_HDR* msg) {
-  tGAP_CCB* p_ccb = gap_find_ccb_by_handle(gap_handle);
-
-  if (!p_ccb) {
-    osi_free(msg);
-    return GAP_ERR_BAD_HANDLE;
-  }
-
-  if (p_ccb->con_state != GAP_CCB_STATE_CONNECTED) {
-    osi_free(msg);
-    return GAP_ERR_BAD_STATE;
-  }
-
-  if (msg->len > p_ccb->rem_mtu_size) {
-    osi_free(msg);
-    return GAP_ERR_ILL_PARM;
-  }
-
-  DVLOG(1) << StringPrintf("GAP_WriteData %d bytes", msg->len);
-
-  fixed_queue_enqueue(p_ccb->tx_queue, msg);
-
-  if (!gap_try_write_queued_data(p_ccb)) return GAP_ERR_BAD_STATE;
-
-  return (BT_PASS);
-}
-
-/*******************************************************************************
- *
  * Function         GAP_ConnReconfig
  *
  * Description      Applications can call this function to reconfigure the

@@ -24,6 +24,8 @@
  ******************************************************************************/
 #include <string.h>
 
+#include <base/bind.h>
+
 #include "bt_common.h"
 #include "bta_api.h"
 #include "bta_jv_api.h"
@@ -693,7 +695,7 @@ tBTA_JV_STATUS BTA_JvL2capWrite(uint32_t handle, uint32_t req_id, BT_HDR* msg,
     return BTA_JV_FAILURE;
   }
 
-  do_in_bta_thread(FROM_HERE, Bind(&bta_jv_l2cap_write, handle, req_id, msg,
+  do_in_bta_thread(FROM_HERE, base::Bind(&bta_jv_l2cap_write, handle, req_id, msg,
                                    user_id, &bta_jv_cb.l2c_cb[handle]));
   return BTA_JV_SUCCESS;
 }

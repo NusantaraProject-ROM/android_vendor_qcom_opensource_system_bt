@@ -1100,7 +1100,7 @@ void btsock_l2cap_signaled(int fd, int flags, uint32_t user_id) {
         if (sock->fixed_chan) {
           if (BTA_JvL2capWriteFixed(sock->channel, sock->addr,
                                     PTR_TO_UINT(buffer), btsock_l2cap_cbk,
-                                    buffer, count, user_id) != BTA_JV_SUCCESS) {
+                                    get_l2cap_sdu_start_ptr(buffer), count, user_id) != BTA_JV_SUCCESS) {
             // On fail, free the buffer
             on_l2cap_write_fail(buffer, count, user_id);
           }

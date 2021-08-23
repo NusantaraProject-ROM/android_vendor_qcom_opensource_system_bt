@@ -382,7 +382,7 @@ extern void bta_jv_l2cap_start_server(tBTA_JV_MSG* p_data);
 extern void bta_jv_l2cap_stop_server(tBTA_JV_MSG* p_data);
 extern void bta_jv_l2cap_read(tBTA_JV_MSG* p_data);
 extern void bta_jv_l2cap_write(uint32_t handle, uint32_t req_id,
-                               uint8_t* p_data, uint16_t len, uint32_t user_id,
+                               BT_HDR* msg, uint32_t user_id,
                                tBTA_JV_L2C_CB* p_cb);
 extern void bta_jv_rfcomm_connect(tBTA_JV_MSG* p_data);
 extern void bta_jv_rfcomm_close(tBTA_JV_MSG* p_data);
