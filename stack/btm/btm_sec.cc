@@ -5972,26 +5972,38 @@ static const char* btm_pair_state_descr(tBTM_PAIRING_STATE state) {
  * Parameters:      void
  *
  ******************************************************************************/
-void btm_sec_dev_rec_cback_event(tBTM_SEC_DEV_REC* p_dev_rec, uint8_t res,
-                                 bool is_le_transport) {
+void btm_sec_dev_rec_cback_event(tBTM_SEC_DEV_REC* p_dev_rec,
+                                 tBTM_STATUS btm_status, bool is_le_transport) {
+  if (!p_dev_rec) {
+    LOG_ERROR(LOG_TAG, "p_dev_rec is null");
+    return;
+  }
+  LOG_DEBUG(LOG_TAG, "transport=%s, btm_status=%d", is_le_transport ? "le" : "classic",
+            btm_status);
+
   tBTM_SEC_CALLBACK* p_callback = p_dev_rec->p_callback;
-
-  BTM_TRACE_DEBUG("%s: p_callback=%p, is_le_transport=%d, res=%d, p_dev_rec=%p",
-                  __func__, p_dev_rec->p_callback, is_le_transport, res,
-                  p_dev_rec);
-
-  if (p_dev_rec->p_callback) {
-    p_dev_rec->p_callback = NULL;
-
-    if (is_le_transport)
+  p_dev_rec->p_callback = NULL;
+  if (p_callback != nullptr) {
+    if (is_le_transport) {
       (*p_callback)(&p_dev_rec->ble.pseudo_addr, BT_TRANSPORT_LE,
-                    p_dev_rec->p_ref_data, res);
-    else
+                    p_dev_rec->p_ref_data, btm_status);
+    } else {
       (*p_callback)(&p_dev_rec->bd_addr, BT_TRANSPORT_BR_EDR,
-                    p_dev_rec->p_ref_data, res);
+                    p_dev_rec->p_ref_data, btm_status);
+    }
   }
 
   btm_sec_check_pending_reqs();
+}
+
+void btm_sec_cr_loc_oob_data_cback_event(const RawAddress& address,
+                                         tSMP_LOC_OOB_DATA loc_oob_data) {
+  tBTM_LE_EVT_DATA evt_data = {
+      .local_oob_data = loc_oob_data,
+  };
+  if (btm_cb.api.p_le_callback) {
+    (*btm_cb.api.p_le_callback)(BTM_LE_SC_LOC_OOB_EVT, address, &evt_data);
+  }
 }
 
 /*******************************************************************************

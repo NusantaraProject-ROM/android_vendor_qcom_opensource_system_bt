@@ -2186,7 +2186,13 @@ uint8_t btm_proc_smp_cback(tSMP_EVT event, const RawAddress& bd_addr,
         break;
     }
   } else {
-    BTM_TRACE_ERROR("btm_proc_smp_cback received for unknown device");
+    // If we are being paired with via OOB we haven't created a dev rec for
+    // the device yet
+    if (event == SMP_SC_LOC_OOB_DATA_UP_EVT) {
+      btm_sec_cr_loc_oob_data_cback_event(bd_addr, p_data->loc_oob_data);
+    } else {
+      LOG_WARN(LOG_TAG, "Unexpected event '%d' without p_dev_rec", event);
+    }
   }
 
   return 0;
@@ -3246,6 +3252,11 @@ void btm_ble_set_cig_param_test_cmd_cmpl(uint8_t *param, uint16_t param_len) {
     (*hci_cmd_cmpl.cig_param_test_cmpl) (&ret_param);
   }
 
+  if (ret_param.status == HCI_SUCCESS) {
+    for (int i = 0; i < ret_param.cis_count; i++) {
+      cis_map.insert(std::make_pair(ret_param.conn_handle[i], ret_param.cig_id));
+    }
+  }
   // free memory conn_handle memory
   osi_free(ret_param.conn_handle);
 }

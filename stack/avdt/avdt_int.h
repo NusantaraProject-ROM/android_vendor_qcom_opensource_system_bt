@@ -36,6 +36,7 @@
 #include "l2c_api.h"
 #include "osi/include/alarm.h"
 #include "osi/include/fixed_queue.h"
+#include <unordered_map>
 
 #ifndef AVDT_DEBUG
 #define AVDT_DEBUG TRUE
@@ -532,7 +533,8 @@ typedef struct {
   tAVDT_SCB_ACTION* p_scb_act;     /* pointer to SCB action functions */
   tAVDT_CTRL_CBACK* p_conn_cback;  /* connection callback function */
   uint8_t trace_level;             /* trace level */
-  bool conn_in_progress;           /* outgoing connection in progress */
+  std::unordered_map <RawAddress, bool>
+       conn_in_progress;           /* outgoing connection in progress */
 } tAVDT_CB;
 
 /*****************************************************************************

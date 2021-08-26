@@ -1233,7 +1233,7 @@ static void bta_dm_pm_hid_check(bool bScoActive)
              * Put HID link in sniff also with specific HID Sniff parameters as remote
              * device might not attempt sniff in case SCO is connected for longer time.
              */
-            bta_dm_pm_sniff(p_rem_dev, (BTA_DM_PM_SNIFF6 & 0x0F));
+            bta_dm_pm_sniff(p_rem_dev, (BTA_DM_PM_SNIFF7 & 0x0F));
         }
       }
       if((p != NULL && HCI_SNIFF_SUB_RATE_SUPPORTED(p))

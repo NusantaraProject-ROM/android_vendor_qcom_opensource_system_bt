@@ -177,7 +177,7 @@ void avdt_l2c_connect_ind_cback(const RawAddress& bd_addr, uint16_t lcid,
    * if yes, reject incoming connection at L2CAP
    * level itself.
    */
-  if (AVDT_GetServiceBusyState() == true) {
+  if (AVDT_GetServiceBusyState(bd_addr) == true) {
     AVDT_TRACE_WARNING("connect_ind: outgoing conn in progress: Reject incoming conn");
     result = L2CAP_CONN_NO_RESOURCES;
   }

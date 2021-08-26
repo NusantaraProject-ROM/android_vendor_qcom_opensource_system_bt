@@ -82,6 +82,14 @@ bool is_filtering_supported() {
   return cmn_ble_vsc_cb.filter_support != 0 && cmn_ble_vsc_cb.max_filter != 0;
 }
 
+static bool is_empty_128bit(const std::array<uint8_t, 16> data) {
+  int i, len = 16;
+  for (i = 0; i < len; i++) {
+    if (data[i] != (uint8_t)0) return false;
+  }
+  return true;
+}
+
 /*******************************************************************************
  *
  * Function         btm_ble_condtype_to_ocf
@@ -677,6 +685,19 @@ void BTM_LE_PF_group_filter(tBTM_BLE_SCAN_COND_OP action,
   memset(&btm_ble_adv_filt_cb.cur_filter_target, 0, sizeof(tBLE_BD_ADDR));
 }
 
+/*
+ * Used to remove device records for devices setting scan filters with address,
+ * type and IRK. Flow:
+ *   - ScanFilter comes in with IRK.
+ *   - Check IRK for empty, if empty ignore setting to resolving list.
+ *   - Otherwise we set it to the resolving list via BTM_SecAddBleKey.
+ *   - Then on clear we need to check if the device is paired and if it isn't we
+ * remove it referencing this map.
+ *
+ */
+static std::unordered_map<tBTM_BLE_PF_FILT_INDEX, RawAddress>
+    remove_me_later_map;
+
 void BTM_LE_PF_set(tBTM_BLE_PF_FILT_INDEX filt_index,
                    std::vector<ApcfCommand> commands,
                    tBTM_BLE_PF_CFG_CBACK cb) {
@@ -712,6 +733,48 @@ void BTM_LE_PF_set(tBTM_BLE_PF_FILT_INDEX filt_index,
         BTM_ReadDevScanInfo(target_addr.bda, &dev_type, &target_addr.type);
         BTM_LE_PF_addr_filter(action, filt_index, target_addr,
                               base::DoNothing());
+        if (!is_empty_128bit(cmd.irk)) {
+          // Save index and addr
+          auto entry = remove_me_later_map.find(filt_index);
+          if (entry != remove_me_later_map.end()) {
+            LOG_WARN(LOG_TAG, "Replacing existing filter index entry with new address");
+            // If device is not bonded, then try removing the device
+            // If the device doesn't get removed then it is currently connected
+            // (may be pairing?) If we do delete the device we want to erase the
+            // filter index so we can replace it If the device is bonded, we
+            // want to erase the filter index so we don't delete it in the later
+            // BTM_LE_PF_clear call.
+            if (!btm_sec_is_a_bonded_dev(entry->second)) {
+              if (!BTM_SecDeleteDevice(entry->second)) {
+                LOG_WARN(LOG_TAG, "Unable to remove device, still connected.");
+                return;
+              }
+            }
+            remove_me_later_map.erase(filt_index);
+          }
+          if (btm_find_dev(cmd.address) != nullptr) {
+            // Unless the user tries to bond with a device in between the
+            // scanner app starting a scan, then crashing, then being restarted
+            // and we get to this same point with the same filt_index (whose
+            // value is managed by the Java layer) then we might have a device
+            // record here, in which case something else is managing the device
+            // and we do not want to interfere with that experience.
+            LOG_WARN(LOG_TAG, "Address record already exists...this is unexpected...");
+            return;
+          }
+          // Allocate a new "temporary" device record
+          btm_sec_alloc_dev(cmd.address);
+          remove_me_later_map.emplace(filt_index, cmd.address);
+          // Set the IRK
+          tBTM_LE_PID_KEYS pid_keys;
+          pid_keys.irk = cmd.irk;
+          pid_keys.identity_addr_type = cmd.addr_type;
+          pid_keys.identity_addr = cmd.address;
+          // Add it to the union to pass to SecAddBleKey
+          tBTM_LE_KEY_VALUE le_key;
+          le_key.pid_key = pid_keys;
+          BTM_SecAddBleKey(cmd.address, &le_key, BTM_LE_KEY_PID);
+        }
         break;
       }
 
@@ -810,6 +873,14 @@ void BTM_LE_PF_clear(tBTM_BLE_PF_FILT_INDEX filt_index,
     /* clear GROUP AD Type filter */
     BTM_LE_PF_group_filter(BTM_BLE_SCAN_COND_CLEAR, filt_index, base::DoNothing());
 
+    // If we have an entry, lets remove the device if it isn't bonded
+    auto entry = remove_me_later_map.find(filt_index);
+    if (entry != remove_me_later_map.end()) {
+      auto entry = remove_me_later_map.find(filt_index);
+      if (!btm_sec_is_a_bonded_dev(entry->second)) {
+        BTM_SecDeleteDevice(entry->second);
+      }
+    }
   }
 
   uint8_t len = BTM_BLE_ADV_FILT_META_HDR_LENGTH + BTM_BLE_PF_FEAT_SEL_LEN;
@@ -926,6 +997,25 @@ void BTM_BleAdvFilterParamSetup(
         FROM_HERE, HCI_BLE_ADV_FILTER_OCF, param,
         (uint8_t)(BTM_BLE_ADV_FILT_META_HDR_LENGTH),
         base::Bind(&btm_flt_update_cb, BTM_BLE_META_PF_FEAT_SEL, cb));
+
+    auto entry = remove_me_later_map.find(filt_index);
+    if (entry != remove_me_later_map.end()) {
+      LOG_WARN(LOG_TAG, "Replacing existing filter index entry with new address");
+      // If device is not bonded, then try removing the device
+      // If the device doesn't get removed then it is currently connected
+      // (may be pairing?) If we do delete the device we want to erase the
+      // filter index so we can replace it If the device is bonded, we
+      // want to erase the filter index so we don't delete it in the later
+      // BTM_LE_PF_clear call.
+      if (!btm_sec_is_a_bonded_dev(entry->second)) {
+        if (!BTM_SecDeleteDevice(entry->second)) {
+          LOG_WARN(LOG_TAG, "Unable to remove device, still connected.");
+          return;
+        }
+      }
+      remove_me_later_map.erase(filt_index);
+    }
+
   } else if (BTM_BLE_SCAN_COND_CLEAR == action) {
     /* Deallocate all filters here */
     btm_ble_dealloc_addr_filter_counter(NULL, BTM_BLE_PF_TYPE_ALL);

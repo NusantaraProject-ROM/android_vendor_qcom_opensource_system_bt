@@ -79,7 +79,7 @@ static void parse_read_local_supported_codecs_response(
 
   uint8_t* stream = NULL;
   if (std_codec_tx) {
-    read_command_complete_header(
+    stream = read_command_complete_header(
                     response, HCI_READ_LOCAL_SUPPORTED_CODECS_V2,
                     0 /* bytes after */);
   } else {

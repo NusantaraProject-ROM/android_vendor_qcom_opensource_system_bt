@@ -36,9 +36,11 @@
 #include "bt_types.h"
 #include "bta_api.h"
 #include "bta_dm_api.h"
+#include "bta_dm_ci.h"
 #include "bta_dm_co.h"
 #include "bta_dm_int.h"
 #include "bta_sys.h"
+#include "btif/include/btif_dm.h"
 #include "btif/include/btif_storage.h"
 #include "btm_api.h"
 #include "btm_int.h"
@@ -2453,7 +2455,7 @@ static void bta_dm_find_services(const RawAddress& bd_addr) {
 
       } else {
         if (uuid == Uuid::From16Bit(UUID_PROTOCOL_L2CAP)) {
-          if (sdpu_is_pbap_0102_enabled()) {
+          if (sdpu_is_pbap_0102_enabled() && !is_sdp_pbap_pce_disabled(bd_addr)) {
             LOG_DEBUG(LOG_TAG, "%s SDP search for PBAP Client ", __func__);
             BTA_SdpSearch(bd_addr, Uuid::From16Bit(UUID_SERVCLASS_PBAP_PCE));
           }
@@ -3132,22 +3134,24 @@ static uint8_t bta_dm_sp_cback(tBTM_SP_EVT event, tBTM_SP_EVT_DATA* p_data) {
   APPL_TRACE_EVENT("bta_dm_sp_cback: %d", event);
   if (!bta_dm_cb.p_sec_cback) return BTM_NOT_AUTHORIZED;
 
+  bool sp_rmt_result = false;
   /* TODO_SP */
   switch (event) {
     case BTM_SP_IO_REQ_EVT:
       if (btm_local_io_caps != BTM_IO_CAP_NONE) {
         /* translate auth_req */
-        bta_dm_co_io_req(p_data->io_req.bd_addr, &p_data->io_req.io_cap,
-                         &p_data->io_req.oob_data, &p_data->io_req.auth_req,
-                         p_data->io_req.is_orig);
+        btif_dm_set_oob_for_io_req(&p_data->io_req.oob_data);
+        btif_dm_proc_io_req(p_data->io_req.bd_addr, &p_data->io_req.io_cap,
+                            &p_data->io_req.oob_data, &p_data->io_req.auth_req,
+                            p_data->io_req.is_orig);
       }
       APPL_TRACE_EVENT("io mitm: %d oob_data:%d", p_data->io_req.auth_req,
                        p_data->io_req.oob_data);
       break;
     case BTM_SP_IO_RSP_EVT:
       if (btm_local_io_caps != BTM_IO_CAP_NONE) {
-        bta_dm_co_io_rsp(p_data->io_rsp.bd_addr, p_data->io_rsp.io_cap,
-                         p_data->io_rsp.oob_data, p_data->io_rsp.auth_req);
+        btif_dm_proc_io_rsp(p_data->io_rsp.bd_addr, p_data->io_rsp.io_cap,
+                            p_data->io_rsp.oob_data, p_data->io_rsp.auth_req);
       }
       break;
 
@@ -3239,36 +3243,24 @@ static uint8_t bta_dm_sp_cback(tBTM_SP_EVT event, tBTM_SP_EVT_DATA* p_data) {
       break;
 
     case BTM_SP_LOC_OOB_EVT:
-      bta_dm_co_loc_oob((bool)(p_data->loc_oob.status == BTM_SUCCESS),
-                        p_data->loc_oob.c, p_data->loc_oob.r);
+#ifdef BTIF_DM_OOB_TEST
+      btif_dm_proc_loc_oob(BT_TRANSPORT_BR_EDR,
+                           (bool)(p_data->loc_oob.status == BTM_SUCCESS),
+                           p_data->loc_oob.c, p_data->loc_oob.r);
+#endif
       break;
 
-    case BTM_SP_RMT_OOB_EVT:
-      /* If the device name is not known, save bdaddr and devclass and initiate
-       * a name request */
-      if (p_data->rmt_oob.bd_name[0] == 0) {
-        bta_dm_cb.pin_evt = BTA_DM_SP_RMT_OOB_EVT;
-        bta_dm_cb.pin_bd_addr = p_data->rmt_oob.bd_addr;
-        BTA_COPY_DEVICE_CLASS(bta_dm_cb.pin_dev_class,
-                              p_data->rmt_oob.dev_class);
-        if ((BTM_ReadRemoteDeviceName(p_data->rmt_oob.bd_addr,
-                                      bta_dm_pinname_cback,
-                                      BT_TRANSPORT_BR_EDR)) == BTM_CMD_STARTED)
-          return BTM_CMD_STARTED;
-        APPL_TRACE_WARNING(
-            " bta_dm_sp_cback() -> Failed to start Remote Name Request  ");
-      }
-
-      sec_event.rmt_oob.bd_addr = p_data->rmt_oob.bd_addr;
-      BTA_COPY_DEVICE_CLASS(sec_event.rmt_oob.dev_class,
-                            p_data->rmt_oob.dev_class);
-      strlcpy((char*)sec_event.rmt_oob.bd_name, (char*)p_data->rmt_oob.bd_name,
-              BD_NAME_LEN + 1);
-
-      bta_dm_cb.p_sec_cback(BTA_DM_SP_RMT_OOB_EVT, &sec_event);
-
-      bta_dm_co_rmt_oob(p_data->rmt_oob.bd_addr);
+    case BTM_SP_RMT_OOB_EVT: {
+      Octet16 c;
+      Octet16 r;
+      sp_rmt_result = false;
+#ifdef BTIF_DM_OOB_TEST
+      sp_rmt_result = btif_dm_proc_rmt_oob(p_data->rmt_oob.bd_addr, &c, &r);
+#endif
+      BTIF_TRACE_DEBUG("bta_dm_co_rmt_oob: result=%d", sp_rmt_result);
+      bta_dm_ci_rmt_oob(sp_rmt_result, p_data->rmt_oob.bd_addr, c, r);
       break;
+    }
 
     case BTM_SP_COMPLT_EVT:
       /* do not report this event - handled by link_key_callback or
@@ -4970,6 +4962,14 @@ static uint8_t bta_dm_ble_smp_cback(tBTM_LE_EVT event, const RawAddress& bda,
     case BTM_LE_SC_OOB_REQ_EVT:
       sec_event.ble_req.bd_addr = bda;
       bta_dm_cb.p_sec_cback(BTA_DM_BLE_SC_OOB_REQ_EVT, &sec_event);
+      break;
+
+    case BTM_LE_SC_LOC_OOB_EVT:
+      tBTA_DM_LOC_OOB_DATA local_oob_data;
+      local_oob_data.local_oob_c = p_data->local_oob_data.commitment;
+      local_oob_data.local_oob_r = p_data->local_oob_data.randomizer;
+      sec_event.local_oob_data = local_oob_data;
+      bta_dm_cb.p_sec_cback(BTA_DM_BLE_SC_CR_LOC_OOB_EVT, &sec_event);
       break;
 
     case BTM_LE_KEY_EVT:

@@ -677,6 +677,11 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, tBTA_AG_DATA* p_data) {
             bta_ag_handle_collision(ag_scb, NULL);
             ag_scb->state = BTA_AG_INIT_ST;
             ag_scb->peer_addr = RawAddress::kEmpty;
+            if (ag_scb->conn_handle) {
+                APPL_TRACE_WARNING("%s: remove rfcomm connection: %d",
+                                    __func__, ag_scb->conn_handle);
+                RFCOMM_RemoveConnection(ag_scb->conn_handle);
+            }
             ag_scb->conn_handle = 0;
           }
           /* Outgoing RFCOMM is just connected, SLC didn't finish.

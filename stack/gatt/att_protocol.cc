@@ -279,6 +279,7 @@ BT_HDR* attp_build_value_cmd(uint16_t payload_size, uint8_t op_code,
                              uint16_t handle, uint16_t offset, uint16_t len,
                              uint8_t* p_data) {
   uint8_t *p, *pp, pair_len, *p_pair_len;
+  int32_t data_len;
   BT_HDR* p_buf =
       (BT_HDR*)osi_malloc(sizeof(BT_HDR) + payload_size + L2CAP_MIN_OFFSET);
 
@@ -304,9 +305,10 @@ BT_HDR* attp_build_value_cmd(uint16_t payload_size, uint8_t op_code,
   }
 
   if (len > 0 && p_data != NULL) {
+    data_len = payload_size - p_buf->len;
     /* ensure data not exceed MTU size */
-    if (payload_size - p_buf->len < len) {
-      len = payload_size - p_buf->len;
+    if ((data_len > 0) && (data_len < len)) {
+      len = data_len;
       /* update handle value pair length */
       if (op_code == GATT_RSP_READ_BY_TYPE) *p_pair_len = (len + 2);
 
@@ -405,6 +407,11 @@ BT_HDR* attp_build_sr_msg(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_code,
                           tGATT_SR_MSG* p_msg) {
   uint16_t offset = 0;
   uint16_t payload_size = gatt_get_payload_size(&tcb, lcid);
+  if (((op_code == GATT_HANDLE_VALUE_IND) ||
+      (op_code == GATT_HANDLE_VALUE_NOTIF)) && payload_size == 0) {
+    LOG(ERROR) << "attp_build_sr_msg Payload_size is zero, which is invalid";
+    return nullptr;
+  }
 
   switch (op_code) {
     case GATT_RSP_READ_BLOB:

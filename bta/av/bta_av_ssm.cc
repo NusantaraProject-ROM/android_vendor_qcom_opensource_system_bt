@@ -30,6 +30,7 @@
 #include "bt_target.h"
 #include "bta_av_co.h"
 #include "bta_av_int.h"
+#include "btif/include/btif_av.h"
 
 /*****************************************************************************
  * Constants and types
@@ -564,30 +565,25 @@ void bta_av_ssm_execute(tBTA_AV_SCB* p_scb, uint16_t event,
 
   if ((p_scb->state != BTA_AV_OPENING_SST) &&
       (state_table[event][BTA_AV_SNEXT_STATE] == BTA_AV_OPENING_SST)) {
-    AVDT_UpdateServiceBusyState(true);
-  } else if(AVDT_GetServiceBusyState() == true) {
+    int idx = (p_scb->hndl & BTA_AV_HNDL_MSK) - 1;
+    RawAddress addr = btif_av_get_addr_by_index(idx);
+    AVDT_UpdateServiceBusyState(true, addr);
+  } else if (p_scb->state == BTA_AV_OPENING_SST &&
+      AVDT_GetServiceBusyState(p_scb->peer_addr) == true) {
     bool keep_busy = true;
-
     for (xx = 0; xx < BTA_AV_NUM_STRS; xx++) {
       if (bta_av_cb.p_scb[xx]) {
         if ((bta_av_cb.p_scb[xx]->state == BTA_AV_OPENING_SST) &&
-            (bta_av_cb.p_scb[xx] != p_scb)) {
-          /* There is other SCB in opening state
-           * keep the service state in progress
-           */
-          APPL_TRACE_VERBOSE("SCB in opening state. Keep Busy");
-          keep_busy = true;
-          break;
-        } else if ((bta_av_cb.p_scb[xx]->state == BTA_AV_OPENING_SST) &&
-                    (bta_av_cb.p_scb[xx] == p_scb) &&
-                    (state_table[event][BTA_AV_SNEXT_STATE] !=
-                     BTA_AV_OPENING_SST)) {
+            (bta_av_cb.p_scb[xx] == p_scb) &&
+            (state_table[event][BTA_AV_SNEXT_STATE] !=
+             BTA_AV_OPENING_SST)) {
           keep_busy = false;
+          break;
         }
       }
-      if (keep_busy == false)
-        AVDT_UpdateServiceBusyState(false);
     }
+    if (keep_busy == false)
+      AVDT_UpdateServiceBusyState(false, p_scb->peer_addr);
   }
 
   /* set next state */

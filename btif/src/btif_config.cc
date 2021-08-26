@@ -550,7 +550,6 @@ bool btif_config_set_bin(const char* section, const char* key,
   } else {
     value_str = str;
   }
-  if (value_str.empty()) return false;
   {
     std::unique_lock<std::recursive_mutex> lock(config_lock);
     config_set_string(config, section, key, value_str.c_str());

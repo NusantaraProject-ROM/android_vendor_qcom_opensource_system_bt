@@ -154,6 +154,39 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_r2_1_offload_caps = {
     {0}
 };
 
+/* Default aptX-adaptive R2.2 codec configuration */
+static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_r2_2_offload_caps = {
+    A2DP_APTX_ADAPTIVE_VENDOR_ID,          /* vendorId */
+    A2DP_APTX_ADAPTIVE_CODEC_ID_BLUETOOTH, /* codecId */
+    A2DP_APTX_ADAPTIVE_SAMPLERATE_44100 |
+    A2DP_APTX_ADAPTIVE_SAMPLERATE_48000 |
+    A2DP_APTX_ADAPTIVE_SAMPLERATE_96000,   /* sampleRate */
+    A2DP_APTX_ADAPTIVE_SOURCE_TYPE_1,
+    (A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO |
+     A2DP_APTX_ADAPTIVE_CHANNELS_STEREO |
+     A2DP_APTX_ADAPTIVE_CHANNELS_TWS_STEREO |
+     A2DP_APTX_ADAPTIVE_CHANNELS_TWS_MONO |
+     A2DP_APTX_ADAPTIVE_CHANNELS_TWS_PLUS),      /* channelMode */
+    { A2DP_APTX_ADAPTIVE_TTP_LL_0,
+      A2DP_APTX_ADAPTIVE_TTP_LL_1,
+      A2DP_APTX_ADAPTIVE_TTP_HQ_0,
+      A2DP_APTX_ADAPTIVE_TTP_HQ_1,
+      A2DP_APTX_ADAPTIVE_TTP_TWS_0,
+      A2DP_APTX_ADAPTIVE_TTP_TWS_1,
+      A2DP_APTX_ADAPTIVE_RESERVED_15THBYTE,
+      A2DP_APTX_ADAPTIVE_CAP_EXT_VER_NUM,
+      A2DP_APTX_ADAPTIVE_R2_2_SUPPORTED_FEATURES,
+      A2DP_APTX_ADAPTIVE_FIRST_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_SECOND_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_THIRD_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_FOURTH_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_EOC0,
+      A2DP_APTX_ADAPTIVE_EOC1},
+
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24, /* bits_per_sample */
+    {0}
+};
+
 /* Default aptX-adaptive codec configuration */
 static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_src_config = {
 //static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_config = {
@@ -235,6 +268,38 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_r2_1_default_offload_con
       A2DP_APTX_ADAPTIVE_RESERVED_15THBYTE,
       A2DP_APTX_ADAPTIVE_CAP_EXT_VER_NUM,
       A2DP_APTX_ADAPTIVE_R2_1_SUPPORTED_FEATURES,
+      A2DP_APTX_ADAPTIVE_FIRST_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_SECOND_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_THIRD_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_FOURTH_SETUP_PREF,
+      A2DP_APTX_ADAPTIVE_EOC0,
+      A2DP_APTX_ADAPTIVE_EOC1},
+
+    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24, /* bits_per_sample */
+    {0}
+};
+
+/* Default aptX-adaptive R2.2 offload codec configuration */
+static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_r2_2_default_offload_config = {
+//static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_config = {
+    A2DP_APTX_ADAPTIVE_VENDOR_ID,          /* vendorId */
+    A2DP_APTX_ADAPTIVE_CODEC_ID_BLUETOOTH, /* codecId */
+    A2DP_APTX_ADAPTIVE_SAMPLERATE_48000,   /* sampleRate */
+    A2DP_APTX_ADAPTIVE_SOURCE_TYPE_1,
+    (A2DP_APTX_ADAPTIVE_CHANNELS_JOINT_STEREO |
+     A2DP_APTX_ADAPTIVE_CHANNELS_STEREO |
+     A2DP_APTX_ADAPTIVE_CHANNELS_TWS_STEREO |
+     A2DP_APTX_ADAPTIVE_CHANNELS_TWS_MONO |
+     A2DP_APTX_ADAPTIVE_CHANNELS_TWS_PLUS),      /* channelMode */
+    { A2DP_APTX_ADAPTIVE_TTP_LL_0,
+      A2DP_APTX_ADAPTIVE_TTP_LL_1,
+      A2DP_APTX_ADAPTIVE_TTP_HQ_0,
+      A2DP_APTX_ADAPTIVE_TTP_HQ_1,
+      A2DP_APTX_ADAPTIVE_TTP_TWS_0,
+      A2DP_APTX_ADAPTIVE_TTP_TWS_1,
+      A2DP_APTX_ADAPTIVE_RESERVED_15THBYTE,
+      A2DP_APTX_ADAPTIVE_CAP_EXT_VER_NUM,
+      A2DP_APTX_ADAPTIVE_R2_2_SUPPORTED_FEATURES,
       A2DP_APTX_ADAPTIVE_FIRST_SETUP_PREF,
       A2DP_APTX_ADAPTIVE_SECOND_SETUP_PREF,
       A2DP_APTX_ADAPTIVE_THIRD_SETUP_PREF,
@@ -715,7 +780,10 @@ A2dpCodecConfigAptxAdaptive::A2dpCodecConfigAptxAdaptive(
                       codec_priority) {
   // Compute the local capability
   if (A2DP_IsCodecEnabledInOffload(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_ADAPTIVE)) {
-    if (A2DP_Get_Aptx_AdaptiveR2_1_Supported()) {
+    if (A2DP_Get_Aptx_AdaptiveR2_2_Supported()) {
+      a2dp_aptx_adaptive_caps = a2dp_aptx_adaptive_r2_2_offload_caps;
+      a2dp_aptx_adaptive_default_config = a2dp_aptx_adaptive_r2_2_default_offload_config;
+    } else if (A2DP_Get_Aptx_AdaptiveR2_1_Supported()) {
       a2dp_aptx_adaptive_caps = a2dp_aptx_adaptive_r2_1_offload_caps;
       a2dp_aptx_adaptive_default_config = a2dp_aptx_adaptive_r2_1_default_offload_config;
     } else {
@@ -795,9 +863,15 @@ bool A2dpCodecConfigAptxAdaptive::useRtpHeaderMarkerBit() const { return false; 
 static bool select_best_sample_rate(uint8_t sampleRate,
                                     tA2DP_APTX_ADAPTIVE_CIE* p_result,
                                     btav_a2dp_codec_config_t* p_codec_config) {
+  LOG_DEBUG(LOG_TAG, "%s: Sample rate: %x", __func__, sampleRate);
   if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_48000) {
     p_result->sampleRate = A2DP_APTX_ADAPTIVE_SAMPLERATE_48000;
     p_codec_config->sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_48000;
+    return true;
+  }
+  if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_44100) {
+    p_result->sampleRate = A2DP_APTX_ADAPTIVE_SAMPLERATE_44100;
+    p_codec_config->sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
     return true;
   }
   if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_96000) {
@@ -805,14 +879,6 @@ static bool select_best_sample_rate(uint8_t sampleRate,
     p_codec_config->sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_96000;
     return true;
   }
-/*
-don't support 44.1 yet
-  if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_44100) {
-    p_result->sampleRate = A2DP_APTX_ADAPTIVE_SAMPLERATE_44100;
-    p_codec_config->sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
-    return true;
-  }
-*/
   return false;
 }
 
@@ -901,7 +967,7 @@ static bool select_best_channel_mode(uint8_t channelMode,
                                      tA2DP_APTX_ADAPTIVE_CIE* p_result,
                                      btav_a2dp_codec_config_t* p_codec_config) {
 
-  LOG_ERROR(LOG_TAG, "%s: Channel Mode: %x", __func__, channelMode);
+  LOG_DEBUG(LOG_TAG, "%s: Channel Mode: %x", __func__, channelMode);
   if (channelMode & A2DP_APTX_ADAPTIVE_CHANNELS_TWS_PLUS) {
     p_result->channelMode = A2DP_APTX_ADAPTIVE_CHANNELS_TWS_PLUS;
     p_codec_config->channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO;
@@ -1039,6 +1105,11 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
   // Select the sample frequency
   //
   sampleRate = a2dp_aptx_adaptive_caps.sampleRate & sink_info_cie.sampleRate;
+  LOG_DEBUG(LOG_TAG,
+              "%s: Sample rate: source caps = 0x%x "
+              "sink info = 0x%x",
+              __func__, a2dp_aptx_adaptive_caps.sampleRate,
+              sink_info_cie.sampleRate);
   codec_config_.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_NONE;
   switch (codec_user_config_.sample_rate) {
     case BTAV_A2DP_CODEC_SAMPLE_RATE_44100:
@@ -1075,6 +1146,7 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
   // Select the sample frequency if there is no user preference
   do {
     // Compute the selectable capability
+    codec_selectable_capability_.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_NONE;
     if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_44100) {
       codec_selectable_capability_.sample_rate |=
           BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
@@ -1325,6 +1397,26 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
     result_config_cie.aptx_data = sink_info_cie.aptx_data;
   }
 
+  LOG_INFO(LOG_TAG, "sink additional supported features: 0x%x", sink_info_cie.aptx_data.aptx_adaptive_sup_features);
+  LOG_INFO(LOG_TAG, "sink cap ext ver num: 0x%x", sink_info_cie.aptx_data.cap_ext_ver_num);
+  if (A2DP_Get_Aptx_AdaptiveR2_2_Supported()) {
+    if ((sink_info_cie.aptx_data.cap_ext_ver_num == A2DP_APTX_ADAPTIVE_CAP_EXT_VER_NUM) &&
+        (sink_info_cie.aptx_data.aptx_adaptive_sup_features & 0x00000080)){
+      LOG_INFO(LOG_TAG, "%s: Sink supports R2.2 decoder ", __func__);
+      result_config_cie.aptx_data.aptx_adaptive_sup_features =
+            sink_info_cie.aptx_data.aptx_adaptive_sup_features | A2DP_APTX_ADAPTIVE_R2_2_SUPPORTED_FEATURES;
+      codec_config_.codec_specific_3 &= ~(int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_MASK;
+      codec_config_.codec_specific_3 |= (int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_AVAILABLE;
+    } else {
+      LOG_INFO(LOG_TAG, "%s: Sink doesn't support R2.2 decoder ", __func__);
+      result_config_cie.aptx_data.aptx_adaptive_sup_features = A2DP_APTX_ADAPTIVE_R2_2_SUPPORTED_FEATURES;
+      codec_config_.codec_specific_3 &= ~(int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_MASK;
+      codec_config_.codec_specific_3 |= (int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_NOT_AVAILABLE;
+    }
+  } else {
+    codec_config_.codec_specific_3 &= ~(int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_MASK;
+    codec_config_.codec_specific_3 |= (int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_NOT_AVAILABLE;
+  }
   memset(result_config_cie.reserved_data, 0, sizeof(result_config_cie.reserved_data));
 
   if (A2DP_BuildInfoAptxAdaptive(AVDT_MEDIA_TYPE_AUDIO, &result_config_cie,
