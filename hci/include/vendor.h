@@ -166,7 +166,7 @@ typedef enum {
   BT_HOST_REASON_PATCH_CONFIG_CMD_STUCK          =  0x37,
   BT_HOST_REASON_GET_APP_VER_CMD_STUCK           =  0x38,
   BT_HOST_REASON_DIAG_LOG_API_STUCK              =  0x39,
-
+  BT_HOST_REASON_SOC_NAME_UNKOWN                 =  0x3A,
   // UART driver crash reasons
   UART_REASON_DEFAULT                            =  0x51,
   UART_REASON_INVALID_FW_LOADED                  =  0x52,
@@ -285,6 +285,7 @@ static secondary_reason secondary_crash_reason [] = {
 { BT_HOST_REASON_PATCH_CONFIG_CMD_STUCK          ,  "Patch config cmd stuck"},
 { BT_HOST_REASON_GET_APP_VER_CMD_STUCK           ,  "Get APP version cmd stuck"},
 { BT_HOST_REASON_DIAG_LOG_API_STUCK              ,  "DIAG log API stuck"},
+{ BT_HOST_REASON_SOC_NAME_UNKOWN                 ,  "SoC name unkown"},
 { UART_REASON_DEFAULT                            ,  "UART reason Default"},
 { UART_REASON_INVALID_FW_LOADED                  ,  "UART invalid FW loaded"},
 { UART_REASON_CLK_GET_FAIL                       ,  "UART CLK get failed"},
