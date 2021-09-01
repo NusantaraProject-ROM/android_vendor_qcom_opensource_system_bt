@@ -672,7 +672,8 @@ void bta_ag_send_call_inds(tBTA_AG_SCB* p_scb, tBTA_AG_RES result) {
   /* set new call and callsetup values based on BTA_AgResult */
   size_t callsetup = bta_ag_indicator_by_result_code(result);
 
-  bool is_blacklisted = interop_match_addr(INTEROP_DISABLE_SNIFF_DURING_CALL, &p_scb->peer_addr);
+  bool is_blacklisted = interop_match_addr_or_name(INTEROP_DISABLE_SNIFF_DURING_CALL,
+                                                   &p_scb->peer_addr);
   if (result == BTA_AG_END_CALL_RES) {
     call = BTA_AG_CALL_INACTIVE;
   } else if (result == BTA_AG_IN_CALL_CONN_RES ||
