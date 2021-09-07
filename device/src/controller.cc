@@ -64,8 +64,12 @@ const uint8_t SCO_HOST_BUFFER_SIZE = 0xff;
 #define QHS_TRANSPORT_LE 1
 #define QHS_TRANSPORT_LE_ISO 2
 
+/* Disable QHS */
 #define QHS_HOST_MODE_HOST_DISABLE 0
+/* Enable QHS support */
 #define QHS_HOST_MODE_HOST_AWARE 3
+/* Disable QHS, QLL and QLMP modes */
+#define QHS_HOST_DISABLE_ALL 4
 
 const bt_event_mask_t QBCE_QLM_AND_QLL_EVENT_MASK = {
   {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x42}};
@@ -677,15 +681,15 @@ static future_t* start_up(void) {
     } else {
 
       response = AWAIT_COMMAND(packet_factory->make_qbce_set_qhs_host_mode(
-                               QHS_TRANSPORT_BREDR, QHS_HOST_MODE_HOST_DISABLE));
+                               QHS_TRANSPORT_BREDR, QHS_HOST_DISABLE_ALL));
       packet_parser->parse_generic_command_complete(response);
 
       response = AWAIT_COMMAND(packet_factory->make_qbce_set_qhs_host_mode(
-                               QHS_TRANSPORT_LE, QHS_HOST_MODE_HOST_DISABLE));
+                               QHS_TRANSPORT_LE, QHS_HOST_DISABLE_ALL));
       packet_parser->parse_generic_command_complete(response);
 
       response = AWAIT_COMMAND(packet_factory->make_qbce_set_qhs_host_mode(
-                               QHS_TRANSPORT_LE_ISO, QHS_HOST_MODE_HOST_DISABLE));
+                               QHS_TRANSPORT_LE_ISO, QHS_HOST_DISABLE_ALL));
       packet_parser->parse_generic_command_complete(response);
     }
   }
