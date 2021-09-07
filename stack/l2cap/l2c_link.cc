@@ -1014,6 +1014,9 @@ bool l2c_link_check_power_mode(tL2C_LCB* p_lcb) {
   tL2C_CCB* p_ccb;
   bool need_to_active = false;
 
+  // Return false as LM modes are applicable for BREDR transport
+  if (p_lcb->transport == BT_TRANSPORT_LE) return false;
+
   /*
    * We only switch park to active only if we have unsent packets
    */
