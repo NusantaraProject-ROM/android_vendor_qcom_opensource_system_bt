@@ -612,6 +612,9 @@ static uint32_t rfcomm_cback(tBTA_JV_EVT event, tBTA_JV* p_data,
       BTA_JvSetPmProfile(p_data->rfc_srv_open.handle, BTA_JV_PM_ALL,
                          BTA_JV_CONN_OPEN);
       id = on_srv_rfc_connect(&p_data->rfc_srv_open, rfcomm_slot_id);
+      if (id == 0) {
+        LOG(ERROR) << __func__ << " Failed to assign new slot";
+      }
       break;
 
     case BTA_JV_RFCOMM_CLOSE_EVT:
