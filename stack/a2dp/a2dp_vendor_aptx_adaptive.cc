@@ -56,7 +56,6 @@
 #include "osi/include/osi.h"
 #include "hardware/bt_av.h"
 
-
 /* aptX-adaptive Source codec capabilities */
 static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_src_caps = {
     A2DP_APTX_ADAPTIVE_VENDOR_ID,          /* vendorId */
@@ -1394,12 +1393,20 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
     result_config_cie.aptx_data = a2dp_aptx_adaptive_r1_offload_caps.aptx_data;
     LOG_INFO(LOG_TAG, "%s: Using Aptx Adaptive R1 config", __func__);
   } else {
-    result_config_cie.aptx_data = sink_info_cie.aptx_data;
+    if (A2DP_Get_Aptx_AdaptiveR2_1_Supported()) {
+      LOG_INFO(LOG_TAG, "%s: Using Aptx Adaptive R2.1 config", __func__);
+      result_config_cie.aptx_data = a2dp_aptx_adaptive_r2_1_offload_caps.aptx_data;
+    } else {
+      LOG_INFO(LOG_TAG, "%s: Using Aptx Adaptive R2 config", __func__);
+      result_config_cie.aptx_data = a2dp_aptx_adaptive_offload_caps.aptx_data;
+    }
   }
 
   LOG_INFO(LOG_TAG, "sink additional supported features: 0x%x", sink_info_cie.aptx_data.aptx_adaptive_sup_features);
   LOG_INFO(LOG_TAG, "sink cap ext ver num: 0x%x", sink_info_cie.aptx_data.cap_ext_ver_num);
   if (A2DP_Get_Aptx_AdaptiveR2_2_Supported()) {
+    LOG_INFO(LOG_TAG, "%s: Using Aptx Adaptive R2.2 config", __func__);
+    result_config_cie.aptx_data = a2dp_aptx_adaptive_r2_2_offload_caps.aptx_data;
     if ((sink_info_cie.aptx_data.cap_ext_ver_num == A2DP_APTX_ADAPTIVE_CAP_EXT_VER_NUM) &&
         (sink_info_cie.aptx_data.aptx_adaptive_sup_features & 0x00000080)){
       LOG_INFO(LOG_TAG, "%s: Sink supports R2.2 decoder ", __func__);
