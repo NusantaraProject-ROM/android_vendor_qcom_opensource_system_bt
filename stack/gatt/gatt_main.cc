@@ -1349,8 +1349,15 @@ static void gatt_l2cif_eatt_disconnect_ind_cback(uint16_t l2cap_cid, bool ack_ne
     return;
   }
 
-  //Move apps if remote disconnects an EATT channel
-  gatt_move_apps(l2cap_cid);
+  tL2C_LCB *p_lcb = l2cu_find_lcb_by_bd_addr(p_eatt_bcb->p_tcb->peer_bda,
+                                             p_eatt_bcb->p_tcb->transport);
+  tL2C_LINK_STATE link_state = p_lcb != NULL ? p_lcb->link_state : LST_DISCONNECTED;
+  if ((link_state == LST_DISCONNECTING) || (link_state == LST_DISCONNECTED)) {
+    VLOG(1) << __func__ << " link_state = " << link_state;
+  } else {
+    //Move apps if remote disconnects an EATT channel
+    gatt_move_apps(l2cap_cid);
+  }
 
   //dealloc eatt_bcb for the lcid
   gatt_eatt_bcb_dealloc(l2cap_cid);

@@ -734,8 +734,7 @@ void gatt_upgrade_conn(tGATT_TCB* p_tcb) {
 void gatt_send_pending_ind(tGATT_TCB& tcb, uint16_t lcid) {
   tGATT_EBCB* p_eatt_bcb = NULL;
   fixed_queue_t** pending_ind_q = &(tcb.pending_ind_q);
-  tGATT_VALUE* p_buf =
-      (tGATT_VALUE*)fixed_queue_try_peek_first(tcb.pending_ind_q);
+  tGATT_VALUE* p_buf = NULL;
   uint8_t att_ret;
   VLOG(1) << __func__;
 
@@ -744,7 +743,6 @@ void gatt_send_pending_ind(tGATT_TCB& tcb, uint16_t lcid) {
     if (p_eatt_bcb) {
       VLOG(1) << __func__ << " Known EATT bearer";
       pending_ind_q = &(p_eatt_bcb->pending_ind_q);
-      p_buf = (tGATT_VALUE*)fixed_queue_try_peek_first(*pending_ind_q);
     }
   }
 
