@@ -794,13 +794,14 @@ void l2cble_process_sig_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
       /* For all channels, see whose identifier matches this id */
       for (temp_p_ccb = p_lcb->ccb_queue.p_first_ccb; temp_p_ccb;
            temp_p_ccb = temp_p_ccb->p_next_ccb) {
-        if (temp_p_ccb->local_id == id) {
+        if ((temp_p_ccb->local_id == id) && temp_p_ccb->in_use) {
           p_ccb = temp_p_ccb;
           break;
         }
       }
       if (p_ccb) {
-        L2CAP_TRACE_DEBUG("I remember the connection req");
+        L2CAP_TRACE_DEBUG("Connection rsp with Num Chnls %d, Chnl_id %d",
+            p_ccb->coc_cmd_info.num_coc_chnls, p_ccb->local_cid);
         uint16_t p_ecfc_pkt_len = L2CAP_CMD_CREDIT_BASED_CONN_LEN +
                                 (2 * p_ccb->coc_cmd_info.num_coc_chnls);
         if (p + p_ecfc_pkt_len > p_pkt_end) {
