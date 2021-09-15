@@ -524,7 +524,7 @@ tGATT_STATUS GATTS_HandleValueNotification(uint16_t conn_id,
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
   uint16_t lcid = 0;
-  tGATT_EBCB* p_eatt_bcb;
+  tGATT_EBCB* p_eatt_bcb = NULL;
 
   VLOG(1) << __func__;
 
@@ -1713,7 +1713,7 @@ tGATT_STATUS GATTS_CheckStatusForApp(uint16_t conn_id, bool confirm) {
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
   uint16_t lcid = 0;
-  tGATT_EBCB* p_eatt_bcb;
+  tGATT_EBCB* p_eatt_bcb = NULL;
   tGATT_STATUS status = GATT_SUCCESS;
 
   VLOG(1) << __func__;

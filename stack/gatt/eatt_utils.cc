@@ -1199,7 +1199,7 @@ bool eatt_congest_notify_apps(uint16_t cid, bool congested) {
     /* notifying all applications on the EATT channel with congestion cb */
     for (i = 0; i < apps.size(); i++) {
       p_reg = gatt_get_regcb(apps[i]);
-      if (p_reg->in_use) {
+      if (p_reg && p_reg->in_use) {
         if (p_reg->app_cb.p_congestion_cb && p_tcb) {
           conn_id = GATT_CREATE_CONN_ID(p_tcb->tcb_idx, p_reg->gatt_if);
           (*p_reg->app_cb.p_congestion_cb)(conn_id, true);
@@ -1218,7 +1218,7 @@ bool eatt_congest_notify_apps(uint16_t cid, bool congested) {
       /* notifying all applications on the EATT channel with uncongestion cb */
       for (i = 0; i < apps.size(); i++) {
         p_reg = gatt_get_regcb(apps[i]);
-        if (p_reg->in_use) {
+        if (p_reg && p_reg->in_use) {
           if (p_reg->app_cb.p_congestion_cb && p_tcb) {
             conn_id = GATT_CREATE_CONN_ID(p_tcb->tcb_idx, p_reg->gatt_if);
             (*p_reg->app_cb.p_congestion_cb)(conn_id, false);
