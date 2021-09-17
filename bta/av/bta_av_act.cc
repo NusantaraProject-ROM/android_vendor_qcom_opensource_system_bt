@@ -2146,16 +2146,8 @@ tBTA_AV_FEAT bta_av_check_peer_features(uint16_t service_uuid) {
                                   &peer_rc_version);
 
       if (interop_match_addr_or_name(INTEROP_ADV_AVRCP_VER_1_3,
-              &p_rec->remote_bd_addr))
-      {
+              &p_rec->remote_bd_addr)) {
           peer_rc_version = AVRC_REV_1_3;
-          APPL_TRACE_DEBUG("changing peer_rc_version as part of blacklisting to 0x%x",
-                  peer_rc_version);
-      }
-      else if (interop_match_addr_or_name(INTEROP_STORE_REMOTE_AVRCP_VERSION_1_4,
-              &p_rec->remote_bd_addr))
-      {
-          peer_rc_version = AVRC_REV_1_4;
           APPL_TRACE_DEBUG("changing peer_rc_version as part of blacklisting to 0x%x",
                   peer_rc_version);
       }

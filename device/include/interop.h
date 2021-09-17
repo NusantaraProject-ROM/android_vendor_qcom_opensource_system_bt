@@ -133,11 +133,6 @@ typedef enum {
 
   INTEROP_HFP_1_8_BLACKLIST,
 
-  // Some Carkits are not initiating AVRCP Browse Channel on
-  // seeing DUT's AVRCP version as v1.6. Hence fallback DUT's
-  // AVRCP version to v1.4 for those Carkits
-  INTEROP_STORE_REMOTE_AVRCP_VERSION_1_4,
-
   // Devices requiring this workaround do not handle Bluetooth PBAP 1.2 version correctly,
   // leading them to go in bad state. So for better interoperability respond with PBAP 1.1
   // as supported version.
