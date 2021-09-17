@@ -683,6 +683,24 @@ uint16_t gatt_get_cid_by_conn_id(uint16_t conn_id) {
   return lcid;
 }
 
+/*
+** Return true if any Apps needs EATT channel
+*/
+bool gatt_apps_need_eatt(tGATT_TCB* p_tcb) {
+  uint8_t num_apps_hold_link = 0;
+  tGATT_REG* p_reg;
+  auto& holders = p_tcb->app_hold_link;
+  num_apps_hold_link = holders.size();
+  VLOG(1) << __func__ << " num_apps_hold_link: " << +num_apps_hold_link;
+  for (auto it = holders.begin(); it != holders.end(); ++it) {
+    p_reg = gatt_get_regcb(*it);
+    if (p_reg && p_reg->eatt_support) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /*******************************************************************************
  *
  * Function         gatt_upgrade_conn

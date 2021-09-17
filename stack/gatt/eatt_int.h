@@ -60,6 +60,7 @@ extern bool is_gatt_conn_found(uint16_t conn_id, uint16_t lcid);
 extern void gatt_add_conn(uint16_t conn_id, uint16_t lcid);
 extern bool is_gatt_conn_id_found(uint16_t conn_id);
 extern uint16_t gatt_get_cid_by_conn_id(uint16_t conn_id);
+extern bool gatt_apps_need_eatt(tGATT_TCB* p_tcb);
 extern void gatt_upgrade_conn(tGATT_TCB* p_tcb);
 extern uint8_t gatt_num_eatt_bcbs(tGATT_TCB* p_tcb);
 extern void gatt_move_apps(uint16_t lcid);

@@ -672,7 +672,10 @@ static void gatt_le_connect_cback(uint16_t chan, const RawAddress& bd_addr,
     //Allocate entry for ATT channel
     p_eatt_bcb = gatt_eatt_bcb_alloc(p_tcb, L2CAP_ATT_CID, false, false);
 
-    GATT_Config(bd_addr, BT_TRANSPORT_LE);
+    if (gatt_apps_need_eatt(p_tcb)) {
+      VLOG(2) << __func__ << ": Apps have requested EATT";
+      GATT_Config(bd_addr, BT_TRANSPORT_LE);
+    }
   }
 
 }
