@@ -1307,7 +1307,6 @@ uint8_t l2c_data_write(uint16_t cid, BT_HDR* p_data, uint16_t flags) {
          credit indication callback is sent to upper layer */
       L2CAP_TRACE_ERROR("%s Insufficient credits available. Credits required:%d."
           " Credits available: %d", __func__, credits_required, p_ccb->peer_conn_cfg.credits);
-      osi_free(p_data);
       return (L2CAP_DW_NO_CREDITS);
     }
   }
