@@ -376,7 +376,9 @@ tGATT_STATUS gatt_sr_process_app_rsp(tGATT_TCB& tcb, tGATT_IF gatt_if,
           gatt_send_error_rsp(tcb, lcid, status, op_code, handle, false);
     }
 
-    gatt_dequeue_sr_cmd(tcb, lcid);
+    if (ret_code != GATT_NO_CREDITS) {
+      gatt_dequeue_sr_cmd(tcb, lcid);
+    }
     if (is_eatt_supported) {
       tcb.is_eatt_supported = true;
       VLOG(1) << __func__ << " Set EATT is supported on GATT server side";
@@ -1288,6 +1290,15 @@ static void gatts_chk_pending_ind(tGATT_TCB& tcb, uint16_t lcid) {
                                 p_buf->value);
     osi_free(fixed_queue_try_remove_from_queue(*pending_ind_q, p_buf));
   }
+
+  //No credits, check if uncongestion needs to be sent
+  if (p_eatt_bcb && !p_eatt_bcb->no_credits) {
+    if (fixed_queue_is_empty(p_eatt_bcb->pending_ind_q)) {
+      VLOG(1) << __func__ << " check if uncongestion needs to be sent"
+                             " to apps after sending queued indication";
+      eatt_congest_notify_apps(lcid, false);
+    }
+  }
 }
 
 /*******************************************************************************
@@ -1328,7 +1339,7 @@ static bool gatts_proc_ind_ack(tGATT_TCB& tcb, uint16_t lcid, uint16_t ack_handl
  ******************************************************************************/
 void gatts_process_value_conf(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_code) {
   uint16_t handle = tcb.indicate_handle;
-  tGATT_EBCB* p_eatt_bcb;
+  tGATT_EBCB* p_eatt_bcb = NULL;
   tGATT_TCB* p_tcb;
 
   if (!tcb.is_eatt_supported) {
@@ -1356,6 +1367,13 @@ void gatts_process_value_conf(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_code) {
     else {
       VLOG(1) << __func__ << " Unknown EATT bearer";
       return;
+    }
+  }
+
+  //No credits, check if uncongestion needs to be sent
+  if (p_eatt_bcb && p_eatt_bcb->send_uncongestion) {
+    if (fixed_queue_is_empty(p_eatt_bcb->pending_ind_q)) {
+      eatt_congest_notify_apps(lcid, false);
     }
   }
 

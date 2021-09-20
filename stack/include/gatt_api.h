@@ -68,6 +68,8 @@
 #define GATT_CANCEL 0x92       /* 0x92 */
 /* 0xE0 ~ 0xFC reserved for future use */
 
+#define GATT_NO_CREDITS 0x93
+
 /* Client Characteristic Configuration Descriptor Improperly Configured */
 #define GATT_CCC_CFG_ERR 0xFD
 /* Procedure Already in progress */
@@ -362,6 +364,15 @@ typedef union {
   uint16_t handle;        /* WRITE, WRITE_BLOB */
 
 } tGATTS_RSP;
+
+/* GATT pending Rsp structure
+*/
+typedef struct {
+  uint16_t conn_id;
+  uint32_t trans_id;
+  tGATT_STATUS status;
+  tGATTS_RSP* p_msg;
+} tGATT_PEND_RSP;
 
 /* Transports for the primary service  */
 #define GATT_TRANSPORT_LE BT_TRANSPORT_LE
@@ -1202,6 +1213,24 @@ extern uint16_t GATT_GetMtuSize(uint16_t conn_id, const RawAddress& bd_addr,
  *
  ******************************************************************************/
 extern tGATT_STATUS GATTS_ConfigureMTU(uint16_t conn_id, uint16_t mtu);
+
+/*******************************************************************************
+ *
+ * Function         GATTS_CheckStatusForApp
+ *
+ * Description      Checks if the gatt_if is using EATT or not.
+ *
+ * Parameters        gatt_if: applicaiton interface (input)
+ *                   bd_addr: peer device address. (input)
+ *                   transport :  physical transport of the GATT connection
+ *                               (BR/EDR or LE)
+ *
+ * Returns          true, if local and remote support EATT and gatt_if also
+ *                  requested for EATT.
+ *                  false, otherwise.
+ *
+ ******************************************************************************/
+extern tGATT_STATUS GATTS_CheckStatusForApp(uint16_t conn_id, bool confirm);
 
 // Enables the GATT profile on the device.
 // It clears out the control blocks, and registers with L2CAP.

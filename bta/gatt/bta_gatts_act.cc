@@ -384,15 +384,26 @@ void bta_gatts_indicate_handle(tBTA_GATTS_CB* p_cb, tBTA_GATTS_DATA* p_msg) {
                                 &gatt_if, remote_bda, &transport)) {
       p_rcb = bta_gatts_find_app_rcb_by_app_if(gatt_if);
 
-      if (p_msg->api_indicate.need_confirm)
-
-        status = GATTS_HandleValueIndication(
-            p_msg->api_indicate.hdr.layer_specific, p_msg->api_indicate.attr_id,
-            p_msg->api_indicate.len, p_msg->api_indicate.value);
-      else
-        status = GATTS_HandleValueNotification(
-            p_msg->api_indicate.hdr.layer_specific, p_msg->api_indicate.attr_id,
-            p_msg->api_indicate.len, p_msg->api_indicate.value);
+      if (p_msg->api_indicate.need_confirm) {
+        if (GATTS_CheckStatusForApp(p_msg->api_indicate.hdr.layer_specific, true) != GATT_BUSY) {
+          status = GATTS_HandleValueIndication(
+              p_msg->api_indicate.hdr.layer_specific, p_msg->api_indicate.attr_id,
+              p_msg->api_indicate.len, p_msg->api_indicate.value);
+        }
+        else {
+          status = GATT_BUSY;
+        }
+      }
+      else {
+        if (GATTS_CheckStatusForApp(p_msg->api_indicate.hdr.layer_specific, false) != GATT_BUSY) {
+          status = GATTS_HandleValueNotification(
+              p_msg->api_indicate.hdr.layer_specific, p_msg->api_indicate.attr_id,
+              p_msg->api_indicate.len, p_msg->api_indicate.value);
+        }
+        else {
+          status = GATT_BUSY;
+        }
+      }
 
       /* if over BR_EDR, inform PM for mode change */
       if (transport == BTA_TRANSPORT_BR_EDR) {

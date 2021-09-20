@@ -124,7 +124,7 @@ cc_library_static {
         "co/bta_gatts_co.cc",
     ],
     shared_libs: [
-        "libaudioclient",
+        "libaaudio",
         "libcutils",
         "libfmq",
         "liblog",

@@ -49,7 +49,6 @@ enum {
   BTA_JV_API_L2CAP_START_SERVER_EVT,
   BTA_JV_API_L2CAP_STOP_SERVER_EVT,
   BTA_JV_API_L2CAP_READ_EVT,
-  BTA_JV_API_L2CAP_WRITE_EVT,
   BTA_JV_API_RFCOMM_CONNECT_EVT,
   BTA_JV_API_RFCOMM_CLOSE_EVT,
   BTA_JV_API_RFCOMM_START_SERVER_EVT,
@@ -212,17 +211,6 @@ typedef struct {
   uint32_t l2cap_socket_id;
 } tBTA_JV_API_L2CAP_READ;
 
-/* data type for BTA_JV_API_L2CAP_WRITE_EVT */
-typedef struct {
-  BT_HDR hdr;
-  uint32_t handle;
-  uint32_t req_id;
-  tBTA_JV_L2C_CB* p_cb;
-  uint8_t* p_data;
-  uint16_t len;
-  uint32_t user_id;
-} tBTA_JV_API_L2CAP_WRITE;
-
 /* data type for BTA_JV_API_L2CAP_WRITE_FIXED_EVT */
 typedef struct {
   BT_HDR hdr;
@@ -335,7 +323,6 @@ typedef union {
   tBTA_JV_API_ADD_ATTRIBUTE add_attr;
   tBTA_JV_API_L2CAP_CONNECT l2cap_connect;
   tBTA_JV_API_L2CAP_READ l2cap_read;
-  tBTA_JV_API_L2CAP_WRITE l2cap_write;
   tBTA_JV_API_L2CAP_CLOSE l2cap_close;
   tBTA_JV_API_L2CAP_SERVER l2cap_server;
   tBTA_JV_API_RFCOMM_CONNECT rfcomm_connect;
@@ -394,7 +381,9 @@ extern void bta_jv_l2cap_close(tBTA_JV_MSG* p_data);
 extern void bta_jv_l2cap_start_server(tBTA_JV_MSG* p_data);
 extern void bta_jv_l2cap_stop_server(tBTA_JV_MSG* p_data);
 extern void bta_jv_l2cap_read(tBTA_JV_MSG* p_data);
-extern void bta_jv_l2cap_write(tBTA_JV_MSG* p_data);
+extern void bta_jv_l2cap_write(uint32_t handle, uint32_t req_id,
+                               BT_HDR* msg, uint32_t user_id,
+                               tBTA_JV_L2C_CB* p_cb);
 extern void bta_jv_rfcomm_connect(tBTA_JV_MSG* p_data);
 extern void bta_jv_rfcomm_close(tBTA_JV_MSG* p_data);
 extern void bta_jv_rfcomm_start_server(tBTA_JV_MSG* p_data);

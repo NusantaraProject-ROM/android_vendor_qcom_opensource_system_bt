@@ -733,10 +733,14 @@ void bta_gattc_cfg_mtu(tBTA_GATTC_CLCB* p_clcb, tBTA_GATTC_DATA* p_data) {
   /* if failed, return callback here */
   if (status != GATT_SUCCESS && status != GATT_CMD_STARTED) {
     /* Dequeue the data, if it was enqueued */
-    if (p_clcb->p_q_cmd == p_data) p_clcb->p_q_cmd = NULL;
-
+    if (p_clcb->p_q_cmd == p_data) {
+      if (status == GATT_BUSY) return;
+      else {
+        p_clcb->p_q_cmd = NULL;
+      }
+    }
     bta_gattc_cmpl_sendmsg(p_clcb->bta_conn_id, GATTC_OPTYPE_CONFIG, status,
-                           NULL);
+        NULL);
   }
 }
 

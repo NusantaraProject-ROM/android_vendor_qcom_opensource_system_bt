@@ -1231,6 +1231,7 @@ bool gatt_cl_send_next_cmd_inq(tGATT_TCB& tcb, uint16_t lcid) {
 void gatt_client_handle_server_rsp(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_code,
                                    uint16_t len, uint8_t* p_data) {
   uint16_t payload_size = gatt_get_payload_size(&tcb, lcid);
+  tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
 
   if (op_code == GATT_HANDLE_VALUE_IND || op_code == GATT_HANDLE_VALUE_NOTIF) {
     if (len >= payload_size) {
@@ -1259,6 +1260,16 @@ void gatt_client_handle_server_rsp(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_cod
 
   uint8_t cmd_code = 0;
   tGATT_CLCB* p_clcb = gatt_cmd_dequeue(tcb, lcid, &cmd_code);
+
+  //No credits, check if uncongestion needs to be sent
+  if (p_eatt_bcb && p_eatt_bcb->send_uncongestion) {
+    if (p_eatt_bcb->cl_cmd_q.empty()) {
+      VLOG(1) << __func__ << " check if uncongestion needs to be sent"
+                             " to apps after rcving client response";
+      eatt_congest_notify_apps(lcid, false);
+    }
+  }
+
   uint8_t rsp_code = gatt_cmd_to_rsp_code(cmd_code);
   if (!p_clcb || (rsp_code != op_code && op_code != GATT_RSP_ERROR)) {
     LOG(WARNING) << StringPrintf(

@@ -166,7 +166,9 @@ typedef enum {
   BT_HOST_REASON_PATCH_CONFIG_CMD_STUCK          =  0x37,
   BT_HOST_REASON_GET_APP_VER_CMD_STUCK           =  0x38,
   BT_HOST_REASON_DIAG_LOG_API_STUCK              =  0x39,
-
+  BT_HOST_REASON_SOC_NAME_UNKOWN                 =  0x3A,
+  // Exception in HOST reason, below is actually related to SoC.
+  SOC_REASON_START_TX_IOS_SOC_RFR_HIGH_DURING_INIT = 0x3B,
   // UART driver crash reasons
   UART_REASON_DEFAULT                            =  0x51,
   UART_REASON_INVALID_FW_LOADED                  =  0x52,
@@ -285,6 +287,8 @@ static secondary_reason secondary_crash_reason [] = {
 { BT_HOST_REASON_PATCH_CONFIG_CMD_STUCK          ,  "Patch config cmd stuck"},
 { BT_HOST_REASON_GET_APP_VER_CMD_STUCK           ,  "Get APP version cmd stuck"},
 { BT_HOST_REASON_DIAG_LOG_API_STUCK              ,  "DIAG log API stuck"},
+{ BT_HOST_REASON_SOC_NAME_UNKOWN                 ,  "SoC name unkown"},
+{ SOC_REASON_START_TX_IOS_SOC_RFR_HIGH_DURING_INIT, "SoC RFR high during INIT"},
 { UART_REASON_DEFAULT                            ,  "UART reason Default"},
 { UART_REASON_INVALID_FW_LOADED                  ,  "UART invalid FW loaded"},
 { UART_REASON_CLK_GET_FAIL                       ,  "UART CLK get failed"},
@@ -305,7 +309,7 @@ static secondary_reason secondary_crash_reason [] = {
 { UART_REASON_RX_PARITY_REASON                   ,  "UART rx parity error"},
 { UART_REASON_RX_BREAK_REASON                    ,  "UART rx break error"},
 { UART_REASON_RX_SBE_REASON                      ,  "UART rx SBE error"},
-{ SOC_REASON_START_TX_IOS_SOC_RFR_HIGH           ,  "UART start tx SoC rfr high"}
+{ SOC_REASON_START_TX_IOS_SOC_RFR_HIGH           ,  "SoC RFR high"}
 };
 
 enum host_crash_reason_e  {
