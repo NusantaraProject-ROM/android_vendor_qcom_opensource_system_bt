@@ -234,13 +234,13 @@ void gatt_free(void) {
   }
 
   for (i = 0; i < GATT_MAX_EATT_CHANNELS; i++) {
-    fixed_queue_free(gatt_cb.eatt_bcb[i].pending_ind_q, NULL);
+    if(gatt_cb.eatt_bcb[i].cid != L2CAP_ATT_CID) {
+      fixed_queue_free(gatt_cb.eatt_bcb[i].pending_ind_q, NULL);
+      alarm_free(gatt_cb.eatt_bcb[i].conf_timer);
+      alarm_free(gatt_cb.eatt_bcb[i].ind_ack_timer);
+    }
     gatt_cb.eatt_bcb[i].pending_ind_q = NULL;
-
-    alarm_free(gatt_cb.eatt_bcb[i].conf_timer);
     gatt_cb.eatt_bcb[i].conf_timer = NULL;
-
-    alarm_free(gatt_cb.eatt_bcb[i].ind_ack_timer);
     gatt_cb.eatt_bcb[i].ind_ack_timer = NULL;
 
     fixed_queue_free(gatt_cb.eatt_bcb[i].sr_cmd.multi_rsp_q, NULL);

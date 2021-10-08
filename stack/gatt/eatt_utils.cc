@@ -78,6 +78,7 @@ tGATT_EBCB* gatt_eatt_bcb_alloc(tGATT_TCB* p_tcb, uint16_t lcid, bool create_in_
   std::string conf_timer = "gatt.conf_timer";
   std::string ind_ack_timer = "gatt.ind_ack_timer";
 
+  VLOG(1) << __func__ << " lcid:" << +lcid;
   p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
   if (p_eatt_bcb) {
     VLOG(1) << __func__ << " p_eatt_bcb already available for lcid: " << +lcid;
@@ -137,6 +138,7 @@ bool gatt_eatt_bcb_dealloc(uint16_t lcid) {
   tGATT_EBCB* p_eatt_bcb = NULL;
   bool ret = false;
 
+  VLOG(1) << __func__ << " lcid:" << +lcid;
   for (i = 0; i < GATT_MAX_EATT_CHANNELS; i++) {
     if (gatt_cb.eatt_bcb[i].in_use &&
        (gatt_cb.eatt_bcb[i].cid == lcid)) {
@@ -150,8 +152,6 @@ bool gatt_eatt_bcb_dealloc(uint16_t lcid) {
         alarm_free(p_eatt_bcb->conf_timer);
         p_eatt_bcb->conf_timer = NULL;
         gatt_free_pending_ind(p_eatt_bcb->p_tcb, lcid);
-        fixed_queue_free(p_eatt_bcb->sr_cmd.multi_rsp_q, NULL);
-        p_eatt_bcb->sr_cmd.multi_rsp_q = NULL;
       }
 
       p_eatt_bcb->in_use = false;
@@ -188,12 +188,19 @@ uint8_t gatt_eatt_bcb_in_progress_dealloc(RawAddress& bda) {
   tGATT_EBCB* p_eatt_bcb = NULL;
   uint8_t num_dealloc = 0;
 
+  VLOG(1) << __func__;
   for (i = 0; i < GATT_MAX_EATT_CHANNELS; i++) {
     if (gatt_cb.eatt_bcb[i].in_use && (gatt_cb.eatt_bcb[i].create_in_prg) &&
        (gatt_cb.eatt_bcb[i].p_tcb->peer_bda == bda)) {
       p_eatt_bcb = &gatt_cb.eatt_bcb[i];
 
-      *p_eatt_bcb = tGATT_EBCB();
+      if (p_eatt_bcb->cid != L2CAP_ATT_CID) {
+        alarm_free(p_eatt_bcb->ind_ack_timer);
+        p_eatt_bcb->ind_ack_timer = NULL;
+        alarm_free(p_eatt_bcb->conf_timer);
+        p_eatt_bcb->conf_timer = NULL;
+        gatt_free_pending_ind(p_eatt_bcb->p_tcb, p_eatt_bcb->cid);
+      }
 
       p_eatt_bcb->in_use = false;
       p_eatt_bcb->p_tcb = NULL;
@@ -201,6 +208,7 @@ uint8_t gatt_eatt_bcb_in_progress_dealloc(RawAddress& bda) {
 
       p_eatt_bcb->create_in_prg = false;
       p_eatt_bcb->apps.clear();
+      *p_eatt_bcb = tGATT_EBCB();
       num_dealloc++;
     }
   }
