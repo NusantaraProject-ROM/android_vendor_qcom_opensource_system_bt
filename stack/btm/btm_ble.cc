@@ -2815,6 +2815,11 @@ void btm_ble_create_cis_status_cb (uint8_t* status, uint16_t len) {
   tBTM_BLE_CREATE_CIS_CB* create_cis_status_cb = NULL;
 
   it = pending_cis_map.find(last_pending_cis_handle);
+  if (it == pending_cis_map.end()) {
+    BTM_TRACE_ERROR("%s: Entry not found for handle = %d",
+                    __func__, last_pending_cis_handle);
+    return;
+  }
   create_cis_status_cb = it->second.create_cis_status_cb;
 
   // Give callback to uppeer layers
@@ -2872,12 +2877,12 @@ void btm_ble_create_cis_timeout (void* p_data) {
     tBTM_BLE_CIS_ESTABLISHED_EVT_PARAM ret_param = {};
     ret_param.status = HCI_ERR_CONNECTION_TOUT;
     ret_param.connection_handle = it->first;
+    // erase the pending connection entry from map
+    pending_cis_map.erase(it);
+
     if (params.cis_established_evt_cb) {
       (*params.cis_established_evt_cb)(&ret_param);
     }
-
-    // erase the pending connection entry from map
-    pending_cis_map.erase(it);
   }
   delete cis_handles;
 }

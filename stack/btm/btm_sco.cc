@@ -966,6 +966,8 @@ void btm_sco_connected(uint8_t hci_status, const RawAddress* bda,
   tBTM_CHG_ESCO_PARAMS parms;
 #endif
 
+  BTM_TRACE_DEBUG("%s: hci_status 0x%x, bda %s, hci_handle 0x%04x",
+          __func__, hci_status, bda->ToString().c_str(), hci_handle);
   btm_cb.sco_cb.sco_disc_reason = hci_status;
 
 #if (BTM_MAX_SCO_LINKS > 0)
@@ -1033,6 +1035,12 @@ void btm_sco_connected(uint8_t hci_status, const RawAddress* bda,
       (*p->p_conn_cb)(xx);
 
       return;
+    } else if (p->state == SCO_ST_UNUSED &&
+        (p->rem_bd_known) && (!bda || p->esco.data.bd_addr == *bda)) {
+      if (hci_status == HCI_SUCCESS) {
+        BTM_TRACE_WARNING("%s: Unused control block, disconnect sco", __func__);
+        btsnd_hcic_disconnect(hci_handle, HCI_ERR_PEER_USER);
+      }
     }
   }
 #endif
@@ -1086,6 +1094,7 @@ tBTM_STATUS BTM_RemoveSco(uint16_t sco_inx) {
   if (p->state == SCO_ST_UNUSED)
     return (BTM_UNKNOWN_ADDR);
 
+  BTM_TRACE_DEBUG("%s: state 0x%x, handle 0x%04x", __func__, p->state, p->hci_handle);
   /* If no HCI handle, simply drop the connection and return */
   if (p->hci_handle == BTM_INVALID_HCI_HANDLE ||
       p->state == SCO_ST_PEND_UNPARK) {

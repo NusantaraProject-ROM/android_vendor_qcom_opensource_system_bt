@@ -743,7 +743,8 @@ static void gatt_cl_op_cmpl_cback(uint16_t conn_id,
       btif_storage_add_eatt_support(p_tcb->peer_bda);
       gatt_add_eatt_device(p_tcb->peer_bda);
 
-      if (p_tcb->transport == BT_TRANSPORT_LE) {
+      if ((p_tcb->transport == BT_TRANSPORT_LE) &&
+          gatt_apps_need_eatt(p_tcb)) {
         GATT_Config(p_tcb->peer_bda, p_tcb->transport);
       }
     }
@@ -910,7 +911,9 @@ void GATT_CheckEATTSupport(const RawAddress& remote_bda,
 
   if ((p_tcb->transport == BT_TRANSPORT_LE) && (p_tcb->is_eatt_supported)) {
     VLOG(1) << __func__ << " EATT support already identified";
-    GATT_Config(p_tcb->peer_bda, p_tcb->transport);
+    if (gatt_apps_need_eatt(p_tcb)) {
+      GATT_Config(p_tcb->peer_bda, p_tcb->transport);
+    }
     return;
   }
 

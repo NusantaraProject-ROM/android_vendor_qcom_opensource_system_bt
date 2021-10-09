@@ -672,7 +672,10 @@ static void gatt_le_connect_cback(uint16_t chan, const RawAddress& bd_addr,
     //Allocate entry for ATT channel
     p_eatt_bcb = gatt_eatt_bcb_alloc(p_tcb, L2CAP_ATT_CID, false, false);
 
-    GATT_Config(bd_addr, BT_TRANSPORT_LE);
+    if (gatt_apps_need_eatt(p_tcb)) {
+      VLOG(2) << __func__ << ": Apps have requested EATT";
+      GATT_Config(bd_addr, BT_TRANSPORT_LE);
+    }
   }
 
 }
@@ -1290,13 +1293,6 @@ static void gatt_l2cif_eatt_connect_cfm_cback(RawAddress &p_bd_addr,
       return;
     }
 
-    if (gatt_num_eatt_bcbs(p_tcb) == 0) {
-      VLOG(1) << " First EATT conn attempt rejected, set eatt as not supported";
-      p_tcb->is_eatt_supported = false;
-      gatt_eatt_bcb_in_progress_dealloc(p_bd_addr);
-      return;
-    }
-
     //Assign least burdened channel
     if (!p_tcb->apps_needing_eatt.empty()) {
       gatt_if = p_tcb->apps_needing_eatt.front();
@@ -1318,6 +1314,10 @@ static void gatt_l2cif_eatt_connect_cfm_cback(RawAddress &p_bd_addr,
           }
         }
       }
+    }
+    if (gatt_num_eatt_bcbs(p_tcb) == 0) {
+      VLOG(1) << " First EATT conn attempt rejected, set eatt as not supported";
+      p_tcb->is_eatt_supported = false;
     }
     gatt_eatt_bcb_in_progress_dealloc(p_bd_addr);
   }
@@ -1349,8 +1349,15 @@ static void gatt_l2cif_eatt_disconnect_ind_cback(uint16_t l2cap_cid, bool ack_ne
     return;
   }
 
-  //Move apps if remote disconnects an EATT channel
-  gatt_move_apps(l2cap_cid);
+  tL2C_LCB *p_lcb = l2cu_find_lcb_by_bd_addr(p_eatt_bcb->p_tcb->peer_bda,
+                                             p_eatt_bcb->p_tcb->transport);
+  tL2C_LINK_STATE link_state = p_lcb != NULL ? p_lcb->link_state : LST_DISCONNECTED;
+  if ((link_state == LST_DISCONNECTING) || (link_state == LST_DISCONNECTED)) {
+    VLOG(1) << __func__ << " link_state = " << link_state;
+  } else {
+    //Move apps if remote disconnects an EATT channel
+    gatt_move_apps(l2cap_cid);
+  }
 
   //dealloc eatt_bcb for the lcid
   gatt_eatt_bcb_dealloc(l2cap_cid);

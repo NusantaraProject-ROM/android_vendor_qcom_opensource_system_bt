@@ -683,6 +683,24 @@ uint16_t gatt_get_cid_by_conn_id(uint16_t conn_id) {
   return lcid;
 }
 
+/*
+** Return true if any Apps needs EATT channel
+*/
+bool gatt_apps_need_eatt(tGATT_TCB* p_tcb) {
+  uint8_t num_apps_hold_link = 0;
+  tGATT_REG* p_reg;
+  auto& holders = p_tcb->app_hold_link;
+  num_apps_hold_link = holders.size();
+  VLOG(1) << __func__ << " num_apps_hold_link: " << +num_apps_hold_link;
+  for (auto it = holders.begin(); it != holders.end(); ++it) {
+    p_reg = gatt_get_regcb(*it);
+    if (p_reg && p_reg->eatt_support) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /*******************************************************************************
  *
  * Function         gatt_upgrade_conn
@@ -734,8 +752,7 @@ void gatt_upgrade_conn(tGATT_TCB* p_tcb) {
 void gatt_send_pending_ind(tGATT_TCB& tcb, uint16_t lcid) {
   tGATT_EBCB* p_eatt_bcb = NULL;
   fixed_queue_t** pending_ind_q = &(tcb.pending_ind_q);
-  tGATT_VALUE* p_buf =
-      (tGATT_VALUE*)fixed_queue_try_peek_first(tcb.pending_ind_q);
+  tGATT_VALUE* p_buf = NULL;
   uint8_t att_ret;
   VLOG(1) << __func__;
 
@@ -744,7 +761,6 @@ void gatt_send_pending_ind(tGATT_TCB& tcb, uint16_t lcid) {
     if (p_eatt_bcb) {
       VLOG(1) << __func__ << " Known EATT bearer";
       pending_ind_q = &(p_eatt_bcb->pending_ind_q);
-      p_buf = (tGATT_VALUE*)fixed_queue_try_peek_first(*pending_ind_q);
     }
   }
 
@@ -1201,7 +1217,7 @@ bool eatt_congest_notify_apps(uint16_t cid, bool congested) {
     /* notifying all applications on the EATT channel with congestion cb */
     for (i = 0; i < apps.size(); i++) {
       p_reg = gatt_get_regcb(apps[i]);
-      if (p_reg->in_use) {
+      if (p_reg && p_reg->in_use) {
         if (p_reg->app_cb.p_congestion_cb && p_tcb) {
           conn_id = GATT_CREATE_CONN_ID(p_tcb->tcb_idx, p_reg->gatt_if);
           (*p_reg->app_cb.p_congestion_cb)(conn_id, true);
@@ -1220,7 +1236,7 @@ bool eatt_congest_notify_apps(uint16_t cid, bool congested) {
       /* notifying all applications on the EATT channel with uncongestion cb */
       for (i = 0; i < apps.size(); i++) {
         p_reg = gatt_get_regcb(apps[i]);
-        if (p_reg->in_use) {
+        if (p_reg && p_reg->in_use) {
           if (p_reg->app_cb.p_congestion_cb && p_tcb) {
             conn_id = GATT_CREATE_CONN_ID(p_tcb->tcb_idx, p_reg->gatt_if);
             (*p_reg->app_cb.p_congestion_cb)(conn_id, false);

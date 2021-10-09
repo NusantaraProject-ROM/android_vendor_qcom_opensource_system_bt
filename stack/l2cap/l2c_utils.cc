@@ -1779,6 +1779,7 @@ void l2cu_release_ccb(tL2C_CCB* p_ccb) {
   p_ccb->coc_cmd_info.num_coc_chnls = 0;
   p_ccb->coc_cmd_info.requested_ecfc_chnls = 0;
   p_ccb->remote_cid = 0;
+  p_ccb->local_id = 0;
 
   // reset ECFC reconfig params reference in ccb
   p_ccb->pending_inc_cfg = NULL;

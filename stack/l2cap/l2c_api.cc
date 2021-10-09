@@ -828,7 +828,7 @@ int8_t L2CA_ConnectCocReq(tL2CAP_COC_CONN_REQ* conn_req) {
 
   /* If link is up, start the L2CAP connection */
   if (p_lcb->link_state == LST_CONNECTED) {
-    L2CAP_TRACE_DEBUG("%s Link is up", __func__);
+    L2CAP_TRACE_DEBUG("%s Link is up And Num Chnls %d ", __func__, conn_req->num_chnls);
     l2c_csm_execute(p_ccb[0], L2CEVT_L2CA_COC_CONNECT_REQ, NULL);
   }
 

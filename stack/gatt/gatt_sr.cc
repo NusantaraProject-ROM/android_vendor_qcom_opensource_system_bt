@@ -1270,8 +1270,7 @@ void gatts_proc_srv_chg_ind_ack(tGATT_TCB tcb) {
 static void gatts_chk_pending_ind(tGATT_TCB& tcb, uint16_t lcid) {
   tGATT_EBCB* p_eatt_bcb = NULL;
   fixed_queue_t** pending_ind_q = &(tcb.pending_ind_q);
-  tGATT_VALUE* p_buf =
-      (tGATT_VALUE*)fixed_queue_try_peek_first(tcb.pending_ind_q);
+  tGATT_VALUE* p_buf = NULL;
 
   VLOG(1) << __func__ << " is EATT supported:" << +tcb.is_eatt_supported;
 
@@ -1280,7 +1279,6 @@ static void gatts_chk_pending_ind(tGATT_TCB& tcb, uint16_t lcid) {
     if (p_eatt_bcb) {
       VLOG(1) << __func__ << " Known EATT bearer";
       pending_ind_q = &(p_eatt_bcb->pending_ind_q);
-      p_buf = (tGATT_VALUE*)fixed_queue_try_peek_first(*pending_ind_q);
     }
   }
 
