@@ -877,6 +877,22 @@ void gatt_rsp_enq(tGATT_TCB* p_tcb, uint16_t cid, tGATT_PEND_RSP* p_rsp) {
   }
 }
 
+/** Enqueue GATT discovery response for no credits reason, only for EATT */
+void eatt_disc_rsp_enq(uint16_t cid, BT_HDR *p_msg) {
+  tGATT_PEND_SRVC_DISC_RSP gatt_rsp;
+  gatt_rsp.p_msg = p_msg;
+  gatt_rsp.lcid = cid;
+  tGATT_EBCB* p_eatt_bcb;
+
+  VLOG(1) << __func__;
+  if (cid != L2CAP_ATT_CID) {
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(cid);
+    if (p_eatt_bcb) {
+      p_eatt_bcb->gatt_disc_rsp_q.push_back(gatt_rsp);
+    }
+  }
+}
+
 /*******************************************************************************
  *
  * Function         gatt_send_pending_rsp
@@ -926,6 +942,55 @@ void gatt_send_pending_rsp(tGATT_TCB& tcb, uint16_t cid) {
   }
 }
 
+/*******************************************************************************
+ *
+ * Function         gatt_send_pending_disc_rsp
+ *
+ * Description      This function checks any pending GATT discovery rsp needs
+ *                  to be sent. If there is a pending rsp, then it is sent
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void gatt_send_pending_disc_rsp(tGATT_TCB& tcb, uint16_t cid) {
+  tGATT_EBCB* p_eatt_bcb = NULL;
+  std::deque<tGATT_PEND_SRVC_DISC_RSP>* gatt_rsp_q;
+  tGATT_PEND_SRVC_DISC_RSP* p_buf;
+  uint8_t att_ret;
+  VLOG(1) << __func__;
+
+  if (tcb.is_eatt_supported && (cid != L2CAP_ATT_CID)) {
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(cid);
+
+    if (p_eatt_bcb) {
+      VLOG(1) << __func__ << " Known EATT bearer";
+      gatt_rsp_q = &(p_eatt_bcb->gatt_disc_rsp_q);
+
+      if (gatt_rsp_q->empty()) {
+        VLOG(1) << __func__ << " pending gatt rsp q empty";
+        return;
+      }
+
+      p_buf = (tGATT_PEND_SRVC_DISC_RSP*)&(gatt_rsp_q->front());
+      if (p_buf != NULL) {
+        att_ret = attp_send_sr_msg(tcb, cid, p_buf->p_msg);
+
+        if (((att_ret == GATT_CONGESTED) || (att_ret == GATT_NO_CREDITS))
+            && p_eatt_bcb->no_credits){
+          VLOG(1) << __func__ << " EATT channel has no credits, dont dequeue";
+          return;
+        } else {
+          gatt_rsp_q->pop_front();
+          if (p_eatt_bcb->send_uncongestion && p_eatt_bcb->gatt_disc_rsp_q.empty()) {
+            VLOG(1) << __func__ << " check if uncongestion needs to be sent to apps"
+                                   " after sending queued GATT srvc disc rsp";
+            eatt_congest_notify_apps(cid, false);
+          }
+        }
+      }
+    }
+  }
+}
 /*******************************************************************************
  *
  * Function         gatt_move_apps
@@ -1251,8 +1316,9 @@ bool eatt_congest_notify_apps(uint16_t cid, bool congested) {
   }
   else {
     if (p_eatt_bcb->send_uncongestion && p_eatt_bcb->cl_cmd_q.empty()
-        && fixed_queue_is_empty(p_eatt_bcb->pending_ind_q) &&
-        p_eatt_bcb->notif_q.empty() && p_eatt_bcb->gatt_rsp_q.empty()) {
+        && fixed_queue_is_empty(p_eatt_bcb->pending_ind_q)
+        && p_eatt_bcb->notif_q.empty() && p_eatt_bcb->gatt_rsp_q.empty()
+        && p_eatt_bcb->gatt_disc_rsp_q.empty()) {
       VLOG(1) << __func__ << " All queues for this EATT chnl are empty,"
                              " send uncongestion cb to apps";
 

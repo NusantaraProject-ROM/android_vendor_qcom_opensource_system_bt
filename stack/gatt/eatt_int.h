@@ -72,8 +72,10 @@ extern void eatt_cleanup_upon_disc(const RawAddress& bda);
 extern void gatt_send_pending_ind(tGATT_TCB& tcb, uint16_t lcid);
 extern void gatt_send_pending_notif(tGATT_TCB& tcb, uint16_t lcid);
 extern void gatt_send_pending_rsp(tGATT_TCB& tcb, uint16_t cid);
+extern void gatt_send_pending_disc_rsp(tGATT_TCB& tcb, uint16_t cid);
 extern void gatt_notif_enq(tGATT_TCB* p_tcb, uint16_t cid, tGATT_VALUE* p_notif);
 extern void gatt_rsp_enq(tGATT_TCB* p_tcb, uint16_t cid, tGATT_PEND_RSP* p_rsp);
+extern void eatt_disc_rsp_enq(uint16_t cid, BT_HDR *p_msg);
 extern bool eatt_congest_notify_apps(uint16_t cid, bool congested);
 extern tGATT_EBCB* gatt_find_eatt_bcb_using_all_cids(uint16_t lcid);
 

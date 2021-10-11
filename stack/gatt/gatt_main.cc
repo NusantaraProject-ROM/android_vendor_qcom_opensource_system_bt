@@ -1054,6 +1054,11 @@ void gatt_notify_eatt_congestion(uint16_t cid, bool congested) {
     gatt_send_pending_rsp(*(p_tcb), cid);
   }
 
+  /* if uncongested, check to see if there is any pending GATT srvc disc rsp */
+  if (p_tcb != NULL && !congested && p_eatt_bcb->send_uncongestion) {
+    gatt_send_pending_disc_rsp(*(p_tcb), cid);
+  }
+
   /* if uncongested, check to see if there is any more pending client ops */
   if (p_tcb != NULL && !congested && p_eatt_bcb->send_uncongestion) {
     gatt_cl_send_next_cmd_inq(*p_tcb, cid);
