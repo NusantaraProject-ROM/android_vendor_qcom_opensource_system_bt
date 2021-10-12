@@ -547,9 +547,9 @@ LC3ChannelMode btif_lc3_channel_mode(uint8_t mode) {
       return LC3ChannelMode::MONO;
     case BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO:
       return LC3ChannelMode::STEREO;
-    case 3://to be defined common to bap
-      return LC3ChannelMode::JOINT_STEREO;
     case 4://to be defined common to bap
+      return LC3ChannelMode::JOINT_STEREO;
+    case 8://to be defined common to bap
       return LC3ChannelMode::CH_5_1;
     default:
       return LC3ChannelMode::UNKNOWN;
@@ -1465,6 +1465,7 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
   uint8_t p_codec_info[AVDT_CODEC_SIZE];
   uint8_t codec_type;
   uint32_t bitrate = 0;
+  int cis_count = 2;
   tA2DP_ENCODER_INIT_PEER_PARAMS peer_param;
   if (codec_config == nullptr) return false;
 
@@ -1556,7 +1557,12 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
     uint16_t type = pclient_cbs[profile - 1]->get_profile_status_cb();
     if (type != 0x04) {
       lc3Config.txConfig.sampleRate = btif_lc3_sample_rate(pclient_cbs[profile - 1]->get_sample_rate_cb());
-      lc3Config.txConfig.channelMode = btif_lc3_channel_mode(0x02);
+      lc3Config.txConfig.channelMode =
+        btif_lc3_channel_mode(pclient_cbs[profile - 1]->get_channel_mode_cb());
+      if(lc3Config.txConfig.channelMode == LC3ChannelMode::JOINT_STEREO ||
+         lc3Config.txConfig.channelMode == LC3ChannelMode::MONO) {
+        cis_count = 1;
+      }
       lc3Config.txConfig.bitrate = pclient_cbs[profile - 1]->get_bitrate_cb();
       lc3Config.txConfig.octetsPerFrame = pclient_cbs[profile - 1]->get_mtu_cb(0);
       lc3Config.txConfig.frameDuration = pclient_cbs[profile - 1]->get_frame_length_cb();
@@ -1584,12 +1590,12 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
     lc3Config.mode = pclient_cbs[profile - 1]->mode;
     lc3Config.rxConfigSet = 0;
     lc3Config.decoderOuputChannels = 0;
-    int cis_count = 2;
 
     if (type == 0x04) {
       LOG(ERROR) << __func__ << ": Filling Tx dummy values";
       lc3Config.txConfig.sampleRate = ExtSampleRate::RATE_48000;
-      lc3Config.txConfig.channelMode = LC3ChannelMode::STEREO;
+      lc3Config.txConfig.channelMode = btif_lc3_channel_mode(
+                        pclient_cbs[profile - 1]->get_channel_mode_cb());
       lc3Config.txConfig.bitrate = 80000;
       lc3Config.txConfig.octetsPerFrame = 100;
       lc3Config.txConfig.frameDuration = 10000;
@@ -1599,7 +1605,12 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
       lc3Config.rxConfigSet = 1;
       lc3Config.rxConfig.sampleRate =
                 btif_lc3_sample_rate(pclient_cbs[profile - 1]->get_sample_rate_cb());
-      lc3Config.rxConfig.channelMode = btif_lc3_channel_mode(0x02);
+      lc3Config.rxConfig.channelMode = btif_lc3_channel_mode(
+                        pclient_cbs[profile - 1]->get_channel_mode_cb());
+      if( lc3Config.rxConfig.channelMode == LC3ChannelMode::JOINT_STEREO ||
+          lc3Config.rxConfig.channelMode == LC3ChannelMode::MONO) {
+        cis_count = 1;
+      }
       lc3Config.rxConfig.bitrate = pclient_cbs[profile - 1]->get_bitrate_cb();
       lc3Config.rxConfig.octetsPerFrame = pclient_cbs[profile - 1]->get_mtu_cb(0);
       lc3Config.rxConfig.frameDuration = pclient_cbs[profile - 1]->get_frame_length_cb();
@@ -1614,6 +1625,7 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
         lc3Config.streamMap[(i*3)] = (CHANNEL_FL + (i % 2));
         LOG(ERROR) << __func__ << ": Stereo config of ToAir";
       } else if (lc3Config.txConfig.channelMode == LC3ChannelMode::JOINT_STEREO) {
+        LOG(ERROR) << __func__ << ": joint Stereo config of ToAir";
         lc3Config.streamMap[(i*3)] = (CHANNEL_FR | CHANNEL_FL);
       } else {
         lc3Config.streamMap[(i*3)] = i;
@@ -1624,7 +1636,7 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
 
     // From Air
     if (lc3Config.rxConfigSet) {
-      lc3Config.decoderOuputChannels = 2;
+      lc3Config.decoderOuputChannels = cis_count;
       for (int i = cis_count, j = 0; i < cis_count*2; i++, j++) {
         if (type == 0x04 ? lc3Config.rxConfig.channelMode == LC3ChannelMode::STEREO :
           lc3Config.txConfig.channelMode == LC3ChannelMode::STEREO) {//TODO:change rx in wmcp case
@@ -1633,7 +1645,7 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
         } else if (lc3Config.txConfig.channelMode == LC3ChannelMode::JOINT_STEREO) {
           lc3Config.streamMap[(i*3)] = (CHANNEL_FR | CHANNEL_FL);
         } else {
-          lc3Config.streamMap[(i*3)] = i;
+          lc3Config.streamMap[(i*3)] = CHANNEL_MONO;
         }
         lc3Config.streamMap[(i*3)+1] = j; // stream ID
         lc3Config.streamMap[(i*3)+2] = FROM_AIR;  // direction
