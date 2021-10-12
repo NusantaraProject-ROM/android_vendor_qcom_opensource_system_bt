@@ -1340,7 +1340,7 @@ static void gatt_l2cif_eatt_connect_cfm_cback(RawAddress &p_bd_addr,
  *
  ******************************************************************************/
 static void gatt_l2cif_eatt_disconnect_ind_cback(uint16_t l2cap_cid, bool ack_needed) {
-  tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(l2cap_cid);
+  tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_using_all_cids(l2cap_cid);
 
   VLOG(1) << __func__;
 

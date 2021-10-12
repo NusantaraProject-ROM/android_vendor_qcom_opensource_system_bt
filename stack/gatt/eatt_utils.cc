@@ -258,6 +258,29 @@ tGATT_EBCB* gatt_find_eatt_bcb_by_cid(uint16_t lcid) {
 
 /*******************************************************************************
  *
+ * Function         gatt_find_eatt_bcb_using_all_cids
+ *
+ * Description      The function searches for the eatt_bcb entry
+ *                  based on channel id, even eatt connection on that channel
+ *                  is still in connecting state.
+ *
+ * Returns          NULL if not found. Otherwise pointer to the eatt_bcb.
+ *
+ ******************************************************************************/
+tGATT_EBCB* gatt_find_eatt_bcb_using_all_cids(uint16_t lcid) {
+  uint16_t i = 0;
+  tGATT_EBCB* p_eatt_bcb = NULL;
+
+  for (i = 0; i < GATT_MAX_EATT_CHANNELS; i++) {
+    if (gatt_cb.eatt_bcb[i].in_use && gatt_cb.eatt_bcb[i].cid == lcid) {
+      p_eatt_bcb = &gatt_cb.eatt_bcb[i];
+      break;
+    }
+  }
+  return p_eatt_bcb;
+}
+/*******************************************************************************
+ *
  * Function         gatt_find_eatt_bcb_by_srv_trans_id
  *
  * Description      The function searches for the eatt_bcb entry based on
