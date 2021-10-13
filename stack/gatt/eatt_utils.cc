@@ -785,6 +785,7 @@ void gatt_send_pending_ind(tGATT_TCB& tcb, uint16_t lcid) {
   fixed_queue_t** pending_ind_q = &(tcb.pending_ind_q);
   tGATT_VALUE* p_buf = NULL;
   uint8_t att_ret;
+  std::vector<uint16_t>::iterator it;
   VLOG(1) << __func__;
 
   if (tcb.is_eatt_supported) {
@@ -799,12 +800,30 @@ void gatt_send_pending_ind(tGATT_TCB& tcb, uint16_t lcid) {
   if (p_buf != NULL) {
     att_ret = GATTS_HandleValueIndication(p_buf->conn_id, p_buf->handle, p_buf->len,
                                 p_buf->value);
-    if ((att_ret == GATT_CONGESTED) && p_eatt_bcb && p_eatt_bcb->no_credits) {
+    if (((att_ret == GATT_CONGESTED) || (att_ret == GATT_NO_CREDITS))
+        && p_eatt_bcb && p_eatt_bcb->no_credits) {
       VLOG(1) << __func__ << " EATT channel has no credits, dont dequeue";
       return;
     }
     else {
       osi_free(fixed_queue_try_remove_from_queue(*pending_ind_q, p_buf));
+
+      if (!p_eatt_bcb->ind_no_credits_apps.empty()) {
+        it = std::find(p_eatt_bcb->ind_no_credits_apps.begin(),
+                       p_eatt_bcb->ind_no_credits_apps.end(), p_buf->conn_id);
+        if (it != p_eatt_bcb->ind_no_credits_apps.end()) {
+          p_eatt_bcb->ind_no_credits_apps.erase(it);
+        }
+      }
+
+      //No credits, check if uncongestion needs to be sent
+      if (p_eatt_bcb && p_eatt_bcb->send_uncongestion) {
+        if (fixed_queue_is_empty(p_eatt_bcb->pending_ind_q)) {
+          VLOG(1) << __func__ << " check if uncongestion needs to be sent"
+                                 " to apps after sending queued indication";
+          eatt_congest_notify_apps(lcid, false);
+        }
+      }
     }
   }
 }
@@ -837,6 +856,7 @@ void gatt_send_pending_notif(tGATT_TCB& tcb, uint16_t cid) {
   std::deque<tGATT_VALUE>* notif_q;
   tGATT_VALUE* p_buf;
   uint8_t att_ret;
+  std::vector<uint16_t>::iterator it;
   VLOG(1) << __func__;
 
   if (tcb.is_eatt_supported) {
@@ -853,12 +873,21 @@ void gatt_send_pending_notif(tGATT_TCB& tcb, uint16_t cid) {
       if (p_buf != NULL) {
         att_ret = GATTS_HandleValueNotification(p_buf->conn_id, p_buf->handle, p_buf->len,
                                                 p_buf->value);
-        if ((att_ret == GATT_CONGESTED) && p_eatt_bcb->no_credits) {
+        if (((att_ret == GATT_CONGESTED) || (att_ret == GATT_NO_CREDITS))
+            && p_eatt_bcb->no_credits) {
           VLOG(1) << __func__ << " EATT channel has no credits, dont dequeue";
           return;
         }
         else {
           notif_q->pop_front();
+          if (!p_eatt_bcb->notif_no_credits_apps.empty()) {
+            it = std::find(p_eatt_bcb->notif_no_credits_apps.begin(),
+                           p_eatt_bcb->notif_no_credits_apps.end(), p_buf->conn_id);
+            if (it != p_eatt_bcb->notif_no_credits_apps.end()) {
+              p_eatt_bcb->notif_no_credits_apps.erase(it);
+            }
+          }
+
           if (p_eatt_bcb && p_eatt_bcb->send_uncongestion) {
             if (p_eatt_bcb->notif_q.empty()) {
               VLOG(1) << __func__ << " check if uncongestion needs to be sent to apps"
@@ -931,7 +960,8 @@ void gatt_send_pending_rsp(tGATT_TCB& tcb, uint16_t cid) {
       p_buf = (tGATT_PEND_RSP*)&(gatt_rsp_q->front());
       if (p_buf != NULL) {
         att_ret = GATTS_SendRsp(p_buf->conn_id, p_buf->trans_id, p_buf->status, p_buf->p_msg);
-        if ((att_ret == GATT_CONGESTED) && p_eatt_bcb->no_credits) {
+        if (((att_ret == GATT_CONGESTED) || (att_ret == GATT_NO_CREDITS))
+            && p_eatt_bcb->no_credits) {
           VLOG(1) << __func__ << " EATT channel has no credits, dont dequeue";
           return;
         }
