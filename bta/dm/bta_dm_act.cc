@@ -371,6 +371,9 @@ void bta_dm_init_cb(void) {
   }
   btm_register_iot_info_cback(bta_dm_vnd_info_report_cback);
   btm_register_ssr_cback(bta_dm_process_ssr);
+#ifdef ADV_AUDIO_FEATURE
+  bta_dm_adv_audio_init();
+#endif
 }
 
 /*******************************************************************************
@@ -397,6 +400,9 @@ void bta_dm_deinit_cb(void) {
     }
   }
   memset(&bta_dm_cb, 0, sizeof(bta_dm_cb));
+#ifdef ADV_AUDIO_FEATURE
+  bta_dm_adv_audio_deinit();
+#endif
 }
 
 /*******************************************************************************
