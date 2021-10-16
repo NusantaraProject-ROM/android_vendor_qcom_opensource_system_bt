@@ -82,6 +82,7 @@ typedef struct {
   uint8_t sdp_active; /* see BTA_SDP_SDP_ACT_* */
   RawAddress remote_addr;
   tBTA_SDP_DM_CBACK* p_dm_cback;
+  bool raw_hid_record; /* populate hid descriptor in raw record */
 } tBTA_SDP_CB;
 
 /* SDP control block */

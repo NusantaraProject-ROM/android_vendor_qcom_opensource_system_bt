@@ -37,6 +37,11 @@
 
 using bluetooth::Uuid;
 
+#define HID_USAGE_PAGE             0x05
+#define HID_USAGE_PAGE_ID_SENSOR   0x20
+#define HID_USAGE_SENSOR_TYPE      0x09
+#define HID_USAGE_SENSOR_TYPE_COLL 0x01
+
 tHID_HOST_CTB hh_cb;
 
 static void hidh_search_callback(uint16_t sdp_result);
@@ -130,6 +135,15 @@ static void hidh_search_callback(uint16_t sdp_result) {
   p_nvi->dscp_info.dl_len = SDP_DISC_ATTR_LEN(p_repdesc->attr_len_type);
   if (p_nvi->dscp_info.dl_len != 0)
     p_nvi->dscp_info.dsc_list = (uint8_t*)&p_repdesc->attr_value;
+
+  // TODO: Proper check needed
+  if ((p_nvi->dscp_info.dl_len > 3) && (p_nvi->dscp_info.dsc_list != NULL) &&
+         (p_nvi->dscp_info.dsc_list[0] == HID_USAGE_PAGE) &&
+         (p_nvi->dscp_info.dsc_list[1] == HID_USAGE_PAGE_ID_SENSOR) &&
+         (p_nvi->dscp_info.dsc_list[2] == HID_USAGE_SENSOR_TYPE) &&
+         (p_nvi->dscp_info.dsc_list[3] == HID_USAGE_SENSOR_TYPE_COLL)) {
+    attr_mask |= HID_3D_AUDIO;
+  }
 
   if (((p_attr = SDP_FindAttributeInRec(p_rec, ATTR_ID_HID_VIRTUAL_CABLE)) !=
        NULL) &&

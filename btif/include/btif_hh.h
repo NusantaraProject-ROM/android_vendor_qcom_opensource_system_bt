@@ -72,6 +72,8 @@ typedef struct {
   uint8_t sub_class;
   uint8_t app_id;
   int fd;
+  int fd_3d_audio;
+  bool fd_3d_audio_connected;
   bool ready_for_data;
   pthread_t hh_poll_thread_id;
   uint8_t hh_keep_polling;
@@ -107,6 +109,7 @@ typedef struct {
   btif_hh_added_device_t added_devices[BTIF_HH_MAX_ADDED_DEV];
   bool service_dereg_active;
   RawAddress pending_conn_address;
+  bool hid_3d_audio;
 } btif_hh_cb_t;
 
 /*******************************************************************************

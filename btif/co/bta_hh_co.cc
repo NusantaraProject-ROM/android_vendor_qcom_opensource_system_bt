@@ -36,8 +36,11 @@
 #include "btif_util.h"
 #include "device/include/interop.h"
 #include "osi/include/osi.h"
+#include "osi/include/socket_utils/sockets.h"
+#include "osi/include/properties.h"
 
 const char* dev_path = "/dev/uhid";
+const char* hid_3d_audio_path = "/dev/socket/spatialaudio";
 
 #if (BTA_HH_LE_INCLUDED == TRUE)
 #include "btif_config.h"
@@ -485,6 +488,8 @@ void bta_hh_co_open(uint8_t dev_handle, uint8_t sub_class,
         p_dev->sub_class = sub_class;
         p_dev->app_id = app_id;
         p_dev->local_vup = false;
+        p_dev->fd_3d_audio = -1;
+        p_dev->fd_3d_audio_connected = false;
 
         btif_hh_cb.device_num++;
         // This is a new device,open the uhid driver now.
@@ -563,6 +568,10 @@ void bta_hh_co_close(uint8_t dev_handle, uint8_t app_id) {
           "dev_status = %d, dev_handle =%d",
           __func__, p_dev->dev_status, p_dev->dev_handle);
       memset(&p_dev->last_output_rpt_data, 0, UHID_DATA_MAX);
+      if (p_dev->fd_3d_audio >= 0)
+        close(p_dev->fd_3d_audio);
+      p_dev->fd_3d_audio = -1;
+      p_dev->fd_3d_audio_connected = false;
       btif_hh_close_poll_thread(p_dev);
       break;
     }
@@ -590,6 +599,10 @@ void bta_hh_co_data(uint8_t dev_handle, uint8_t* p_rpt, uint16_t len,
                     uint8_t ctry_code, UNUSED_ATTR const RawAddress& peer_addr,
                     uint8_t app_id) {
   btif_hh_device_t* p_dev;
+  uint8_t* p_skt_data = p_rpt;
+  uint16_t total_len = 0, count = 0;
+  int sent = 0;
+  total_len = len;
 
   APPL_TRACE_DEBUG(
       "%s: dev_handle = %d, subclass = 0x%02X, mode = %d, "
@@ -616,6 +629,44 @@ void bta_hh_co_data(uint8_t dev_handle, uint8_t* p_rpt, uint16_t len,
   // Send the HID data to the kernel.
   if ((p_dev->fd >= 0) && p_dev->ready_for_data) {
     bta_hh_co_write(p_dev->fd, p_rpt, len);
+    if ((btif_hh_cb.hid_3d_audio == true) && (p_dev->attr_mask & HID_3D_AUDIO)) {
+      if (p_dev->fd_3d_audio < 0) {
+        p_dev->fd_3d_audio = socket(AF_LOCAL, SOCK_SEQPACKET, 0);
+        if (p_dev->fd_3d_audio < 0) {
+           APPL_TRACE_ERROR("%s: socket creation failed", __func__);
+        }
+      }
+      if (p_dev->fd_3d_audio >= 0) {
+        if (p_dev->fd_3d_audio_connected == false) {
+          if (osi_socket_local_client_connect(p_dev->fd_3d_audio,
+              hid_3d_audio_path, ANDROID_SOCKET_NAMESPACE_FILESYSTEM,
+              SOCK_SEQPACKET) < 0) {
+            APPL_TRACE_ERROR("%s: socket connect failed", __func__);
+            close(p_dev->fd_3d_audio);
+            p_dev->fd_3d_audio = -1;
+          } else p_dev->fd_3d_audio_connected = true;
+        }
+        if (p_dev->fd_3d_audio_connected == true) {
+           APPL_TRACE_WARNING("%s: Writing to socket, len =%d", __func__, len);
+             //write to socket
+             while (count < total_len) {
+             OSI_NO_INTR(sent = send(p_dev->fd_3d_audio, p_skt_data,
+                 total_len - count, MSG_NOSIGNAL | MSG_DONTWAIT));
+             if (sent == -1) {
+               if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                 APPL_TRACE_ERROR("%s: write failed with error: %d",
+                     strerror(errno));
+                 p_dev->fd_3d_audio_connected = false;
+                 close(p_dev->fd_3d_audio);
+                 p_dev->fd_3d_audio = -1;
+               }
+             }
+             count += sent;
+             p_skt_data = (uint8_t*)p_skt_data + sent;
+           }
+        }
+      }
+    }
   } else {
     APPL_TRACE_WARNING("%s: Error: fd = %d, ready %d, len = %d", __func__,
                        p_dev->fd, p_dev->ready_for_data, len);
@@ -650,6 +701,7 @@ int bta_hh_co_send_hid_info(btif_hh_device_t* p_dev, const char* dev_name,
 
   APPL_TRACE_WARNING("%s: fd = %d, name = [%s], dscp_len = %d", __func__,
                      p_dev->fd, dev_name, dscp_len);
+  APPL_TRACE_WARNING("%s: attr_mask = %04x", __func__, p_dev->attr_mask);
   APPL_TRACE_WARNING(
       "%s: vendor_id = 0x%04x, product_id = 0x%04x, version= 0x%04x,"
       "ctry_code=0x%02x",
