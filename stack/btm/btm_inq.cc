@@ -968,6 +968,20 @@ tBTM_STATUS BTM_ReadRemoteDeviceName(const RawAddress& remote_bda,
 
 /*******************************************************************************
  *
+ * Function         BTM_IsRemNameReqPending
+ *
+ * Description      This function returns if remote name request is pending.
+ *
+ * Returns          true, if remote name request is pending. Else, false.
+ *
+ ******************************************************************************/
+bool BTM_IsRemNameReqPending(void) {
+  tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
+  return p_inq->remname_active;
+}
+
+/*******************************************************************************
+ *
  * Function         BTM_CancelRemoteDeviceName
  *
  * Description      This function initiates the cancel request for the specified
