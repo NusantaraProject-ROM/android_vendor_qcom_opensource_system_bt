@@ -966,8 +966,13 @@ void btm_sco_connected(uint8_t hci_status, const RawAddress* bda,
   tBTM_CHG_ESCO_PARAMS parms;
 #endif
 
-  BTM_TRACE_DEBUG("%s: hci_status 0x%x, bda %s, hci_handle 0x%04x",
-          __func__, hci_status, bda->ToString().c_str(), hci_handle);
+  if (bda != NULL) {
+    BTM_TRACE_DEBUG("%s: hci_status 0x%x, bda %s, hci_handle 0x%04x",
+            __func__, hci_status, bda->ToString().c_str(), hci_handle);
+  } else {
+    BTM_TRACE_DEBUG("%s: hci_status 0x%x, hci_handle 0x%04x", __func__,
+            hci_status, hci_handle);
+  }
   btm_cb.sco_cb.sco_disc_reason = hci_status;
 
 #if (BTM_MAX_SCO_LINKS > 0)
