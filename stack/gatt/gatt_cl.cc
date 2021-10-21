@@ -756,22 +756,28 @@ void gatt_process_multi_notification(tGATT_TCB& tcb, uint16_t lcid,
   uint32_t cl_trans_id = 0;
   uint8_t hdl_length_bytes = 4;
 
+  VLOG(1) <<  __func__;
   if (len < GATT_NOTIFICATION_MIN_LEN) {
     LOG(ERROR) << "illegal notification PDU length, discard";
     return;
   }
 
-  while (len > 0) {
+  while (len > hdl_length_bytes) {
     memset(&value, 0, sizeof(value));
     STREAM_TO_UINT16(value.handle, p);
-    STREAM_TO_UINT16(value.len, p);
-    memcpy(value.value, p, value.len);
-    p += value.len;
-
     if (!GATT_HANDLE_IS_VALID(value.handle)) {
       LOG(ERROR) << " Handle is invalid";
       return;
     }
+
+    STREAM_TO_UINT16(value.len, p);
+    if ((value.len > GATT_MAX_ATTR_LEN) ||
+        (value.len > (len - hdl_length_bytes))) {
+      LOG(ERROR) << " Invalid value length " << value.len;
+      return;
+    }
+    memcpy(value.value, p, value.len);
+    p += value.len;
 
     encrypt_status = gatt_get_link_encrypt_status(tcb);
     tGATT_CL_COMPLETE gatt_cl_complete;
