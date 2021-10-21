@@ -79,7 +79,7 @@ tGATT_EBCB* gatt_eatt_bcb_alloc(tGATT_TCB* p_tcb, uint16_t lcid, bool create_in_
   std::string ind_ack_timer = "gatt.ind_ack_timer";
 
   VLOG(1) << __func__ << " lcid:" << +lcid;
-  p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+  p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, lcid);
   if (p_eatt_bcb) {
     VLOG(1) << __func__ << " p_eatt_bcb already available for lcid: " << +lcid;
     return p_eatt_bcb;
@@ -133,7 +133,7 @@ tGATT_EBCB* gatt_eatt_bcb_alloc(tGATT_TCB* p_tcb, uint16_t lcid, bool create_in_
  * Returns          true if EATT bearer control block is deallocated.
  *
  ******************************************************************************/
-bool gatt_eatt_bcb_dealloc(uint16_t lcid) {
+bool gatt_eatt_bcb_dealloc(tGATT_TCB* p_tcb, uint16_t lcid) {
   uint16_t i = 0;
   tGATT_EBCB* p_eatt_bcb = NULL;
   bool ret = false;
@@ -141,10 +141,11 @@ bool gatt_eatt_bcb_dealloc(uint16_t lcid) {
   VLOG(1) << __func__ << " lcid:" << +lcid;
   for (i = 0; i < GATT_MAX_EATT_CHANNELS; i++) {
     if (gatt_cb.eatt_bcb[i].in_use &&
-       (gatt_cb.eatt_bcb[i].cid == lcid)) {
+       (gatt_cb.eatt_bcb[i].cid == lcid) &&
+       (p_tcb && (gatt_cb.eatt_bcb[i].p_tcb->peer_bda == p_tcb->peer_bda))) {
       p_eatt_bcb = &gatt_cb.eatt_bcb[i];
 
-      gatt_remove_conns_by_cid(p_eatt_bcb->cid);
+      gatt_remove_conns_by_cid(p_tcb, p_eatt_bcb->cid);
 
       if (lcid != L2CAP_ATT_CID) {
         alarm_free(p_eatt_bcb->ind_ack_timer);
@@ -245,17 +246,19 @@ tGATT_TCB* gatt_find_tcb_by_eatt_cid(uint16_t lcid) {
  * Function         gatt_find_eatt_bcb_by_cid
  *
  * Description      The function searches for the eatt_bcb entry
- *                  based on channel id
+ *                  based on channel id and BD address
  *
  * Returns          NULL if not found. Otherwise pointer to the eatt_bcb.
  *
  ******************************************************************************/
-tGATT_EBCB* gatt_find_eatt_bcb_by_cid(uint16_t lcid) {
+tGATT_EBCB* gatt_find_eatt_bcb_by_cid(tGATT_TCB* p_tcb, uint16_t lcid) {
   uint16_t i = 0;
   tGATT_EBCB* p_eatt_bcb = NULL;
 
   for (i = 0; i < GATT_MAX_EATT_CHANNELS; i++) {
-    if (gatt_cb.eatt_bcb[i].in_use && gatt_cb.eatt_bcb[i].cid == lcid
+    if (gatt_cb.eatt_bcb[i].in_use && (gatt_cb.eatt_bcb[i].cid == lcid)
+        && (p_tcb && ((RawAddress::kAny == p_tcb->peer_bda) ||
+        (gatt_cb.eatt_bcb[i].p_tcb->peer_bda == p_tcb->peer_bda)))
         && (!gatt_cb.eatt_bcb[i].create_in_prg)) {
       p_eatt_bcb = &gatt_cb.eatt_bcb[i];
       break;
@@ -422,7 +425,7 @@ tGATT_EBCB* gatt_find_best_eatt_bcb(tGATT_TCB* p_tcb, tGATT_IF gatt_if, uint16_t
   std::vector<tGATT_APPS_EBCB> apps_in_ebcb_list;
   tGATT_APPS_EBCB apps_in_ebcb;
   uint16_t conn_id = 0;
-  tGATT_EBCB* p_eatt_bcb_old = gatt_find_eatt_bcb_by_cid(old_cid);
+  tGATT_EBCB* p_eatt_bcb_old = gatt_find_eatt_bcb_by_cid(p_tcb, old_cid);
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
 
   //Find all EATT channels with suitable MTU size
@@ -449,11 +452,11 @@ tGATT_EBCB* gatt_find_best_eatt_bcb(tGATT_TCB* p_tcb, tGATT_IF gatt_if, uint16_t
   if(apps_in_ebcb_list.size() > 0) {
     //Select the least burdened EATT channel
     std::sort(apps_in_ebcb_list.begin(), apps_in_ebcb_list.end(), compare_num_apps_in_ebcb_list);
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(apps_in_ebcb_list[0].lcid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, apps_in_ebcb_list[0].lcid);
   }
   // Unable to find any suitable EATT channel, use ATT
   else {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(L2CAP_ATT_CID);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, L2CAP_ATT_CID);
     if ((old_cid > 0) && p_eatt_bcb && p_eatt_bcb_old &&
         (p_eatt_bcb->payload_size < p_eatt_bcb_old->payload_size)) {
       VLOG(1) << __func__ << " cid:" << +p_eatt_bcb->cid << " does not have required MTU";
@@ -581,10 +584,13 @@ struct find_gatt_cid
 
 struct is_gatt_cid_found
 {
+  RawAddress bda;
   uint16_t cid;
-  is_gatt_cid_found(uint16_t cid) : cid(cid) {}
+  is_gatt_cid_found(RawAddress bda, uint16_t cid) : bda(bda), cid(cid) {}
   bool operator () (const tGATT_CONN& gatt_conn) const {
-    return (gatt_conn.lcid == cid);
+    uint8_t tcb_idx = GATT_GET_TCB_IDX(gatt_conn.conn_id);
+    tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
+    return ((p_tcb && (p_tcb->peer_bda == bda)) && (gatt_conn.lcid == cid));
   }
 };
 
@@ -615,14 +621,15 @@ void gatt_remove_conn(uint16_t conn_id, uint16_t lcid) {
  * Returns          void.
  *
  ******************************************************************************/
-void gatt_remove_conns_by_cid(uint16_t lcid) {
+void gatt_remove_conns_by_cid(tGATT_TCB* p_tcb, uint16_t lcid) {
   if (gatt_cb.gatt_conn_list.empty()) {
     VLOG(1) << __func__ << " empty list:";
     return;
   }
 
   std::vector<tGATT_CONN>::iterator it
-        = std::remove_if(gatt_cb.gatt_conn_list.begin(), gatt_cb.gatt_conn_list.end(), is_gatt_cid_found(lcid));
+        = std::remove_if(gatt_cb.gatt_conn_list.begin(), gatt_cb.gatt_conn_list.end(),
+                         is_gatt_cid_found(p_tcb->peer_bda, lcid));
   if (it != gatt_cb.gatt_conn_list.end()) {
     gatt_cb.gatt_conn_list.erase(it, gatt_cb.gatt_conn_list.end());
   }
@@ -789,7 +796,7 @@ void gatt_send_pending_ind(tGATT_TCB& tcb, uint16_t lcid) {
   VLOG(1) << __func__;
 
   if (tcb.is_eatt_supported) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, lcid);
     if (p_eatt_bcb) {
       VLOG(1) << __func__ << " Known EATT bearer";
       pending_ind_q = &(p_eatt_bcb->pending_ind_q);
@@ -821,7 +828,7 @@ void gatt_send_pending_ind(tGATT_TCB& tcb, uint16_t lcid) {
         if (fixed_queue_is_empty(p_eatt_bcb->pending_ind_q)) {
           VLOG(1) << __func__ << " check if uncongestion needs to be sent"
                                  " to apps after sending queued indication";
-          eatt_congest_notify_apps(lcid, false);
+          eatt_congest_notify_apps(&tcb, lcid, false);
         }
       }
     }
@@ -834,7 +841,7 @@ void gatt_notif_enq(tGATT_TCB* p_tcb, uint16_t cid, tGATT_VALUE* p_notif) {
   VLOG(1) << __func__;
 
   if (p_tcb->is_eatt_supported && (cid != L2CAP_ATT_CID)) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(cid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, cid);
     if (p_eatt_bcb) {
       p_eatt_bcb->notif_q.push_back(*p_notif);
     }
@@ -860,7 +867,7 @@ void gatt_send_pending_notif(tGATT_TCB& tcb, uint16_t cid) {
   VLOG(1) << __func__;
 
   if (tcb.is_eatt_supported) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(cid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, cid);
     if (p_eatt_bcb) {
       VLOG(1) << __func__ << " Known EATT bearer";
       notif_q = &(p_eatt_bcb->notif_q);
@@ -892,7 +899,7 @@ void gatt_send_pending_notif(tGATT_TCB& tcb, uint16_t cid) {
             if (p_eatt_bcb->notif_q.empty()) {
               VLOG(1) << __func__ << " check if uncongestion needs to be sent to apps"
                                      " after sending queued notification";
-              eatt_congest_notify_apps(cid, false);
+              eatt_congest_notify_apps(&tcb, cid, false);
             }
           }
         }
@@ -907,7 +914,7 @@ void gatt_rsp_enq(tGATT_TCB* p_tcb, uint16_t cid, tGATT_PEND_RSP* p_rsp) {
   tGATT_EBCB* p_eatt_bcb;
 
   if (p_tcb->is_eatt_supported && (cid != L2CAP_ATT_CID)) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(cid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, cid);
     if (p_eatt_bcb) {
       p_eatt_bcb->gatt_rsp_q.push_back(*p_rsp);
     }
@@ -915,7 +922,7 @@ void gatt_rsp_enq(tGATT_TCB* p_tcb, uint16_t cid, tGATT_PEND_RSP* p_rsp) {
 }
 
 /** Enqueue GATT discovery response for no credits reason, only for EATT */
-void eatt_disc_rsp_enq(uint16_t cid, BT_HDR *p_msg) {
+void eatt_disc_rsp_enq(tGATT_TCB* p_tcb, uint16_t cid, BT_HDR *p_msg) {
   tGATT_PEND_SRVC_DISC_RSP gatt_rsp;
   gatt_rsp.p_msg = p_msg;
   gatt_rsp.lcid = cid;
@@ -923,7 +930,7 @@ void eatt_disc_rsp_enq(uint16_t cid, BT_HDR *p_msg) {
 
   VLOG(1) << __func__;
   if (cid != L2CAP_ATT_CID) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(cid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, cid);
     if (p_eatt_bcb) {
       p_eatt_bcb->gatt_disc_rsp_q.push_back(gatt_rsp);
     }
@@ -948,7 +955,7 @@ void gatt_send_pending_rsp(tGATT_TCB& tcb, uint16_t cid) {
   VLOG(1) << __func__;
 
   if (tcb.is_eatt_supported && (cid != L2CAP_ATT_CID)) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(cid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, cid);
     if (p_eatt_bcb) {
       VLOG(1) << __func__ << " Known EATT bearer";
       gatt_rsp_q = &(p_eatt_bcb->gatt_rsp_q);
@@ -971,7 +978,7 @@ void gatt_send_pending_rsp(tGATT_TCB& tcb, uint16_t cid) {
             if (p_eatt_bcb->gatt_rsp_q.empty()) {
               VLOG(1) << __func__ << " check if uncongestion needs to be sent to apps"
                                      " after sending queued GATT Rsp";
-              eatt_congest_notify_apps(cid, false);
+              eatt_congest_notify_apps(&tcb, cid, false);
             }
           }
         }
@@ -998,7 +1005,7 @@ void gatt_send_pending_disc_rsp(tGATT_TCB& tcb, uint16_t cid) {
   VLOG(1) << __func__;
 
   if (tcb.is_eatt_supported && (cid != L2CAP_ATT_CID)) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(cid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, cid);
 
     if (p_eatt_bcb) {
       VLOG(1) << __func__ << " Known EATT bearer";
@@ -1022,7 +1029,7 @@ void gatt_send_pending_disc_rsp(tGATT_TCB& tcb, uint16_t cid) {
           if (p_eatt_bcb->send_uncongestion && p_eatt_bcb->gatt_disc_rsp_q.empty()) {
             VLOG(1) << __func__ << " check if uncongestion needs to be sent to apps"
                                    " after sending queued GATT srvc disc rsp";
-            eatt_congest_notify_apps(cid, false);
+            eatt_congest_notify_apps(&tcb, cid, false);
           }
         }
       }
@@ -1039,9 +1046,8 @@ void gatt_send_pending_disc_rsp(tGATT_TCB& tcb, uint16_t cid) {
  * Returns          void
  *
  ******************************************************************************/
-void gatt_move_apps(uint16_t cid) {
-  tGATT_EBCB* p_eatt_bcb_old = gatt_find_eatt_bcb_by_cid(cid);
-  tGATT_TCB* p_tcb = NULL;
+void gatt_move_apps(tGATT_TCB* p_tcb, uint16_t cid) {
+  tGATT_EBCB* p_eatt_bcb_old = gatt_find_eatt_bcb_by_cid(p_tcb, cid);
   tGATT_EBCB* p_eatt_bcb = NULL;
   tGATT_IF gatt_if;
   uint16_t cl_conn_id = 0;
@@ -1052,8 +1058,6 @@ void gatt_move_apps(uint16_t cid) {
   VLOG(1) << __func__ << " cid:" << +cid;
 
   if (p_eatt_bcb_old) {
-    p_tcb = p_eatt_bcb_old->p_tcb;
-
     if (!p_tcb || !p_tcb->is_eatt_supported || (cid == L2CAP_ATT_CID)) {
       VLOG(1) << __func__ << " Invalid scenario for moving apps";
       return;
@@ -1139,7 +1143,7 @@ void gatt_move_apps(uint16_t cid) {
         tGATT_APPS_Q app = apps_q[i];
         if ((app.conn_id == cmd.p_clcb->conn_id) && (app.conn_id != cl_conn_id) &&
             (cmd.p_cmd != NULL)) {
-          p_eatt_bcb = gatt_find_eatt_bcb_by_cid(app.lcid);
+          p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, app.lcid);
           if (p_eatt_bcb)
             p_eatt_bcb->cl_cmd_q.push(cmd);
         }
@@ -1155,7 +1159,7 @@ void gatt_move_apps(uint16_t cid) {
         for (uint8_t i=0; i<apps_q.size(); i++) {
           tGATT_APPS_Q app = apps_q[i];
           if ((app.conn_id == p_buf->conn_id) && (app.conn_id != sr_conn_id)) {
-            p_eatt_bcb = gatt_find_eatt_bcb_by_cid(app.lcid);
+            p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, app.lcid);
             if (p_eatt_bcb)
               gatt_add_pending_ind(p_tcb, p_eatt_bcb->cid, p_buf);
           }
@@ -1172,7 +1176,7 @@ void gatt_move_apps(uint16_t cid) {
         for (uint8_t i=0; i<apps_q.size(); i++) {
           tGATT_APPS_Q app = apps_q[i];
           if (app.conn_id == p_buf->conn_id) {
-            p_eatt_bcb = gatt_find_eatt_bcb_by_cid(app.lcid);
+            p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, app.lcid);
             if (p_eatt_bcb)
               p_eatt_bcb->notif_q.push_back(*p_buf);
           }
@@ -1303,7 +1307,7 @@ void eatt_cleanup_upon_disc(const RawAddress& bda) {
     if (gatt_cb.eatt_bcb[i].in_use && (gatt_cb.eatt_bcb[i].p_tcb->peer_bda == bda)
         && (!gatt_cb.eatt_bcb[i].create_in_prg)) {
       p_eatt_bcb = &gatt_cb.eatt_bcb[i];
-      gatt_eatt_bcb_dealloc(p_eatt_bcb->cid);
+      gatt_eatt_bcb_dealloc(p_eatt_bcb->p_tcb, p_eatt_bcb->cid);
     }
   }
 }
@@ -1317,10 +1321,9 @@ void eatt_cleanup_upon_disc(const RawAddress& bda) {
  * Returns          bool
  *
  ******************************************************************************/
-bool eatt_congest_notify_apps(uint16_t cid, bool congested) {
-  tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(cid);
+bool eatt_congest_notify_apps(tGATT_TCB* p_tcb, uint16_t cid, bool congested) {
+  tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, cid);
   bool ret = false;
-  tGATT_TCB* p_tcb = NULL;
   tGATT_REG* p_reg = NULL;
   uint16_t conn_id;
   std::vector<tGATT_IF> apps;

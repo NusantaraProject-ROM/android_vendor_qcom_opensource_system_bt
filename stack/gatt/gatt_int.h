@@ -694,6 +694,6 @@ extern void gatt_free_pending_ind(tGATT_TCB* p_tcb, uint16_t lcid);
 
 extern bool gatt_profile_sr_is_eatt_supported(uint16_t conn_id, uint16_t handle);
 
-extern void gatt_notify_eatt_congestion(uint16_t cid, bool congested);
+extern void gatt_notify_eatt_congestion(tGATT_TCB* p_tcb, uint16_t cid, bool congested);
 
 #endif

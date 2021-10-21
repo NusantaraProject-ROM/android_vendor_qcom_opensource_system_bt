@@ -45,13 +45,13 @@
 #include <vector>
 
 extern tGATT_EBCB* gatt_eatt_bcb_alloc(tGATT_TCB* p_tcb, uint16_t lcid, bool create_in_prg, bool is_remote_initiated);
-extern tGATT_EBCB* gatt_find_eatt_bcb_by_cid(uint16_t lcid);
+extern tGATT_EBCB* gatt_find_eatt_bcb_by_cid(tGATT_TCB* p_tcb, uint16_t lcid);
 extern tGATT_EBCB* gatt_find_eatt_bcb_by_srv_trans_id(uint32_t trans_id, const RawAddress& bda);
 extern tGATT_EBCB* gatt_find_eatt_bcb_by_cl_trans_id(uint32_t trans_id, const RawAddress& bda);
 extern tGATT_EBCB* gatt_find_eatt_bcb_by_gatt_if(uint8_t gatt_if, const RawAddress& bda);
 extern tGATT_EBCB* gatt_find_eatt_bcb_by_cid_in_progress(RawAddress bda, uint16_t lcid);
 extern uint8_t gatt_eatt_bcb_in_progress_dealloc(RawAddress& bda);
-extern bool gatt_eatt_bcb_dealloc(uint16_t lcid);
+extern bool gatt_eatt_bcb_dealloc(tGATT_TCB* p_tcb, uint16_t lcid);
 extern tGATT_EBCB* gatt_find_best_eatt_bcb(tGATT_TCB* p_tcb, tGATT_IF gatt_if, uint16_t old_cid, bool opportunistic);
 extern uint8_t gatt_num_eatt_bcbs_in_progress(tGATT_TCB* p_tcb);
 extern uint16_t gatt_get_payload_size(tGATT_TCB* p_tcb, uint16_t lcid);
@@ -63,11 +63,11 @@ extern uint16_t gatt_get_cid_by_conn_id(uint16_t conn_id);
 extern bool gatt_apps_need_eatt(tGATT_TCB* p_tcb);
 extern void gatt_upgrade_conn(tGATT_TCB* p_tcb);
 extern uint8_t gatt_num_eatt_bcbs(tGATT_TCB* p_tcb);
-extern void gatt_move_apps(uint16_t lcid);
+extern void gatt_move_apps(tGATT_TCB* p_tcb, uint16_t lcid);
 extern void gatt_add_eatt_device(RawAddress bda);
 extern bool is_eatt_device(RawAddress bda);
 extern uint8_t gatt_remove_app_on_lcid(uint16_t lcid, tGATT_IF gatt_if);
-extern void gatt_remove_conns_by_cid(uint16_t lcid);
+extern void gatt_remove_conns_by_cid(tGATT_TCB* p_tcb, uint16_t lcid);
 extern void eatt_cleanup_upon_disc(const RawAddress& bda);
 extern void gatt_send_pending_ind(tGATT_TCB& tcb, uint16_t lcid);
 extern void gatt_send_pending_notif(tGATT_TCB& tcb, uint16_t lcid);
@@ -75,8 +75,8 @@ extern void gatt_send_pending_rsp(tGATT_TCB& tcb, uint16_t cid);
 extern void gatt_send_pending_disc_rsp(tGATT_TCB& tcb, uint16_t cid);
 extern void gatt_notif_enq(tGATT_TCB* p_tcb, uint16_t cid, tGATT_VALUE* p_notif);
 extern void gatt_rsp_enq(tGATT_TCB* p_tcb, uint16_t cid, tGATT_PEND_RSP* p_rsp);
-extern void eatt_disc_rsp_enq(uint16_t cid, BT_HDR *p_msg);
-extern bool eatt_congest_notify_apps(uint16_t cid, bool congested);
+extern void eatt_disc_rsp_enq(tGATT_TCB* p_tcb, uint16_t cid, BT_HDR *p_msg);
+extern bool eatt_congest_notify_apps(tGATT_TCB* p_tcb, uint16_t cid, bool congested);
 extern tGATT_EBCB* gatt_find_eatt_bcb_using_all_cids(uint16_t lcid);
 
 #endif

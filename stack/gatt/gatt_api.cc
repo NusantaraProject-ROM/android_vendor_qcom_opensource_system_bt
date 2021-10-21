@@ -446,7 +446,7 @@ tGATT_STATUS GATTS_HandleValueIndication(uint16_t conn_id, uint16_t attr_handle,
   if (p_tcb->is_eatt_supported && p_reg->eatt_support) {
     if (is_gatt_conn_id_found(conn_id)) {
       lcid = gatt_get_cid_by_conn_id(conn_id);
-      p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+      p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, lcid);
       if (p_eatt_bcb)
         indicate_handle = p_eatt_bcb->indicate_handle;
     }
@@ -460,7 +460,7 @@ tGATT_STATUS GATTS_HandleValueIndication(uint16_t conn_id, uint16_t attr_handle,
     }
   }
   else if (p_tcb->is_eatt_supported && !p_reg->eatt_support) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(L2CAP_ATT_CID);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, L2CAP_ATT_CID);
     if (p_eatt_bcb)
       indicate_handle = p_eatt_bcb->indicate_handle;
   }
@@ -547,7 +547,7 @@ tGATT_STATUS GATTS_HandleValueNotification(uint16_t conn_id,
   if (p_tcb->is_eatt_supported && p_reg->eatt_support) {
     if (is_gatt_conn_id_found(conn_id)) {
       lcid = gatt_get_cid_by_conn_id(conn_id);
-      p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+      p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, lcid);
     }
     else {
       p_eatt_bcb = gatt_find_best_eatt_bcb(p_tcb, gatt_if, 0, false);
@@ -822,7 +822,7 @@ tGATT_STATUS GATTC_ConfigureMTU(uint16_t conn_id, uint16_t mtu) {
 
   if (p_tcb->is_eatt_supported && p_reg->eatt_support) {
     uint16_t cid = gatt_get_cid_by_conn_id(conn_id);
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(cid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, cid);
     if (p_eatt_bcb) {
       cb_data.mtu = p_eatt_bcb->payload_size;
       if (p_cmpl_cb) {
@@ -1730,7 +1730,7 @@ tGATT_STATUS GATTS_CheckStatusForApp(uint16_t conn_id, bool confirm) {
   if (p_tcb->is_eatt_supported && p_reg->eatt_support) {
     if (is_gatt_conn_id_found(conn_id)) {
       lcid = gatt_get_cid_by_conn_id(conn_id);
-      p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+      p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, lcid);
     }
   }
 

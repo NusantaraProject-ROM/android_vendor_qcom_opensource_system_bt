@@ -1027,9 +1027,8 @@ static void gatt_l2cif_congest_cback(uint16_t lcid, bool congested) {
 }
 
 /** EATT channel congestion callback */
-void gatt_notify_eatt_congestion(uint16_t cid, bool congested) {
-  tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(cid);
-  tGATT_TCB* p_tcb = NULL;
+void gatt_notify_eatt_congestion(tGATT_TCB* p_tcb, uint16_t cid, bool congested) {
+  tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, cid);
 
   if (!p_eatt_bcb) {
     VLOG(1) << __func__ << " error, EATT bcb is null";
@@ -1039,12 +1038,12 @@ void gatt_notify_eatt_congestion(uint16_t cid, bool congested) {
   p_tcb = p_eatt_bcb->p_tcb;
 
   if (congested) {
-    eatt_congest_notify_apps(cid, congested);
+    eatt_congest_notify_apps(p_tcb, cid, congested);
     return;
   }
 
   if (!congested && p_eatt_bcb->send_uncongestion &&
-      eatt_congest_notify_apps(cid, congested)) {
+      eatt_congest_notify_apps(p_tcb, cid, congested)) {
     VLOG(1) << __func__ << " sent uncongestion cb to apps";
     return;
   }
@@ -1104,14 +1103,16 @@ static void gatt_l2cif_eatt_cong_status_cb(uint16_t cid, bool congested) {
  ******************************************************************************/
 static void gatt_l2cif_eatt_credits_rcvd_cb(uint16_t cid, uint16_t credits_rcvd,
                                             uint16_t credit_count) {
-  tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(cid);
+  tGATT_TCB tcb;
+  tcb.peer_bda = RawAddress::kAny;
+  tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, cid);
   VLOG(1) << __func__;
 
   if (p_eatt_bcb && p_eatt_bcb->no_credits && !p_eatt_bcb->send_uncongestion
       && (credit_count > 0)) {
     VLOG(1) << __func__ << " EATT channel uncongested";
     p_eatt_bcb->send_uncongestion = true;
-    gatt_notify_eatt_congestion(cid, false);
+    gatt_notify_eatt_congestion(p_eatt_bcb->p_tcb, cid, false);
   }
 }
 
@@ -1361,11 +1362,11 @@ static void gatt_l2cif_eatt_disconnect_ind_cback(uint16_t l2cap_cid, bool ack_ne
     VLOG(1) << __func__ << " link_state = " << link_state;
   } else {
     //Move apps if remote disconnects an EATT channel
-    gatt_move_apps(l2cap_cid);
+    gatt_move_apps(p_eatt_bcb->p_tcb, l2cap_cid);
   }
 
   //dealloc eatt_bcb for the lcid
-  gatt_eatt_bcb_dealloc(l2cap_cid);
+  gatt_eatt_bcb_dealloc(p_eatt_bcb->p_tcb, l2cap_cid);
 
   if (ack_needed) {
     L2CA_DisconnectRsp(l2cap_cid);
@@ -1385,7 +1386,9 @@ static void gatt_l2cif_eatt_disconnect_ind_cback(uint16_t l2cap_cid, bool ack_ne
  *
  ******************************************************************************/
 static void gatt_l2cif_eatt_disconnect_cfm_cback(uint16_t l2cap_cid, uint16_t result) {
-  tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(l2cap_cid);
+  tGATT_TCB tcb;
+  tcb.peer_bda = RawAddress::kAny;
+  tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, l2cap_cid);
   tGATT_TCB* p_tcb = NULL;
   uint8_t i = 0;
 
@@ -1397,7 +1400,7 @@ static void gatt_l2cif_eatt_disconnect_cfm_cback(uint16_t l2cap_cid, uint16_t re
   }
 
   p_tcb = p_eatt_bcb->p_tcb;
-  gatt_eatt_bcb_dealloc(l2cap_cid);
+  gatt_eatt_bcb_dealloc(p_tcb, l2cap_cid);
 
   // Disconnect EATT bearers
   if (p_tcb->is_eatt_supported &&
@@ -1442,6 +1445,8 @@ static void gatt_l2cif_eatt_reconfig_ind_cback(tL2CAP_COC_CHMAP_INFO* chmap_info
   uint16_t result = L2CAP_RCFG_OK;
   tGATTS_DATA gatts_data;
   tGATT_CL_COMPLETE cb_data;
+  tGATT_TCB tcb;
+  tcb.peer_bda = RawAddress::kAny;
 
   VLOG(1) << __func__;
 
@@ -1468,7 +1473,7 @@ static void gatt_l2cif_eatt_reconfig_ind_cback(tL2CAP_COC_CHMAP_INFO* chmap_info
     for (i=0; i<num_chnls; i++) {
       if (chmap_info->sr_cids[i] > 0) {
         lcid = chmap_info->sr_cids[i];
-        p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+        p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, lcid);
         if (p_eatt_bcb) {
           p_eatt_bcb->payload_size = std::min(p_eatt_bcb->local_rx_mtu, p_mtu);
           p_eatt_bcb->remote_rx_mtu = p_mtu;
@@ -1486,7 +1491,7 @@ static void gatt_l2cif_eatt_reconfig_ind_cback(tL2CAP_COC_CHMAP_INFO* chmap_info
     for (i=0; i<num_chnls; i++) {
       if (chmap_info->sr_cids[i] > 0) {
         lcid = chmap_info->sr_cids[i];
-        p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+        p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, lcid);
         if (p_eatt_bcb) {
           uint8_t num_apps_on_lcid = p_eatt_bcb->apps.size();
           for (int j=0; j< num_apps_on_lcid; j++) {
@@ -1528,8 +1533,10 @@ static void gatt_l2cif_eatt_data_ind_cback(uint16_t l2cap_cid) {
   tGATT_EBCB* p_eatt_bcb;
   tGATT_TCB* p_tcb;
   BT_HDR* p_buf = NULL;
+  tGATT_TCB tcb;
+  tcb.peer_bda = RawAddress::kAny;
 
-  p_eatt_bcb = gatt_find_eatt_bcb_by_cid(l2cap_cid);
+  p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, l2cap_cid);
   if(p_eatt_bcb) {
     p_tcb = p_eatt_bcb->p_tcb;
     if (p_tcb && gatt_get_ch_state(p_tcb) == GATT_CH_OPEN) {
