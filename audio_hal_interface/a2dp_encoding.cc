@@ -1565,7 +1565,18 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
       lc3Config.streamMap[(i*3)+1] = i;
       lc3Config.streamMap[(i*3)+2] = 0;
     }
+
+    // To make sure QSSI builds with VBC changes won't
+    // break existing features on older Vendor AUs.
+    // Ensured this, with below flag by making rxConfigSet to 0
+    // if Tx only or both Tx/Rx set, and same has been manipulated
+    // in vendor layer to ensure session has been established properly.
+    if (lc3Config.rxConfigSet & TX_ONLY_CONFIG) {
+      lc3Config.rxConfigSet  = 0;
+    }
+
     codec_config->config.lc3Config = lc3Config;
+
     LOG(INFO) << __func__ << ": LC3 codec for broadcast, CodecConfiguration="
                           << toString(*codec_config);
     return true;
@@ -1745,7 +1756,17 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
       lc3Config.NumStreamIDGroup += cis_count;
     }
 
+    // To make sure QSSI builds with VBC changes won't
+    // break existing features on older Vendor AUs.
+    // Ensured this, with below flag by making rxConfigSet to 0
+    // if Tx only or both Tx/Rx set, and same has been manipulated
+    // in vendor layer to ensure session has been established properly.
+    if (lc3Config.rxConfigSet & TX_ONLY_CONFIG) {
+      lc3Config.rxConfigSet  = 0;
+    }
+
     codec_config->config.lc3Config = lc3Config;
+
     LOG(INFO) << __func__ << ": LC3 codec, CodecConfiguration="
                           << toString(*codec_config);
     return true;
