@@ -214,7 +214,7 @@ static secondary_reason secondary_crash_reason [] = {
 { BT_SOC_REASON_DEFAULT                 ,    "Default"},
 { BT_SOC_REASON_UNKNOWN                 ,    "Unknown"},
 { BT_SOC_REASON_TX_RX_INVALID_PKT_FATAL ,    "Tx/Rx invalid packet fatal error"},
-{ BT_SOC_REASON_TX_RX_INVALID_LEN_FATAL ,    "Tx/Rx invalid lenght fatal error"},
+{ BT_SOC_REASON_TX_RX_INVALID_LEN_FATAL ,    "Tx/Rx invalid length fatal error"},
 { BT_SOC_REASON_SW_REQUESTED            ,    "SW Requested"},
 { BT_SOC_REASON_STACK_OVERFLOW          ,    "Stack Overflow"},
 { BT_SOC_REASON_EXCEPTION               ,    "Exception"},
