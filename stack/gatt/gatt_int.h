@@ -246,6 +246,12 @@ typedef struct hdl_cfg {
   uint16_t app_start_hdl;
 } tGATT_HDL_CFG;
 
+/* GATT pending Srvc Disc Rsp structure
+ */
+typedef struct {
+  uint16_t lcid;
+  BT_HDR* p_msg;
+} tGATT_PEND_SRVC_DISC_RSP;
 typedef struct hdl_list_elem {
   tGATTS_HNDL_RANGE asgn_range; /* assigned handle range */
   tGATT_SVC_DB svc_db;
@@ -344,6 +350,7 @@ typedef struct {
   std::deque<tGATT_VALUE> notif_q;
   //gatt rsp queue only for no credits
   std::deque<tGATT_PEND_RSP> gatt_rsp_q;
+  std::deque<tGATT_PEND_SRVC_DISC_RSP> gatt_disc_rsp_q;
 
   std::vector<uint16_t> ind_no_credits_apps;
   std::vector<uint16_t> notif_no_credits_apps;

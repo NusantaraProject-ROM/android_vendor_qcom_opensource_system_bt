@@ -863,14 +863,14 @@ static bool select_best_sample_rate(uint8_t sampleRate,
                                     tA2DP_APTX_ADAPTIVE_CIE* p_result,
                                     btav_a2dp_codec_config_t* p_codec_config) {
   LOG_DEBUG(LOG_TAG, "%s: Sample rate: %x", __func__, sampleRate);
-  if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_48000) {
-    p_result->sampleRate = A2DP_APTX_ADAPTIVE_SAMPLERATE_48000;
-    p_codec_config->sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_48000;
-    return true;
-  }
   if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_44100) {
     p_result->sampleRate = A2DP_APTX_ADAPTIVE_SAMPLERATE_44100;
     p_codec_config->sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
+    return true;
+  }
+  if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_48000) {
+    p_result->sampleRate = A2DP_APTX_ADAPTIVE_SAMPLERATE_48000;
+    p_codec_config->sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_48000;
     return true;
   }
   if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_96000) {
@@ -890,6 +890,7 @@ static bool select_best_sample_rate(uint8_t sampleRate,
 static bool select_audio_sample_rate(
     const btav_a2dp_codec_config_t* p_codec_audio_config, uint8_t sampleRate,
     tA2DP_APTX_ADAPTIVE_CIE* p_result, btav_a2dp_codec_config_t* p_codec_config) {
+  LOG_DEBUG(LOG_TAG, "%s: Sample rate: %x", __func__, sampleRate);
   switch (p_codec_audio_config->sample_rate) {
     case BTAV_A2DP_CODEC_SAMPLE_RATE_44100:
       if (sampleRate & A2DP_APTX_ADAPTIVE_SAMPLERATE_44100) {
@@ -1099,6 +1100,47 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
   memset(&result_config_cie, 0, sizeof(result_config_cie));
   result_config_cie.vendorId = a2dp_aptx_adaptive_caps.vendorId;
   result_config_cie.codecId = a2dp_aptx_adaptive_caps.codecId;
+
+  LOG_INFO(LOG_TAG, "sink additional supported features: 0x%x",
+            sink_info_cie.aptx_data.aptx_adaptive_sup_features);
+  LOG_INFO(LOG_TAG, "sink cap ext ver num: 0x%x", sink_info_cie.aptx_data.cap_ext_ver_num);
+
+  a2dp_ofload_cap = getOffloadCaps();
+  if(getOffloadCaps().find("aptxadaptiver2") == std::string::npos) {
+    result_config_cie.aptx_data = a2dp_aptx_adaptive_r1_offload_caps.aptx_data;
+    LOG_INFO(LOG_TAG, "%s: Select Aptx Adaptive R1 config", __func__);
+  } else {
+    if (A2DP_Get_Aptx_AdaptiveR2_2_Supported()){
+      LOG_INFO(LOG_TAG, "%s: Select Aptx Adaptive R2.2 config", __func__);
+      result_config_cie.aptx_data = a2dp_aptx_adaptive_r2_2_offload_caps.aptx_data;
+      if ((sink_info_cie.aptx_data.cap_ext_ver_num == A2DP_APTX_ADAPTIVE_CAP_EXT_VER_NUM) &&
+          (sink_info_cie.aptx_data.aptx_adaptive_sup_features & APTX_ADAPTIVE_SINK_R2_2_SUPPORT_CAP)){
+        LOG_INFO(LOG_TAG, "%s: Sink supports R2.2 decoder ", __func__);
+        result_config_cie.aptx_data.aptx_adaptive_sup_features =
+                                                sink_info_cie.aptx_data.aptx_adaptive_sup_features |
+                                                A2DP_APTX_ADAPTIVE_R2_2_SUPPORTED_FEATURES;
+        a2dp_aptx_adaptive_caps.sampleRate |= A2DP_APTX_ADAPTIVE_SAMPLERATE_44100;
+        a2dp_aptx_adaptive_default_config.sampleRate = A2DP_APTX_ADAPTIVE_SAMPLERATE_44100;
+        codec_config_.codec_specific_3 &= ~(int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_MASK;
+        codec_config_.codec_specific_3 |= (int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_AVAILABLE;
+      } else {
+        LOG_INFO(LOG_TAG, "%s: Sink doesn't support R2.2 decoder, limit local sample rate caps",
+                         __func__);
+        a2dp_aptx_adaptive_caps.sampleRate &= ~A2DP_APTX_ADAPTIVE_SAMPLERATE_44100;
+        a2dp_aptx_adaptive_default_config.sampleRate = A2DP_APTX_ADAPTIVE_SAMPLERATE_48000;
+        result_config_cie.aptx_data.aptx_adaptive_sup_features =
+                                                A2DP_APTX_ADAPTIVE_R2_2_SUPPORTED_FEATURES;
+        codec_config_.codec_specific_3 &= ~(int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_MASK;
+        codec_config_.codec_specific_3 |= (int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_NOT_AVAILABLE;
+      }
+    } else if (A2DP_Get_Aptx_AdaptiveR2_1_Supported()) {
+      LOG_INFO(LOG_TAG, "%s: Select Aptx Adaptive R2.1 config", __func__);
+      result_config_cie.aptx_data = a2dp_aptx_adaptive_r2_1_offload_caps.aptx_data;
+    } else {
+      LOG_INFO(LOG_TAG, "%s: Select Aptx Adaptive R2 config", __func__);
+      result_config_cie.aptx_data = a2dp_aptx_adaptive_offload_caps.aptx_data;
+    }
+  }
 
   //
   // Select the sample frequency
@@ -1388,42 +1430,6 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
 
   result_config_cie.sourceType = a2dp_aptx_adaptive_caps.sourceType;
 
-  a2dp_ofload_cap = getOffloadCaps();
-  if(getOffloadCaps().find("aptxadaptiver2") == std::string::npos) {
-    result_config_cie.aptx_data = a2dp_aptx_adaptive_r1_offload_caps.aptx_data;
-    LOG_INFO(LOG_TAG, "%s: Using Aptx Adaptive R1 config", __func__);
-  } else {
-    if (A2DP_Get_Aptx_AdaptiveR2_1_Supported()) {
-      LOG_INFO(LOG_TAG, "%s: Using Aptx Adaptive R2.1 config", __func__);
-      result_config_cie.aptx_data = a2dp_aptx_adaptive_r2_1_offload_caps.aptx_data;
-    } else {
-      LOG_INFO(LOG_TAG, "%s: Using Aptx Adaptive R2 config", __func__);
-      result_config_cie.aptx_data = a2dp_aptx_adaptive_offload_caps.aptx_data;
-    }
-  }
-
-  LOG_INFO(LOG_TAG, "sink additional supported features: 0x%x", sink_info_cie.aptx_data.aptx_adaptive_sup_features);
-  LOG_INFO(LOG_TAG, "sink cap ext ver num: 0x%x", sink_info_cie.aptx_data.cap_ext_ver_num);
-  if (A2DP_Get_Aptx_AdaptiveR2_2_Supported()) {
-    LOG_INFO(LOG_TAG, "%s: Using Aptx Adaptive R2.2 config", __func__);
-    result_config_cie.aptx_data = a2dp_aptx_adaptive_r2_2_offload_caps.aptx_data;
-    if ((sink_info_cie.aptx_data.cap_ext_ver_num == A2DP_APTX_ADAPTIVE_CAP_EXT_VER_NUM) &&
-        (sink_info_cie.aptx_data.aptx_adaptive_sup_features & 0x00000080)){
-      LOG_INFO(LOG_TAG, "%s: Sink supports R2.2 decoder ", __func__);
-      result_config_cie.aptx_data.aptx_adaptive_sup_features =
-            sink_info_cie.aptx_data.aptx_adaptive_sup_features | A2DP_APTX_ADAPTIVE_R2_2_SUPPORTED_FEATURES;
-      codec_config_.codec_specific_3 &= ~(int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_MASK;
-      codec_config_.codec_specific_3 |= (int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_AVAILABLE;
-    } else {
-      LOG_INFO(LOG_TAG, "%s: Sink doesn't support R2.2 decoder ", __func__);
-      result_config_cie.aptx_data.aptx_adaptive_sup_features = A2DP_APTX_ADAPTIVE_R2_2_SUPPORTED_FEATURES;
-      codec_config_.codec_specific_3 &= ~(int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_MASK;
-      codec_config_.codec_specific_3 |= (int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_NOT_AVAILABLE;
-    }
-  } else {
-    codec_config_.codec_specific_3 &= ~(int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_MASK;
-    codec_config_.codec_specific_3 |= (int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_NOT_AVAILABLE;
-  }
   memset(result_config_cie.reserved_data, 0, sizeof(result_config_cie.reserved_data));
 
   if (A2DP_BuildInfoAptxAdaptive(AVDT_MEDIA_TYPE_AUDIO, &result_config_cie,

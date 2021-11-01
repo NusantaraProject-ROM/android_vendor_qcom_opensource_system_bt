@@ -443,13 +443,21 @@ std::string ParseVsBqrRieParams(BqrRieVsParamsId param_id,
   STREAM_TO_UINT8(param_length, *p_stream);
   pending_bytes--;
   std::stringstream ss;
+  auto parse_array_of_bytes = [&] () {
+    pending_bytes -= param_length;
+    uint8_t current_byte;
+    for (int i = 0; i < param_length; ++i) {
+      STREAM_TO_UINT8(current_byte, *p_stream);
+      ss << std::uppercase << std::hex << (int)current_byte << " ";
+    }
+  };
   switch(param_id) {
     case PC_ADDRESS: {
       ss << " PC_ADDRESS: ";
       if (pending_bytes < param_length || param_length != sizeof(uint32_t)) {
         LOG(ERROR) << __func__ << " BQR RIE VS parameter ID " << (int)param_id
-                   << " has invalid value or length, ignoring reset of payload";
-        ss << "invalid pc address value/lenght";
+                   << " has invalid value or length, ignoring rest of payload";
+        ss << "Invalid pc address value/length";
         // Dont parse rest of payload as it might be corrupted and give wrong information.
         pending_bytes = 0;
       } else {
@@ -457,6 +465,32 @@ std::string ParseVsBqrRieParams(BqrRieVsParamsId param_id,
         pending_bytes -= param_length;
         STREAM_TO_UINT32(pc_address, *p_stream);
         ss << std::showbase << std::uppercase << std::hex << pc_address;
+      }
+      break;
+    }
+    case MINI_DUMP: {
+      ss << " MINI_DUMP: ";
+      if (pending_bytes < param_length) {
+        LOG(ERROR) << __func__ << " BQR RIE VS parameter ID " << (int)param_id
+                   << " has invalid value, ignoring rest of payload";
+        ss << "Invalid MINI_DUMP";
+        // Dont parse rest of payload as it might be corrupted and give wrong information.
+        pending_bytes = 0;
+      } else {
+        parse_array_of_bytes();
+      }
+      break;
+    }
+    case HCI_BUFFER_DUMP: {
+      ss << " HCI_BUFFER_DUMP: ";
+      if (pending_bytes < param_length) {
+        LOG(ERROR) << __func__ << " BQR RIE VS parameter ID " << (int)param_id
+                   << " has invalid value, ignoring rest of payload";
+        ss << "Invalid HCI_BUFFER_DUMP";
+        // Dont parse rest of payload as it might be corrupted and give wrong information.
+        pending_bytes = 0;
+      } else {
+        parse_array_of_bytes();
       }
       break;
     }

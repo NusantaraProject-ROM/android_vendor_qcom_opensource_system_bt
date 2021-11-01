@@ -966,12 +966,22 @@ void bta_ag_codec_negotiate(tBTA_AG_SCB* p_scb) {
     {
 #if (SWB_ENABLED == TRUE)
       if (p_scb->is_swb_codec == true  && (p_scb->peer_codecs & BTA_AG_SCO_SWB_SETTINGS_Q0_MASK)) {
-        p_scb->sco_codec = BTM_SCO_CODEC_MSBC;
-        p_scb->is_swb_codec = false;
+        if(p_scb->peer_features & BTA_AG_PEER_FEAT_CODEC) {
+          p_scb->sco_codec = BTM_SCO_CODEC_MSBC;
+        }else{
+         p_scb->sco_codec = BTM_SCO_CODEC_CVSD;
+        }
+       p_scb->is_swb_codec = false;
+       APPL_TRACE_DEBUG("%s SWB enabled, sco_codec %d, peer_features %x", __func__, p_scb->sco_codec, p_scb->peer_features);
       }
 #endif
+    if(p_scb->peer_features & BTA_AG_PEER_FEAT_CODEC){
       /* Send +BCS to the peer */
       bta_ag_send_bcs(p_scb, NULL);
+     }else{
+       APPL_TRACE_DEBUG("%s skip codec ngo, sco_codec %d, peer_features %x", __func__, p_scb->sco_codec, p_scb->peer_features);
+       bta_ag_sco_codec_nego(p_scb, true);
+     }
     }
 
     /* Start timer to handle timeout */

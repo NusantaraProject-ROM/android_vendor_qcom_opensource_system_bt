@@ -15,6 +15,23 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+/******************************************************************************
+ *
+ *  Copyright 2002-2012 Broadcom Corporation
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at:
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ ******************************************************************************/
 
 /******************************************************************************
  *  This file contains action functions for SDP search.
@@ -36,6 +53,7 @@
 #include "btm_int.h"
 #include "btif/include/btif_sock_sdp.h"
 #include "osi/include/allocator.h"
+#include "osi/include/properties.h"
 #include "sdp_api.h"
 #include "stack/sdp/sdpint.h"
 #include "utl.h"
@@ -357,6 +375,7 @@ static void bta_create_raw_sdp_record(bluetooth_sdp_record* record,
                                       tSDP_DISC_REC* p_rec) {
   tSDP_DISC_ATTR* p_attr;
   tSDP_PROTOCOL_ELEM pe;
+  tSDP_DISC_ATTR *p_subattr1, *p_subattr2, *p_repdesc;
 
   record->hdr.type = SDP_TYPE_RAW;
   record->hdr.service_name_length = 0;
@@ -365,20 +384,39 @@ static void bta_create_raw_sdp_record(bluetooth_sdp_record* record,
   record->hdr.l2cap_psm = -1;
   record->hdr.profile_version = -1;
 
+  APPL_TRACE_DEBUG("%s:", __func__);
   /* Try to extract a service name */
   p_attr = SDP_FindAttributeInRec(p_rec, ATTR_ID_SERVICE_NAME);
   if (p_attr != NULL) {
-    record->pse.hdr.service_name_length =
+    record->hdr.service_name_length =
         SDP_DISC_ATTR_LEN(p_attr->attr_len_type);
-    record->pse.hdr.service_name = (char*)p_attr->attr_value.v.array;
+    record->hdr.service_name = (char*)p_attr->attr_value.v.array;
   }
 
   /* Try to extract an RFCOMM channel */
   if (SDP_FindProtocolListElemInRec(p_rec, UUID_PROTOCOL_RFCOMM, &pe)) {
-    record->pse.hdr.rfcomm_channel_number = pe.params[0];
+    record->hdr.rfcomm_channel_number = pe.params[0];
   }
-  record->hdr.user1_ptr_len = p_bta_sdp_cfg->p_sdp_db->raw_size;
-  record->hdr.user1_ptr = p_bta_sdp_cfg->p_sdp_db->raw_data;
+
+  /* If proper formatted HID Descriptor list is found */
+  if ((bta_sdp_cb.raw_hid_record == true) &&
+         !(((p_attr = SDP_FindAttributeInRec(p_rec, ATTR_ID_HID_DESCRIPTOR_LIST)) ==
+       NULL) ||
+      (SDP_DISC_ATTR_TYPE(p_attr->attr_len_type) != DATA_ELE_SEQ_DESC_TYPE) ||
+      ((p_subattr1 = p_attr->attr_value.v.p_sub_attr) == NULL) ||
+      (SDP_DISC_ATTR_TYPE(p_subattr1->attr_len_type) !=
+       DATA_ELE_SEQ_DESC_TYPE) ||
+      ((p_subattr2 = p_subattr1->attr_value.v.p_sub_attr) == NULL) ||
+      ((p_repdesc = p_subattr2->p_next_attr) == NULL) ||
+      (SDP_DISC_ATTR_TYPE(p_repdesc->attr_len_type) != TEXT_STR_DESC_TYPE))) {
+
+      record->hdr.user1_ptr_len = SDP_DISC_ATTR_LEN(p_repdesc->attr_len_type);
+      if (record->hdr.user1_ptr_len != 0)
+          record->hdr.user1_ptr = (uint8_t*)&p_repdesc->attr_value;
+  } else {
+    record->hdr.user1_ptr_len = p_bta_sdp_cfg->p_sdp_db->raw_size;
+    record->hdr.user1_ptr = p_bta_sdp_cfg->p_sdp_db->raw_data;
+  }
 }
 
 /** Callback from btm after search is completed */
@@ -476,6 +514,12 @@ void bta_sdp_enable(tBTA_SDP_MSG* p_data) {
   bta_sdp_cb.p_dm_cback = p_data->enable.p_cback;
   tBTA_SDP bta_sdp;
   bta_sdp.status = status;
+  char value[PROPERTY_VALUE_MAX] = {'\0'};
+  osi_property_get("persist.vendor.btstack.hid_3d_audio",value,"false");
+  if (strcmp(value, "true") == 0)
+    bta_sdp_cb.raw_hid_record = true;
+  else
+    bta_sdp_cb.raw_hid_record = false;
   bta_sdp_cb.p_dm_cback(BTA_SDP_ENABLE_EVT, &bta_sdp, NULL);
 }
 

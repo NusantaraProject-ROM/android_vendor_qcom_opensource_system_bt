@@ -125,7 +125,9 @@ enum BqrQualityReportId : uint8_t {
 
 // BQR RIE vendor specific params IDs
 enum BqrRieVsParamsId : uint8_t {
-  PC_ADDRESS = 0x01
+  PC_ADDRESS = 0x01,
+  MINI_DUMP = 0x02,
+  HCI_BUFFER_DUMP = 0x03,
 };
 
 // Packet Type definition

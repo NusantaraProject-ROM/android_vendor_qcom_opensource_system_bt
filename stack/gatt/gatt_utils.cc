@@ -100,13 +100,17 @@ const char* const op_code_name[] = {"UNKNOWN",
  ******************************************************************************/
 void gatt_free_pending_ind(tGATT_TCB* p_tcb, uint16_t lcid) {
   VLOG(1) << __func__ << " lcid:" << +lcid;
-  fixed_queue_t** pending_ind_q = &(p_tcb->pending_ind_q);
+  fixed_queue_t** pending_ind_q = &(p_tcb->pending_ind_q); // L2CAP_ATT_CID
   tGATT_EBCB* p_eatt_bcb;
 
-  if (p_tcb->is_eatt_supported) {
+  if (p_tcb->is_eatt_supported && (lcid != L2CAP_ATT_CID)) {
     p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
     if (p_eatt_bcb)
       pending_ind_q = &(p_eatt_bcb->pending_ind_q);
+    else {
+      VLOG(1) << __func__ << " EATT BCB not found for lcid:" << +lcid;
+      return;
+    }
   }
 
   if (*pending_ind_q == NULL) {
@@ -313,14 +317,14 @@ bool gatt_find_the_connected_bda(uint8_t start_idx, RawAddress& bda,
  *
  ******************************************************************************/
 bool gatt_is_srv_chg_ind_pending(tGATT_TCB* p_tcb) {
-  VLOG(1) << __func__
-          << " is_queue_empty=" << fixed_queue_is_empty(p_tcb->pending_ind_q);
+  VLOG(1) << __func__ << " is_eatt_supported:" << p_tcb->is_eatt_supported;
   uint16_t xx = 0;
   tGATT_EBCB* p_eatt_bcb;
 
   if (p_tcb->is_eatt_supported) {
     for (xx = 0; xx < GATT_MAX_EATT_CHANNELS; xx++) {
-      if (gatt_cb.eatt_bcb[xx].in_use) {
+      if (gatt_cb.eatt_bcb[xx].in_use && (gatt_cb.eatt_bcb[xx].p_tcb == p_tcb))
+         {
         p_eatt_bcb = &gatt_cb.eatt_bcb[xx];
 
         if (p_eatt_bcb->indicate_handle == gatt_cb.handle_of_h_r) return true;
@@ -1545,7 +1549,8 @@ void gatt_cleanup_upon_disc(const RawAddress& bda, uint16_t reason,
       if (p_tcb->is_eatt_supported) {
         lcid = gatt_get_cid_by_conn_id(conn_id);
       }
-      gatt_free_pending_ind(p_tcb, lcid);
+      if (lcid != L2CAP_ATT_CID)
+        gatt_free_pending_ind(p_tcb, lcid);
     }
   }
 

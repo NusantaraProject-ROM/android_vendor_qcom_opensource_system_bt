@@ -528,6 +528,7 @@ bool l2c_link_hci_disc_comp(uint16_t handle, uint8_t reason) {
      }
       if (l2cu_create_conn(p_lcb, transport)) {
         lcb_is_free = false; /* still using this lcb */
+        p_lcb->handle = HCI_INVALID_HANDLE;
         p_lcb->link_role = HCI_ROLE_MASTER; /* reset to default role */
       }
     }

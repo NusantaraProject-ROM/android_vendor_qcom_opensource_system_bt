@@ -234,13 +234,13 @@ void gatt_free(void) {
   }
 
   for (i = 0; i < GATT_MAX_EATT_CHANNELS; i++) {
-    fixed_queue_free(gatt_cb.eatt_bcb[i].pending_ind_q, NULL);
+    if(gatt_cb.eatt_bcb[i].cid != L2CAP_ATT_CID) {
+      fixed_queue_free(gatt_cb.eatt_bcb[i].pending_ind_q, NULL);
+      alarm_free(gatt_cb.eatt_bcb[i].conf_timer);
+      alarm_free(gatt_cb.eatt_bcb[i].ind_ack_timer);
+    }
     gatt_cb.eatt_bcb[i].pending_ind_q = NULL;
-
-    alarm_free(gatt_cb.eatt_bcb[i].conf_timer);
     gatt_cb.eatt_bcb[i].conf_timer = NULL;
-
-    alarm_free(gatt_cb.eatt_bcb[i].ind_ack_timer);
     gatt_cb.eatt_bcb[i].ind_ack_timer = NULL;
 
     fixed_queue_free(gatt_cb.eatt_bcb[i].sr_cmd.multi_rsp_q, NULL);
@@ -1054,6 +1054,11 @@ void gatt_notify_eatt_congestion(uint16_t cid, bool congested) {
     gatt_send_pending_rsp(*(p_tcb), cid);
   }
 
+  /* if uncongested, check to see if there is any pending GATT srvc disc rsp */
+  if (p_tcb != NULL && !congested && p_eatt_bcb->send_uncongestion) {
+    gatt_send_pending_disc_rsp(*(p_tcb), cid);
+  }
+
   /* if uncongested, check to see if there is any more pending client ops */
   if (p_tcb != NULL && !congested && p_eatt_bcb->send_uncongestion) {
     gatt_cl_send_next_cmd_inq(*p_tcb, cid);
@@ -1340,7 +1345,7 @@ static void gatt_l2cif_eatt_connect_cfm_cback(RawAddress &p_bd_addr,
  *
  ******************************************************************************/
 static void gatt_l2cif_eatt_disconnect_ind_cback(uint16_t l2cap_cid, bool ack_needed) {
-  tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(l2cap_cid);
+  tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_using_all_cids(l2cap_cid);
 
   VLOG(1) << __func__;
 

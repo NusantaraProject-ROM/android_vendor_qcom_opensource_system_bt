@@ -2763,7 +2763,7 @@ void btm_ble_set_cig_param_cmd_cmpl(uint8_t *param, uint16_t param_len) {
   //store cis handles
   if (ret_param.status == HCI_SUCCESS) {
     for(int i = 0; i < ret_param.cis_count; i++) {
-      cis_map.insert(std::make_pair(ret_param.conn_handle[i], ret_param.cig_id));
+      cis_map[ret_param.conn_handle[i]] = ret_param.cig_id;
     }
   }
 
@@ -2832,7 +2832,6 @@ void btm_ble_create_cis_status_cb (uint8_t* status, uint16_t len) {
     // cancel connection timeout alarm for unsuccessful request
     alarm_t* conn_timeout_alarm = it->second.conn_timeout_alarm;
     if (alarm_is_scheduled(conn_timeout_alarm)) {
-      alarm_cancel(conn_timeout_alarm);
       alarm_free(conn_timeout_alarm);
     }
 
@@ -2919,18 +2918,13 @@ void btm_ble_cis_established_evt(uint8_t *param, uint16_t param_len) {
   std::map<uint16_t, tBTM_BLE_PENDING_CIS_CONN>::iterator it
       = pending_cis_map.find(ret_param.connection_handle);
   if (it == pending_cis_map.end()) {
-    BTM_TRACE_API("%s: CIS for connection handle (%x) is not pending",
+    BTM_TRACE_ERROR("%s: CIS for connection handle (%x) is not pending",
         __func__, ret_param.connection_handle);
     return;
   }
 
   alarm_t* conn_timeout_alarm = it->second.conn_timeout_alarm;
   tBTM_BLE_CIS_ESTABLISHED_CB* cback = it->second.cis_established_evt_cb;
-
-  // Give callback to upper layer
-  if (cback) {
-    (*cback) (&ret_param);
-  }
 
   // cancel the alarm if CIS established event is received for all handles
   std::vector<uint16_t> *cis_handles = (std::vector<uint16_t> *)it->second.cis_handles;
@@ -2939,7 +2933,7 @@ void btm_ble_cis_established_evt(uint8_t *param, uint16_t param_len) {
   std::map<uint16_t, tBTM_BLE_PENDING_CIS_CONN>::iterator it1;
   for(int i = 0; i < size; i++) {
     it1 = pending_cis_map.find((*cis_handles)[i]);
-    if (it1 != pending_cis_map.end()) {
+    if (it1 == pending_cis_map.end()) {
       // This CIS is already established
       continue;
     }
@@ -2948,13 +2942,18 @@ void btm_ble_cis_established_evt(uint8_t *param, uint16_t param_len) {
 
   if (pending_cis_count <= 1) {
     if (alarm_is_scheduled(conn_timeout_alarm)) {
-      alarm_cancel(conn_timeout_alarm);
+      BTM_TRACE_DEBUG("%s last pending CIS established, free alarm", __func__);
       alarm_free(conn_timeout_alarm);
     }
   }
 
   // remove the entry from map
   pending_cis_map.erase(it);
+
+  // Give callback to upper layer
+  if (cback) {
+    (*cback) (&ret_param);
+  }
 }
 
 void btm_ble_cis_request_evt(uint8_t *param, uint16_t param_len) {
@@ -2976,7 +2975,7 @@ void btm_ble_cis_request_evt(uint8_t *param, uint16_t param_len) {
   }
 
   // store cis handle
-  cis_map.insert(std::make_pair(evt_param.cis_conn_handle, evt_param.cig_id));
+  cis_map[evt_param.cis_conn_handle] = evt_param.cig_id;
 }
 
 void btm_ble_remove_cig_cmd_cmpl(uint8_t *param, uint16_t param_len) {
@@ -3259,7 +3258,7 @@ void btm_ble_set_cig_param_test_cmd_cmpl(uint8_t *param, uint16_t param_len) {
 
   if (ret_param.status == HCI_SUCCESS) {
     for (int i = 0; i < ret_param.cis_count; i++) {
-      cis_map.insert(std::make_pair(ret_param.conn_handle[i], ret_param.cig_id));
+      cis_map[ret_param.conn_handle[i]] = ret_param.cig_id;
     }
   }
   // free memory conn_handle memory
@@ -3439,7 +3438,7 @@ uint8_t BTM_BleCreateCis(tBTM_BLE_ISO_CREATE_CIS_CMD_PARAM* p_data,
   for(int i = 0; i < size; i++) {
     BTM_TRACE_API("%s: inserting %02x handle into the pending connection map",
                       __func__, (*cis_handles)[i]);
-    pending_cis_map.insert(std::make_pair((*cis_handles)[i], pending_conn));
+    pending_cis_map[(*cis_handles)[i]] = pending_conn;
   }
 
   return HCI_SUCCESS;

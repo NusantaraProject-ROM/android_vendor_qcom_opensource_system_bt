@@ -800,7 +800,13 @@ void gatts_process_primary_service_req(tGATT_TCB& tcb, uint16_t lcid,
     return;
   }
 
-  attp_send_sr_msg(tcb, lcid, p_msg);
+  tGATT_STATUS cmd_sent = attp_send_sr_msg(tcb, lcid, p_msg);
+  if (cmd_sent == GATT_NO_CREDITS) {
+    tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    if (tcb.is_eatt_supported && p_eatt_bcb) {
+      eatt_disc_rsp_enq(p_eatt_bcb->cid, p_msg);
+    }
+  }
 }
 
 /*******************************************************************************
@@ -853,8 +859,15 @@ static void gatts_process_find_info(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_co
   if (reason != GATT_SUCCESS) {
     osi_free(p_msg);
     gatt_send_error_rsp(tcb, lcid, reason, op_code, s_hdl, false);
-  } else
-    attp_send_sr_msg(tcb, lcid, p_msg);
+  } else {
+    tGATT_STATUS cmd_sent = attp_send_sr_msg(tcb, lcid, p_msg);
+    if (cmd_sent == GATT_NO_CREDITS) {
+      tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+      if (tcb.is_eatt_supported && p_eatt_bcb) {
+        eatt_disc_rsp_enq(p_eatt_bcb->cid, p_msg);
+      }
+    }
+  }
 }
 
 /*******************************************************************************
@@ -1011,7 +1024,13 @@ void gatts_process_read_by_type_req(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_co
     return;
   }
 
-  attp_send_sr_msg(tcb, lcid, p_msg);
+  tGATT_STATUS cmd_sent = attp_send_sr_msg(tcb, lcid, p_msg);
+  if (cmd_sent == GATT_NO_CREDITS) {
+    tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    if (tcb.is_eatt_supported && p_eatt_bcb) {
+      eatt_disc_rsp_enq(p_eatt_bcb->cid, p_msg);
+    }
+  }
 }
 
 /**
@@ -1156,7 +1175,13 @@ static void gatts_process_read_req(tGATT_TCB& tcb, uint16_t lcid,
     return;
   }
 
-  attp_send_sr_msg(tcb, lcid, p_msg);
+  tGATT_STATUS cmd_sent = attp_send_sr_msg(tcb, lcid, p_msg);
+  if (cmd_sent == GATT_NO_CREDITS) {
+    tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    if (tcb.is_eatt_supported && p_eatt_bcb) {
+      eatt_disc_rsp_enq(p_eatt_bcb->cid, p_msg);
+    }
+  }
 }
 
 /*******************************************************************************
