@@ -60,8 +60,20 @@ const uint8_t SCO_HOST_BUFFER_SIZE = 0xff;
 #define ISO_CHANNEL_HOST_SUPPORT_BIT 32
 #define UNUSED(x) (void)(x)
 
+#define QHS_TRANSPORT_BREDR 0
+#define QHS_TRANSPORT_LE 1
 #define QHS_TRANSPORT_LE_ISO 2
+
+/* Disable QHS */
+#define QHS_HOST_MODE_HOST_DISABLE 0
+/* Enable QHS support */
 #define QHS_HOST_MODE_HOST_AWARE 3
+/* Disable QHS, QLL and QLMP modes */
+#define QHS_HOST_DISABLE_ALL 4
+
+#define QHS_BREDR_MASK 0x01
+#define QHS_LE_MASK 0x02
+#define QHS_LE_ISO_MASK 0x04
 
 const bt_event_mask_t QBCE_QLM_AND_QLL_EVENT_MASK = {
   {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x42}};
@@ -223,6 +235,8 @@ static future_t* start_up(void) {
   number_of_scrambling_supported_freqs = 0;
   soc_add_on_features_length = 0;
   host_add_on_features_length = 0;
+  char qhs_value[2] = {};
+  uint8_t qhs_support_mask = 0;
 
 // read properties  for offtarget test setup
 #if (OFF_TARGET_TEST_ENABLED == TRUE)
@@ -648,9 +662,44 @@ static future_t* start_up(void) {
   osi_property_set("persist.vendor.service.bt.adv_audio_mask", adv_audio_property);
 
   if (HCI_QBCE_QLE_HCI_SUPPORTED(soc_add_on_features.as_array)) {
-    response = AWAIT_COMMAND(packet_factory->make_qbce_set_qhs_host_mode(
-                   QHS_TRANSPORT_LE_ISO, QHS_HOST_MODE_HOST_AWARE));
-    packet_parser->parse_generic_command_complete(response);
+    BT_HDR* response;
+    char qhs_iso[PROPERTY_VALUE_MAX] = "false";
+    property_get("persist.vendor.btstack.qhs_enable", qhs_iso, "false");
+    if (!strncmp("true", qhs_iso, 4)) {
+        response = AWAIT_COMMAND(packet_factory->make_qbce_set_qhs_host_mode(
+                                 QHS_TRANSPORT_LE_ISO, QHS_HOST_MODE_HOST_AWARE));
+        packet_parser->parse_generic_command_complete(response);
+    } else {
+        response = AWAIT_COMMAND(packet_factory->make_qbce_set_qhs_host_mode(
+                                 QHS_TRANSPORT_LE_ISO, QHS_HOST_DISABLE_ALL));
+        packet_parser->parse_generic_command_complete(response);
+    }
+
+    /* This property is for test/debug purpose only */
+    osi_property_get("persist.vendor.btstack.qhs_support", qhs_value, "255");
+    qhs_support_mask = (uint8_t)atoi(qhs_value);
+    if (qhs_support_mask != 0xFF) {
+        response = qhs_support_mask & QHS_BREDR_MASK?
+                   AWAIT_COMMAND(packet_factory->make_qbce_set_qhs_host_mode(
+                                 QHS_TRANSPORT_BREDR, QHS_HOST_MODE_HOST_AWARE)):
+                   AWAIT_COMMAND(packet_factory->make_qbce_set_qhs_host_mode(
+                                 QHS_TRANSPORT_BREDR, QHS_HOST_DISABLE_ALL));
+        packet_parser->parse_generic_command_complete(response);
+
+        response = qhs_support_mask & QHS_LE_MASK?
+                   AWAIT_COMMAND(packet_factory->make_qbce_set_qhs_host_mode(
+                                 QHS_TRANSPORT_LE, QHS_HOST_MODE_HOST_AWARE)):
+                   AWAIT_COMMAND(packet_factory->make_qbce_set_qhs_host_mode(
+                                 QHS_TRANSPORT_LE, QHS_HOST_DISABLE_ALL));
+        packet_parser->parse_generic_command_complete(response);
+
+        response = qhs_support_mask & QHS_LE_ISO_MASK?
+                   AWAIT_COMMAND(packet_factory->make_qbce_set_qhs_host_mode(
+                                 QHS_TRANSPORT_LE_ISO, QHS_HOST_MODE_HOST_AWARE)):
+                   AWAIT_COMMAND(packet_factory->make_qbce_set_qhs_host_mode(
+                                 QHS_TRANSPORT_LE_ISO, QHS_HOST_DISABLE_ALL));
+        packet_parser->parse_generic_command_complete(response);
+    }
 
     response = AWAIT_COMMAND(packet_factory->make_qbce_set_qll_event_mask(
                    &QBCE_QLM_AND_QLL_EVENT_MASK));
