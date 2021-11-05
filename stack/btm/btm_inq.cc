@@ -2092,7 +2092,11 @@ tBTM_STATUS btm_initiate_rem_name(const RawAddress& remote_bda, uint8_t origin,
   /* Make sure there are no two remote name requests from external API in
      progress */
   else if (origin == BTM_RMT_NAME_EXT) {
-    if (p_inq->remname_active) {
+    if ((p_inq->remname_active) && (p_inq->remname_bda == remote_bda))  {
+      BTM_TRACE_DEBUG("Remote name request already in progress for this remote");
+      return BTM_CMD_STARTED;
+    } else if (p_inq->remname_active) {
+      BTM_TRACE_DEBUG("Different remote name request is started");
       return (BTM_BUSY);
     } else {
       /* If there is no remote name request running,call the callback function
