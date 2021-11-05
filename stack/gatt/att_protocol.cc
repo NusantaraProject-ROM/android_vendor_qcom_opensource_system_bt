@@ -402,11 +402,11 @@ tGATT_STATUS attp_send_msg_to_l2cap(tGATT_TCB& tcb, uint16_t cid, BT_HDR* p_toL2
   } else if (l2cap_ret == L2CAP_DW_NO_CREDITS) {
     VLOG(1) << StringPrintf("congested, L2CAP no credits for channel:%0x", cid);
     if ((l2cap_ret == L2CAP_DW_NO_CREDITS) && (tcb.is_eatt_supported)) {
-      p_eatt_bcb = gatt_find_eatt_bcb_by_cid(cid);
+      p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, cid);
       if (p_eatt_bcb) {
         p_eatt_bcb->no_credits = true;
         p_eatt_bcb->send_uncongestion = false;
-        gatt_notify_eatt_congestion(cid, true);
+        gatt_notify_eatt_congestion(&tcb, cid, true);
       }
     }
     return GATT_NO_CREDITS;
@@ -502,7 +502,7 @@ tGATT_STATUS attp_cl_send_cmd(tGATT_TCB& tcb, tGATT_CLCB* p_clcb, uint16_t lcid,
   tGATT_EBCB* p_eatt_bcb = NULL;
 
   if (tcb.is_eatt_supported) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, lcid);
     if (p_eatt_bcb) {
       cl_cmd_q = p_eatt_bcb->cl_cmd_q;
     }
