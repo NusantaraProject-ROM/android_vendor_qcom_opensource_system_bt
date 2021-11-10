@@ -727,7 +727,13 @@ void bond_state_changed(bt_status_t status, const RawAddress& bd_addr,
     pairing_cb.state = state;
     pairing_cb.bd_addr = bd_addr;
   } else {
-    pairing_cb = {};
+   if ((pairing_cb.state == BT_BOND_STATE_BONDING)
+     && (state == BT_BOND_STATE_NONE)
+     && (pairing_cb.bd_addr != bd_addr)) {
+     BTIF_TRACE_DEBUG("%s: Another pairing is in progress", __func__);
+    } else {
+      pairing_cb = {};
+    }
   }
   if (state == BT_BOND_STATE_NONE) {
     // Update Pbap 1.2 entry, set rebonded to true
