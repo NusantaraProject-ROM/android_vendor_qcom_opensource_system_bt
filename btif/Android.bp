@@ -28,10 +28,6 @@ btifCommonIncludes = [
     "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/bta/include",
     "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include",
     "vendor/qcom/opensource/commonsys-intf/bluetooth/include",
-    "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/system/bt/btif/include",
-    "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/system/bt",
-    "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/system/bt/bta/include",
-    "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/vhal/include",
     "system/bt/include",
 ]
 
@@ -127,7 +123,6 @@ cc_library_static {
     ],
     cflags: [
         "-DBUILDCFG",
-        "-DADV_AUDIO_FEATURE=1",
     ],
 
 }

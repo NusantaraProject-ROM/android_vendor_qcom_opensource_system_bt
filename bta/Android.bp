@@ -26,8 +26,6 @@ cc_defaults {
         "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/btif/include",
         "vendor/qcom/opensource/commonsys-intf/bluetooth/include",
         "vendor/qcom/opensource/commonsys/system/bt/device/include",
-        "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/system/bt/bta/include",
-        "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/vhal/include",
     ],
     shared_libs: [
         "libcutils",
@@ -35,7 +33,6 @@ cc_defaults {
     header_libs: ["libbluetooth_headers"],
     cflags: [
         "-DBUILDCFG",
-        "-DADV_AUDIO_FEATURE=1",
     ],
 }
 
@@ -123,10 +120,6 @@ cc_library_static {
 
     whole_static_libs: [
         "libaudio-hearing-aid-hw-utils_qti",
-    ],
-
-    cflags: [
-        "-DADV_AUDIO_FEATURE=1",
     ],
 }
 

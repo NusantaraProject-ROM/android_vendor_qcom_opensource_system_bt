@@ -38,8 +38,6 @@ cc_library_shared {
         "vendor/qcom/opensource/commonsys/system/bt/utils/include",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext",
-        "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/system/bt/bta/include",
-        "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/vhal/include",
         "system/security/keystore/include",
         "hardware/interfaces/keymaster/4.0/support/include",
     ],
@@ -87,8 +85,6 @@ cc_library_shared {
         "libosi_qti",
         "libbt-stack_ext",
         "libosi_ext",
-        "libbt-btif_qti_lea",
-        "libbt-bta_qti_lea",
     ],
     // Shared library link options.
     // References to global symbols and functions should bind to the library
@@ -107,7 +103,6 @@ cc_library_shared {
     ],
     cflags: [
         "-DBUILDCFG",
-        "-DADV_AUDIO_FEATURE=1",
     ],
     sanitize: {
         scs: true,
