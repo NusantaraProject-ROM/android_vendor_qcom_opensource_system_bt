@@ -108,6 +108,8 @@ std::condition_variable session_wait_cv;
 bool session_wait;
 RawAddress ba_addr({0xCE, 0xFA, 0xCE, 0xFA, 0xCE, 0xFA});
 
+extern std::mutex isDevUiReq_mutex_;
+
 #define BTIF_AV_ENABLE_MCAST_RESTRICTIONS FALSE
 /*****************************************************************************
  *  Constants & Macros
@@ -4794,6 +4796,7 @@ static bt_status_t codec_config_src(const RawAddress& bd_addr,
   int index = btif_av_idx_by_bdaddr(const_cast<RawAddress*>(&bd_addr));
   btif_av_codec_config_req_t codec_req;
   bool saved_codec_cfg_change = codec_cfg_change;
+  std::unique_lock<std::mutex> guard(isDevUiReq_mutex_);
   isDevUiReq = false;
   codec_cfg_change = false;
   for (auto cp : codec_preferences) {
