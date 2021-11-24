@@ -60,7 +60,6 @@
 static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_src_caps = {
     A2DP_APTX_ADAPTIVE_VENDOR_ID,          /* vendorId */
     A2DP_APTX_ADAPTIVE_CODEC_ID_BLUETOOTH, /* codecId */
-    //A2DP_APTX_ADAPTIVE_SAMPLERATE_48000,   /* sampleRate */
     A2DP_APTX_ADAPTIVE_SAMPLERATE_48000 |
     A2DP_APTX_ADAPTIVE_SAMPLERATE_96000,   /* sampleRate */
     A2DP_APTX_ADAPTIVE_SOURCE_TYPE_2,
@@ -188,7 +187,6 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_r2_2_offload_caps = {
 
 /* Default aptX-adaptive codec configuration */
 static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_src_config = {
-//static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_config = {
     A2DP_APTX_ADAPTIVE_VENDOR_ID,          /* vendorId */
     A2DP_APTX_ADAPTIVE_CODEC_ID_BLUETOOTH, /* codecId */
     A2DP_APTX_ADAPTIVE_SAMPLERATE_48000,   /* sampleRate */
@@ -216,7 +214,6 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_src_config = {
 
 /* Default aptX-adaptive offload codec configuration */
 static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_offload_config = {
-//static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_config = {
     A2DP_APTX_ADAPTIVE_VENDOR_ID,          /* vendorId */
     A2DP_APTX_ADAPTIVE_CODEC_ID_BLUETOOTH, /* codecId */
     A2DP_APTX_ADAPTIVE_SAMPLERATE_48000,   /* sampleRate */
@@ -248,7 +245,6 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_offload_config =
 
 /* Default aptX-adaptive R2.1 offload codec configuration */
 static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_r2_1_default_offload_config = {
-//static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_config = {
     A2DP_APTX_ADAPTIVE_VENDOR_ID,          /* vendorId */
     A2DP_APTX_ADAPTIVE_CODEC_ID_BLUETOOTH, /* codecId */
     A2DP_APTX_ADAPTIVE_SAMPLERATE_48000,   /* sampleRate */
@@ -280,7 +276,6 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_r2_1_default_offload_con
 
 /* Default aptX-adaptive R2.2 offload codec configuration */
 static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_r2_2_default_offload_config = {
-//static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_config = {
     A2DP_APTX_ADAPTIVE_VENDOR_ID,          /* vendorId */
     A2DP_APTX_ADAPTIVE_CODEC_ID_BLUETOOTH, /* codecId */
     A2DP_APTX_ADAPTIVE_SAMPLERATE_48000,   /* sampleRate */
@@ -311,7 +306,6 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_r2_2_default_offload_con
 };
 
 static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_r1_offload_caps = {
-//static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_config = {
     A2DP_APTX_ADAPTIVE_VENDOR_ID,          /* vendorId */
     A2DP_APTX_ADAPTIVE_CODEC_ID_BLUETOOTH, /* codecId */
     A2DP_APTX_ADAPTIVE_SAMPLERATE_48000,   /* sampleRate */
@@ -341,7 +335,6 @@ static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_r1_offload_caps = {
 };
 
 static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_r1_default_offload_config = {
-//static const tA2DP_APTX_ADAPTIVE_CIE a2dp_aptx_adaptive_default_config = {
     A2DP_APTX_ADAPTIVE_VENDOR_ID,          /* vendorId */
     A2DP_APTX_ADAPTIVE_CODEC_ID_BLUETOOTH, /* codecId */
     A2DP_APTX_ADAPTIVE_SAMPLERATE_48000,   /* sampleRate */
@@ -1068,7 +1061,9 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
   tA2DP_APTX_ADAPTIVE_CIE result_config_cie;
   uint8_t sampleRate;
   uint8_t channelMode;
-  std::string a2dp_ofload_cap;
+
+  uint8_t sink_byte_17th = 0x00, src_byte_17th = 0x00, byte_negotiated_17th = 0x00;
+  bool is_negotiated_r1 = false;
 
   // Save the internal state
   btav_a2dp_codec_config_t saved_codec_config = codec_config_;
@@ -1094,9 +1089,7 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
     goto fail;
   }
 
-  //
   // Build the preferred configuration
-  //
   memset(&result_config_cie, 0, sizeof(result_config_cie));
   result_config_cie.vendorId = a2dp_aptx_adaptive_caps.vendorId;
   result_config_cie.codecId = a2dp_aptx_adaptive_caps.codecId;
@@ -1105,20 +1098,28 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
             sink_info_cie.aptx_data.aptx_adaptive_sup_features);
   LOG_INFO(LOG_TAG, "sink cap ext ver num: 0x%x", sink_info_cie.aptx_data.cap_ext_ver_num);
 
-  a2dp_ofload_cap = getOffloadCaps();
-  if(getOffloadCaps().find("aptxadaptiver2") == std::string::npos) {
+  if ((getOffloadCaps().find("aptxadaptiver2") == std::string::npos)
+      || (sink_info_cie.aptx_data.cap_ext_ver_num == 0)) {
+    is_negotiated_r1 = true;
     result_config_cie.aptx_data = a2dp_aptx_adaptive_r1_offload_caps.aptx_data;
+    if (sink_info_cie.aptx_data.cap_ext_ver_num == 0) {
+      LOG_INFO(LOG_TAG, "%s: Sink supports R1.0 decoder ", __func__);
+      result_config_cie.aptx_data = sink_info_cie.aptx_data;
+    }
     LOG_INFO(LOG_TAG, "%s: Select Aptx Adaptive R1 config", __func__);
   } else {
-    if (A2DP_Get_Aptx_AdaptiveR2_2_Supported()){
+    sink_byte_17th = (sink_info_cie.aptx_data.aptx_adaptive_sup_features & 0xFF);
+    if (A2DP_Get_Aptx_AdaptiveR2_2_Supported()) {
+      src_byte_17th = A2DP_APTX_ADAPTIVE_R2_2_SRC_17TH_BYTE;
+      byte_negotiated_17th = (((sink_byte_17th >> 4) | (src_byte_17th >> 4)) << 4) |
+                             ((sink_byte_17th & src_byte_17th) & 0x0F);
       LOG_INFO(LOG_TAG, "%s: Select Aptx Adaptive R2.2 config", __func__);
       result_config_cie.aptx_data = a2dp_aptx_adaptive_r2_2_offload_caps.aptx_data;
-      if ((sink_info_cie.aptx_data.cap_ext_ver_num == A2DP_APTX_ADAPTIVE_CAP_EXT_VER_NUM) &&
-          (sink_info_cie.aptx_data.aptx_adaptive_sup_features & APTX_ADAPTIVE_SINK_R2_2_SUPPORT_CAP)){
+      if((sink_info_cie.aptx_data.aptx_adaptive_sup_features &APTX_ADAPTIVE_SINK_R2_2_SUPPORT_CAP)
+          && (sink_info_cie.aptx_data.cap_ext_ver_num == A2DP_APTX_ADAPTIVE_CAP_EXT_VER_NUM)) {
         LOG_INFO(LOG_TAG, "%s: Sink supports R2.2 decoder ", __func__);
         result_config_cie.aptx_data.aptx_adaptive_sup_features =
-                                                sink_info_cie.aptx_data.aptx_adaptive_sup_features |
-                                                A2DP_APTX_ADAPTIVE_R2_2_SUPPORTED_FEATURES;
+           (sink_info_cie.aptx_data.aptx_adaptive_sup_features & 0xFFFFFF00)|byte_negotiated_17th;
         a2dp_aptx_adaptive_caps.sampleRate |= A2DP_APTX_ADAPTIVE_SAMPLERATE_44100;
         a2dp_aptx_adaptive_default_config.sampleRate = A2DP_APTX_ADAPTIVE_SAMPLERATE_44100;
         codec_config_.codec_specific_3 &= ~(int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_MASK;
@@ -1126,40 +1127,40 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
       } else {
         LOG_INFO(LOG_TAG, "%s: Sink doesn't support R2.2 decoder, limit local sample rate caps",
                          __func__);
-        if (sink_info_cie.aptx_data.cap_ext_ver_num == 0) {
-          LOG_INFO(LOG_TAG, "%s: remote is R1.0 capable", __func__);
-          result_config_cie.aptx_data = sink_info_cie.aptx_data;
-        } else {
-          a2dp_aptx_adaptive_caps.sampleRate &= ~A2DP_APTX_ADAPTIVE_SAMPLERATE_44100;
-          a2dp_aptx_adaptive_default_config.sampleRate = A2DP_APTX_ADAPTIVE_SAMPLERATE_48000;
-          result_config_cie.aptx_data.aptx_adaptive_sup_features =
-                                                  A2DP_APTX_ADAPTIVE_R2_2_SUPPORTED_FEATURES;
-          codec_config_.codec_specific_3 &= ~(int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_MASK;
-          codec_config_.codec_specific_3 |= (int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_NOT_AVAILABLE;
-        }
+        LOG_INFO(LOG_TAG, "%s: Sink supports R2.x decoder ", __func__);
+        a2dp_aptx_adaptive_caps.sampleRate &= ~A2DP_APTX_ADAPTIVE_SAMPLERATE_44100;
+        a2dp_aptx_adaptive_default_config.sampleRate = A2DP_APTX_ADAPTIVE_SAMPLERATE_48000;
+        result_config_cie.aptx_data.aptx_adaptive_sup_features =
+          (sink_info_cie.aptx_data.aptx_adaptive_sup_features & 0xFFFFFF00) | byte_negotiated_17th;
+        codec_config_.codec_specific_3 &= ~(int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_MASK;
+        codec_config_.codec_specific_3 |= (int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_NOT_AVAILABLE;
       }
     } else if (A2DP_Get_Aptx_AdaptiveR2_1_Supported()) {
-      if (sink_info_cie.aptx_data.cap_ext_ver_num == 0) {
-        LOG_INFO(LOG_TAG, "%s: remote is R1.0 capable", __func__);
-        result_config_cie.aptx_data = sink_info_cie.aptx_data;
-      } else {
-        LOG_INFO(LOG_TAG, "%s: Select Aptx Adaptive R2.1 config", __func__);
-        result_config_cie.aptx_data = a2dp_aptx_adaptive_r2_1_offload_caps.aptx_data;
-      }
+      src_byte_17th = A2DP_APTX_ADAPTIVE_R2_1_SRC_17TH_BYTE;
+      byte_negotiated_17th = (((sink_byte_17th >> 4) | (src_byte_17th >> 4)) << 4) |
+                             ((sink_byte_17th & src_byte_17th) & 0x0F);
+      LOG_INFO(LOG_TAG, "%s: Select Aptx Adaptive R2.1 config", __func__);
+      result_config_cie.aptx_data = a2dp_aptx_adaptive_r2_1_offload_caps.aptx_data;
+      result_config_cie.aptx_data.aptx_adaptive_sup_features =
+          (sink_info_cie.aptx_data.aptx_adaptive_sup_features & 0xFFFFFF00) | byte_negotiated_17th;
     } else {
-      if (sink_info_cie.aptx_data.cap_ext_ver_num == 0) {
-        LOG_INFO(LOG_TAG, "%s: remote is R1.0 capable", __func__);
-        result_config_cie.aptx_data = sink_info_cie.aptx_data;
-      } else {
-        LOG_INFO(LOG_TAG, "%s: Select Aptx Adaptive R2 config", __func__);
-        result_config_cie.aptx_data = a2dp_aptx_adaptive_offload_caps.aptx_data;
-      }
+      src_byte_17th = A2DP_APTX_ADAPTIVE_R2_0_SRC_17TH_BYTE;
+      byte_negotiated_17th = (((sink_byte_17th >> 4) | (src_byte_17th >> 4)) << 4) |
+                             ((sink_byte_17th & src_byte_17th) & 0x0F);
+      LOG_INFO(LOG_TAG, "%s: Select Aptx Adaptive R2 config", __func__);
+      result_config_cie.aptx_data = a2dp_aptx_adaptive_offload_caps.aptx_data;
+      result_config_cie.aptx_data.aptx_adaptive_sup_features =
+          (sink_info_cie.aptx_data.aptx_adaptive_sup_features & 0xFFFFFF00) | byte_negotiated_17th;
     }
   }
 
-  //
+  if (is_negotiated_r1 == false) {
+    LOG_INFO(LOG_TAG, "sink byte: 0x%x, src byte: 0x%x, byte negotiated: 0x%x, cap supported: 0x%x",
+      sink_byte_17th, src_byte_17th, byte_negotiated_17th,
+      result_config_cie.aptx_data.aptx_adaptive_sup_features);
+  }
+
   // Select the sample frequency
-  //
   sampleRate = a2dp_aptx_adaptive_caps.sampleRate & sink_info_cie.sampleRate;
   LOG_DEBUG(LOG_TAG,
               "%s: Sample rate: source caps = 0x%x "
@@ -1253,10 +1254,7 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
     goto fail;
   }
 
-
-  //
   // Select the bits per sample
-  //
   // NOTE: this information is NOT included in the aptX-adaptive A2DP codec
   // description that is sent OTA.
   codec_config_.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_NONE;
@@ -1288,7 +1286,6 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
 
     // Compute the common capability
     codec_capability_.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24;
-    //codec_capability_.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16;
 
     // No user preference - try the codec audio config
     if (select_audio_bits_per_sample(&codec_audio_config_, &codec_config_)) {
@@ -1313,9 +1310,7 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
     goto fail;
   }
 
-  //
   // Select the channel mode
-  //
   channelMode = a2dp_aptx_adaptive_caps.channelMode & sink_info_cie.channelMode;
   codec_config_.channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_NONE;
   LOG_ERROR(LOG_TAG, "%s: codec_user_config_.channel_mode: %x channelMode: %x",
@@ -1452,10 +1447,10 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
     goto fail;
   }
 
-  if (codec_user_config_.codec_specific_2 != codec_config_.codec_specific_2 ) {
+  if (codec_user_config_.codec_specific_2 != codec_config_.codec_specific_2) {
     codec_config_.codec_specific_2 = codec_user_config_.codec_specific_2;
   }
-  if (codec_user_config_.codec_specific_3 != codec_config_.codec_specific_3 ) {
+  if (codec_user_config_.codec_specific_3 != codec_config_.codec_specific_3) {
     codec_user_config_.codec_specific_3 = codec_config_.codec_specific_3;
   }
 
