@@ -672,6 +672,7 @@ typedef struct {
   int8_t ble_tx_power;
   uint16_t ble_periodic_adv_int;
   uint8_t flag;
+  RawAddress original_bda;
 } tBTM_INQ_RESULTS;
 
 /* This is the inquiry response information held in its database by BTM, and
