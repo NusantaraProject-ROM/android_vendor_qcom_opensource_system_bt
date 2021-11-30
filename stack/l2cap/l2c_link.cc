@@ -181,14 +181,20 @@ bool l2c_link_hci_conn_comp(uint8_t status, uint16_t handle,
   /* See if we have a link control block for the remote device */
   p_lcb = l2cu_find_lcb_by_bd_addr(ci.bd_addr, BT_TRANSPORT_BR_EDR);
 
-  /* If we don't have one, this is an error */
-  if (!p_lcb) {
-    L2CAP_TRACE_WARNING("L2CAP got conn_comp for unknown BD_ADDR");
-    if ((status == HCI_SUCCESS) && ((handle | 0xF000) != HCI_INVALID_HANDLE)) {
-      L2CAP_TRACE_WARNING("L2CAP got conn_comp, lcb cleared due to link connection timeout");
-      btm_sec_disconnect(handle, HCI_ERR_HOST_TIMEOUT);
+  /* If we don't have one, allocate one */
+  if (p_lcb == nullptr) {
+    L2CAP_TRACE_WARNING("No available link control block, try allocate one");
+    p_lcb = l2cu_allocate_lcb(ci.bd_addr, false, BT_TRANSPORT_BR_EDR);
+    if (p_lcb == nullptr) {
+      L2CAP_TRACE_WARNING("%s: Failed to allocate an LCB", __func__);
+      if ((status == HCI_SUCCESS) && ((handle | 0xF000) != HCI_INVALID_HANDLE)) {
+        L2CAP_TRACE_WARNING("%s: lcb not avaliable disconnect the link", __func__);
+        btm_sec_disconnect(handle, HCI_ERR_HOST_TIMEOUT);
+        btm_acl_removed(p_bda, BT_TRANSPORT_BR_EDR);
+      }
+      return (false);
     }
-    return (false);
+    p_lcb->link_state = LST_CONNECTING;
   }
 
   if (p_lcb->link_state != LST_CONNECTING) {

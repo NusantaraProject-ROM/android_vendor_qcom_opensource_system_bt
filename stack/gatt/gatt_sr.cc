@@ -54,7 +54,7 @@ uint32_t gatt_sr_enqueue_cmd(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_code, uin
   tGATT_EBCB* p_eatt_bcb;
 
   if (tcb.is_eatt_supported) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, lcid);
     if(p_eatt_bcb) {
       p_cmd = &(p_eatt_bcb->sr_cmd);
     }
@@ -102,7 +102,7 @@ bool gatt_sr_cmd_empty(tGATT_TCB& tcb, uint16_t lcid) {
   tGATT_EBCB* p_eatt_bcb = NULL;
 
   if (tcb.is_eatt_supported) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, lcid);
     if (p_eatt_bcb) {
       return (p_eatt_bcb->sr_cmd.op_code == 0);
     }
@@ -133,7 +133,7 @@ void gatt_dequeue_sr_cmd(tGATT_TCB& tcb, uint16_t lcid) {
   fixed_queue_t* multi_rsp_q;
 
   if (tcb.is_eatt_supported) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, lcid);
     if (p_eatt_bcb) {
       p_rsp_msg = p_eatt_bcb->sr_cmd.p_rsp_msg;
       multi_rsp_q = p_eatt_bcb->sr_cmd.multi_rsp_q;
@@ -481,7 +481,7 @@ void gatt_process_read_multi_req(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_code,
   tcb.sr_cmd.multi_req.num_handles = 0;
 
   if (tcb.is_eatt_supported) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, lcid);
     if (p_eatt_bcb) {
       sr_cmd = &(p_eatt_bcb->sr_cmd);
     }
@@ -802,9 +802,9 @@ void gatts_process_primary_service_req(tGATT_TCB& tcb, uint16_t lcid,
 
   tGATT_STATUS cmd_sent = attp_send_sr_msg(tcb, lcid, p_msg);
   if (cmd_sent == GATT_NO_CREDITS) {
-    tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, lcid);
     if (tcb.is_eatt_supported && p_eatt_bcb) {
-      eatt_disc_rsp_enq(p_eatt_bcb->cid, p_msg);
+      eatt_disc_rsp_enq(&tcb, p_eatt_bcb->cid, p_msg);
     }
   }
 }
@@ -862,9 +862,9 @@ static void gatts_process_find_info(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_co
   } else {
     tGATT_STATUS cmd_sent = attp_send_sr_msg(tcb, lcid, p_msg);
     if (cmd_sent == GATT_NO_CREDITS) {
-      tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+      tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, lcid);
       if (tcb.is_eatt_supported && p_eatt_bcb) {
-        eatt_disc_rsp_enq(p_eatt_bcb->cid, p_msg);
+        eatt_disc_rsp_enq(&tcb, p_eatt_bcb->cid, p_msg);
       }
     }
   }
@@ -922,7 +922,7 @@ static void gatts_process_mtu_req(tGATT_TCB& tcb, uint16_t lcid, uint16_t len,
   BT_HDR* p_buf = attp_build_sr_msg(tcb, lcid, GATT_RSP_MTU, &gatt_sr_msg);
   attp_send_sr_msg(tcb, lcid, p_buf);
 
-  p_eatt_bcb = gatt_find_eatt_bcb_by_cid(L2CAP_ATT_CID);
+  p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, L2CAP_ATT_CID);
   if (p_eatt_bcb)
     p_eatt_bcb->payload_size = tcb.payload_size;
 
@@ -1026,9 +1026,9 @@ void gatts_process_read_by_type_req(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_co
 
   tGATT_STATUS cmd_sent = attp_send_sr_msg(tcb, lcid, p_msg);
   if (cmd_sent == GATT_NO_CREDITS) {
-    tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, lcid);
     if (tcb.is_eatt_supported && p_eatt_bcb) {
-      eatt_disc_rsp_enq(p_eatt_bcb->cid, p_msg);
+      eatt_disc_rsp_enq(&tcb, p_eatt_bcb->cid, p_msg);
     }
   }
 }
@@ -1177,9 +1177,9 @@ static void gatts_process_read_req(tGATT_TCB& tcb, uint16_t lcid,
 
   tGATT_STATUS cmd_sent = attp_send_sr_msg(tcb, lcid, p_msg);
   if (cmd_sent == GATT_NO_CREDITS) {
-    tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, lcid);
     if (tcb.is_eatt_supported && p_eatt_bcb) {
-      eatt_disc_rsp_enq(p_eatt_bcb->cid, p_msg);
+      eatt_disc_rsp_enq(&tcb, p_eatt_bcb->cid, p_msg);
     }
   }
 }
@@ -1300,7 +1300,7 @@ static void gatts_chk_pending_ind(tGATT_TCB& tcb, uint16_t lcid) {
   VLOG(1) << __func__ << " is EATT supported:" << +tcb.is_eatt_supported;
 
   if (tcb.is_eatt_supported) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, lcid);
     if (p_eatt_bcb) {
       VLOG(1) << __func__ << " Known EATT bearer";
       pending_ind_q = &(p_eatt_bcb->pending_ind_q);
@@ -1319,7 +1319,7 @@ static void gatts_chk_pending_ind(tGATT_TCB& tcb, uint16_t lcid) {
     if (fixed_queue_is_empty(p_eatt_bcb->pending_ind_q)) {
       VLOG(1) << __func__ << " check if uncongestion needs to be sent"
                              " to apps after sending queued indication";
-      eatt_congest_notify_apps(lcid, false);
+      eatt_congest_notify_apps(&tcb, lcid, false);
     }
   }
 }
@@ -1374,7 +1374,7 @@ void gatts_process_value_conf(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_code) {
     tcb.indicate_handle = 0;
   }
   else {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, lcid);
     if (p_eatt_bcb) {
       handle = p_eatt_bcb->indicate_handle;
 
@@ -1396,7 +1396,7 @@ void gatts_process_value_conf(tGATT_TCB& tcb, uint16_t lcid, uint8_t op_code) {
   //No credits, check if uncongestion needs to be sent
   if (p_eatt_bcb && p_eatt_bcb->send_uncongestion) {
     if (fixed_queue_is_empty(p_eatt_bcb->pending_ind_q)) {
-      eatt_congest_notify_apps(lcid, false);
+      eatt_congest_notify_apps(&tcb, lcid, false);
     }
   }
 

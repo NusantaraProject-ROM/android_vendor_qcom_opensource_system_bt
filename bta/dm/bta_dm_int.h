@@ -762,12 +762,14 @@ typedef struct {
   uint8_t num_uuid;
   bluetooth::Uuid* p_srvc_uuid;
   uint8_t uuid_to_search;
+  bool disc_cmpl_cb_pending;
   bool gatt_disc_active;
   uint16_t conn_id;
   uint8_t* p_ble_rawdata;
   uint32_t ble_raw_size;
   uint32_t ble_raw_used;
   alarm_t* gatt_close_timer; /* GATT channel close delay timer */
+  alarm_t* discovery_cb_alarm; /* timer to notify upper layer about discovery complete */
   RawAddress pending_close_bda; /* pending GATT channel remote device address */
   std::queue<tBTA_DM_MSG *> p_disc_queue;
 } tBTA_DM_SEARCH_CB;

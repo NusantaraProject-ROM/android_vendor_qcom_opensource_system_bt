@@ -1126,19 +1126,34 @@ bool A2dpCodecConfigAptxAdaptive::setCodecConfig(const uint8_t* p_peer_codec_inf
       } else {
         LOG_INFO(LOG_TAG, "%s: Sink doesn't support R2.2 decoder, limit local sample rate caps",
                          __func__);
-        a2dp_aptx_adaptive_caps.sampleRate &= ~A2DP_APTX_ADAPTIVE_SAMPLERATE_44100;
-        a2dp_aptx_adaptive_default_config.sampleRate = A2DP_APTX_ADAPTIVE_SAMPLERATE_48000;
-        result_config_cie.aptx_data.aptx_adaptive_sup_features =
-                                                A2DP_APTX_ADAPTIVE_R2_2_SUPPORTED_FEATURES;
-        codec_config_.codec_specific_3 &= ~(int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_MASK;
-        codec_config_.codec_specific_3 |= (int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_NOT_AVAILABLE;
+        if (sink_info_cie.aptx_data.cap_ext_ver_num == 0) {
+          LOG_INFO(LOG_TAG, "%s: remote is R1.0 capable", __func__);
+          result_config_cie.aptx_data = sink_info_cie.aptx_data;
+        } else {
+          a2dp_aptx_adaptive_caps.sampleRate &= ~A2DP_APTX_ADAPTIVE_SAMPLERATE_44100;
+          a2dp_aptx_adaptive_default_config.sampleRate = A2DP_APTX_ADAPTIVE_SAMPLERATE_48000;
+          result_config_cie.aptx_data.aptx_adaptive_sup_features =
+                                                  A2DP_APTX_ADAPTIVE_R2_2_SUPPORTED_FEATURES;
+          codec_config_.codec_specific_3 &= ~(int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_MASK;
+          codec_config_.codec_specific_3 |= (int64_t) APTX_ADAPTIVE_R2_2_SUPPORT_NOT_AVAILABLE;
+        }
       }
     } else if (A2DP_Get_Aptx_AdaptiveR2_1_Supported()) {
-      LOG_INFO(LOG_TAG, "%s: Select Aptx Adaptive R2.1 config", __func__);
-      result_config_cie.aptx_data = a2dp_aptx_adaptive_r2_1_offload_caps.aptx_data;
+      if (sink_info_cie.aptx_data.cap_ext_ver_num == 0) {
+        LOG_INFO(LOG_TAG, "%s: remote is R1.0 capable", __func__);
+        result_config_cie.aptx_data = sink_info_cie.aptx_data;
+      } else {
+        LOG_INFO(LOG_TAG, "%s: Select Aptx Adaptive R2.1 config", __func__);
+        result_config_cie.aptx_data = a2dp_aptx_adaptive_r2_1_offload_caps.aptx_data;
+      }
     } else {
-      LOG_INFO(LOG_TAG, "%s: Select Aptx Adaptive R2 config", __func__);
-      result_config_cie.aptx_data = a2dp_aptx_adaptive_offload_caps.aptx_data;
+      if (sink_info_cie.aptx_data.cap_ext_ver_num == 0) {
+        LOG_INFO(LOG_TAG, "%s: remote is R1.0 capable", __func__);
+        result_config_cie.aptx_data = sink_info_cie.aptx_data;
+      } else {
+        LOG_INFO(LOG_TAG, "%s: Select Aptx Adaptive R2 config", __func__);
+        result_config_cie.aptx_data = a2dp_aptx_adaptive_offload_caps.aptx_data;
+      }
     }
   }
 

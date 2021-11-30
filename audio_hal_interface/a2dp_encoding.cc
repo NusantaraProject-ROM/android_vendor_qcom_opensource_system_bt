@@ -109,6 +109,13 @@ tA2DP_CTRL_ACK ack_status;
 #define  ADV_AUD_CODEC_SAMPLE_RATE_32000   0x1 << 8
 #define  ADV_AUD_CODEC_SAMPLE_RATE_8000    0x1 << 9
 
+#define WMCP_PROFILE       0x04
+#define GCP_RX_PROFILE     0x20
+
+#define  RX_ONLY_CONFIG    0x1
+#define  TX_ONLY_CONFIG    0x2
+#define  TX_RX_BOTH_CONFIG 0x3
+
 BluetoothAudioCtrlAck a2dp_ack_to_bt_audio_ctrl_ack(tA2DP_CTRL_ACK ack);
 
 // Provide call-in APIs for the Bluetooth Audio HAL
@@ -1460,7 +1467,7 @@ bool a2dp_get_selected_hal_codec_config(CodecConfiguration* codec_config) {
   return true;
 }
 bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config, int profile) {
-  LOG(INFO) << __func__ << ": profile_type" << profile;
+  LOG(INFO) << __func__ << ": profile_type: " << profile;
   A2dpCodecConfig* a2dp_codec_configs = bta_av_get_a2dp_current_codec();
   uint8_t p_codec_info[AVDT_CODEC_SIZE];
   uint8_t codec_type;
@@ -1469,8 +1476,7 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
   tA2DP_ENCODER_INIT_PEER_PARAMS peer_param;
   if (codec_config == nullptr) return false;
 
-  if (btif_ba_is_active())
-  {
+  if (btif_ba_is_active()) {
     codec_config->codecType = CodecType_2_1::BA_CELT;
     codec_config->config.baCeltConfig = {};
     auto ba_celt_config = codec_config->config.baCeltConfig;
@@ -1505,26 +1511,39 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
     codec_config->codecType = CodecType_2_1::LC3;
     codec_config->config.lc3Config = {};
     auto lc3Config = codec_config->config.lc3Config;
-    lc3Config.txConfig.sampleRate = btif_lc3_sample_rate(pclient_cbs[profile - 1]->get_sample_rate_cb());
-    lc3Config.txConfig.channelMode = btif_lc3_channel_mode(pclient_cbs[profile - 1]->get_channel_mode_cb());
-    lc3Config.txConfig.bitrate = pclient_cbs[profile - 1]->get_bitrate_cb();
-    lc3Config.txConfig.octetsPerFrame = pclient_cbs[profile - 1]->get_mtu_cb(lc3Config.txConfig.bitrate);
-    lc3Config.txConfig.frameDuration = pclient_cbs[profile - 1]->get_frame_length_cb();
+
+    lc3Config.rxConfigSet |= TX_ONLY_CONFIG;
+    lc3Config.txConfig.sampleRate = btif_lc3_sample_rate(
+          pclient_cbs[profile - 1]->get_sample_rate_cb(lc3Config.rxConfigSet));
+    lc3Config.txConfig.channelMode = btif_lc3_channel_mode(
+          pclient_cbs[profile - 1]->get_channel_mode_cb(lc3Config.rxConfigSet));
+    lc3Config.txConfig.bitrate =
+          pclient_cbs[profile - 1]->get_bitrate_cb(lc3Config.rxConfigSet);
+    lc3Config.txConfig.octetsPerFrame =
+          pclient_cbs[profile - 1]->get_mtu_cb(lc3Config.txConfig.bitrate,
+                                               lc3Config.rxConfigSet);
+    lc3Config.txConfig.frameDuration =
+          pclient_cbs[profile - 1]->get_frame_length_cb(lc3Config.rxConfigSet);
     lc3Config.txConfig.bitsPerSample = BitsPerSample::BITS_24;
     lc3Config.txConfig.numBlocks = 1;
+
     uint8_t cs[16] = {0};
     for (int i = 0; i  < 16; i++) {
       lc3Config.codecSpecific[i] = cs[i];
     }
     lc3Config.defaultQlevel = 3;
     lc3Config.mode = pclient_cbs[profile - 1]->mode;
-    lc3Config.rxConfigSet = 0;
     lc3Config.decoderOuputChannels = 0;
 
     int numBises = pclient_cbs[profile - 1]->get_ch_count_cb();
     bool simulcast = pclient_cbs[profile -1]->get_simulcast_status_cb();
     if (simulcast) {
-      lc3Config.rxConfigSet = 1;
+      //Reset Tx flag and set only Rx flag.
+      if (lc3Config.rxConfigSet & TX_ONLY_CONFIG) {
+        lc3Config.rxConfigSet &= ~TX_ONLY_CONFIG;
+      }
+
+      lc3Config.rxConfigSet |= RX_ONLY_CONFIG;
       lc3Config.rxConfig.sampleRate = ExtSampleRate::RATE_16000;
       lc3Config.rxConfig.channelMode = LC3ChannelMode::STEREO;
       lc3Config.rxConfig.bitrate = 48000;
@@ -1533,6 +1552,7 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
       lc3Config.rxConfig.bitsPerSample = BitsPerSample::BITS_24;
       lc3Config.mode = BA_SIMULCAST;
     }
+
     lc3Config.NumStreamIDGroup = numBises;
     for (int i = 0; i < numBises; i++) {
       if (lc3Config.txConfig.channelMode == LC3ChannelMode::STEREO) {
@@ -1545,8 +1565,20 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
       lc3Config.streamMap[(i*3)+1] = i;
       lc3Config.streamMap[(i*3)+2] = 0;
     }
+
+    // To make sure QSSI builds with VBC changes won't
+    // break existing features on older Vendor AUs.
+    // Ensured this, with below flag by making rxConfigSet to 0
+    // if Tx only or both Tx/Rx set, and same has been manipulated
+    // in vendor layer to ensure session has been established properly.
+    if (lc3Config.rxConfigSet & TX_ONLY_CONFIG) {
+      lc3Config.rxConfigSet  = 0;
+    }
+
     codec_config->config.lc3Config = lc3Config;
-    LOG(INFO) << __func__ << ": LC3 codec for broadcast, CodecConfiguration=" << toString(*codec_config);
+
+    LOG(INFO) << __func__ << ": LC3 codec for broadcast, CodecConfiguration="
+                          << toString(*codec_config);
     return true;
   }
 
@@ -1555,17 +1587,32 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
     codec_config->config.lc3Config = {};
     auto lc3Config = codec_config->config.lc3Config;
     uint16_t type = pclient_cbs[profile - 1]->get_profile_status_cb();
-    if (type != 0x04) {
-      lc3Config.txConfig.sampleRate = btif_lc3_sample_rate(pclient_cbs[profile - 1]->get_sample_rate_cb());
-      lc3Config.txConfig.channelMode =
-        btif_lc3_channel_mode(pclient_cbs[profile - 1]->get_channel_mode_cb());
-      if(lc3Config.txConfig.channelMode == LC3ChannelMode::JOINT_STEREO ||
-         lc3Config.txConfig.channelMode == LC3ChannelMode::MONO) {
+    LOG(ERROR) << __func__ << ": type: " << type;
+
+    /* rxConfigSet = 1 for Rx only
+     * rxConfigSet = 2 for Tx only
+     * rxConfigSet = 3 for Tx+Rx
+     */
+    lc3Config.rxConfigSet |= TX_ONLY_CONFIG;
+
+    if (type != WMCP_PROFILE) {
+      lc3Config.txConfig.sampleRate = btif_lc3_sample_rate(
+           pclient_cbs[profile - 1]->get_sample_rate_cb(lc3Config.rxConfigSet));
+      lc3Config.txConfig.channelMode = btif_lc3_channel_mode(
+           pclient_cbs[profile - 1]->get_channel_mode_cb(lc3Config.rxConfigSet));
+
+      if (lc3Config.txConfig.channelMode == LC3ChannelMode::JOINT_STEREO ||
+          lc3Config.txConfig.channelMode == LC3ChannelMode::MONO) {
         cis_count = 1;
       }
-      lc3Config.txConfig.bitrate = pclient_cbs[profile - 1]->get_bitrate_cb();
-      lc3Config.txConfig.octetsPerFrame = pclient_cbs[profile - 1]->get_mtu_cb(0);
-      lc3Config.txConfig.frameDuration = pclient_cbs[profile - 1]->get_frame_length_cb();
+
+      lc3Config.txConfig.bitrate =
+           pclient_cbs[profile - 1]->get_bitrate_cb(lc3Config.rxConfigSet);
+      lc3Config.txConfig.octetsPerFrame =
+           pclient_cbs[profile - 1]->get_mtu_cb(0, lc3Config.rxConfigSet);
+      lc3Config.txConfig.frameDuration =
+           pclient_cbs[profile - 1]->get_frame_length_cb(lc3Config.rxConfigSet);
+
       lc3Config.txConfig.bitsPerSample = BitsPerSample::BITS_24;
       lc3Config.txConfig.numBlocks = 1;
     }
@@ -1575,7 +1622,15 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
       lc3Config.codecSpecific[i] = cs[i];
     }
 
-    if (pclient_cbs[profile - 1]->get_is_codec_type_lc3q()) {
+    if (type == WMCP_PROFILE) {
+      if (lc3Config.rxConfigSet & TX_ONLY_CONFIG) {
+        lc3Config.rxConfigSet &= ~TX_ONLY_CONFIG;
+      }
+      lc3Config.rxConfigSet |= RX_ONLY_CONFIG;
+    }
+
+    if (pclient_cbs[profile - 1]->get_is_codec_type_lc3q(
+                                     lc3Config.rxConfigSet)) {
       LOG(ERROR) << __func__ << ": Lc3q params are updated";
       lc3Config.codecSpecific[0] = 0x0F;  //Vendor Metadata Length
       lc3Config.codecSpecific[1] = 0xFF;  //Vendor META data type
@@ -1583,39 +1638,85 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
       lc3Config.codecSpecific[3] = 0x00;
       lc3Config.codecSpecific[4] = 0x0B;  //Vendor Metadata length
       lc3Config.codecSpecific[5] = 0x10;  //LC3Q Type
-      lc3Config.codecSpecific[6] = pclient_cbs[profile - 1]->get_lc3q_ver(); //0x01;  //LC3Q version
+      //0x01;  //LC3Q version
+      lc3Config.codecSpecific[6] =
+         pclient_cbs[profile - 1]->get_lc3q_ver(lc3Config.rxConfigSet);
     }
 
     lc3Config.defaultQlevel = 0;
     lc3Config.mode = pclient_cbs[profile - 1]->mode;
-    lc3Config.rxConfigSet = 0;
     lc3Config.decoderOuputChannels = 0;
 
-    if (type == 0x04) {
+    if (type == WMCP_PROFILE) {
       LOG(ERROR) << __func__ << ": Filling Tx dummy values";
       lc3Config.txConfig.sampleRate = ExtSampleRate::RATE_48000;
-      lc3Config.txConfig.channelMode = btif_lc3_channel_mode(
-                        pclient_cbs[profile - 1]->get_channel_mode_cb());
+      lc3Config.txConfig.channelMode = LC3ChannelMode::STEREO;
       lc3Config.txConfig.bitrate = 80000;
       lc3Config.txConfig.octetsPerFrame = 100;
       lc3Config.txConfig.frameDuration = 10000;
       lc3Config.txConfig.bitsPerSample = BitsPerSample::BITS_24;
       lc3Config.txConfig.numBlocks = 1;
 
-      lc3Config.rxConfigSet = 1;
-      lc3Config.rxConfig.sampleRate =
-                btif_lc3_sample_rate(pclient_cbs[profile - 1]->get_sample_rate_cb());
+      //reset Tx config and set only rx config when SREC is enabled
+      if (lc3Config.rxConfigSet & TX_ONLY_CONFIG) {
+        lc3Config.rxConfigSet &= ~TX_ONLY_CONFIG;
+      }
+
+      lc3Config.rxConfigSet |= RX_ONLY_CONFIG;
+      lc3Config.rxConfig.sampleRate = btif_lc3_sample_rate(
+          pclient_cbs[profile - 1]->get_sample_rate_cb(lc3Config.rxConfigSet));
       lc3Config.rxConfig.channelMode = btif_lc3_channel_mode(
-                        pclient_cbs[profile - 1]->get_channel_mode_cb());
+          pclient_cbs[profile - 1]->get_channel_mode_cb(lc3Config.rxConfigSet));
+
       if( lc3Config.rxConfig.channelMode == LC3ChannelMode::JOINT_STEREO ||
           lc3Config.rxConfig.channelMode == LC3ChannelMode::MONO) {
         cis_count = 1;
       }
-      lc3Config.rxConfig.bitrate = pclient_cbs[profile - 1]->get_bitrate_cb();
-      lc3Config.rxConfig.octetsPerFrame = pclient_cbs[profile - 1]->get_mtu_cb(0);
-      lc3Config.rxConfig.frameDuration = pclient_cbs[profile - 1]->get_frame_length_cb();
+
+      lc3Config.rxConfig.bitrate =
+          pclient_cbs[profile - 1]->get_bitrate_cb(lc3Config.rxConfigSet);
+      lc3Config.rxConfig.octetsPerFrame =
+          pclient_cbs[profile - 1]->get_mtu_cb(0, lc3Config.rxConfigSet);
+      lc3Config.rxConfig.frameDuration =
+          pclient_cbs[profile - 1]->get_frame_length_cb(lc3Config.rxConfigSet);
       lc3Config.rxConfig.bitsPerSample = BitsPerSample::BITS_24;
       lc3Config.rxConfig.numBlocks = 1;
+    } else if (type == GCP_RX_PROFILE) {
+      LOG(ERROR) << __func__ << ": Filling Gaming VBC values";
+
+      lc3Config.rxConfigSet |= TX_RX_BOTH_CONFIG; //For Gaming VBC
+      lc3Config.rxConfig.sampleRate = btif_lc3_sample_rate(
+          pclient_cbs[profile - 1]->get_sample_rate_cb(lc3Config.rxConfigSet));
+      lc3Config.rxConfig.channelMode = btif_lc3_channel_mode(
+          pclient_cbs[profile - 1]->get_channel_mode_cb(lc3Config.rxConfigSet));
+
+      if( lc3Config.rxConfig.channelMode == LC3ChannelMode::JOINT_STEREO ||
+          lc3Config.rxConfig.channelMode == LC3ChannelMode::MONO) {
+        cis_count = 1;
+      }
+
+      lc3Config.rxConfig.bitrate =
+          pclient_cbs[profile - 1]->get_bitrate_cb(lc3Config.rxConfigSet);
+      lc3Config.rxConfig.octetsPerFrame =
+          pclient_cbs[profile - 1]->get_mtu_cb(0, lc3Config.rxConfigSet);
+      lc3Config.rxConfig.frameDuration =
+          pclient_cbs[profile - 1]->get_frame_length_cb(lc3Config.rxConfigSet);
+      lc3Config.rxConfig.bitsPerSample = BitsPerSample::BITS_24;
+      lc3Config.rxConfig.numBlocks = 1;
+
+      //LC3Q related Info for VBC
+      if (pclient_cbs[profile - 1]->get_is_codec_type_lc3q(lc3Config.rxConfigSet)) {
+        LOG(ERROR) << __func__ << ": VBC Lc3q params are updated";
+        lc3Config.codecSpecific[0] = 0x0F;  //Vendor Metadata Length
+        lc3Config.codecSpecific[1] = 0xFF;  //Vendor META data type
+        lc3Config.codecSpecific[2] = 0x0A;  //Qtil ID
+        lc3Config.codecSpecific[3] = 0x00;
+        lc3Config.codecSpecific[4] = 0x0B;  //Vendor Metadata length
+        lc3Config.codecSpecific[5] = 0x10;  //LC3Q Type
+        //0x01;  //LC3Q version
+        lc3Config.codecSpecific[6] =
+          pclient_cbs[profile - 1]->get_lc3q_ver(lc3Config.rxConfigSet);
+      }
     }
     lc3Config.NumStreamIDGroup = cis_count;
 
@@ -1635,13 +1736,15 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
     }
 
     // From Air
-    if (lc3Config.rxConfigSet) {
+    if ((lc3Config.rxConfigSet == RX_ONLY_CONFIG) ||
+        (lc3Config.rxConfigSet == TX_RX_BOTH_CONFIG)) {
       lc3Config.decoderOuputChannels = cis_count;
       for (int i = cis_count, j = 0; i < cis_count*2; i++, j++) {
-        if (type == 0x04 ? lc3Config.rxConfig.channelMode == LC3ChannelMode::STEREO :
-          lc3Config.txConfig.channelMode == LC3ChannelMode::STEREO) {//TODO:change rx in wmcp case
+        if (((type == WMCP_PROFILE) || (type == GCP_RX_PROFILE)) ?
+             lc3Config.rxConfig.channelMode == LC3ChannelMode::STEREO :
+             lc3Config.txConfig.channelMode == LC3ChannelMode::STEREO) {//TODO:change rx in wmcp case
           lc3Config.streamMap[(i*3)] = (CHANNEL_FL + (i % 2));
-          LOG(ERROR) << __func__ << ": Stereo config of FromAir";
+          LOG(ERROR) << __func__ << ": Stereo/VBC config of FromAir";
         } else if (lc3Config.txConfig.channelMode == LC3ChannelMode::JOINT_STEREO) {
           lc3Config.streamMap[(i*3)] = (CHANNEL_FR | CHANNEL_FL);
         } else {
@@ -1653,8 +1756,19 @@ bool a2dp_get_selected_hal_codec_config_2_1(CodecConfiguration_2_1* codec_config
       lc3Config.NumStreamIDGroup += cis_count;
     }
 
+    // To make sure QSSI builds with VBC changes won't
+    // break existing features on older Vendor AUs.
+    // Ensured this, with below flag by making rxConfigSet to 0
+    // if Tx only or both Tx/Rx set, and same has been manipulated
+    // in vendor layer to ensure session has been established properly.
+    if (lc3Config.rxConfigSet & TX_ONLY_CONFIG) {
+      lc3Config.rxConfigSet  = 0;
+    }
+
     codec_config->config.lc3Config = lc3Config;
-    LOG(INFO) << __func__ << ": LC3 codec, CodecConfiguration=" << toString(*codec_config);
+
+    LOG(INFO) << __func__ << ": LC3 codec, CodecConfiguration="
+                          << toString(*codec_config);
     return true;
   }
 

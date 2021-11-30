@@ -104,7 +104,7 @@ void gatt_free_pending_ind(tGATT_TCB* p_tcb, uint16_t lcid) {
   tGATT_EBCB* p_eatt_bcb;
 
   if (p_tcb->is_eatt_supported && (lcid != L2CAP_ATT_CID)) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, lcid);
     if (p_eatt_bcb)
       pending_ind_q = &(p_eatt_bcb->pending_ind_q);
     else {
@@ -191,7 +191,7 @@ void gatt_add_pending_ind(tGATT_TCB* p_tcb, uint16_t lcid, tGATT_VALUE* p_ind) {
   memcpy(p_buf, p_ind, sizeof(tGATT_VALUE));
 
   if (p_tcb->is_eatt_supported) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, lcid);
     if (p_eatt_bcb) {
       fixed_queue_enqueue(p_eatt_bcb->pending_ind_q, p_buf);
     }
@@ -609,7 +609,7 @@ void gatt_start_rsp_timer(tGATT_CLCB* p_clcb) {
  ******************************************************************************/
 void gatt_start_conf_timer(tGATT_TCB* p_tcb, uint16_t lcid) {
   if (p_tcb->is_eatt_supported) {
-    tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    tGATT_EBCB* p_eatt_bcb = gatt_find_eatt_bcb_by_cid(p_tcb, lcid);
     if (p_eatt_bcb) {
       alarm_set_on_mloop(p_eatt_bcb->conf_timer, GATT_WAIT_FOR_RSP_TIMEOUT_MS,
                          gatt_indication_confirmation_eatt_timeout, p_eatt_bcb);
@@ -638,7 +638,7 @@ void gatt_start_ind_ack_timer(tGATT_TCB& tcb, uint16_t lcid) {
   tGATT_EBCB* p_eatt_bcb;
 
   if (tcb.is_eatt_supported) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, lcid);
     if (p_eatt_bcb) {
       /* start notification cache timer */
       alarm_set_on_mloop(tcb.ind_ack_timer, GATT_WAIT_FOR_RSP_TIMEOUT_MS,
@@ -696,7 +696,7 @@ void gatt_rsp_timeout(void* data) {
   }
 
   if (p_clcb->p_tcb->is_eatt_supported) {
-    gatt_move_apps(lcid);
+    gatt_move_apps(p_clcb->p_tcb, lcid);
   }
 
   LOG(WARNING) << __func__ << " disconnecting...";
@@ -799,7 +799,7 @@ void gatt_indication_confirmation_eatt_timeout(void* data) {
   }
 
   if (p_tcb->is_eatt_supported) {
-    gatt_move_apps(lcid);
+    gatt_move_apps(p_tcb, lcid);
   }
 
   LOG(WARNING) << __func__ << " disconnecting...";
@@ -1195,7 +1195,7 @@ bool gatt_sr_is_cback_cnt_zero(tGATT_TCB& tcb, uint16_t lcid) {
   tGATT_EBCB* p_eatt_bcb;
 
   if (tcb.is_eatt_supported) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, lcid);
     if (p_eatt_bcb == NULL) {
       VLOG(1) << __func__ << " EATT bearer not found for : " << +lcid;
       return false;
@@ -1381,7 +1381,7 @@ tGATT_CLCB* gatt_cmd_dequeue(tGATT_TCB& tcb, uint16_t lcid, uint8_t* p_op_code) 
   tGATT_EBCB* p_eatt_bcb;
 
   if (tcb.is_eatt_supported) {
-    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(lcid);
+    p_eatt_bcb = gatt_find_eatt_bcb_by_cid(&tcb, lcid);
     if (p_eatt_bcb) {
       cl_cmd_q = &(p_eatt_bcb->cl_cmd_q);
     }
