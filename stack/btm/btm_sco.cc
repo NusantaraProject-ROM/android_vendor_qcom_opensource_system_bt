@@ -176,6 +176,8 @@ static void btm_esco_conn_rsp(uint16_t sco_inx, uint8_t hci_status,
     if (p_sco->esco.data.link_type == BTM_LINK_TYPE_SCO) {
       temp_packet_types &= BTM_SCO_LINK_ONLY_MASK;
       temp_packet_types |= BTM_SCO_EXCEPTION_PKTS_MASK;
+      p_setup->retransmission_effort = 0;
+      BTM_TRACE_DEBUG("%s: change retransmision effort to 0", __func__);
     } else {
       /* OR in any exception packet types */
       temp_packet_types |=
@@ -448,7 +450,10 @@ static tBTM_STATUS btm_send_connect_request(uint16_t acl_handle,
 
     bt_soc_type_t soc_type = controller_get_interface()->get_soc_type();
     BTM_TRACE_DEBUG("%s: soc_type: %d", __func__, soc_type);
-
+    if(!(p_setup->packet_types & ~BTM_SCO_LINK_ONLY_MASK)){
+       p_setup->retransmission_effort = 0;
+       BTM_TRACE_DEBUG("%s: change retransmission effort to 0", __func__);
+    }
     /* Use Enhanced Synchronous commands if supported */
     if (controller_get_interface()
             ->supports_enhanced_setup_synchronous_connection() &&
@@ -901,7 +906,7 @@ void btm_sco_conn_req(const RawAddress& bda, DEV_CLASS dev_class,
           btm_esco_conn_rsp(xx, HCI_ERR_HOST_REJECT_RESOURCES, bda, NULL);
         } else /* Accept the request */
         {
-          btm_esco_conn_rsp(xx, HCI_SUCCESS, bda, NULL);
+           btm_esco_conn_rsp(xx, HCI_SUCCESS, bda, NULL);
         }
       } else /* Notify upper layer of connect indication */
       {
