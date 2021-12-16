@@ -1810,6 +1810,12 @@ void bta_ag_hfp_result(tBTA_AG_SCB* p_scb, tBTA_AG_API_RESULT* p_result) {
 
     case BTA_AG_OUT_CALL_ORIG_RES:
       bta_ag_send_call_inds(p_scb, p_result->result);
+      if (interop_match_addr_or_name(INTEROP_DELAY_SCO_FOR_MO_CALL,
+         &p_scb->peer_addr)) {
+
+         APPL_TRACE_IMP("%s: sleeping 50msec before opening sco", __func__);
+         usleep(50*1000);
+      }
       if (p_result->data.audio_handle == bta_ag_scb_to_idx(p_scb) &&
           !(p_scb->features & BTA_AG_FEAT_NOSCO)) {
         APPL_TRACE_DEBUG("%s:calling sco_open : %d",__func__, p_result->result);
