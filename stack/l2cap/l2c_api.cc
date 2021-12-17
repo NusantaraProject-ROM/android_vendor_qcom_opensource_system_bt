@@ -2272,21 +2272,16 @@ uint16_t L2CA_SendFixedChnlData(uint16_t fixed_cid, const RawAddress& rem_bda,
   p_buf->event = 0;
   p_buf->layer_specific = L2CAP_FLUSHABLE_CH_BASED;
 
-  if (p_lcb->p_fixed_ccbs[fixed_cid - L2CAP_FIRST_FIXED_CHNL] == NULL) {
-    L2CAP_TRACE_WARNING("L2CA_SendFxedChnlData() - no p_fixed_ccbs CCB for "
-        "chnl: 0x%4x", fixed_cid);
-    osi_free(p_buf);
-    return (L2CAP_DW_FAILED);
-  }
-
-  if (!l2cu_initialize_fixed_ccb(
-        p_lcb, fixed_cid,
-        &l2cb.fixed_reg[fixed_cid - L2CAP_FIRST_FIXED_CHNL]
-        .fixed_chnl_opts)) {
-    L2CAP_TRACE_WARNING("L2CA_SendFixedChnlData() - no CCB for chnl: 0x%4x",
-        fixed_cid);
-    osi_free(p_buf);
-    return (L2CAP_DW_FAILED);
+  if (!p_lcb->p_fixed_ccbs[fixed_cid - L2CAP_FIRST_FIXED_CHNL]) {
+    if (!l2cu_initialize_fixed_ccb(
+            p_lcb, fixed_cid,
+            &l2cb.fixed_reg[fixed_cid - L2CAP_FIRST_FIXED_CHNL]
+                 .fixed_chnl_opts)) {
+      L2CAP_TRACE_WARNING("L2CA_SendFixedChnlData() - no CCB for chnl: 0x%4x",
+                          fixed_cid);
+      osi_free(p_buf);
+      return (L2CAP_DW_FAILED);
+    }
   }
 
   // If already congested, do not accept any more packets
