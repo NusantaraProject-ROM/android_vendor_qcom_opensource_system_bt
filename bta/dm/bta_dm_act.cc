@@ -5749,8 +5749,8 @@ static void bta_dm_gattc_callback(tBTA_GATTC_EVT event, tBTA_GATTC* p_data) {
       if(p_data->close.conn_id == bta_dm_search_cb.conn_id)
           bta_dm_search_cb.conn_id = GATT_INVALID_CONN_ID;
 #ifdef ADV_AUDIO_FEATURE
-      if (is_remote_support_adv_audio(bta_dm_search_cb.peer_bdaddr)) {
-        bta_dm_reset_adv_audio_dev_info(bta_dm_search_cb.peer_bdaddr);
+      if (is_remote_support_adv_audio(p_data->close.remote_bda)) {
+        bta_dm_reset_adv_audio_dev_info(p_data->close.remote_bda);
       }
 #endif
       /* in case of disconnect before search is completed */

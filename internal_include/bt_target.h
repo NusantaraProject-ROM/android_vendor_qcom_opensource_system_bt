@@ -389,6 +389,11 @@
 #define BTM_ALLOW_CONN_IF_NONDISCOVER TRUE
 #endif
 
+/* Max HID keep in the inquiry database. */
+#ifndef BTM_INQ_DB_HID_KEEP_MAX
+#define BTM_INQ_DB_HID_KEEP_MAX 4
+#endif
+
 /* Sets the Page_Scan_Window:  the length of time that the device is performing
  * a page scan. */
 #ifndef BTM_DEFAULT_CONN_WINDOW

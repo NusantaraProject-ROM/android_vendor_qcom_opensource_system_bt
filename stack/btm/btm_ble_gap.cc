@@ -2891,7 +2891,7 @@ static void btm_ble_process_adv_pkt_cont(
   /* If existing entry, use that, else get  a new one (possibly reusing the
    * oldest) */
   if (p_i == NULL) {
-    p_i = btm_inq_db_new(bda);
+    p_i = btm_inq_db_new(bda, false);
     if (p_i != NULL) {
       p_inq->inq_cmpl_info.num_resp++;
     } else

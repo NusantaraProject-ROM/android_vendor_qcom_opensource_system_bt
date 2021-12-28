@@ -90,6 +90,8 @@ btav_a2dp_codec_config_t saved_codec_user_config;
 std::string supported_codecs = "";
 static std::map<btav_a2dp_codec_index_t, btav_a2dp_codec_priority_t>
        codecs_priorities_;
+
+std::mutex isDevUiReq_mutex_;
 /*****************************************************************************
  **  Constants
  *****************************************************************************/
@@ -1667,6 +1669,7 @@ bool bta_av_co_set_codec_user_config(
   bool config_updated = false;
   bool success = true;
   bool do_reconfig = false;
+  std::unique_lock<std::mutex> guard(isDevUiReq_mutex_);
   tBTA_AV_HNDL hndl = btif_av_get_reconfig_dev_hndl();
   // Find the peer that is currently open
   tBTA_AV_CO_PEER* p_peer = nullptr;

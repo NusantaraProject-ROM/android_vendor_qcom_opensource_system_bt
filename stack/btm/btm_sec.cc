@@ -988,7 +988,8 @@ tBTM_STATUS btm_sec_bond_by_transport(const RawAddress& bd_addr,
   /* Finished if connection is active and already paired */
   if ((p_dev_rec->hci_handle != BTM_SEC_INVALID_HANDLE) &&
        transport == BT_TRANSPORT_BR_EDR &&
-       (p_dev_rec->sec_flags & BTM_SEC_AUTHENTICATED)) {
+      (p_dev_rec->sec_flags & BTM_SEC_AUTHENTICATED) &&
+       (btm_get_bond_type_dev(bd_addr) == BOND_TYPE_PERSISTENT)) {
     BTM_TRACE_WARNING("BTM_SecBond -> Already Paired");
     return (BTM_SUCCESS);
   }
