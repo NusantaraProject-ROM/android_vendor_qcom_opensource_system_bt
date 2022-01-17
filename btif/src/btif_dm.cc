@@ -1938,7 +1938,9 @@ static void btif_dm_search_services_evt(uint16_t event, char* p_param) {
       break;
 
     case BTA_DM_SEARCH_CANCEL_CMPL_EVT:
-      /* no-op */
+      BTIF_TRACE_DEBUG("%s: discovery is stopped", __func__);
+      HAL_CBACK(bt_hal_cbacks, discovery_state_changed_cb,
+                BT_DISCOVERY_STOPPED);
       break;
 
     case BTA_DM_DISC_BLE_RES_EVT: {

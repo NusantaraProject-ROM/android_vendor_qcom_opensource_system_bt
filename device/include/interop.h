@@ -285,6 +285,10 @@ typedef enum {
   // Retry setup SCO once for those remote devices.
   INTEROP_RETRY_SCO_AFTER_REMOTE_REJECT_SCO,
 
+  //some remoted need a delay after outgoing call indicators
+  //are sent before sco is opened
+  INTEROP_DELAY_SCO_FOR_MO_CALL,
+
   END_OF_INTEROP_LIST
 } interop_feature_t;
 

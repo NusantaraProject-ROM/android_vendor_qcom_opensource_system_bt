@@ -1002,7 +1002,7 @@ void smp_sm_event(tSMP_CB* p_cb, tSMP_EVENT event, tSMP_INT_DATA* p_data) {
   /* execute action functions */
   for (i = 0; i < SMP_NUM_ACTIONS; i++) {
     action = state_table[entry - 1][i];
-    if (action < SMP_SM_NO_ACTION) {
+    if (action != SMP_SM_NO_ACTION) { //TODO review with current change in vendor?
       (*smp_sm_action[action])(p_cb, p_data);
     } else {
       break;
