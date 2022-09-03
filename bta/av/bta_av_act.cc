@@ -1304,6 +1304,11 @@ void bta_av_rc_msg(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
   if (evt != 0) {
     av.remote_cmd.rc_handle = p_data->rc_msg.handle;
     (*p_cb->p_cback)(evt, &av);
+    if((p_data->rc_msg.opcode == AVRC_OP_BROWSE) &&
+            (p_data->rc_msg.msg.browse.p_browse_data == NULL)) {
+      APPL_TRACE_DEBUG("%s : AVRC_OP_BROWSE with data NULL skip buffer clear", __func__);
+      return;
+    }
     /* If browsing message, then free the browse message buffer */
     bta_av_rc_free_browse_msg(p_cb, p_data);
   }
